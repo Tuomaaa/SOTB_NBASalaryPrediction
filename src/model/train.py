@@ -21,7 +21,7 @@ from sklearn.model_selection import GroupKFold, cross_validate
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
-from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON
+from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON, RAW_DIR
 
 FEATURE_COLS = [
     "darko_dpm_z", "lebron_z", "rapm_z",
@@ -38,6 +38,11 @@ FEATURE_COLS = [
 ]
 
 TARGET = "cap_pct"
+
+ELITE_AWARDS = {
+    "All-NBA 1st Team", "All-NBA 2nd Team", "All-NBA 3rd Team",
+    "MVP", "Defensive Player of the Year",
+}
 
 
 def load_training_data() -> pd.DataFrame:
@@ -114,6 +119,107 @@ def _prepare_Xy(df: pd.DataFrame, features: list[str] | None = None):
     y = df[TARGET].values
     groups = df["player_name_norm"].values
     return X, y, groups, avail
+
+
+def _load_draft_years() -> dict[str, int]:
+    """Load {normalized_name: draft_year} from draft data."""
+    from scripts.build_external_features import norm
+    path = RAW_DIR / "raw_external" / "player_draft_2020-2025.matched.corrected.csv"
+    if not path.exists():
+        return {}
+    draft_df = pd.read_csv(path)
+    draft_df["pn"] = draft_df["player"].apply(norm)
+    out = {}
+    for _, r in draft_df.iterrows():
+        try:
+            out.setdefault(r["pn"], int(r["year"]))
+        except (ValueError, TypeError):
+            pass
+    return out
+
+
+def _load_elite_set() -> set[tuple[str, int]]:
+    """Load (normalized_name, year) pairs for elite award winners."""
+    from scripts.build_external_features import norm
+    path = RAW_DIR / "raw_external" / "awards_full.csv"
+    if not path.exists():
+        return set()
+    aw = pd.read_csv(path)
+    aw["pn"] = aw["player_name_norm"].apply(norm)
+    el = aw[aw["award"].isin(ELITE_AWARDS)]
+    return set(zip(el["pn"], el["year"].astype(int)))
+
+
+def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute max_eligible_pct with Rose Rule / Supermax from draft + awards data."""
+    from scripts.build_external_features import norm
+
+    df = df.copy()
+    draft_years = _load_draft_years()
+    elite_set = _load_elite_set()
+
+    def _elite_count(pn, years):
+        return sum(1 for y in years if (pn, y) in elite_set)
+
+    df["pn_clean"] = df["player_name_norm"].apply(norm)
+    df["_dy"] = df["pn_clean"].map(draft_years)
+    exp_draft = df["season"] - df["_dy"]
+    exp_age = (df["age"].fillna(25) - 19).clip(lower=0)
+    exp = exp_draft.fillna(exp_age).astype(int).clip(lower=0).values
+
+    base = np.where(exp >= 10, 0.35, np.where(exp >= 7, 0.30, 0.25))
+
+    pns = df["pn_clean"].values
+    seasons = df["season"].values
+    rose = np.zeros(len(df), dtype=bool)
+    supermax = np.zeros(len(df), dtype=bool)
+    for i in range(len(df)):
+        p, s = pns[i], int(seasons[i])
+        trig = (p, s) in elite_set or _elite_count(p, [s - 2, s - 1, s]) >= 2
+        if trig:
+            if exp[i] <= 6:
+                rose[i] = True
+            elif 7 <= exp[i] <= 9:
+                supermax[i] = True
+
+    base = np.where(supermax, 0.35, base)
+    base = np.where(rose, np.maximum(base, 0.30), base)
+
+    df["max_eligible_pct"] = base
+    df["is_max_contract"] = df[TARGET] >= base * 0.90
+    df = df.drop(columns=["pn_clean", "_dy"])
+    return df
+
+
+def _make_tobit_obj(cens_mask: np.ndarray, sigma: float = 0.02):
+    """Custom XGBoost objective: censored-normal (Grabit).
+
+    Uncensored rows: standard squared error.
+    Censored rows (max contracts): inverse Mills ratio pushes predictions above ceiling.
+    """
+    _c = cens_mask.copy()
+
+    def obj(y_true, y_pred):
+        grad = np.empty_like(y_pred)
+        hess = np.empty_like(y_pred)
+        unc = ~_c
+        grad[unc] = y_pred[unc] - y_true[unc]
+        hess[unc] = 1.0
+        if _c.any():
+            z = (y_pred[_c] - y_true[_c]) / sigma
+            m = np.exp(norm.logpdf(z) - norm.logcdf(z))
+            grad[_c] = -sigma * m
+            hess[_c] = np.clip(m * (z + m), 1e-6, None)
+        return grad, hess
+
+    return obj
+
+
+_XGB_BASE = dict(
+    n_estimators=500, max_depth=4, learning_rate=0.01,
+    subsample=0.7, colsample_bytree=0.7, min_child_weight=10,
+    random_state=42, tree_method="hist",
+)
 
 
 def train_ridge(df: pd.DataFrame, alpha: float = 1.0) -> tuple[dict, object]:
@@ -227,6 +333,87 @@ def train_xgboost(df: pd.DataFrame) -> tuple[dict, object, list[str]]:
     return results, xgb, features
 
 
+def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
+                 gate_frac: float = 0.55) -> tuple[dict, object, list[str]]:
+    """Train Grabit v3: XGBoost with censored-normal loss + CBA cap.
+
+    Stage 1: Grabit — max-contract rows where baseline pred ≥ gate_frac * max_eligible
+    get censored-normal gradients (inverse Mills ratio). Other rows get standard MSE.
+    Stage 2: CBA cap — final_pred = min(latent, max_eligible_pct).
+    """
+    from xgboost import XGBRegressor
+    from sklearn.metrics import r2_score, mean_absolute_error
+
+    df = _filter_year1(df)
+    df = _filter_rookie_scale(df)
+    df = _compute_max_eligible(df)
+
+    X, y, groups, features = _prepare_Xy(df)
+    seasons = df["season"].values
+    max_elig = df["max_eligible_pct"].values
+    is_max = df["is_max_contract"].values
+
+    print(f"Training Grabit v3 (σ={sigma}, gate={gate_frac}) on {len(X)} samples")
+    print(f"  Max contract rows: {is_max.sum()}/{len(X)}")
+
+    cv = GroupKFold(n_splits=5)
+    folds = list(cv.split(X, y, groups))
+
+    # Baseline OOF for gating
+    oof_bl = np.full(len(y), np.nan)
+    for tr_i, va_i in folds:
+        m = XGBRegressor(**_XGB_BASE)
+        m.fit(X.iloc[tr_i], y[tr_i])
+        oof_bl[va_i] = m.predict(X.iloc[va_i])
+    gate = is_max & (oof_bl >= gate_frac * max_elig)
+    print(f"  Gated censored rows: {gate.sum()}/{is_max.sum()} max rows")
+
+    # Grabit CV
+    oof_pred = np.full(len(y), np.nan)
+    fold_r2 = []
+    fold_mae = []
+    for fi, (tr_i, va_i) in enumerate(folds):
+        obj = _make_tobit_obj(gate[tr_i], sigma)
+        m = XGBRegressor(**{**_XGB_BASE, "objective": obj,
+                            "base_score": float(y[tr_i].mean())})
+        m.fit(X.iloc[tr_i], y[tr_i])
+        latent = m.predict(X.iloc[va_i])
+        capped = np.minimum(latent, max_elig[va_i])
+        oof_pred[va_i] = capped
+
+        fr2 = r2_score(y[va_i], capped)
+        fmae = mean_absolute_error(y[va_i], capped)
+        fold_r2.append(fr2)
+        fold_mae.append(fmae)
+
+    recent_mask = seasons >= 2024
+    recent_r2 = r2_score(y[recent_mask], oof_pred[recent_mask]) if recent_mask.sum() > 10 else float("nan")
+    recent_mae = mean_absolute_error(y[recent_mask], oof_pred[recent_mask]) if recent_mask.sum() > 10 else float("nan")
+
+    # Final model on all data
+    obj_final = _make_tobit_obj(gate, sigma)
+    m_final = XGBRegressor(**{**_XGB_BASE, "objective": obj_final,
+                              "base_score": float(y.mean())})
+    m_final.fit(X, y)
+
+    results = {
+        "model": "Grabit v3",
+        "sigma": sigma,
+        "n_samples": len(X),
+        "n_features": len(features),
+        "n_censored": int(gate.sum()),
+        "features": features,
+        "cv_r2_mean": float(np.mean(fold_r2)),
+        "cv_r2_std": float(np.std(fold_r2)),
+        "cv_mae_mean": float(np.mean(fold_mae)),
+        "cv_mae_std": float(np.std(fold_mae)),
+        "cv_r2_recent": float(recent_r2),
+        "cv_mae_recent": float(recent_mae),
+        "recent_n": int(recent_mask.sum()),
+    }
+    return results, m_final, features
+
+
 def print_results(results: dict):
     print(f"\n{'='*50}")
     print(f"  {results['model']} Results")
@@ -253,16 +440,25 @@ if __name__ == "__main__":
     df = load_training_data()
     print(f"Loaded {len(df)} rows")
 
-    ridge_results, ridge_model = train_ridge(df)
-    print_results(ridge_results)
-
     xgb_results, xgb_model, xgb_features = train_xgboost(df)
     print_results(xgb_results)
 
+    grabit_results, grabit_model, grabit_features = train_grabit(df, sigma=0.02)
+    print_results(grabit_results)
+
+    print(f"\n{'='*60}")
+    print(f"  XGBoost vs Grabit v3")
+    print(f"{'='*60}")
+    print(f"{'':20s} {'CV R²':>10s} {'R²(24-26)':>12s} {'CV MAE':>10s} {'MAE(24-26)':>12s}")
+    for r in [xgb_results, grabit_results]:
+        rr = r.get("cv_r2_recent", float("nan"))
+        rm = r.get("cv_mae_recent", float("nan"))
+        print(f"  {r['model']:18s} {r['cv_r2_mean']:.4f}     {rr:.4f}       {r['cv_mae_mean']:.4f}     {rm:.4f}")
+
     model_dir = OUTPUTS_DIR / "models"
     model_dir.mkdir(parents=True, exist_ok=True)
-    with open(model_dir / "ridge_results.json", "w") as f:
-        json.dump(ridge_results, f, indent=2)
     with open(model_dir / "xgb_results.json", "w") as f:
         json.dump(xgb_results, f, indent=2)
+    with open(model_dir / "grabit_results.json", "w") as f:
+        json.dump(grabit_results, f, indent=2)
     print(f"\nResults saved to {model_dir}")
