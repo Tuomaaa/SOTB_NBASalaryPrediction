@@ -94,7 +94,9 @@ Range: 0.0 to ~0.35 (max contract). All dollar amounts normalized to cap percent
 | `is_contract_year` | +0.0009 | Contract year effect not significant in data |
 | `stayed_with_team` | +0.0006 | Bird rights proxy from Spotrac; near-zero correlation with cap_pct |
 
-## Model — XGBoost v3
+## Model — Two-Stage Pipeline (v7.0x)
+
+### Stage 1: Grabit (Nonlinear Tobit via XGBoost)
 
 ```python
 XGBRegressor(
@@ -105,39 +107,58 @@ XGBRegressor(
     colsample_bytree=0.7,
     min_child_weight=10,
     tree_method="hist",
+    objective=make_tobit_obj(censored_mask, sigma=0.02),
 )
 ```
 
-Hyperparameters found via two-phase grid search (Phase 1: depth×n_est×lr, 64 combos; Phase 2: mcw×sub×col, 27 combos; 10 seeds each). Direction: more weak learners + lower learning rate + stronger regularization = better generalization.
+Standard XGBoost treats all training rows equally. But max-contract players' observed salary is a **ceiling**, not their true market value — a player worth 40% of the cap still gets paid 35% because that's the CBA maximum. Standard squared-error loss trains the model to predict 35%, permanently underpredicting elite players.
+
+**Grabit** (Sigrist & Hirnschall, 2019) replaces XGBoost's loss function with a censored-normal likelihood:
+- **Uncensored rows** (non-max contracts): standard squared error. `grad = pred - actual`, `hess = 1`.
+- **Censored rows** (max contracts): the loss says "the true value is *at least* this much." `grad = -σ × m(z)`, `hess = m(z) × (z + m(z))`, where `m(z) = φ(z)/Φ(z)` is the inverse Mills ratio. This pushes predictions *above* the observed ceiling.
+
+The model outputs a **latent value** — what the player would earn in a CBA-free market.
+
+**Gated censoring**: not all max contracts are true max-value players. Albatross contracts (John Wall 2020, Gordon Hayward 2023) are players paid the max despite declining performance. Censoring these would corrupt the signal. We only censor max-contract rows where the baseline XGBoost prediction ≥ 55% of max_eligible — filtering out ~5 albatross rows per run.
+
+### Stage 2: CBA Cap
+
+```
+final_prediction = min(latent_value, max_eligible_pct)
+```
+
+CBA rules cap maximum salary by experience:
+- **0–6 years**: 25% of cap (or 30% with Rose Rule)
+- **7–9 years**: 30% of cap (or 35% with Supermax)
+- **10+ years**: 35% of cap
+
+**Rose Rule**: players with ≤6 years experience who made an All-NBA team, won MVP, or won DPOY in the current or recent seasons qualify for 30% max. Detection uses non-lagged elite award lookup directly from awards data (the award that triggers the extension happens the same season the salary starts).
+
+**Supermax**: players with 7-9 years experience who earned multiple elite awards in a 3-year window qualify for 35% max.
+
+### Hyperparameters
+
+Base XGBoost hyperparameters found via two-phase grid search (Phase 1: depth×n_est×lr, 64 combos; Phase 2: mcw×sub×col, 27 combos; 10 seeds each).
+
+Tobit-specific:
+- **σ = 0.02**: controls the balance between censored and uncensored gradients. CV-optimal across grid [0.02, 0.04, 0.06, 0.10]. Larger σ improves holdout but risks overfitting.
+- **Censoring gate threshold = 0.55**: baseline prediction must reach 55% of max_eligible to be censored.
 
 ### Results
 
-| Metric | v2 (13 features) | v3 (14 features) |
-|--------|-------------------|-------------------|
-| CV R² | 0.7504 | **0.7588** |
-| 2024 Holdout R² | 0.8337 | **0.8385** |
-| 2025 Holdout R² | 0.8255 | **0.8294** |
-| 2026 Holdout R² | 0.8085 | **0.8266** |
-| 2026 Holdout MAE | $3.9M | **$3.8M** |
+| Metric | v6.2x (baseline XGB) | v7.0x (Grabit + CBA cap) |
+|--------|---------------------|-------------------------|
+| 10-seed CV R² | 0.7598 ± 0.0009 | **0.7612 ± 0.0012** |
+| 10-seed CV R² (2024-26) | 0.8491 ± 0.0016 | **0.8523 ± 0.0016** |
+| 10-seed HO R² | 0.8341 ± 0.0038 | **0.8382 ± 0.0040** |
+| Total MAE | $3.2M | **$3.1M** |
+| Max contract MAE | $6.7M | **$6.5M** |
 | Train samples | 1,487 | 1,487 |
+| Features | 14 | 14 |
 
-### Model Progression
+**CV R² (2024-26)**: GroupKFold CV computed on the subset of OOF predictions where season ≥ 2024 (n=385). This metric better reflects future prediction ability — later seasons have higher target variance and more complete data coverage. Reported alongside full-year CV.
 
-| Version | Model | CV R² | Key Change |
-|---------|-------|-------|------------|
-| v1 | Ridge | 0.574 | Single-season, composite rating |
-| v2 | Ridge | 0.618 | Separate z-scored DARKO/LEBRON/RAPM |
-| v3 | Ridge | 0.622 | Multi-season 2019-2026 |
-| v4 | Ridge | 0.641 | Added BPM, shooting splits |
-| v5 | Ridge | 0.676 | Fixed age source, playoff features |
-| v6 | Ridge | 0.806 | CBA structural features (is_vet_min, is_mle_range) |
-| v6 | XGBoost | 0.866 | Full data, rookie scale as feature |
-| v7 | Ridge | 0.815 | Year-1 filter (contract year 1 = market signal) |
-| v7 | XGBoost | 0.865 | Year-1 filter |
-| v8 (Phase 2) | XGBoost | 0.7505 | 13 features after ablation, tuned hyperparams, award forward-fill fix |
-| **v3 (current)** | **XGBoost** | **0.7588** | **+prev_cap_pct, 14 features** |
-
-Note: v8+ CV R² numbers appear lower than v6/v7 because of the rookie scale filter change (from age-based heuristic to draft_data.csv-based filter) and stricter year-1 filtering. The model is more accurate on market-priced contracts.
+Note: v6.2x and earlier CV R² numbers appear lower than Phase 2 (v3.x) because of the rookie scale filter change (from age-based heuristic to draft_data.csv-based filter) and stricter year-1 filtering. The model is more accurate on market-priced contracts.
 
 ## Holdout vs Valuation
 
@@ -146,34 +167,41 @@ Two distinct evaluation modes:
 - **Holdout**: year-1 + rookie filter applied to BOTH train and test. Used for model evaluation (R², MAE). Apples-to-apples comparison with training distribution.
 - **Valuation**: year-1 + rookie filter on train only, score ALL rows. Used to find overpaid/underpaid contracts. R² not meaningful here — the goal is ranking and diffs.
 
-## Diagnostic Findings (v3, 2026 holdout)
+## Diagnostic Findings (v7.0x, 2026 holdout)
 
-### Residual Patterns
-- **High earners (25%+ cap)**: systematically underpredicted by ~$11.8M. Regression to mean + supermax contracts the model can't reach.
-- **Young players (21-24)**: well-predicted (MAE $3.0M, near-zero bias).
-- **Older players (25+)**: underpredicted by $4-5M — veteran max extensions exceed what stats alone justify.
-- **Tall players (80"+)**: underpredicted by $3.3M — max-contract bigs (JJJ, Bam, Chet).
+### Residual Patterns by Signing Type
+- **Bird Rights** (n=58): bias -$2.7M, MAE $4.9M. Underpredicted — Bird rights premium the model can't observe.
+- **Sign & Trade** (n=17): bias -$2.3M, MAE $6.1M. Same retention/premium mechanism.
+- **Cap Space** (n=51): bias -$0.8M, MAE $4.2M. Slight underprediction.
+- **MLE** (n=61): bias +$1.4M, MAE $2.5M. Overpredicted — model thinks MLE players deserve more than MLE cap allows.
+- **Minimum** (n=419): bias +$1.5M, MAE $2.4M. Overpredicted — vets taking minimums are better than their salary; model sees stats, not mechanism.
+- **Early Bird** (n=27): bias -$0.4M, MAE $2.7M. Roughly calibrated.
 
 ### Biggest Misses
-Top misses are almost all underpredictions of max/near-max contracts: Jaren Jackson Jr. (-$26M), Jalen Williams (-$21M), Jabari Smith Jr. (-$14M). These are rookie max extensions where the contract reflects projected ceiling, not current production.
+Top misses are max-contract underpredictions: Jaren Jackson Jr. (-$26M, injured season), Jalen Williams (-$21M, max extension on projected ceiling), Jabari Smith Jr. (-$13M), De'Aaron Fox (-$12M). These are cases where the contract reflects projected upside or franchise commitment, not current-season production.
+
+### Grabit Impact on Max Contracts
+The Grabit censored loss improved predictions for max-contract players across all three CBA tiers (25%, 30%, 35%). Out of 73 max-contract player-seasons, 58 improved, 7 worsened, 8 neutral. The 7 worsened cases are albatross contracts (gating catches most but not all) and edge cases where Tobit slightly overpushes.
 
 ## Inference Pipeline
 
 `src/model/predict.py`:
-1. Load training data, apply year-1 + rookie filters, train XGBoost
-2. Load impact_metrics for target season
-3. Engineer features (base rating, age, availability, CBA, height, awards, draft_pick, prev_cap_pct)
-4. Predict cap_pct → convert to salary
-5. Identify free agents (have stats but no salary for target season)
-6. Output: predictions CSV + free agents CSV
+1. Load training data, apply year-1 + rookie filters
+2. Compute max_eligible_pct with Rose Rule / Supermax detection
+3. Train baseline XGBoost → compute gated censoring mask
+4. Train Grabit XGBoost (censored loss) on all training data
+5. Predict latent value → apply CBA cap: `min(latent, max_eligible_pct)`
+6. Convert cap_pct to salary dollars
+7. Output: predictions CSV + free agents CSV
 
 ## Known Issues & Limitations
 
-1. **Supermax ceiling**: model rarely predicts cap_pct > 0.28. Training data has few examples at 30%+, and tree models don't extrapolate.
-2. **Rookie max extensions**: players like JJJ, Jalen Williams get max extensions based on projected ceiling — the model sees current stats only.
+1. **Rookie max extensions**: players like JJJ, Jalen Williams get max extensions based on projected ceiling — the model sees current-season stats only, not future potential.
+2. **Albatross contracts**: John Wall, Gordon Hayward — paid max despite poor performance. Gated censoring filters most but not all. The model correctly says they're overpaid.
 3. **prev_cap_pct fill**: first-contract players get median rookie-scale cap_pct as fill value. Could be improved with draft pick → expected rookie scale mapping.
-4. **Signing type**: Spotrac player pages contain explicit signing mechanism (Bird Rights, MLE, cap space, etc.). Scraping in progress — if coverage is sufficient, will test as Phase 3C feature.
+4. **Signing type as feature**: Spotrac signing mechanism (Bird Rights, MLE, cap space) is a diagnostic label, not a model feature — it's partially determined by the contract itself.
 5. **No tracking data**: NBA.com tracking data (drives, catch-and-shoot, rim protection) could improve archetype-specific predictions.
+6. **σ tension**: CV prefers σ=0.02 (conservative censored gradients), holdout prefers larger σ (more aggressive). Sticking with CV-optimal to avoid overfitting to a single holdout season.
 
 ## Reproducibility
 
@@ -181,12 +209,16 @@ Top misses are almost all underpredictions of max/near-max contracts: Jaren Jack
 # Rebuild features
 python scripts/build_external_features.py
 
-# Train and evaluate
+# Train and evaluate (baseline XGBoost)
 python src/model/train.py
 
-# Generate 2026 predictions
+# Generate 2026 predictions (Grabit + CBA cap pipeline)
 python src/model/predict.py
 
 # Run diagnostics
 python scripts/diagnostics.py
 ```
+
+## References
+
+- Sigrist, F. & Hirnschall, C. (2019). "Grabit: Gradient Tree-Boosted Tobit Models for Default Prediction." *Journal of Banking & Finance*. — Censored-normal likelihood as XGBoost custom objective.

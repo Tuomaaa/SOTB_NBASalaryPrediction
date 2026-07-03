@@ -59,15 +59,47 @@ v6.2x award ablation results (all 10-seed, awards_full.csv + step decay):
 - G: 2014-26, +All-Star → CV 0.7575, HO 0.8281
 - I: old award.csv, step decay → CV 0.7587, HO 0.8316
 
+## Phase 6: Two-stage pipeline (Grabit + CBA cap)
+
+| Ver | Model | 10-seed CV R² | 10-seed Holdout R² | N | Feat | Change |
+|-----|-------|---------------|-------------------|---|------|--------|
+| 7.0x | XGBoost (Grabit) | **0.7612 ± 0.0012** | **0.8382 ± 0.0040** | 1487 | 14 | Two-stage: nonlinear Tobit (censored loss) + CBA cap. σ=0.02, gated censoring |
+
+v7.0x pipeline:
+- **Stage 1 (Grabit)**: XGBoost with custom censored-normal loss. Max-contract players (cap_pct ≥ 90% × max_eligible) are right-censored — their observed salary is a ceiling, not true value. The censored loss pushes latent predictions past the ceiling to estimate unconstrained market value.
+- **Stage 2 (CBA cap)**: `min(latent, max_eligible_pct)` clips predictions to CBA salary limits.
+- **Gated censoring**: only censor max rows where baseline prediction ≥ 55% of max_eligible (filters albatross contracts like John Wall, Gordon Hayward).
+- **Rose Rule / Supermax detection**: non-lagged elite award lookup (All-NBA, MVP, DPOY) determines max_eligible tiers — 25% (0-6 yrs), 30% (Rose Rule or 7-9 yrs), 35% (10+ yrs or Supermax).
+
+Experiments leading to v7.0x:
+- Simple CBA cap on baseline XGB: CV -0.0008. XGB already learns ceiling; problem is underprediction, not overprediction.
+- Linear Tobit: CV 0.6692. Far too weak — linear model can't capture non-linearities.
+- Hybrid (XGB + linear Tobit): best variant CV 0.7605. Only helped 35% tier, 30% tier untouched.
+- Grabit V1 (all max censored): CV 0.7591. All three max tiers improved but 25% tier regressed due to Rose Rule lag bug.
+- Grabit V2 (gated censoring): CV 0.7594. Filters albatross contracts.
+- **Grabit V3 (fixed Rose Rule)**: CV 0.7612. Non-lagged elite award detection fixes Edwards/Haliburton/Trae/Cade tier assignment (25%→30%).
+
+Signing type breakdown (OOF, $M):
+
+| Type | N | Bias (v6.2x) | Bias (v7.0x) | MAE (v6.2x) | MAE (v7.0x) |
+|------|---|-------------|-------------|------------|------------|
+| Bird Rights | 58 | -$2.6M | -$2.7M | $4.9M | $4.9M |
+| Sign & Trade | 17 | -$2.6M | -$2.3M | $6.2M | $6.1M |
+| Cap Space | 51 | -$0.8M | -$0.8M | $4.2M | $4.2M |
+| Early Bird | 27 | -$0.4M | -$0.4M | $2.6M | $2.7M |
+| MLE | 61 | +$1.4M | +$1.4M | $2.5M | $2.5M |
+| Minimum | 419 | +$1.5M | +$1.5M | $2.4M | $2.4M |
+| **Total** | **1487** | **-$0.0M** | **+$0.0M** | **$3.2M** | **$3.1M** |
+
 ## Key milestones
 
 ```
-Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5
-Ridge      Ridge/XGB            Cleanup         Tuning         Features
-                                                               
-0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x
-                        ↗ 0.87                                    (current)
+Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5       Phase 6
+Ridge      Ridge/XGB            Cleanup         Tuning         Features      Grabit+CBA
+                                                                             
+0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76         0.76
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x       v7.0x
+                        ↗ 0.87                                                (current)
                   Leaked features
                   (removed in v4.0)
 ```

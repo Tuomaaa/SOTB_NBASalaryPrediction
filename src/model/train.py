@@ -1,9 +1,13 @@
-"""Train valuation models: Ridge baseline and XGBoost.
+"""Train valuation models: Ridge baseline, XGBoost, and Grabit.
 
 Target: cap_pct (salary as fraction of salary cap).
 Training data filtered to year-1 contracts only (year 2+ are CBA escalators).
 Rookie-scale contracts (1st-round picks, years 2-4) removed via draft data.
 Uses 5-fold GroupKFold CV (same player stays in same fold).
+
+Grabit (Gradient Tree-Boosted Tobit): XGBoost with custom censored-normal
+loss for CBA-capped contracts (max, vet min, MLE, BAE). Outputs latent
+market value; Stage 2 clips to CBA max eligible %.
 """
 
 import json
@@ -11,12 +15,13 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import GroupKFold, cross_validate
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
-from config import PROCESSED_DIR, OUTPUTS_DIR
+from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON
 
 FEATURE_COLS = [
     "darko_dpm_z", "lebron_z", "rapm_z",
@@ -155,10 +160,12 @@ def train_ridge(df: pd.DataFrame, alpha: float = 1.0) -> tuple[dict, object]:
 def train_xgboost(df: pd.DataFrame) -> tuple[dict, object, list[str]]:
     """Train XGBoost with year-1 and rookie-scale filters."""
     from xgboost import XGBRegressor
+    from sklearn.metrics import r2_score, mean_absolute_error
 
     df = _filter_year1(df)
     df = _filter_rookie_scale(df)
     X, y, groups, features = _prepare_Xy(df)
+    seasons = df["season"].values
     print(f"Training XGBoost on {len(X)} samples, {len(features)} features")
 
     xgb = XGBRegressor(
@@ -173,11 +180,28 @@ def train_xgboost(df: pd.DataFrame) -> tuple[dict, object, list[str]]:
     )
 
     cv = GroupKFold(n_splits=5)
-    scores = cross_validate(
-        xgb, X, y, groups=groups, cv=cv,
-        scoring=["r2", "neg_mean_absolute_error"],
-        return_train_score=True,
-    )
+    folds = list(cv.split(X, y, groups))
+
+    oof_pred = np.full(len(y), np.nan)
+    fold_r2 = []
+    fold_mae = []
+    train_r2_list = []
+    for tr_i, va_i in folds:
+        m = XGBRegressor(
+            n_estimators=500, max_depth=4, learning_rate=0.01,
+            subsample=0.7, colsample_bytree=0.7, min_child_weight=10,
+            random_state=42, tree_method="hist",
+        )
+        m.fit(X.iloc[tr_i], y[tr_i])
+        p = m.predict(X.iloc[va_i])
+        oof_pred[va_i] = p
+        fold_r2.append(r2_score(y[va_i], p))
+        fold_mae.append(mean_absolute_error(y[va_i], p))
+        train_r2_list.append(r2_score(y[tr_i], m.predict(X.iloc[tr_i])))
+
+    recent_mask = seasons >= 2024
+    recent_r2 = r2_score(y[recent_mask], oof_pred[recent_mask]) if recent_mask.sum() > 10 else float("nan")
+    recent_mae = mean_absolute_error(y[recent_mask], oof_pred[recent_mask]) if recent_mask.sum() > 10 else float("nan")
 
     xgb.fit(X, y)
 
@@ -186,11 +210,14 @@ def train_xgboost(df: pd.DataFrame) -> tuple[dict, object, list[str]]:
         "n_samples": len(X),
         "n_features": len(features),
         "features": features,
-        "cv_r2_mean": float(np.mean(scores["test_r2"])),
-        "cv_r2_std": float(np.std(scores["test_r2"])),
-        "cv_mae_mean": float(-np.mean(scores["test_neg_mean_absolute_error"])),
-        "cv_mae_std": float(np.std(scores["test_neg_mean_absolute_error"])),
-        "train_r2_mean": float(np.mean(scores["train_r2"])),
+        "cv_r2_mean": float(np.mean(fold_r2)),
+        "cv_r2_std": float(np.std(fold_r2)),
+        "cv_mae_mean": float(np.mean(fold_mae)),
+        "cv_mae_std": float(np.std(fold_mae)),
+        "train_r2_mean": float(np.mean(train_r2_list)),
+        "cv_r2_recent": float(recent_r2),
+        "cv_mae_recent": float(recent_mae),
+        "recent_n": int(recent_mask.sum()),
     }
 
     importances = dict(zip(features, xgb.feature_importances_))
@@ -206,6 +233,9 @@ def print_results(results: dict):
     print(f"{'='*50}")
     print(f"  CV R²:  {results['cv_r2_mean']:.4f} ± {results.get('cv_r2_std', 0):.4f}")
     print(f"  CV MAE: {results['cv_mae_mean']:.4f} ± {results.get('cv_mae_std', 0):.4f}")
+    if "cv_r2_recent" in results and not np.isnan(results["cv_r2_recent"]):
+        print(f"  CV R² (2024-26): {results['cv_r2_recent']:.4f}  (n={results.get('recent_n', '?')})")
+        print(f"  CV MAE (2024-26): {results['cv_mae_recent']:.4f}")
     if "train_r2_mean" in results:
         print(f"  Train R²: {results['train_r2_mean']:.4f}")
     print(f"  Samples: {results.get('n_samples')}, Features: {results.get('n_features')}")
