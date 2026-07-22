@@ -10,21 +10,27 @@ find their way there.
 - **Goal**: predict NBA player market value as `cap_pct` (annual salary / salary
   cap in the signing year), using only publicly available data. An open-source,
   reproducible answer to Hollinger's BORD$.
-- **Current model (v7.0x)**: two-stage Grabit pipeline — XGBoost trained with a
+- **Current model (v7.1x)**: two-stage Grabit pipeline — XGBoost trained with a
   censored-normal loss so CBA-capped max contracts are treated as right-censored
   observations, then `final_pred = min(latent_value, max_eligible_pct)`.
 - **Entry point**: `python src/model/train.py` trains and evaluates from raw data.
   Every entry point under `src/` and `scripts/` inserts the repo root into
   `sys.path` at the top of the file — keep that bootstrap when adding new ones,
   or `from config import ...` will not resolve.
+- **Web export**: `python scripts/export_web.py` refits the model and writes the
+  portfolio site's data and charts. It reads none of the CSVs in
+  `outputs/predictions/` — those span several model versions and disagree with
+  each other. See [ADR 0001](docs/adr/0001-single-fit-for-published-numbers.md).
 
 ## Further reading
 
 | File | Contents |
 |------|----------|
 | [CLAUDE.md](CLAUDE.md) | Project instructions and coding conventions — **the source of truth** |
+| [CONTEXT.md](CONTEXT.md) | Domain glossary — the vocabulary the code and the site both use |
+| [docs/adr/](docs/adr/) | Architecture decisions and why the alternatives were rejected |
 | [METHODOLOGY.md](METHODOLOGY.md) | Feature definitions, model math, ablation results, known limitations |
-| [VERSION_HISTORY.md](VERSION_HISTORY.md) | v1.0 → v7.0x with CV R² at each step, including the leaked-feature era and why it was reverted |
+| [VERSION_HISTORY.md](VERSION_HISTORY.md) | v1.0 → v7.1x with CV R² at each step, including the leaked-feature era and why it was reverted |
 | [PROJECT_BRIEF.md](PROJECT_BRIEF.md) | Outward-facing summary of the research contribution |
 
 Do not add project instructions to this file — put them in CLAUDE.md so there is

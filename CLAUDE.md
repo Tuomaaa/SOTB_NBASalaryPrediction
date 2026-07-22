@@ -10,128 +10,185 @@ The key differentiator: unlike BORD$, this model is fully transparent, reproduci
 
 ```
 nba-valuation/
-├── CLAUDE.md
-├── requirements.txt
-├── config.py                # seasons, cap values, CBA params, feature toggles
+├── CLAUDE.md                # this file — instructions and conventions
+├── AGENTS.md                # pointer to this file for agents that look for it
+├── CONTEXT.md               # domain glossary — the vocabulary code and docs share
+├── METHODOLOGY.md           # feature definitions, model math, ablations, limits
+├── VERSION_HISTORY.md       # v1.0 → v7.1x, CV R² at each step
+├── PROJECT_BRIEF.md         # outward-facing summary
+├── docs/adr/                # architecture decisions and rejected alternatives
+├── config.py                # seasons, cap values, CBA params  ← caps are load-bearing
 ├── src/
 │   ├── scraping/
-│   │   ├── contracts.py     # Spotrac / HoopsHype: historical contract data
-│   │   ├── stats.py         # Basketball Reference: per-game, advanced, per-100
-│   │   ├── advanced.py      # EPM / LEBRON / DARKO (if API available)
-│   │   └── availability.py  # games played history, injury logs
+│   │   ├── contracts.py     # Basketball Reference team + player salary pages
+│   │   ├── stats.py         # BBRef per-season advanced stats
+│   │   ├── advanced.py      # nbarapm.com: DARKO DPM, LEBRON, RAPM
+│   │   ├── height.py        # BBRef player index → height in inches
+│   │   ├── availability.py  # weighted GP% from the games column
+│   │   └── utils.py         # cached, rate-limited fetch via Playwright
 │   ├── features/
-│   │   ├── base_rating.py   # ingest EPM/LEBRON, normalize across seasons
-│   │   ├── age_curve.py     # age-based growth/decline adjustment
-│   │   ├── availability.py  # weighted GP% over past 3 seasons
-│   │   ├── cba_constraints.py  # Bird rights, apron status, max eligible %, signing type
-│   │   └── build_dataset.py # merge all features into training-ready DataFrame
-│   ├── model/
-│   │   ├── train.py         # XGBoost / Ridge / Lasso with CV
-│   │   ├── evaluate.py      # residual analysis, prediction vs actual plots
-│   │   └── predict.py       # inference on upcoming free agents
-│   └── analysis/
-│       ├── feature_importance.py
-│       └── residual_analysis.py  # find systematic over/underpay patterns
+│   │   ├── base_rating.py   # z-score the three impact metrics within season
+│   │   ├── age_curve.py     # age, age²
+│   │   ├── availability.py  # 3-year weighted GP%
+│   │   ├── cba_constraints.py  # CBA era flag
+│   │   └── build_dataset.py # stage 1 of the training-data rebuild
+│   └── model/
+│       ├── train.py         # Ridge / XGBoost / Grabit + the year-1 and rookie filters
+│       ├── evaluate_suite.py  # the four-layer evaluation protocol (see below)
+│       ├── evaluate.py      # residual plots
+│       └── predict.py       # inference on upcoming free agents
+├── scripts/
+│   ├── build_external_features.py  # stage 2: awards, draft, injuries, team value
+│   ├── phase3.py            # stage 3 lives here: build_contract_features → prev_cap_pct
+│   ├── check_caps.py        # asserts every season's cap reconciles with max contracts
+│   ├── diagnostics.py       # residual analysis, SHAP, signing-mechanism slices
+│   ├── export_web.py        # refits and writes the portfolio site's data
+│   └── scrape_*.py          # one-off scrapers for awards, Spotrac, missing salaries
 ├── data/
-│   ├── raw/                 # scraped CSVs (gitignored)
-│   ├── processed/           # cleaned, merged datasets
-│   └── reference/           # cap history, CBA rule tables (manually curated)
-├── notebooks/               # exploratory analysis, visualization
-│   └── eda.ipynb
+│   ├── raw/                 # scraped HTML cache + hand-curated CSVs (mostly gitignored)
+│   └── processed/           # cleaned, merged datasets
+├── versions/v1/             # frozen snapshot so old version numbers stay reproducible
 └── outputs/
-    ├── models/              # saved model artifacts
-    └── predictions/         # free agent valuation outputs
+    ├── models/              # metrics JSON (gitignored)
+    ├── predictions/         # historical prediction CSVs — see ADR 0001, do not reuse
+    ├── diagnostics/         # residual tables and plots
+    └── web/                 # export snapshots
 ```
+
+**Rebuilding the training data** runs three stages in order, and there is no
+single entry point that chains them:
+
+```
+src/features/build_dataset.py   →  base merge
+scripts/build_external_features.py  →  awards, draft, injuries, team value
+scripts/phase3.py::build_contract_features  →  prev_cap_pct
+```
+
+The script that produced `contract_structure_v2.csv` was never committed. A
+reconstruction from CBA escalator ratios only reaches 88% agreement on the
+year-1 flag, which is far too low to regenerate history without invalidating
+every published version number — so that table is extended incrementally
+(unchanged rows keep their assignment) rather than recomputed.
 
 ## Data Sources (all public)
 
 | Source | Data | Format |
 |--------|------|--------|
-| Basketball Reference | box score, advanced stats, per-100, GP history | HTML scrape |
-| Spotrac / HoopsHype | contract details ($/year, years, signing type) | HTML scrape |
-| Dunks & Threes (dunksandthrees.com) | EPM data | HTML/CSV |
-| DARKO (apanacea.com) | DARKO projections | possibly API |
-| LEBRON (BBall Index) | LEBRON metric | check availability |
-| NBA.com/stats | tracking data (optional, stretch goal) | JSON API |
-| Manual reference | cap history by year, CBA rule changes | hand-curated CSV |
+| Basketball Reference | salary by season, age, games played, height | HTML scrape (cached) |
+| nbarapm.com | DARKO DPM, LEBRON, RAPM, usage, box-score rates | Playwright + POST |
+| Spotrac | signing mechanism, contract years, total value, AAV | HTML scrape (cached) |
+| Manual reference | awards, draft position, team value | hand-curated CSV in `data/raw/raw_external/` |
+| `config.py` | salary cap by season, CBA era boundary | hand-maintained |
+
+Sources considered and not used: Dunks & Threes (EPM), NBA.com tracking data.
+The three impact metrics from nbarapm.com already cover the performance signal —
+see the ablation table in METHODOLOGY.md.
+
+**Salary cap values are load-bearing.** `cap_pct` is the model target, so a wrong
+cap silently rescales the target for an entire season. This has already happened
+once: the 2025 and 2026 caps sat at stale pre-media-deal projections, inflating
+those seasons' targets by roughly 9%. `scripts/check_caps.py` now asserts every
+season reconciles against max contracts landing on exactly 25/30/35% of the
+configured cap; run it after touching `CAP_BY_SEASON`.
 
 ## Target Variable
 
-`cap_pct` = contract annual salary / salary cap in that signing year
+`cap_pct` = annual salary / salary cap for that season. CONTEXT.md calls this
+**Cap Percentage**; use that name in prose and `cap_pct` in code.
 
-Use **all active contracts** each season (not just new signings), so every player-season is one row. This maximizes sample size (~400+ per season × 5-6 seasons = 2000-2500 rows).
+Training uses **Year-1 Contracts only**. Escalator Years are CBA-mandated raises
+on a price agreed years earlier, and Rookie-Scale Contracts are slotted by draft
+position — neither carries market information. Scoring, by contrast, runs over
+every row, because a Contract Surplus on an escalator year is a real statement
+about a team's books even though it is not a Signing Residual.
 
-## Feature Set (Phase 1 — Core)
+## Feature Set
 
-| Feature | Source | Notes |
-|---------|--------|-------|
-| `base_rating` | EPM or LEBRON | primary performance signal |
-| `age` | BBREF | at time of contract/season |
-| `age_squared` | derived | capture nonlinear decline |
-| `availability_3yr` | BBREF GP | weighted avg GP% (weights: 0.5 / 0.3 / 0.2) |
-| `position` | BBREF | one-hot or ordinal |
-| `usage_rate` | BBREF advanced | offensive role proxy |
-| `experience_years` | BBREF | years in league |
+14 features, listed with definitions in METHODOLOGY.md. Over 20 further
+candidates were tested and rejected, each with its ΔCV R² recorded in the same
+file — consult that table before proposing a feature, since several obvious
+ideas (team cap space, playoff performance, agent portfolio) are already there.
 
-## Feature Set (Phase 2 — CBA Constraints)
+Two rules the ablation table encodes:
 
-| Feature | Source | Notes |
-|---------|--------|-------|
-| `signing_type` | Spotrac | Bird / Early Bird / Cap Space / MLE / Min / etc. |
-| `team_apron_status` | derived | is signing team above 1st/2nd apron? |
-| `max_eligible_pct` | CBA rules + experience | 25% / 30% / 35% of cap |
-| `is_rookie_scale` | Spotrac | boolean |
-| `cba_era` | manual | pre-2023 vs post-2023 CBA |
-
-## Feature Set (Phase 3 — Stretch Goals)
-
-| Feature | Source | Notes |
-|---------|--------|-------|
-| `archetype_cluster` | K-Means on play style data | only add if residual analysis shows fit matters |
-| `team_positional_need` | derived from roster minutes | vacancy proxy |
-| `prior_team_retained` | Spotrac | boolean: did player re-sign? (Bird rights premium) |
+- **Never feed the model anything derived from the target.** `is_vet_min`,
+  `is_mle_range`, and `is_rookie_scale` produced large gains in Phase 2 and were
+  all leakage; they were removed in v4.0.
+- **Signing Mechanism is a diagnostic label, not a feature.** It is partly
+  determined by the contract itself. Feeding the model a fold-honest
+  `P(mechanism | x)` was tested and *hurt* (−0.0073), because the tree model
+  already extracts everything the features say about mechanism.
 
 ## Modeling Strategy
 
-### Phase 1: Baseline
-- Ridge regression with core features only
-- 5-fold CV, evaluate R², MAE, MAPE
-- Sanity check: do the predictions pass the smell test for known players?
+Current model is the two-stage Grabit pipeline described in METHODOLOGY.md.
+Ridge remains in `train.py` as a reference point.
 
-### Phase 2: Gradient Boosted Trees
-- XGBoost with all Phase 1 + Phase 2 features
-- Hyperparameter tuning via Optuna or GridSearchCV
-- Feature importance analysis (SHAP values preferred)
-- Compare to Ridge baseline — is the complexity justified?
-
-### Phase 3: Residual Analysis & Iteration
-- Plot residuals by archetype, team, signing type
-- If systematic patterns emerge (e.g., rim-running bigs consistently overpaid), consider adding targeted features
-- **Do NOT add clustering / fit features unless residual analysis justifies it**
+Escalating model complexity requires a paired CV improvement, not a hunch. The
+hyperparameters have been grid-searched twice and the model is **not**
+underfitting — deeper trees, higher learning rate, and looser `min_child_weight`
+all score worse. Extra structure has to justify itself against that.
 
 ## Coding Conventions
 
 - Python 3.10+
-- Use `pandas` for data manipulation, `scikit-learn` for modeling, `xgboost` for GBT
+- `pandas` for data, `scikit-learn` for modeling, `xgboost` for GBT, `shap` for attributions
 - `matplotlib` / `seaborn` for viz
 - Type hints encouraged but not mandatory
 - Docstrings for all functions in `src/`
-- Scraping: use `requests` + `BeautifulSoup`, respect rate limits (3s delay between requests), cache raw HTML to avoid re-scraping
-- All dollar amounts stored as `cap_pct` (float 0-1), never raw dollars
+- Scraping: `BeautifulSoup` over Playwright-fetched HTML, 3s between live requests, everything cached under `data/raw/html_cache/`
+- Dollar amounts stored as `cap_pct` (float 0-1), never raw dollars. Dollars are a display unit only
+- Use CONTEXT.md's vocabulary in prose. In particular keep **Signing Residual** (model accuracy, Year-1 only) distinct from **Contract Surplus** (team outcome, any year) — the arithmetic is identical and the meanings are not
 
-## Immediate Next Steps
+**Every entry point under `src/` and `scripts/` starts with**
 
-1. Set up the repo: `requirements.txt`, `config.py`, directory structure
-2. Build `contracts.py` scraper — get historical contract data from Spotrac/HoopsHype for 2019-2025 seasons
-3. Build `stats.py` scraper — get advanced stats from Basketball Reference for the same window
-4. Build `availability.py` — compile games played history
-5. Implement `build_dataset.py` to merge everything into one clean DataFrame
-6. Train Ridge baseline, evaluate, iterate
+```python
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))  # ".parent.parent" under scripts/
+```
+
+Running `python foo.py` puts only the script's own directory on `sys.path`, not
+the working directory, so `from config import ...` will not resolve without it.
+Keep the bootstrap when adding a new entry point.
+
+**Do not rebind `sys.stdout`.** Use `sys.stdout.reconfigure(encoding="utf-8")`.
+Assigning `sys.stdout = io.TextIOWrapper(sys.stdout.buffer, ...)` at module level
+leaves the previous wrapper to be garbage-collected, which closes the underlying
+buffer for any process that imports the module.
+
+## Evaluation Protocol
+
+`src/model/evaluate_suite.py` implements four layers. They answer different
+questions and must not be mixed or substituted for one another.
+
+| Layer | What it is | What it is for |
+|-------|-----------|----------------|
+| **A** selection | pooled GroupKFold CV, and its 2024-26 subset | every accept/reject decision |
+| **B** forecasting | rolling-origin, train on all seasons < T, for T in 2024-2026 | what `predict.py` will actually achieve |
+| **C** integrity | calibration and per-segment bias | catching a change that helps the average and hurts a segment |
+| **D** guards | fixed eval set, baseline ladder, locked confirmation split | comparability |
+
+Rules that are easy to get wrong:
+
+- **Pooled CV is not leaking.** The estimand is the market's pricing function, a
+  structural quantity, so using later seasons to estimate it is efficient rather
+  than optimistic. Player grouping blocks the leakage that does matter. Layer B
+  exists because `predict.py` genuinely forecasts, not because layer A is dishonest.
+- **Report deltas paired by fold.** Fold sd is ~0.046; seed sd is ~0.001.
+  Comparing two independently-reported means throws away nearly all the power.
+- **Bin calibration by predicted value, never by the target.** Binning residuals
+  by actual salary produces a steep monotone bias gradient even when calibration
+  is perfect. Earlier versions of METHODOLOGY.md reported exactly that artifact
+  as a finding.
+- **Fix the evaluation set when the training filter changes.** R²'s denominator
+  moves with the dataset, so R² across different row sets is not comparable.
+- **The confirmation split is 15% of players, held out of selection.** Open it at
+  a version bump, not during iteration.
 
 ## Important Notes
 
-- **Do not overfit**: with ~2000 rows, keep model complexity in check. Ridge/Lasso before XGBoost, XGBoost before NN. Justify each step up in complexity with CV improvement.
+- **Do not overfit**: ~1,500 training rows. Ridge before XGBoost, XGBoost before anything larger, each step justified by a paired CV improvement.
 - **Cap % normalization**: always convert raw dollars to cap %, never mix eras without normalization.
-- **CBA regime awareness**: the 2023 CBA changed contract structure significantly (second apron, restrict trade rules). At minimum include a binary `cba_era` flag; ideally encode the actual constraints.
-- **Avoid double counting**: if availability is already reflected in minutes projection, don't apply a separate availability discount on top.
-- **Scraping courtesy**: cache everything, rate-limit requests, don't hammer servers.
+- **CBA regime awareness**: the 2023 CBA changed contract structure significantly. `cba_era` is the minimum encoding; `max_eligible_pct` encodes the actual ceiling per player.
+- **Avoid double counting**: if availability is already reflected in minutes, don't apply a separate availability discount on top.
+- **Scraping courtesy**: cache everything, rate-limit, don't hammer servers. Basketball Reference rate-limits aggressively — a full 30-team refresh takes ~25 minutes with backoff and one team will typically 403 and need a retry.
+- **A failed fetch must degrade to stale data, never to missing data.** Merges that replace a whole season wholesale will silently delete a team whose page failed.

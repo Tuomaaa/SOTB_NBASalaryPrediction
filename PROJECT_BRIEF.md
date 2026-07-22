@@ -28,16 +28,24 @@ This project builds an open-source NBA player valuation model that predicts cont
 
 | Source | Content | Scale |
 |--------|---------|-------|
-| Basketball Reference | Salary, age, games played | 4,397 player-seasons, 2019–2030 |
+| Basketball Reference | Salary, age, games played | 4,723 player-seasons, 2019–2031 |
 | nbarapm.com | DARKO DPM, LEBRON, RAPM, usage rates | 3,880 player-seasons |
-| Spotrac | Signing mechanisms (Bird Rights, MLE, cap space, etc.) | 981 free agent signings |
+| Spotrac | Signing mechanisms (Bird Rights, MLE, cap space, etc.) | 2,403 contract-seasons |
 | Manual curation | Awards (MVP, All-NBA, DPOY), draft position, salary cap history | Hand-verified CSVs |
 
 **Target variable**: `cap_pct = annual_salary / salary_cap` (range 0–0.35). Normalizing to cap percentage enables cross-season comparison as the cap inflates ~5% annually.
 
 **Intentional lag**: Performance metrics from season *t* predict salary in season *t+1*, reflecting how teams actually sign contracts — based on past production.
 
-After filtering to year-1 contracts only (removing CBA-mandated escalator years) and slotted rookie-scale deals, the training set contains **1,487 player-season observations** across 789 unique players.
+After filtering to year-1 contracts only (removing CBA-mandated escalator years) and slotted rookie-scale deals, the training set contains **1,556 player-season observations** across 666 unique players.
+
+**A caveat about the denominator.** Because the salary cap divides the target, a
+wrong cap rescales an entire season. Two seasons carried stale pre-media-deal
+projections until they were caught by dividing max contracts back out: the
+implied cap reproduces the configured value exactly for five seasons and
+disagreed for 2025 and 2026, which had been inflating those targets by ~9%.
+Correcting them moved the model's calibration slope to 1.0006. The check now
+runs as an assertion over every season.
 
 ## Methodology
 
@@ -81,43 +89,88 @@ Max-eligible percentage differ from player to player and is calculated with resp
 
 ### Evaluation
 
-5-fold GroupKFold cross-validation (same player never appears in both train and test) with 10-seed averaging for stability.
+Four layers, each answering a different question, because the obvious single
+number is ambiguous between them.
+
+**Selection** uses pooled 5-fold GroupKFold CV over 10 seeds, grouped so a
+player never appears in both train and test. Training on a later season to score
+an earlier one is legitimate here: the estimand is the market's pricing
+function, a structural quantity rather than a forecast. Tested directly, time
+direction is not distinguishable from noise at matched training-set size
+(+0.029 ± 0.021, t = 1.36).
+
+**Forecasting** uses rolling origins — train on every season before *T*, score
+*T*, for *T* in 2024–2026. This is what the inference pipeline actually does.
+Earlier origins are excluded because their training sets are a third to a fifth
+of the current one, so they measure data scarcity rather than the model.
 
 | Metric | Baseline XGBoost | Grabit + CBA Cap |
 |--------|-----------------|------------------|
-| CV R² (all years, 2019–2026) | 0.750 | **0.762** |
-| CV R² (2024–2026 subset, n=385) | 0.839 | **0.852** |
+| CV R² (2019–2026, n=1,556) | 0.7570 | **0.7581** |
+| CV R² (2024–2026, n=454) | 0.8234 | **0.8257** |
+| Forward R² (2024–2026) | 0.8227 | **0.8249** [0.770, 0.867] |
+| Calibration slope | 1.0145 | **1.0006** |
 
-The 2024–2026 subset R² better reflects forward prediction ability, as there is a major CBA rule change on 2023. The addition of Grabit is not a huge improvement due to the small number of contract it is affecting. However, I look forward to see it creating larger impact as it is applied to other contract limited by an external factor.
+**Paired delta +0.0011 ± 0.0004, t = +2.72.** Deltas are paired by fold because
+fold-to-fold variation (sd 0.045) is forty-five times seed-to-seed variation (sd 0.001);
+comparing two independently-reported means would discard nearly all the power.
+The Grabit gain is small because gated censoring touches ~73 of 1,556 rows — the
+interest is in the mechanism generalising to other externally-constrained prices,
+not in the size of this particular effect.
+
+**Integrity and guards** cover the ways this kind of model quietly misleads: a
+baseline ladder (minutes per game *alone* reaches 0.587 against the full model's
+0.758), a 15%-of-players confirmation split held out of every selection decision,
+and a rule that any comparison across different training filters runs on a fixed
+evaluation set, since R²'s denominator moves with the row set.
 
 ### Diagnostic Findings
 
-Residual analysis by Spotrac signing type reveals systematic patterns:
+**A correction worth stating plainly.** Earlier versions of this work reported
+that the model underpaid stars by up to $6M, read off residuals binned by actual
+salary. That gradient is an artifact — binning by a noisy target produces it even
+for a perfectly calibrated model. Binned by *predicted* value instead, bias is
+flat to within ±$0.65M, and the OLS slope of actual on predicted is 1.0006.
+Fold-honest recalibration confirms it by failing to help.
 
-- **Bird Rights / Sign & Trade**: model underpredicts by $2–3M — these mechanisms allow teams to exceed the cap for their own players, creating a retention premium invisible to the model
-- **MLE / Minimum contracts**: model overpredicts by $1–2M — these players are often better than their salary, but are constrained by exception-level ceilings the model doesn't see
-- **Cap Space signings**: roughly calibrated (bias < $1M)
+What survives the correction is the signing-mechanism pattern, which holds after
+controlling for predicted value:
 
-These patterns confirm that CBA signing mechanisms create predictable distortions beyond what performance-based features can capture.
+- **Bird Rights / Sign & Trade**: underpriced by ~$3M. Both let a team exceed the cap for its own player, and that retention premium is invisible to the features.
+- **MLE / Minimum**: overpriced by ~$1.4M — players better than the exception-level ceiling they signed under.
+- **Cap Space**: roughly calibrated (−$0.68M).
+
+The tempting inference — model the mechanism, recover the error — does not work,
+and establishing that is one of this project's more useful negative results.
+Mechanism is itself a function of the player features, so a fold-honest
+`P(mechanism | x)` *lowers* CV R² by 0.0073. A leaky oracle supplying the
+realised mechanism gains only +0.0137. The residual gap is the spread of a
+genuinely bimodal conditional distribution: given the same inputs a player
+either lands a market deal or takes a minimum, and the conditional mean sits
+correctly between the two modes while being wrong for both. Any real gain must
+come from information that is *not* a function of the current features.
 
 ## Technical Contributions
 
 1. **First application of Grabit (censored GBT) to sports salary prediction**: adapting a framework from credit-risk modeling to handle CBA-imposed salary ceilings
 2. **Gated censoring**: Not all max-salary players are underpaid, and naively censoring them degrades predictions
 3. **Systematic feature ablation**: 20+ features evaluated and documented with ΔCV R², preventing feature bloat common in sports analytics models
-
+4. **A characterised negative result**: signing mechanism produces a large, real residual pattern that is nonetheless unrecoverable, because the mechanism is a function of the same features and the conditional distribution is bimodal. The upper bound is measured, not assumed
+5. **An evaluation protocol that separates what the single headline number conflates**: structural estimation from forecasting, calibration from accuracy, and selection from confirmation — with the failure modes it exists to prevent documented as worked examples
 
 ## Codebase
 
-- **~6,300 lines** of Python across 47 files
-- End-to-end pipeline: scraping → feature engineering → model training → prediction → diagnostics
-- Fully reproducible: `python src/model/train.py` trains and evaluates from raw data
+- **~6,700 lines** of Python across 42 files
+- End-to-end pipeline: scraping → feature engineering → model training → evaluation → prediction → diagnostics
+- `python src/model/train.py` trains and evaluates; `python src/model/evaluate_suite.py` runs the full four-layer protocol with a paired champion/challenger comparison
+- Two gaps in reproducibility are documented rather than papered over: the contract-structure detection script was lost before it was committed, and regenerating the training data spans three files with no chaining entry point
 
 ## Future Directions
 
-- **Lower-bound censoring**: extend the framework to model veteran minimum and MLE ceilings (currently only max contracts are censored)
-- **Temporal dynamics**: player trajectory modeling (growth curves for young players, decline curves for veterans) 
-- **Agent / team negotiation features**: agent portfolio effects and team cap situation as interaction terms. I remember reading a paper which uses GNN for this.
+- **Distributional output instead of a point estimate.** Since `y | x` is demonstrably bimodal, a conditional mean is structurally the wrong deliverable — it is wrong for both modes by construction. Predicting quantiles, or `P(signs for the minimum)` alongside a conditional market value, answers the question the project actually asks: what a player is *worth*, not what he will be *paid*. This is also the coherent home for the low-end censoring idea, which cannot work as a point-accuracy fix.
+- **Target the whole contract, not year one.** Contract length is already in the data. "Market value" is the full deal; year-1 salary carries arbitrary front- and back-loading as noise.
+- **Information orthogonal to the current features** — market supply and demand at the position that summer, league-wide cap room, how the previous contract terminated. The oracle bound says this is the only route to a real accuracy gain.
+- **Temporal dynamics**: player trajectory modeling (growth curves for young players, decline curves for veterans).
 
 ## References
 

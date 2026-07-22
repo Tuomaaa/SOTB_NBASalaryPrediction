@@ -91,22 +91,71 @@ Signing type breakdown (OOF, $M):
 | Minimum | 419 | +$1.5M | +$1.5M | $2.4M | $2.4M |
 | **Total** | **1487** | **-$0.0M** | **+$0.0M** | **$3.2M** | **$3.1M** |
 
+## Phase 7: Data correction + evaluation protocol
+
+| Ver | Model | 10-seed CV R² | Forward R² (24-26) | N | Feat | Change |
+|-----|-------|---------------|-------------------|---|------|--------|
+| 7.1x | XGBoost (Grabit) | **0.7581** | **0.8249** | 1556 | 14 | 2026 signings refreshed, 2025/26 caps corrected, four-layer evaluation suite |
+
+Baseline XGBoost on the same data: CV 0.7570, forward 0.8227. **Paired delta
++0.0011 ± 0.0004, t = +2.72.**
+
+**The headline numbers fell and that is the correct outcome.** Three separate
+corrections, none of them a model change:
+
+1. **The 2026 test set was optimistically biased.** The BBRef contract cache was
+   scraped 2026-06-26, days before 2026-27 free agency opened, so the 2026 season
+   held only extensions and players already under contract — the easy cases.
+   Refreshing all 30 team pages took usable 2026 rows from 55 to 124 and dropped
+   the 2026 forward R² from 0.843 to 0.811 on a test set that finally represents
+   the task.
+2. **The 2025 and 2026 salary caps were wrong**, sitting at stale
+   pre-media-deal projections ($141.208M and $153M against $154.647M and $166M),
+   inflating those seasons' targets by ~9%. Correcting them moved the calibration
+   slope from 1.014 to 1.0006.
+3. **The reported uncertainty was the wrong quantity.** The `± 0.0009` figures in
+   Phases 5-6 are seed-averaging noise. Fold-to-fold sd is 0.045 — forty-five times
+   larger. Those comparisons remain valid because they were paired on identical
+   folds, but the intervals understated the uncertainty on any single R².
+
+v7.1x is therefore **not** comparable to v7.0x and earlier: different rows,
+different target values for two seasons. It is the first entry measured under
+the protocol in `src/model/evaluate_suite.py`.
+
+### Corrections to earlier findings
+
+- **The residual-by-salary-tier table reported in v7.0x was a statistical
+  artifact.** Binning residuals by the actual target produces a monotone bias
+  gradient even for a perfectly calibrated model. Binned by predicted value
+  instead, bias is flat within ±$0.65M. The model was never systematically
+  underpaying stars by $6M.
+- **Extending Tobit censoring to the lower bound is a dead end for accuracy.**
+  Feeding back a fold-honest `P(mechanism | x)` scores −0.0073; a leaky oracle
+  with the realised mechanism gains only +0.0137. The Minimum/MLE residual gap
+  is the spread of a bimodal `y | x`, not recoverable error.
+
 ## Key milestones
 
 ```
-Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5       Phase 6
-Ridge      Ridge/XGB            Cleanup         Tuning         Features      Grabit+CBA
-                                                                             
-0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76         0.76
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x       v7.0x
-                        ↗ 0.87                                                (current)
+Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 6    Phase 7
+Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data fix
+                                                                                     
+0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x
+                        ↗ 0.87                                                       (current)
                   Leaked features
                   (removed in v4.0)
 ```
 
 ## Notes
 
-**R² comparability**: Phase 1–2 (v1.0–v3.5x) and Phase 3+ (v4.0+) use different training data filters and are not directly comparable. The apparent drop from v3.5x (0.866) to v4.0 (0.645) reflects removing leaked features and applying stricter filters — not a regression.
+**R² comparability**: three boundaries in this table are not crossable.
+Phase 1–2 (v1.0–v3.5x) versus Phase 3+ (v4.0+) differ in training filters and
+leaked features — the apparent v3.5x 0.866 → v4.0 0.645 drop is that, not a
+regression. Phase 7 versus everything before it differs in both the row set and
+the target values for two seasons. R²'s denominator moves with the dataset, so
+**whenever a training filter changes, the comparison has to be run on a fixed
+evaluation set** rather than by reading two R² figures off this table.
 
 **Phase 2 leaked features**: `is_vet_min`, `is_mle_range`, `is_rookie_scale` are derived from the target variable (salary determines contract type). They gave large R² gains in training but are unknowable at prediction time. All removed in v4.0.
 
