@@ -12,8 +12,8 @@ Usage:
     python scripts/scrape_spotrac_missing.py --dry     # list missing players
     python scripts/scrape_spotrac_missing.py --limit 5 # scrape first 5 only
 """
-import sys, io, time, re, unicodedata, argparse, json
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+import sys, time, re, unicodedata, argparse, json
+sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))
 
 from pathlib import Path

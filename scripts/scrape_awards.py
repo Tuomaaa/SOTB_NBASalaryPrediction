@@ -5,8 +5,8 @@ Outputs data/raw/raw_external/awards_full.csv with columns:
 
 Year = end year of NBA season (e.g. 2025 = 2024-25 season).
 """
-import sys, io, re, time, unicodedata
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+import sys, re, time, unicodedata
+sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))
 
 import requests

@@ -1,6 +1,6 @@
 """Scrape Spotrac player pages for signing type data. Cache all HTML, 3s rate limit."""
-import sys, io, time, re, unicodedata
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+import sys, time, re, unicodedata
+sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))
 
 import requests

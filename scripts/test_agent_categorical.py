@@ -1,6 +1,6 @@
 """Test agent ID as native XGBoost categorical feature."""
-import sys, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+import sys
+sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))
 
 import numpy as np

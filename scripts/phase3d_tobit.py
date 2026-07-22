@@ -9,8 +9,8 @@ Right-censored Tobit across all CBA-capped contract types:
 Players whose signing_type is unknown (not in Spotrac data) are
 treated as uncensored.
 """
-import sys, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+import sys
+sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))
 
 import numpy as np

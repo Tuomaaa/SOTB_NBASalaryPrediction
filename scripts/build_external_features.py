@@ -1,6 +1,6 @@
 """Build features from raw_external data and merge onto training data."""
-import sys, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+import sys
+sys.stdout.reconfigure(encoding="utf-8")
 
 import unicodedata
 import re

@@ -1,6 +1,6 @@
 """Parse RealGM agent HTML and create agent features."""
-import sys, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+import sys
+sys.stdout.reconfigure(encoding="utf-8")
 
 import unicodedata
 import re
