@@ -10,7 +10,10 @@ All raw HTML is cached in data/raw/html_cache/ to avoid re-scraping.
 """
 
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import pandas as pd
 from bs4 import BeautifulSoup, Comment

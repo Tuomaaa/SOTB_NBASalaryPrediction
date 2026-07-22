@@ -1,5 +1,10 @@
 """Model evaluation: residual analysis and prediction vs actual plots."""
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt

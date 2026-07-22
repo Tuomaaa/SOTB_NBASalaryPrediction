@@ -5,3 +5,10 @@ __pycache__/
 .env
 *.egg-info/
 .ipynb_checkpoints/
+
+# Model artifact written by predict.py for the api_backend export
+/xgboost_model.json
+
+# Scratch files from scraping/debug sessions
+_debug_search.html
+_missing_spotrac.json

@@ -11,7 +11,10 @@ market value; Stage 2 clips to CBA max eligible %.
 """
 
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import numpy as np
 import pandas as pd

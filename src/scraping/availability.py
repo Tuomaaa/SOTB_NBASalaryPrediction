@@ -5,6 +5,11 @@ No additional scraping needed — this module computes weighted GP% over the
 prior 3 seasons (weights: 0.5 / 0.3 / 0.2 per CLAUDE.md).
 """
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 import pandas as pd
 from config import PROCESSED_DIR
 

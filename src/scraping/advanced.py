@@ -10,9 +10,12 @@ We batch player lookups inside a single Playwright browser session.
 """
 
 import json
+import sys
 import time
 import unicodedata
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import pandas as pd
 from playwright.sync_api import sync_playwright

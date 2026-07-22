@@ -4,7 +4,11 @@ Loads impact metrics for the target season, engineers features, runs inference,
 identifies free agents, and computes salary diffs.
 """
 
+import sys
 import unicodedata
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import numpy as np
 import pandas as pd
