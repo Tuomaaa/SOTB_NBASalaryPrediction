@@ -1,4 +1,12 @@
 data/raw/
+# ...except the hand-curated award and draft tables. _compute_max_eligible in
+# train.py silently falls back to an age heuristic without them, so a clone
+# that lacks these does not reproduce the published numbers.
+!data/raw/raw_external/
+data/raw/raw_external/*
+!data/raw/raw_external/awards_full.csv
+!data/raw/raw_external/player_draft_2020-2025.matched.corrected.csv
+
 outputs/models/
 __pycache__/
 *.pyc
@@ -12,6 +20,10 @@ __pycache__/
 # Scratch files from scraping/debug sessions
 _debug_search.html
 _missing_spotrac.json
+
+# Pre-refresh snapshot written by scripts/refresh_salaries.py for the
+# structure-extension diff; transient machine state
+data/processed/salaries_prev.csv
 
 # Machine-local agent config (launch.json hardcodes an absolute path)
 .claude/settings.local.json
