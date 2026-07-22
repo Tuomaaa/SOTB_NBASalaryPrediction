@@ -27,6 +27,7 @@ find their way there.
 | File | Contents |
 |------|----------|
 | [CLAUDE.md](CLAUDE.md) | Project instructions and coding conventions — **the source of truth** |
+| [ISSUES.md](ISSUES.md) | Known problems nobody has fixed yet — **read before starting, append before stopping** |
 | [CONTEXT.md](CONTEXT.md) | Domain glossary — the vocabulary the code and the site both use |
 | [docs/adr/](docs/adr/) | Architecture decisions and why the alternatives were rejected |
 | [METHODOLOGY.md](METHODOLOGY.md) | Feature definitions, model math, ablation results, known limitations |

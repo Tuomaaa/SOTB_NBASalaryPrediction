@@ -184,6 +184,18 @@ Rules that are easy to get wrong:
 - **The confirmation split is 15% of players, held out of selection.** Open it at
   a version bump, not during iteration.
 
+## Handing off unfinished work
+
+When you find a real problem you are not fixing in this session, write it into
+**[ISSUES.md](ISSUES.md)** — do not leave it in the conversation, where the next
+agent will never see it. Give each entry enough that someone can act on it cold:
+the symptom, a command that reproduces it, what to do, and how to know it is
+fixed. Delete the entry when it is fixed; `VERSION_HISTORY.md` is where the fix
+gets recorded.
+
+Read ISSUES.md before starting work — what looks like a fresh bug is often
+already written up there.
+
 ## Important Notes
 
 - **Do not overfit**: ~1,500 training rows. Ridge before XGBoost, XGBoost before anything larger, each step justified by a paired CV improvement.

@@ -52,6 +52,19 @@ def load_training_data() -> pd.DataFrame:
     v2 = PROCESSED_DIR / "training_data_v2.csv"
     path = v2 if v2.exists() else PROCESSED_DIR / "training_data.csv"
     df = pd.read_csv(path)
+
+    # cap_pct is recomputed here rather than trusted from the CSV. The scraper
+    # divides by CAP_BY_SEASON at scrape time and bakes the result in, so a cap
+    # corrected in config.py afterwards would leave a stale target sitting in
+    # the file — which is exactly how the 2025 and 2026 caps stayed wrong.
+    # Deriving it on load makes config.py the only place a cap is stated.
+    if "salary" in df.columns:
+        cap = df["season"].map(CAP_BY_SEASON)
+        if cap.isna().any():
+            missing = sorted(df.loc[cap.isna(), "season"].unique())
+            raise SystemExit(f"No salary cap on record for season(s): {missing}")
+        df[TARGET] = df["salary"] / cap
+
     df = df.dropna(subset=[TARGET])
     return df
 
