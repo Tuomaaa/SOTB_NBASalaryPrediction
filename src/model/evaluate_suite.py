@@ -446,10 +446,24 @@ def main():
     out_dir = OUTPUTS_DIR / "models"
     out_dir.mkdir(parents=True, exist_ok=True)
     payload = {"champion": champion.metrics, "challenger": challenger.metrics,
-               "paired_delta": delta}
+               "paired_delta": delta,
+               # fold x seed R2 matrices — the reference every future paired
+               # comparison diffs against (same folds, same seeds, per-fold)
+               "fold_r2": {"champion": champion.fold_r2.tolist(),
+                           "challenger": challenger.fold_r2.tolist()},
+               "seeds": list(DEFAULT_SEEDS), "n_splits": N_SPLITS}
     with open(out_dir / "evaluation_suite.json", "w") as fh:
         json.dump(payload, fh, indent=2)
+
+    ref = df[["player_name_norm", "season", TARGET, "salary_m",
+              "signing_cat", "is_confirmation"]].copy()
+    ref["oof_champion"] = champion.oof
+    ref["fwd_champion"] = champion.forward
+    ref["oof_challenger"] = challenger.oof
+    ref["fwd_challenger"] = challenger.forward
+    ref.to_csv(out_dir / "oof_reference.csv", index=False)
     print(f"\nSaved {out_dir / 'evaluation_suite.json'}")
+    print(f"Saved {out_dir / 'oof_reference.csv'} ({len(ref)} rows)")
 
 
 if __name__ == "__main__":
