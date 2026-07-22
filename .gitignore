@@ -12,3 +12,7 @@ __pycache__/
 # Scratch files from scraping/debug sessions
 _debug_search.html
 _missing_spotrac.json
+
+# Machine-local agent config (launch.json hardcodes an absolute path)
+.claude/settings.local.json
+.claude/launch.json

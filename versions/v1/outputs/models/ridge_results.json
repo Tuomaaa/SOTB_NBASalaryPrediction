@@ -1,0 +1,38 @@
+{
+  "model": "Ridge",
+  "alpha": 1.0,
+  "n_samples": 1216,
+  "n_features": 11,
+  "features": [
+    "darko_dpm_z",
+    "lebron_z",
+    "rapm_z",
+    "age",
+    "age_squared",
+    "mpg",
+    "availability_3yr",
+    "usage_pct",
+    "height_inches",
+    "cba_era",
+    "ast_pct"
+  ],
+  "cv_r2_mean": 0.639819561658115,
+  "cv_r2_std": 0.062236849251712544,
+  "cv_mae_mean": 0.03865922478630558,
+  "cv_mae_std": 0.0018852122289262788,
+  "train_r2_mean": 0.6546451718858067,
+  "coefficients": {
+    "darko_dpm_z": 0.032069,
+    "lebron_z": 0.002755,
+    "rapm_z": -0.004209,
+    "age": -0.043108,
+    "age_squared": 0.040449,
+    "mpg": 0.027978,
+    "availability_3yr": 0.004479,
+    "usage_pct": 0.019225,
+    "height_inches": 0.007338,
+    "cba_era": 0.001887,
+    "ast_pct": 0.006078
+  },
+  "intercept": 0.07534
+}
