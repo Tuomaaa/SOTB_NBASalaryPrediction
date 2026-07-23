@@ -51,7 +51,7 @@ from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR
 from src.model.train import (
     load_training_data, _filter_year1, _filter_rookie_scale, _filter_prorated,
     _filter_mislabeled_year1, _filter_continuations, _compute_max_eligible,
-    _prepare_Xy, _make_tobit_obj, _XGB_BASE, FEATURE_COLS, TARGET,
+    _compute_floor, _prepare_Xy, _make_tobit_obj, _XGB_BASE, FEATURE_COLS, TARGET,
 )
 # reuse the canonical label logic so C2 segments match scripts/diagnostics.py
 from scripts.diagnostics import attach_signing_labels
@@ -80,11 +80,18 @@ def baseline_fitter(train: pd.DataFrame, test: pd.DataFrame,
     return model.predict(test[features])
 
 
-def make_grabit_fitter(sigma: float = 0.02, gate_frac: float = 0.55):
-    """Grabit v3: censored-normal loss on gated max rows, then the CBA cap.
+def make_grabit_fitter(sigma: float = 0.02, gate_frac: float = 0.55,
+                       floor_gate_k: float = 2.0):
+    """Grabit v4: two-sided censored-normal loss, then both CBA bounds.
 
-    The gate needs a baseline prediction, which is fit inside the training slice
-    so nothing from the scored slice leaks in.
+    Right side censors gated max rows (observation floors the latent); left
+    side censors gated at-floor minimum rows (the league floor props their pay
+    up, so the observation CEILS the latent). Both gates need a baseline
+    prediction, fit inside the training slice so nothing from the scored slice
+    leaks in; both mirror the albatross rule — the model must corroborate that
+    the bound binds. Stage 2 clips into [floor_pct, max_eligible_pct].
+
+    floor_gate_k=0 disables the left side (reproduces Grabit v3).
     """
     def fitter(train, test, features, seed):
         y_tr = train[TARGET].values
@@ -93,13 +100,22 @@ def make_grabit_fitter(sigma: float = 0.02, gate_frac: float = 0.55):
 
         base = XGBRegressor(**{**_XGB_BASE, "random_state": seed})
         base.fit(train[features], y_tr)
-        gate = is_max_tr & (base.predict(train[features]) >= gate_frac * max_elig_tr)
+        bp = base.predict(train[features])
+        gate = is_max_tr & (bp >= gate_frac * max_elig_tr)
+        if floor_gate_k > 0 and "is_at_floor" in train.columns:
+            gate_l = train["is_at_floor"].values & (bp <= floor_gate_k * y_tr)
+        else:
+            gate_l = np.zeros(len(train), bool)
 
         model = XGBRegressor(**{**_XGB_BASE, "random_state": seed,
-                                "objective": _make_tobit_obj(gate, sigma),
+                                "objective": _make_tobit_obj(gate, sigma,
+                                                             left_mask=gate_l),
                                 "base_score": float(y_tr.mean())})
         model.fit(train[features], y_tr)
-        return np.minimum(model.predict(test[features]), test["max_eligible_pct"].values)
+        latent = model.predict(test[features])
+        lo = (test["floor_pct"].values if "floor_pct" in test.columns
+              else np.zeros(len(test)))
+        return np.clip(latent, lo, test["max_eligible_pct"].values)
 
     return fitter
 
@@ -136,6 +152,8 @@ def load_evaluation_frame(keep_prorated: bool = False) -> tuple[pd.DataFrame, li
     # buyout puts two contracts on one season, the one that produced this
     # row's salary wins (see attach_signing_labels).
     df = attach_signing_labels(df, salary_dollars=df[TARGET] * df["cap"])
+    # CBA floor bound (is_at_floor + floor_pct) — mirrors max_eligible above
+    df = _compute_floor(df)
     return df, features
 
 
@@ -360,6 +378,30 @@ def grabit_zone(df, champion_oof, challenger_oof) -> dict:
     }
 
 
+def floor_zone(df, champion_oof, challenger_oof) -> dict:
+    """Zone-local scorecard for the left-censored side: rows at the CBA floor.
+
+    Same logic as grabit_zone at the other bound. The champion overpredicted
+    these rows by +$2.38M with 93% overshot before the left side existed; keep
+    the floor branch while delta_mae is negative, drop it if it turns positive.
+    """
+    mask = df["is_at_floor"].values
+    cap_m = df["cap"].values / 1e6
+    err_ch = (champion_oof - df[TARGET].values) * cap_m
+    err_xg = (challenger_oof - df[TARGET].values) * cap_m
+    d_abs = np.abs(err_ch[mask]) - np.abs(err_xg[mask])
+    return {
+        "n": int(mask.sum()),
+        "mae_grabit": float(np.abs(err_ch[mask]).mean()),
+        "mae_baseline": float(np.abs(err_xg[mask]).mean()),
+        "delta_mae": float(d_abs.mean()),
+        "bias_grabit": float(err_ch[mask].mean()),
+        "bias_baseline": float(err_xg[mask].mean()),
+        "rows_better": int((d_abs < -0.005).sum()),
+        "rows_worse": int((d_abs > 0.005).sum()),
+    }
+
+
 def layer_d(df, features, pred_oof, seeds=DEFAULT_SEEDS) -> dict:
     """D2 baseline ladder and D3 the locked confirmation split."""
     y = df[TARGET].values
@@ -469,6 +511,7 @@ def main():
     delta = paired_delta(challenger.fold_r2, champion.fold_r2)
     delta_sel = paired_delta(challenger.fold_r2_sel, champion.fold_r2_sel)
     zone = grabit_zone(df, champion.oof, challenger.oof)
+    fzone = floor_zone(df, champion.oof, challenger.oof)
     print(f"\n{'='*74}\n  PAIRED comparison: Grabit v3 minus Baseline XGBoost\n{'='*74}")
     print(f"    DECISION delta (selection pool)  {delta_sel['delta']:+.4f}  "
           f"+/- {delta_sel['se']:.4f} (SE)   t = {delta_sel['t']:+.2f}")
@@ -479,9 +522,15 @@ def main():
     print(f"      MAE  ${zone['mae_baseline']:.2f}M -> ${zone['mae_grabit']:.2f}M  "
           f"({zone['delta_mae']:+.2f})   rows better/worse {zone['rows_better']}/{zone['rows_worse']}")
     print(f"      bias ${zone['bias_baseline']:+.2f}M -> ${zone['bias_grabit']:+.2f}M")
-    print("    Grabit is a targeted intervention on ~5% of rows; judging it on the")
-    print("    pooled delta mistakes dilution for weakness. Keep it while the zone")
-    print("    MAE delta is negative; drop it if the zone itself turns positive.")
+    print(f"\n    Floor zone (rows pinned at the CBA minimum, n={fzone['n']}):")
+    print(f"      MAE  ${fzone['mae_baseline']:.2f}M -> ${fzone['mae_grabit']:.2f}M  "
+          f"({fzone['delta_mae']:+.2f})   rows better/worse "
+          f"{fzone['rows_better']}/{fzone['rows_worse']}")
+    print(f"      bias ${fzone['bias_baseline']:+.2f}M -> ${fzone['bias_grabit']:+.2f}M")
+    print("    Grabit is a targeted intervention on the ~30% of rows at a CBA bound;")
+    print("    judging it on the pooled delta mistakes dilution for weakness. Keep")
+    print("    each side while its zone MAE delta is negative; drop the side whose")
+    print("    zone turns positive.")
     print("\n    For CHALLENGER changes (features, filters, hyperparameters):")
     print("    accept when SELECTION-POOL paired t > 2, A2 moves the same way, and")
     print("    no C2 segment regresses by more than $0.3M. The confirmation split")
@@ -490,9 +539,17 @@ def main():
 
     out_dir = OUTPUTS_DIR / "models"
     out_dir.mkdir(parents=True, exist_ok=True)
+    # keep one generation of history: a rerun otherwise destroys the previous
+    # champion's per-row OOF, which paired comparisons against the old state
+    # need (this bit us — the v7.7x reference was clobbered mid-analysis)
+    for name in ("evaluation_suite.json", "oof_reference.csv"):
+        prev = out_dir / name
+        if prev.exists():
+            stem, dot, ext = name.partition(".")
+            prev.replace(out_dir / f"{stem}_prev{dot}{ext}")
     payload = {"champion": champion.metrics, "challenger": challenger.metrics,
                "paired_delta": delta, "paired_delta_selection": delta_sel,
-               "grabit_zone": zone,
+               "grabit_zone": zone, "floor_zone": fzone,
                # fold x seed R2 matrices — the reference every future paired
                # comparison diffs against (same folds, same seeds, per-fold).
                # *_selection is the decision-grade matrix; pooled is context.

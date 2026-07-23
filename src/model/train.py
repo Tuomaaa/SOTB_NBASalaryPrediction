@@ -340,6 +340,53 @@ def _load_prev_season_cap_pct() -> dict[tuple[str, int], float]:
     return dict(zip(zip(t["player_name_norm"], t["season"].astype(int)), pct))
 
 
+def _compute_floor(df: pd.DataFrame) -> pd.DataFrame:
+    """Attach the CBA salary floor: is_at_floor + floor_pct per row.
+
+    The minimum scale is the mirror image of the max tiers — a hard bound no
+    contract can cross, so a player whose unconstrained price sits below it is
+    observed AT it (left-censoring; see _make_tobit_obj). at-floor rows are
+    Minimum-labeled rows inside the vet-min band (<=2.5% of cap; prorated rows
+    are already filtered at 1.2%). floor_pct is the (season, experience-bucket)
+    median pay of those rows — the scale is a discrete lookup in reality, and
+    the data's own mass points recover it (0.0148 = two-year vets, 0.0235 =
+    ten-year vets) without maintaining CBA tables. Fixed-row validation: with
+    this floor as the Stage-2 clip, at-floor rows in the sub-2% predicted band
+    carry +$0.05-0.09M bias — the clip lands almost exactly on observed pay.
+
+    The label is used at TRAINING time only (same precedent as
+    is_max_contract, which also reads the observed outcome); at inference the
+    floor clip needs only season + experience, both knowable ex ante.
+    """
+    # lazy import: scripts.diagnostics imports from this module at load time
+    from scripts.diagnostics import attach_signing_labels
+    from scripts.build_external_features import norm
+
+    df = df.copy()
+    if "signing_cat" not in df.columns:
+        sal = df["salary"] if "salary" in df.columns else None
+        df = attach_signing_labels(df, salary_dollars=sal)
+
+    draft_years = _load_draft_years()
+    pn_clean = df["player_name_norm"].apply(norm)
+    exp = (df["season"] - pn_clean.map(draft_years)).fillna(
+        (df["age"].fillna(25) - 19).clip(lower=0)).astype(int).clip(lower=0)
+    bucket = pd.cut(exp, [-1, 2, 5, 9, 99], labels=["0-2", "3-5", "6-9", "10+"])
+
+    df["is_at_floor"] = ((df["signing_cat"] == "Minimum")
+                         & (df[TARGET] <= 0.025)).values
+
+    key = pd.DataFrame({"season": df["season"].values, "bucket": bucket.values,
+                        "y": df[TARGET].values, "af": df["is_at_floor"].values})
+    grp = (key[key["af"]].groupby(["season", "bucket"], observed=True)["y"]
+           .median().to_dict())
+    season_min = key[key["af"]].groupby("season")["y"].min().to_dict()
+    overall = float(key.loc[key["af"], "y"].min()) if key["af"].any() else 0.0
+    df["floor_pct"] = [grp.get((s, b), season_min.get(s, overall))
+                       for s, b in zip(key["season"], key["bucket"])]
+    return df
+
+
 def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
     """Compute max_eligible_pct with Rose Rule / Supermax from draft + awards data.
 
@@ -589,12 +636,17 @@ def train_xgboost(df: pd.DataFrame) -> tuple[dict, object, list[str]]:
 
 
 def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
-                 gate_frac: float = 0.55) -> tuple[dict, object, list[str]]:
-    """Train Grabit v3: XGBoost with censored-normal loss + CBA cap.
+                 gate_frac: float = 0.55,
+                 floor_gate_k: float = 2.0) -> tuple[dict, object, list[str]]:
+    """Train Grabit v4: two-sided censored-normal loss + CBA bounds.
 
-    Stage 1: Grabit — max-contract rows where baseline pred ≥ gate_frac * max_eligible
-    get censored-normal gradients (inverse Mills ratio). Other rows get standard MSE.
-    Stage 2: CBA cap — final_pred = min(latent, max_eligible_pct).
+    Stage 1: right-censor max rows where baseline pred >= gate_frac * ceiling
+    (the observation floors the latent); left-censor at-floor minimum rows
+    where baseline pred <= floor_gate_k * observed (the league minimum props
+    their pay up, so the observation CEILS the latent — the opposite
+    population from the dead good-players-on-minimums idea). Both gates mirror
+    the albatross logic: the model must corroborate that the bound binds.
+    Stage 2: final_pred = clip(latent, floor_pct, max_eligible_pct).
     """
     from xgboost import XGBRegressor
     from sklearn.metrics import r2_score, mean_absolute_error
@@ -605,14 +657,19 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     df = _compute_max_eligible(df)
     df = _filter_mislabeled_year1(df)
     df = _filter_continuations(df)
+    df = _compute_floor(df)
 
     X, y, groups, features = _prepare_Xy(df)
     seasons = df["season"].values
     max_elig = df["max_eligible_pct"].values
     is_max = df["is_max_contract"].values
+    at_floor = df["is_at_floor"].values
+    floor_pct = df["floor_pct"].values
 
-    print(f"Training Grabit v3 (σ={sigma}, gate={gate_frac}) on {len(X)} samples")
-    print(f"  Max contract rows: {is_max.sum()}/{len(X)}")
+    print(f"Training Grabit v4 (σ={sigma}, gate={gate_frac}, "
+          f"floor_k={floor_gate_k}) on {len(X)} samples")
+    print(f"  Max contract rows: {is_max.sum()}/{len(X)}; "
+          f"at-floor rows: {at_floor.sum()}")
 
     cv = GroupKFold(n_splits=5)
     folds = list(cv.split(X, y, groups))
@@ -624,19 +681,21 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
         m.fit(X.iloc[tr_i], y[tr_i])
         oof_bl[va_i] = m.predict(X.iloc[va_i])
     gate = is_max & (oof_bl >= gate_frac * max_elig)
-    print(f"  Gated censored rows: {gate.sum()}/{is_max.sum()} max rows")
+    gate_l = at_floor & (oof_bl <= floor_gate_k * y)
+    print(f"  Gated censored rows: right {gate.sum()}/{is_max.sum()} max, "
+          f"left {gate_l.sum()}/{at_floor.sum()} at-floor")
 
     # Grabit CV
     oof_pred = np.full(len(y), np.nan)
     fold_r2 = []
     fold_mae = []
     for fi, (tr_i, va_i) in enumerate(folds):
-        obj = _make_tobit_obj(gate[tr_i], sigma)
+        obj = _make_tobit_obj(gate[tr_i], sigma, left_mask=gate_l[tr_i])
         m = XGBRegressor(**{**_XGB_BASE, "objective": obj,
                             "base_score": float(y[tr_i].mean())})
         m.fit(X.iloc[tr_i], y[tr_i])
         latent = m.predict(X.iloc[va_i])
-        capped = np.minimum(latent, max_elig[va_i])
+        capped = np.clip(latent, floor_pct[va_i], max_elig[va_i])
         oof_pred[va_i] = capped
 
         fr2 = r2_score(y[va_i], capped)
@@ -649,17 +708,19 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     recent_mae = mean_absolute_error(y[recent_mask], oof_pred[recent_mask]) if recent_mask.sum() > 10 else float("nan")
 
     # Final model on all data
-    obj_final = _make_tobit_obj(gate, sigma)
+    obj_final = _make_tobit_obj(gate, sigma, left_mask=gate_l)
     m_final = XGBRegressor(**{**_XGB_BASE, "objective": obj_final,
                               "base_score": float(y.mean())})
     m_final.fit(X, y)
 
     results = {
-        "model": "Grabit v3",
+        "model": "Grabit v4",
         "sigma": sigma,
+        "floor_gate_k": floor_gate_k,
         "n_samples": len(X),
         "n_features": len(features),
         "n_censored": int(gate.sum()),
+        "n_left_censored": int(gate_l.sum()),
         "features": features,
         "cv_r2_mean": float(np.mean(fold_r2)),
         "cv_r2_std": float(np.std(fold_r2)),
