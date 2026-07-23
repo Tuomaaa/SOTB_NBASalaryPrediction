@@ -32,6 +32,7 @@ find their way there.
 | File | Contents |
 |------|----------|
 | [CLAUDE.md](CLAUDE.md) | Project instructions and coding conventions — **the source of truth** |
+| [docs/worker-brief.md](docs/worker-brief.md) | If you were dispatched to execute a task: your boundaries, the hard rules, and the evidence bundle you owe back |
 | [ISSUES.md](ISSUES.md) | Known problems nobody has fixed yet — **read before starting, append before stopping** |
 | [CONTEXT.md](CONTEXT.md) | Domain glossary — the vocabulary the code and the site both use |
 | [docs/adr/](docs/adr/) | Architecture decisions and why the alternatives were rejected |
