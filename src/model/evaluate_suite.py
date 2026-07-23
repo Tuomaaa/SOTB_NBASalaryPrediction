@@ -49,11 +49,12 @@ from xgboost import XGBRegressor
 
 from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR
 from src.model.train import (
-    load_training_data, _filter_year1, _filter_rookie_scale, _compute_max_eligible,
+    load_training_data, _filter_year1, _filter_rookie_scale, _filter_prorated,
+    _compute_max_eligible,
     _prepare_Xy, _make_tobit_obj, _XGB_BASE, FEATURE_COLS, TARGET,
 )
-# reuse the canonical categoriser so C2 segments match scripts/diagnostics.py
-from scripts.diagnostics import _categorize_signing
+# reuse the canonical label logic so C2 segments match scripts/diagnostics.py
+from scripts.diagnostics import attach_signing_labels
 
 N_SPLITS = 5
 DEFAULT_SEEDS = tuple(range(10))
@@ -107,49 +108,33 @@ def make_grabit_fitter(sigma: float = 0.02, gate_frac: float = 0.55):
 # Data
 # ---------------------------------------------------------------------------
 
-def load_evaluation_frame(min_salary_m: float | None = None) -> tuple[pd.DataFrame, list[str]]:
+def load_evaluation_frame(keep_prorated: bool = False) -> tuple[pd.DataFrame, list[str]]:
     """Training rows with features imputed, plus the usable feature list.
 
+    Applies the same filter chain as train.py so the suite scores what the model
+    is actually fit on.
+
     Args:
-        min_salary_m: drop rows below this annual salary in $M. Prorated
-            partial-season deals (10-day contracts, mid-season signings) are not
-            annual contract values; ~17% of rows sit below $1.2M with a median
-            of $0.26M. Leave as None to keep every row.
+        keep_prorated: skip the prorated-salary filter, retaining partial-season
+            rows. Only for reproducing the pre-v7.2x row set — R2 is not
+            comparable across different row sets, so a comparison against the
+            filtered frame has to fix the evaluation set (see D1).
     """
-    df = _compute_max_eligible(_filter_rookie_scale(_filter_year1(load_training_data())))
-    df = df.reset_index(drop=True)
+    df = _filter_rookie_scale(_filter_year1(load_training_data()))
+    if not keep_prorated:
+        df = _filter_prorated(df)
+    df = _compute_max_eligible(df).reset_index(drop=True)
     df["cap"] = df["season"].map(CAP_BY_SEASON)
     df["salary_m"] = df[TARGET] * df["cap"] / 1e6
-
-    if min_salary_m is not None:
-        before = len(df)
-        df = df[df["salary_m"] >= min_salary_m].reset_index(drop=True)
-        print(f"Prorated filter (< ${min_salary_m}M): dropped {before - len(df)} rows "
-              f"({len(df)} remain)")
 
     _, _, _, features = _prepare_Xy(df)
     df[features] = df[features].fillna(df[features].median()).fillna(0)
     df["is_confirmation"] = df["player_name_norm"].map(_in_confirmation_set)
-    df["signing_cat"] = _attach_signing_category(df)
+    # Diagnostic label only, never a feature. Salary-aware: when a mid-season
+    # buyout puts two contracts on one season, the one that produced this
+    # row's salary wins (see attach_signing_labels).
+    df = attach_signing_labels(df, salary_dollars=df[TARGET] * df["cap"])
     return df, features
-
-
-def _attach_signing_category(df: pd.DataFrame) -> pd.Series:
-    """Spotrac signing mechanism per row, for C2 only.
-
-    This is a diagnostic label and never a feature: the mechanism is partly
-    determined by the contract itself. Coverage is ~43%; the rest is 'Unknown'.
-    """
-    path = PROCESSED_DIR / "spotrac_signing_types.csv"
-    if not path.exists():
-        return pd.Series(["Unknown"] * len(df), index=df.index)
-    st = pd.read_csv(path)[["player_name_norm", "season", "signing_type"]]
-    st = st.dropna(subset=["signing_type"]).drop_duplicates(["player_name_norm", "season"])
-    st["signing_cat"] = st["signing_type"].map(_categorize_signing)
-    merged = df[["player_name_norm", "season"]].merge(
-        st[["player_name_norm", "season", "signing_cat"]],
-        on=["player_name_norm", "season"], how="left")
-    return merged["signing_cat"].fillna("Unknown").values
 
 
 def _in_confirmation_set(player_name_norm: str) -> bool:

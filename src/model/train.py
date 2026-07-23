@@ -42,6 +42,10 @@ FEATURE_COLS = [
 
 TARGET = "cap_pct"
 
+# Salary floor for a real annual contract, as a share of that season's cap.
+# Below this the row is a prorated partial season, not a negotiated price.
+PRORATED_FLOOR = 0.012
+
 ELITE_AWARDS = {
     "All-NBA 1st Team", "All-NBA 2nd Team", "All-NBA 3rd Team",
     "MVP", "Defensive Player of the Year",
@@ -116,6 +120,26 @@ def _filter_rookie_scale(df: pd.DataFrame) -> pd.DataFrame:
         )
     filtered = df[~mask].copy()
     print(f"Rookie filter: dropped {mask.sum()} rows ({len(filtered)} remain)")
+    return filtered
+
+
+def _filter_prorated(df: pd.DataFrame, floor: float = PRORATED_FLOOR) -> pd.DataFrame:
+    """Remove partial-season salaries, which are not annual contract values.
+
+    A 10-day deal or a February signing pays a fraction of a season, so the same
+    player at the same ability lands on a different target depending only on the
+    date he signed. The floor is a share of that season's cap rather than a
+    dollar figure, because the veteran minimum tracks the cap: across 2019-2026
+    the minimum sits at 1.30-2.35% of the cap, so 1.2% clears every full-season
+    minimum while cutting the prorated rows, whose median pay is $0.18-0.69M.
+
+    These rows bias the whole prediction surface down by about $0.5M — see the
+    v7.2x entry in VERSION_HISTORY.md.
+    """
+    mask = df["cap_pct"] < floor
+    filtered = df[~mask].copy()
+    print(f"Prorated filter (<{floor:.1%} of cap): dropped {mask.sum()} rows "
+          f"({len(filtered)} remain)")
     return filtered
 
 
@@ -242,6 +266,7 @@ def train_ridge(df: pd.DataFrame, alpha: float = 1.0) -> tuple[dict, object]:
     """Train Ridge regression with year-1 filter + rookie filter."""
     df = _filter_year1(df)
     df = _filter_rookie_scale(df)
+    df = _filter_prorated(df)
     X, y, groups, features = _prepare_Xy(df)
     print(f"Training Ridge (alpha={alpha}) on {len(X)} samples, {len(features)} features")
 
@@ -286,6 +311,7 @@ def train_xgboost(df: pd.DataFrame) -> tuple[dict, object, list[str]]:
 
     df = _filter_year1(df)
     df = _filter_rookie_scale(df)
+    df = _filter_prorated(df)
     X, y, groups, features = _prepare_Xy(df)
     seasons = df["season"].values
     print(f"Training XGBoost on {len(X)} samples, {len(features)} features")
@@ -362,6 +388,7 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
 
     df = _filter_year1(df)
     df = _filter_rookie_scale(df)
+    df = _filter_prorated(df)
     df = _compute_max_eligible(df)
 
     X, y, groups, features = _prepare_Xy(df)

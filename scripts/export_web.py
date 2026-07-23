@@ -33,6 +33,7 @@ from src.model.train import (
     FEATURE_COLS,
     TARGET,
     _compute_max_eligible,
+    _filter_prorated,
     _filter_rookie_scale,
     _filter_year1,
     _load_rookie_scale_set,
@@ -125,8 +126,12 @@ def _training_medians(df: pd.DataFrame) -> tuple[list[str], pd.Series]:
     _prepare_Xy drops near-constant columns and fills NaN with the median of
     the *filtered* training set. Predicting the full dataset has to reuse both,
     or the full-set rows get imputed against a different distribution.
+
+    The filter chain here must stay identical to the one inside train_grabit —
+    including the prorated-salary filter added in v7.2x — or the medians come
+    from a different row set than the model was fit on.
     """
-    tr = _filter_rookie_scale(_filter_year1(df))
+    tr = _filter_prorated(_filter_rookie_scale(_filter_year1(df)))
     X_tr, _, _, features = _prepare_Xy(tr)
     return features, X_tr.median()
 

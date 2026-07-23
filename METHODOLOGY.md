@@ -58,7 +58,8 @@ into a CSV cannot survive.
 3. **Contract structure detection**: salary progression analysis detects contract boundaries. Each row tagged with `year_in_contract` and `contract_years`.
 4. **Year-1 filter**: only keep `year_in_contract == 1` rows. Years 2+ are CBA-mandated escalators (5%/8% raises), not market evaluations. Reduces to **1,808 rows**.
 5. **Rookie scale filter**: remove 1st-round picks in years 2-4 of rookie deal (slotted by draft position, not market). Uses draft_data.csv for precise identification. Reduces to **1,556 rows** across 666 players, 2019–2026.
-6. **GroupKFold CV**: 5-fold, same player stays in same fold to prevent within-player leakage.
+6. **Prorated filter**: drop rows below 1.2% of that season's cap — partial-season pay, not an annual contract value. Reduces to **1,297 rows**. See below.
+7. **GroupKFold CV**: 5-fold, same player stays in same fold to prevent within-player leakage.
 
 ### Sample composition
 
@@ -69,15 +70,23 @@ of which are easier to price than an open-market signing. Adding the actual free
 agent signings dropped the 2026 forward R² from 0.843 to 0.811 on a test set
 that finally represents the task.
 
-### Known contamination not yet removed
+### Prorated salaries (removed in v7.2x)
 
-247 rows (~16% of the pre-refresh set) sit below 1% of the cap with a median
-salary of $0.26M, a median 28 games played and 12.5 minutes per game. These are
-prorated partial-season deals — 10-day contracts and mid-season signings — not
-annual contract values. Dropping training rows below ~$0.9M and scoring on a
-fixed evaluation set raises R² by **+0.0048** and moves total bias from −$0.53M
-to −$0.05M. Not yet applied; it changes the training filter, so it needs the
-fixed-evaluation-set protocol and a version bump.
+259 rows (17%) paid less than 1.2% of the cap, a median of $0.29M with a median
+28 games played and 12.5 minutes. These are 10-day contracts and mid-season
+signings — the same player at the same ability lands on a different target
+depending only on the date he signed, so the row carries no market information.
+
+The floor is a share of the cap, not a dollar figure, because the veteran
+minimum tracks the cap: across 2019–2026 it sits between 1.30% and 2.35%, so
+1.2% clears every full-season minimum while cutting the prorated rows.
+
+Removing them is a **calibration fix rather than an accuracy gain**. Their
+presence dragged every prediction down by about half a million dollars. On a
+fixed evaluation set of the 1,297 clean rows, varying only the training set:
+R² 0.7534 → 0.7588, MAE $3.289M → $3.327M, bias **−$0.423M → +$0.101M**.
+Re-centring the filtered predictions by their mean shift returns R² to 0.7522 —
+the conditional pricing function is unchanged, only the level moved.
 
 ## Feature Set (14 features)
 

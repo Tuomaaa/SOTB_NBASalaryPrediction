@@ -95,7 +95,8 @@ Signing type breakdown (OOF, $M):
 
 | Ver | Model | 10-seed CV R² | Forward R² (24-26) | N | Feat | Change |
 |-----|-------|---------------|-------------------|---|------|--------|
-| 7.1x | XGBoost (Grabit) | **0.7581** | **0.8249** | 1556 | 14 | 2026 signings refreshed, 2025/26 caps corrected, four-layer evaluation suite |
+| 7.1x | XGBoost (Grabit) | 0.7581 | 0.8249 | 1556 | 14 | 2026 signings refreshed, 2025/26 caps corrected, four-layer evaluation suite |
+| **7.2x** | **XGBoost (Grabit)** | **0.7588** | **0.8216** | **1297** | **14** | **Prorated partial-season salaries removed from training** |
 
 Baseline XGBoost on the same data: CV 0.7570, forward 0.8227. **Paired delta
 +0.0011 ± 0.0004, t = +2.72.**
@@ -121,6 +122,53 @@ corrections, none of them a model change:
 v7.1x is therefore **not** comparable to v7.0x and earlier: different rows,
 different target values for two seasons. It is the first entry measured under
 the protocol in `src/model/evaluate_suite.py`.
+
+### v7.2x: prorated salaries removed
+
+259 of the 1,556 training rows (17%) paid less than 1.2% of the cap, a median of
+$0.29M against a veteran minimum that never drops below 1.30% of the cap in any
+season covered. They are 10-day contracts and mid-season signings: the same
+player at the same ability lands on a different target depending only on the date
+he signed. `_filter_prorated` in `train.py` now cuts them, using a share of the
+cap rather than a dollar figure so the floor tracks the minimum scale.
+
+**This is a calibration fix, not an accuracy gain.** Including those rows drags
+every prediction down by roughly half a million dollars. Scoring the same Grabit
+champion on the same 1,297 clean rows, varying only the training set:
+
+| trained on | CV R² | MAE | bias |
+|---|---|---|---|
+| all rows (v7.1x) | 0.7534 | $3.289M | **−$0.423M** |
+| prorated removed (v7.2x) | **0.7588** | $3.327M | **+$0.101M** |
+
+The R² gain of +0.0054 is almost entirely the intercept: re-centring the v7.2x
+predictions by their mean shift returns R² to 0.7522, within noise of the
+unfiltered model. The conditional pricing function did not change — the level
+did. Bias falls monotonically as the floor rises (−$0.481M at no filter,
+−$0.075M at 0.6%, −$0.038M at 0.8%, −$0.014M at 1.0%, +$0.029M at 1.2%).
+
+Headline movements are a **re-baseline, not a comparison** — the row set changed,
+so R²'s denominator did too:
+
+| Layer | R² 7.1x | R² 7.2x | MAE 7.1x | MAE 7.2x |
+|---|---|---|---|---|
+| A1 pooled CV | 0.7581 | 0.7588 | $3.14M | $3.33M |
+| A2 2024-26 | 0.8257 | 0.8343 | $3.30M | $3.38M |
+| B1 forward | 0.8249 | 0.8216 | $3.30M | $3.57M |
+
+MAE rises across the board because the removed rows were the easiest in the set —
+the old model predicted them to $2.40M MAE against $3.29M for real contracts, so
+keeping them in the *evaluation* set was flattering the average. On identical
+rows MAE moves only +$0.038M.
+
+**The C2 segment guard fired and was overruled.** Minimum (+$0.84M → +$1.51M) and
+MLE (+$1.05M → +$1.44M) both worsened past the $0.30M threshold. But every
+segment's signed bias moved up by the same +$0.39M to +$0.72M — Bird Rights
+−$3.06M → −$2.34M and Cap Space −$0.86M → −$0.29M improved by the identical
+mechanism. The guard compares |bias|, so a global level correction necessarily
+trips it wherever a segment was already overpredicted. **The guard needs to
+measure segment bias relative to the global level; until it does, treat a C2
+breach on a calibration change as uninformative.**
 
 ### Corrections to earlier findings
 
