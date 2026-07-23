@@ -26,6 +26,19 @@ files inside your task's scope and your scratchpad. You must NOT:
   `scripts/extend_contract_structure.py` extends it incrementally and
   hard-fails if a pre-existing row would move
 
+## Isolation — do this before anything else
+
+Multiple sessions share this machine and this repo. Two rules:
+
+- **Work in your own git worktree**, never in the main checkout:
+  `git worktree add ../BBall-worker-<task> <pinned-tag-or-branch>` and do
+  everything there. Checking out a tag in the shared directory moves HEAD
+  under every other session's feet.
+- **Cap your compute** when another session may be running: set
+  `OMP_NUM_THREADS=6` (or half the cores) before XGBoost-heavy grids, and
+  schedule long grids when the machine is otherwise quiet. A saturated box
+  wedges everyone's trivial commands, not just yours.
+
 ## Reading order
 
 1. `CLAUDE.md` — conventions and the load-bearing warnings
