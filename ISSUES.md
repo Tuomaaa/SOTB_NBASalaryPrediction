@@ -60,43 +60,37 @@ $2.48M, and mechanism biases match `METHODOLOGY.md`.
 
 ---
 
-## 2. Six pre-2022 escalator years still wear a year-1 label
+## 2. Continuation rows: the part deliberately left in
 
-**Severity**: medium — corrupts the definition of a "fresh signing" for six
-training rows. (Residual of a larger entry: the ceiling side of the original
-"thirteen rows above their max" issue was closed in v7.4x/v7.5x — award trigger
-now accepts `s-1`, hand-curated `early_supermax.csv` covers extensions signed
-two summers early (a blanket s-3 lookback was tried first and wrongly
-un-censored Klay 2019 and Fox 2026 — do not reintroduce it), and a
-1.08 x prior-pay floor with `salaries_prehistory.csv` anchors the 2019 boundary.
-`prev_cap_pct` staleness was fixed by the v7.3x rebuild: spot-check shows every
-derivable row matches the corrected-cap value, not the stale one.)
+**Severity**: low — the provable and the corroborated cases are gone; what
+remains is kept on purpose.
 
-Largely closed over v7.6x-v7.7x. The six provable rows (paid above their tier
-ceiling) go first via `_filter_mislabeled_year1`; the broader class — ordinary
-contracts whose first observed season wore a year-1 label — is demoted by
-`_filter_continuations`, which requires **three independent signals to agree**:
-the salary-matched Spotrac contract span starts earlier, the season-over-season
-pay step is escalator-shaped (0.92-1.08), and the row is absent from that
-season's FA-signings list. 119 rows fell (2019: 35 down to 2026: 1); common-row
-A1 rose +0.0102. The spot-checked top drops are all verifiable mid-contract
-seasons (LeBron 2019, Simmons 2021, Hayward 2023).
+Closed over v7.6x-v7.7x. Six rows paid above their *tier* ceiling are provable
+mislabels and go via `_filter_mislabeled_year1`. The broader class — ordinary
+pre-2019 contracts whose first observed season wore a year-1 label — is demoted
+by `_filter_continuations` on a three-signal consensus: the salary-matched
+Spotrac span starts earlier, the season-over-season pay step is escalator-shaped
+(0.92-1.081), and the row is absent from that season's FA-signings list. 119 rows
+fell (2019: 35, tapering to 2026: 1); common-row A1 rose +0.0102. Spot-checked
+top drops are verifiable mid-contract seasons (LeBron 2019, Simmons 2021,
+Hayward 2023).
 
 **A warning that must outlive this entry**: the span signal alone is NOT
-sufficient. A span-only version of the filter deleted 346 rows, and 7.2% of
-them sat in that season's actual FA-signings list — Brunson 2022, VanVleet
-2023, Jimmy Butler 2019, all genuine fresh signings. Spotrac's Free-Agent
-anchor is unreliable for contracts later superseded by an extension. Do not
-relax the three-signal consensus back to span-only.
+sufficient. A span-only version deleted 346 rows, 7.2% of which sat in that
+season's actual FA-signings list — Brunson 2022, VanVleet 2023, Jimmy Butler
+2019, all genuine fresh signings. Spotrac's Free-Agent anchor is unreliable for
+contracts later superseded by an extension. **Do not relax the consensus back to
+span-only.**
 
-What remains, deliberately: rows where last-season pay is unobservable (2019
-players outside the 153-player prehistory) and span-only suspects are KEPT —
-precision over recall; a stale price in training is cheaper than a deleted
-real one. Expanding `salaries_prehistory.csv` coverage (more cached player
-pages) would convert more of them into testable rows.
+What remains, deliberately: rows whose last-season pay is unobservable (2019
+players outside the 155-player prehistory) and span-only suspects are KEPT.
+Precision over recall — a stale price in training is cheaper than a deleted real
+one. Expanding `salaries_prehistory.csv` (more cached BBRef player pages, parsed
+offline by `scripts/backfill_prehistory_salaries.py`) converts more of them into
+testable rows; a scraped signing date would settle them outright.
 
-**Verify** (state as of v7.7x): evaluation frame 1172 rows; 2019 year-1 count
-220; `check_caps.py` hit rates for 2019-2020 should have risen.
+**Verify** (state at v7.8x): evaluation frame 1,172 rows; 2019 year-1 count 220
+against 255 before; `check_caps.py` hit rates for 2019-2020 risen.
 
 ---
 
@@ -157,35 +151,46 @@ team filter only.
 
 ---
 
-## 6. Docs lag three landed decisions
+## 6. Two boundary rules rest on hand-curated or derived tables
 
-**Severity**: medium — METHODOLOGY and VERSION_HISTORY describe a model two
-versions behind the code, and one confirmed architecture decision exists only
-in a chat log until it lands here.
+**Severity**: low — both work today; both are maintenance the next refresh pays.
 
-What needs writing, in priority order:
+Stage 2's bounds are exact where the CBA is exact and approximate where the repo
+lacks a source:
 
-1. **Two-stage semantics, as confirmed 2026-07-23**: Stage 1 predicts value
-   under *default parameters* (today: implicit training-set averages over
-   mechanism/market context); Stage 2 adjusts for *told parameters* (today:
-   exactly one — the legal ceiling `max_eligible_pct`). The C2
-   mechanism-bias table measures precisely the context that Stage 1 averages
-   over and Stage 2 does not yet condition on; any parameter promoted from
-   "averaged" to "told" should shrink its C2 bias, which is the natural
-   acceptance test. Belongs in METHODOLOGY (model section) and CONTEXT.md
-   (vocabulary: consider naming Stage-1 output "reference value").
-2. **VERSION_HISTORY entries for v7.3x-v7.5x** — the annotated git tags carry
-   the one-liners and A1/A2/B1 for each.
-3. **Grabit's keep/drop rule** — judged on its zone (rows paid >= 90% of their
-   own ceiling: MAE, n=65-67, printed by the suite), not the pooled paired
-   delta, which mixed a real zone effect with dilution and, before v7.4x, with
-   a ceiling bug. Replaces the "Grabit Impact on Max Contracts" story in
-   METHODOLOGY.
-4. **Prediction-timepoint convention** — features must be knowable at
-   market open (July 1). This is why exit-mechanism features use option
-   *structure* (knowable at signing) rather than option *decisions*
-   (knowable only at market open), and why FA supply must be computed from
-   contract expirations rather than realized FA lists.
+- **`early_supermax.csv`** enumerates designated-veteran deals signed two or more
+  summers before they take effect (Wall 2019, Towns 2024), because no award
+  window anchored to the start season can reach them. A blanket `s-3` lookback
+  was tried at v7.4x and reverted at v7.5x — it un-censored two genuine 30% max
+  signings. **Do not reintroduce a wider window.** The systematic fix is a
+  signing date per contract, which Spotrac exposes and the scrape does not yet
+  take; that would also let `_filter_continuations` drop its step-and-veto
+  signals for a direct test.
+- **`floor_pct`** is the median pay of at-floor rows per (season, experience
+  bucket) — a recovery of the veteran-minimum scale from the data's own mass
+  points, not the published scale. Buckets with few at-floor rows fall back to
+  the season minimum. Accurate enough that the Stage-2 clip lands within
+  $0.05-0.09M of observed pay, but a published scale would be exact.
 
-**Verify**: a reader of METHODOLOGY alone can reproduce the current suite
-output without visiting this file or the git log.
+**Verify**: `python -c "from src.model.train import *; ..."` — over-cap rows stay
+0, and at-floor rows in the sub-2% predicted band keep bias under $0.10M.
+
+---
+
+## 7. Sigma and both gates were tuned on a different row set
+
+**Severity**: low — the settings still pass their zone tests, so this is
+opportunity rather than damage.
+
+`sigma = 0.02` dates from a 1,487-row training set with 73 rows in the max zone.
+The zone is now 57 rows of 1,172, and a second censoring side exists that did
+not when sigma was chosen. The right gate (0.55) is equally old; only the left
+gate (k = 2.0) was screened on the current data, over {1.5, 2.0, 3.0}.
+
+**Fix**: re-sweep sigma and both gates judged on **zone** MAE rather than pooled
+R², with the pooled selection-pool delta as a no-regression guard. The screening
+harness from the v7.8x experiment is the pattern to copy.
+
+**Verify**: whichever settings win, both zone MAEs stay at or below $6.11M
+(max) and $1.98M (floor), and the selection-pool paired delta does not go
+negative.

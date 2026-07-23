@@ -33,7 +33,7 @@ nba-valuation/
 │   │   ├── cba_constraints.py  # CBA era flag
 │   │   └── build_dataset.py # stage 1 of the training-data rebuild
 │   └── model/
-│       ├── train.py         # Ridge / XGBoost / Grabit + the year-1 and rookie filters
+│       ├── train.py         # Ridge / XGBoost / two-sided Grabit + the filter chain
 │       ├── evaluate_suite.py  # the four-layer evaluation protocol (see below)
 │       ├── evaluate.py      # residual plots
 │       └── predict.py       # inference on upcoming free agents
@@ -41,6 +41,11 @@ nba-valuation/
 │   ├── build_external_features.py  # stage 2: awards, draft, injuries, team value
 │   ├── phase3.py            # stage 3 lives here: build_contract_features → prev_cap_pct
 │   ├── check_caps.py        # asserts every season's cap reconciles with max contracts
+│   ├── refresh_salaries.py  # re-scrape BBRef team pages; failed team keeps stale rows
+│   ├── extend_contract_structure.py  # incremental year_in_contract; never recomputes
+│   ├── rebuild_training_data.py      # single entry for the three-stage chain
+│   ├── refresh_spotrac.py   # FA class + anchored signing-mechanism labels
+│   ├── backfill_prehistory_salaries.py  # 2016-18 pay from the cached pages, offline
 │   ├── diagnostics.py       # residual analysis, SHAP, signing-mechanism slices
 │   ├── export_web.py        # refits and writes the portfolio site's data
 │   └── scrape_*.py          # one-off scrapers for awards, Spotrac, missing salaries
@@ -55,20 +60,36 @@ nba-valuation/
     └── web/                 # export snapshots
 ```
 
-**Rebuilding the training data** runs three stages in order, and there is no
-single entry point that chains them:
+**Refreshing the data** is four commands, in order. Each validates itself and
+refuses to write on a failed check:
 
 ```
-src/features/build_dataset.py   →  base merge
-scripts/build_external_features.py  →  awards, draft, injuries, team value
+scripts/refresh_salaries.py          # re-scrape 30 BBRef team pages, merge
+scripts/extend_contract_structure.py # incremental year_in_contract assignment
+scripts/rebuild_training_data.py     # the three-stage chain below, in one entry
+scripts/refresh_spotrac.py --year N  # FA class + signing-mechanism labels
+```
+
+`rebuild_training_data.py` chains what used to be three unrelated scripts, the
+last of which is an experiment file:
+
+```
+src/features/build_dataset.py               →  base merge
+scripts/build_external_features.py          →  awards, draft, injuries, team value
 scripts/phase3.py::build_contract_features  →  prev_cap_pct
 ```
 
-The script that produced `contract_structure_v2.csv` was never committed. A
-reconstruction from CBA escalator ratios only reaches 88% agreement on the
-year-1 flag, which is far too low to regenerate history without invalidating
-every published version number — so that table is extended incrementally
-(unchanged rows keep their assignment) rather than recomputed.
+Two rules these scripts encode, both learned the hard way:
+
+- **A failed fetch degrades to stale, never to missing.** `refresh_salaries.py`
+  keeps a team's existing rows when its page 403s; an earlier version filtered by
+  season alone and deleted a whole team's future salaries.
+- **The contract-structure table is extended, never recomputed.** The script that
+  produced `contract_structure_v2.csv` was never committed, and a reconstruction
+  from CBA escalator ratios reaches only 88% agreement on the year-1 flag — far
+  too low to regenerate history without invalidating every published version
+  number. `extend_contract_structure.py` carries unchanged rows byte-for-byte and
+  hard-fails if one would move.
 
 ## Data Sources (all public)
 
@@ -122,12 +143,21 @@ Two rules the ablation table encodes:
 ## Modeling Strategy
 
 Current model is the two-stage Grabit pipeline described in METHODOLOGY.md.
-Ridge remains in `train.py` as a reference point.
+Stage 1 prices under *default parameters* with a two-sided censored loss; Stage 2
+adjusts for *told parameters*, today the two CBA bounds. Ridge remains in
+`train.py` as a reference point.
 
 Escalating model complexity requires a paired CV improvement, not a hunch. The
 hyperparameters have been grid-searched twice and the model is **not**
 underfitting — deeper trees, higher learning rate, and looser `min_child_weight`
 all score worse. Extra structure has to justify itself against that.
+
+**Judge a targeted intervention where it acts.** Censoring touches ~30% of rows
+across two zones that pull in opposite directions, so a pooled statistic averages
+both effects over rows neither touches — the pooled test would have deleted the
+max side at v7.4x on t = −0.07 while its zone MAE was falling by $0.75M. Each
+side is kept while its own zone MAE delta is negative. The pooled selection-pool
+rule still governs changes that act on every row.
 
 ## Coding Conventions
 

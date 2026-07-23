@@ -37,7 +37,7 @@ This project builds an open-source NBA player valuation model that predicts cont
 
 **Intentional lag**: Performance metrics from season *t* predict salary in season *t+1*, reflecting how teams actually sign contracts — based on past production.
 
-After filtering to year-1 contracts only (removing CBA-mandated escalator years) and slotted rookie-scale deals, the training set contains **1,556 player-season observations** across 666 unique players.
+After filtering to year-1 contracts only (removing CBA-mandated escalator years), slotted rookie-scale deals, prorated partial seasons, and rows a three-signal test identifies as escalator years mislabelled as fresh signings, the training set contains **1,172 player-season observations** across 581 unique players.
 
 **A caveat about the denominator.** Because the salary cap divides the target, a
 wrong cap rescales an entire season. Two seasons carried stale pre-media-deal
@@ -104,19 +104,35 @@ direction is not distinguishable from noise at matched training-set size
 Earlier origins are excluded because their training sets are a third to a fifth
 of the current one, so they measure data scarcity rather than the model.
 
-| Metric | Baseline XGBoost | Grabit + CBA Cap |
+| Metric | Baseline XGBoost | Grabit, two-sided |
 |--------|-----------------|------------------|
-| CV R² (2019–2026, n=1,556) | 0.7570 | **0.7581** |
-| CV R² (2024–2026, n=454) | 0.8234 | **0.8257** |
-| Forward R² (2024–2026) | 0.8227 | **0.8249** [0.770, 0.867] |
-| Calibration slope | 1.0145 | **1.0006** |
+| CV R² (2019–2026, n=1,172) | 0.7633 | **0.7653** |
+| CV R² (2024–2026, n=386) | — | **0.8465** |
+| Forward R² (2024–2026) | — | **0.8324** [0.779, 0.877] |
+| CV MAE | — | **$3.065M** |
+| Calibration slope | — | 0.9885 |
 
-**Paired delta +0.0011 ± 0.0004, t = +2.72.** Deltas are paired by fold because
-fold-to-fold variation (sd 0.045) is forty-five times seed-to-seed variation (sd 0.001);
-comparing two independently-reported means would discard nearly all the power.
-The Grabit gain is small because gated censoring touches ~73 of 1,556 rows — the
-interest is in the mechanism generalising to other externally-constrained prices,
-not in the size of this particular effect.
+Deltas are paired by fold because fold-to-fold variation (sd 0.044) is thirty
+times seed-to-seed variation (sd 0.0014); comparing two independently-reported
+means would discard nearly all the power. Since 2026-07-23 the paired delta that
+*decides* is computed on the selection pool alone — an audit found accepted
+changes helping watched rows while hurting the held-out 15% (difference-in-
+differences +5.6e-5, cluster CI excluding zero), which is what fitting a metric
+rather than a market looks like.
+
+**Censoring is judged where it acts, not on the pooled average.** It touches 354
+of 1,172 rows and the two sides pull opposite ways, so a pooled statistic
+averages two targeted effects over rows neither touches:
+
+| Zone | Baseline | Censored | rows better/worse |
+|---|---|---|---|
+| Max (n=57, paid ≥90% of own ceiling) | $7.07M MAE | **$6.11M** | 55 / 2 |
+| Floor (n=297, pinned at the minimum) | $2.40M MAE | **$1.98M** | 254 / 43 |
+
+The floor side also moves the pooled dollar metric — MAE $3.181M → $3.065M, 95%
+cluster-bootstrap CI [−0.139, −0.091] — while barely touching R², because R²
+weights by squared error and these are 297 small-dollar rows. Where the two
+metrics disagree this sharply the disagreement is arithmetic, not contradiction.
 
 **Integrity and guards** cover the ways this kind of model quietly misleads: a
 baseline ladder (minutes per game *alone* reaches 0.587 against the full model's
@@ -130,8 +146,13 @@ evaluation set, since R²'s denominator moves with the row set.
 that the model underpaid stars by up to $6M, read off residuals binned by actual
 salary. That gradient is an artifact — binning by a noisy target produces it even
 for a perfectly calibrated model. Binned by *predicted* value instead, bias is
-flat to within ±$0.65M, and the OLS slope of actual on predicted is 1.0006.
+flat to within ±$0.51M, and the OLS slope of actual on predicted is 0.99.
 Fold-honest recalibration confirms it by failing to help.
+
+The same trap has a second form, met while comparing two models: cutting
+segments on either model's *own* predictions lets band composition shift between
+them and manufactures a difference that is not there. Model comparisons here
+assign rows to segments by something neither model produced.
 
 What survives the correction is the signing-mechanism pattern, which holds after
 controlling for predicted value:
@@ -150,9 +171,17 @@ either lands a market deal or takes a minimum, and the conditional mean sits
 correctly between the two modes while being wrong for both. Any real gain must
 come from information that is *not* a function of the current features.
 
+**One bound was recoverable, and the distinction is economic.** A *good* player
+on a minimum could have signed elsewhere for more, so his salary reflects a
+choice and censoring him is unjustified — that is the negative result above. A
+player whose unconstrained price sits *below* the league minimum is held there
+by a rule no contract may cross, exactly as a max player is held at the ceiling.
+Left-censoring that population is worth $0.42M per row across 297 rows, with a
+bootstrap interval clear of zero.
+
 ## Technical Contributions
 
-1. **First application of Grabit (censored GBT) to sports salary prediction**: adapting a framework from credit-risk modeling to handle CBA-imposed salary ceilings
+1. **First application of Grabit (censored GBT) to sports salary prediction**: adapting a framework from credit-risk modeling to handle CBA-imposed salary bounds, censored on both sides — ceilings for max contracts, floors for veteran minimums
 2. **Gated censoring**: Not all max-salary players are underpaid, and naively censoring them degrades predictions
 3. **Systematic feature ablation**: 20+ features evaluated and documented with ΔCV R², preventing feature bloat common in sports analytics models
 4. **A characterised negative result**: signing mechanism produces a large, real residual pattern that is nonetheless unrecoverable, because the mechanism is a function of the same features and the conditional distribution is bimodal. The upper bound is measured, not assumed
