@@ -103,6 +103,14 @@ one. Expanding `salaries_prehistory.csv` (more cached BBRef player pages, parsed
 offline by `scripts/backfill_prehistory_salaries.py`) converts more of them into
 testable rows; a scraped signing date would settle them outright.
 
+**The payoff is now quantified**: during the supply-feature ablation
+(2026-07-23) a pure `is2019` dummy scored +0.0032 paired on the selection pool
+(t = 2.38) — the 2019 slice still carries a season-level offset the features
+cannot explain, exactly the signature of the stale prices left in. Cleaning
+the remaining continuations is worth roughly that much; a season dummy itself
+is not adoptable (it is memorization by construction — at inference every
+future season scores 0 and it only launders training).
+
 **Verify** (state at v7.8x): evaluation frame 1,172 rows; 2019 year-1 count 220
 against 255 before; `check_caps.py` hit rates for 2019-2020 risen.
 
