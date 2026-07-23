@@ -265,9 +265,9 @@ negative.
 
 ## 8. 265 more continuation rows the three-signal filter does not reach
 
-**Severity**: medium — it is roughly twice the class ISSUES #2 estimates, it
-sits in training wearing a year-1 label, and it is now directly measurable
-rather than inferred.
+**Severity**: medium — 265 is an UPPER BOUND, not a count (see the architect
+review below); the true residue sits in training wearing a year-1 label, and
+it is now directly measurable rather than inferred.
 
 With signing dates (`data/processed/contract_signing_dates.csv`, added
 2026-07-23) a row's staleness is decidable outright: season S is a fresh price
@@ -286,9 +286,10 @@ confirmed, 8 are undecidable, and 0 are contradicted.** The gap is entirely
 recall. The 265 break down by contract year as 179 in year 2, 50 in year 3, 30
 in year 4, 6 in year 5, and by season as 2019: 76, 2020: 33, 2021: 33, 2022: 22,
 2023: 24, 2024: 26, 2025: 21, 2026: 30 — note 76 in 2019 alone against the
-"~38+ suspected" ISSUES #2 records. The top cases are unambiguous mid-contract
-seasons: Embiid 2023 ($47.6M, year 2 of a deal signed 2021-08-17), Butler 2023,
-Doncic 2022, Gobert 2021.
+"~38+ suspected" ISSUES #2 records. The top cases by salary are Embiid 2023,
+Butler 2023, Doncic 2022, Gobert 2021 — but see the architect review below:
+those four are extension FIRST paying years misread as year 2, not
+mid-contract seasons.
 
 **Why the filter misses them**: most are extensions, absent from the FA-signings
 list, whose season-over-season pay step falls outside the 0.92-1.081 escalator
@@ -300,10 +301,41 @@ salary. Two of the three signals fail, so the consensus never fires.
 pre-continuation frame. Full table and the ten largest disagreements in
 `docs/briefs/2026-07-23-signing-dates.RESULT.md`, target 2.
 
-**What to do**: replace the step-and-veto signals with the direct span test for
-rows that have a signing date, keeping the three-signal consensus as the
-fallback where they do not. This changes the training row count and so is a
-version-bump change, judged on common-row A1 exactly as v7.7x was.
+**Architect review (2026-07-23)** — the span derivation starts extensions one
+year early, which inflates the 265 and misclassifies its head. Three
+mechanisms, each verified against cap arithmetic on the top-10 table:
+
+- **Option years pull the block anchor early.** Spotrac's `fa_year` for a
+  deal whose final year is a player option is the option-decision summer, so
+  `start = fa_year − years` begins the deal one season early. Embiid 2023 is
+  $47.6M = 0.35 × the 2023 cap — the supermax's FIRST paying year, not
+  "2 of 4"; same off-by-one for Gobert 2021 (vet-max year 1), Doncic 2022
+  (30% Rose year 1), Butler 2023.
+- **The signing-season fallback starts extensions a year early.** An
+  extension begins paying the season AFTER it is signed: KD 2026 and
+  Holmgren 2026 (both `match_confidence=none`, fallback spans) are first
+  paying years read as "2 of 2" / "2 of 5".
+- **Renegotiations re-price a season mid-span.** Markkanen 2024's $42.2M was
+  set 2024-08-07 ("renegotiation-and-extend" in its own tx_text) — a fresh
+  price wearing a year-4 span.
+
+Under the standing convention — an extension's first paying year is a year-1
+training row, and v7.7x kept every such row — **7 of the 10 largest
+"disagreements" are correctly kept today.** The year-2 bucket (179 of 265) is
+exactly where this false-positive class concentrates. The true residue is the
+JJJ 2025 / Randle 2024 / Griffin 2019 class, extension years 2+; its size is
+unknown until the spans are fixed.
+
+**What to do, in order**: (1) fix `contract_spans()` — a final-year option in
+the tx_text makes the span `[fa_year − years + 1, fa_year]`; an extension's
+fallback span starts at `signing_season + 1`; a "renegotiat" match marks the
+renegotiated season fresh. (2) Remeasure this table, with the head cases as
+the acceptance test: Embiid 2023 / Doncic 2022 / Gobert 2021 / KD 2026 /
+Holmgren 2026 read year 1, Markkanen 2024 reads fresh, JJJ 2025 / Randle 2024
+/ Griffin 2019 stay continuations. (3) Only then the filter change: direct
+span test where a date exists, three-signal consensus as the fallback. That
+changes the training row count and so is a version-bump change, judged on
+common-row A1 exactly as v7.7x was.
 
 **Caveat before acting**: 19 of the 265 sit in that season's FA-signings list,
 which is evidence against the date verdict on those rows — a ~7% error rate.
@@ -311,10 +343,11 @@ Do not demote a row whose FA-list membership contradicts the span without
 resolving the conflict first; that disagreement is the same instrument clash
 ISSUES #2 warns about, in the other direction.
 
-**Verify**: demotions confirmed by date rise from 111 toward 376; the 2019
-year-1 count falls from 220; the `is2019` control dummy (+0.0032, t=2.38)
-should lose most of its remaining signal, since that offset is the signature
-of exactly these stale prices.
+**Verify**: after the span fix, the remeasured residue's head matches the
+acceptance list above; after the filter change, confirmed demotions rise from
+111 toward the remeasured count, the 2019 year-1 count falls from 220, and
+the `is2019` control dummy (+0.0032, t=2.38) loses most of its remaining
+signal, since that offset is the signature of exactly these stale prices.
 
 ---
 
@@ -342,7 +375,11 @@ columns; `date-resolved` marks the 120.
 
 **What to do**: nothing urgent. But any code that reads `contract_start` from
 `spotrac_signing_types.csv` inherits the bad anchor with no way to see it, so
-prefer `contract_spans()` where a signing date exists.
+prefer `contract_spans()` where a signing date exists. Note the limit of the
+current resolution: it fires only when the anchor lands BEFORE the signing
+date. The option-year off-by-one (#8, architect review) leaves the anchor at
+or after the signing season and passes silently, so `contract_spans()` needs
+the option-aware fix before any consumer trusts its year numbers.
 
 **Verify**: `spans[spans.span_conflict].span_source.unique()` is
 `['date-resolved']` only, and the three named signings read year 1.
