@@ -50,7 +50,7 @@ from xgboost import XGBRegressor
 from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR
 from src.model.train import (
     load_training_data, _filter_year1, _filter_rookie_scale, _filter_prorated,
-    _filter_mislabeled_year1, _compute_max_eligible,
+    _filter_mislabeled_year1, _filter_continuations, _compute_max_eligible,
     _prepare_Xy, _make_tobit_obj, _XGB_BASE, FEATURE_COLS, TARGET,
 )
 # reuse the canonical label logic so C2 segments match scripts/diagnostics.py
@@ -124,7 +124,8 @@ def load_evaluation_frame(keep_prorated: bool = False) -> tuple[pd.DataFrame, li
     if not keep_prorated:
         df = _filter_prorated(df)
     df = _compute_max_eligible(df)
-    df = _filter_mislabeled_year1(df).reset_index(drop=True)
+    df = _filter_mislabeled_year1(df)
+    df = _filter_continuations(df).reset_index(drop=True)
     df["cap"] = df["season"].map(CAP_BY_SEASON)
     df["salary_m"] = df[TARGET] * df["cap"] / 1e6
 
@@ -153,25 +154,42 @@ def _in_confirmation_set(player_name_norm: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def oof_groupkfold(df: pd.DataFrame, features: list[str], fitter,
-                   seeds=DEFAULT_SEEDS) -> tuple[np.ndarray, np.ndarray]:
+                   seeds=DEFAULT_SEEDS) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Seed-averaged out-of-fold predictions, plus per-(fold, seed) R2.
 
     Returns:
-        (oof predictions, matrix of shape (n_folds, n_seeds) of fold R2)
+        (oof predictions,
+         fold R2 matrix over ALL validation rows        — reporting,
+         fold R2 matrix over SELECTION-POOL rows only   — decisions)
+
+    The second matrix exists because the accept/reject decision must not read
+    the confirmation split at all: the formal audit (2026-07-23) found the
+    changes adopted between v7.2x and v7.5x helped selection rows while
+    hurting confirmation rows (difference-in-differences +5.6e-5, cluster
+    CI excluding zero) — the adoption process had started fitting the rows it
+    was watching. Confirmation rows still appear in training folds (they are
+    other folds' training data); they are only excluded from the metric that
+    decides.
     """
     y = df[TARGET].values
     folds = list(GroupKFold(n_splits=N_SPLITS).split(df, y, df["player_name_norm"].values))
+    sel = ~df["is_confirmation"].values if "is_confirmation" in df.columns \
+        else np.ones(len(df), bool)
 
     acc = np.zeros(len(df))
     fold_r2 = np.zeros((len(folds), len(seeds)))
+    fold_r2_sel = np.zeros((len(folds), len(seeds)))
     for si, seed in enumerate(seeds):
         oof = np.full(len(df), np.nan)
         for fi, (tr, va) in enumerate(folds):
             pred = fitter(df.iloc[tr], df.iloc[va], features, seed)
             oof[va] = pred
             fold_r2[fi, si] = r2_score(y[va], pred)
+            vs = sel[va]
+            fold_r2_sel[fi, si] = (r2_score(y[va][vs], pred[vs])
+                                   if vs.sum() > 10 else np.nan)
         acc += oof
-    return acc / len(seeds), fold_r2
+    return acc / len(seeds), fold_r2, fold_r2_sel
 
 
 def rolling_forward(df: pd.DataFrame, features: list[str], fitter,
@@ -232,6 +250,7 @@ class SuiteResult:
     oof: np.ndarray | None = None
     forward: np.ndarray | None = None
     fold_r2: np.ndarray | None = None
+    fold_r2_sel: np.ndarray | None = None
 
 
 def _dollars(df, pred, mask=None):
@@ -348,7 +367,7 @@ def layer_d(df, features, pred_oof, seeds=DEFAULT_SEEDS) -> dict:
     for name, cols in BASELINE_LADDER.items():
         cols = [c for c in cols if c in features]
         if cols:
-            oof, _ = oof_groupkfold(df, cols, baseline_fitter, seeds=seeds[:3])
+            oof, _, _ = oof_groupkfold(df, cols, baseline_fitter, seeds=seeds[:3])
             ladder[name] = float(r2_score(y, oof))
     ladder["full feature set"] = float(r2_score(y, pred_oof))
 
@@ -371,10 +390,11 @@ def run_suite(df: pd.DataFrame, features: list[str], fitter, name: str,
               seeds=DEFAULT_SEEDS) -> SuiteResult:
     """Score one variant through all four layers."""
     print(f"\nScoring '{name}' over {len(seeds)} seeds...")
-    oof, fold_r2 = oof_groupkfold(df, features, fitter, seeds)
+    oof, fold_r2, fold_r2_sel = oof_groupkfold(df, features, fitter, seeds)
     fwd = rolling_forward(df, features, fitter, seeds)
 
-    res = SuiteResult(name=name, oof=oof, forward=fwd, fold_r2=fold_r2)
+    res = SuiteResult(name=name, oof=oof, forward=fwd, fold_r2=fold_r2,
+                      fold_r2_sel=fold_r2_sel)
     res.metrics.update(layer_a(df, oof, fold_r2))
     res.metrics.update(layer_b(df, fwd))
     res.metrics.update(layer_c(df, oof))
@@ -447,11 +467,14 @@ def main():
     print_report(df, challenger)
 
     delta = paired_delta(challenger.fold_r2, champion.fold_r2)
+    delta_sel = paired_delta(challenger.fold_r2_sel, champion.fold_r2_sel)
     zone = grabit_zone(df, champion.oof, challenger.oof)
     print(f"\n{'='*74}\n  PAIRED comparison: Grabit v3 minus Baseline XGBoost\n{'='*74}")
-    print(f"    pooled delta CV R2  {delta['delta']:+.4f}  +/- {delta['se']:.4f} (SE)   "
-          f"t = {delta['t']:+.2f}   (context only — see zone verdict)")
-    print(f"    per fold     {delta['per_fold']}")
+    print(f"    DECISION delta (selection pool)  {delta_sel['delta']:+.4f}  "
+          f"+/- {delta_sel['se']:.4f} (SE)   t = {delta_sel['t']:+.2f}")
+    print(f"    pooled delta (context only)      {delta['delta']:+.4f}  "
+          f"+/- {delta['se']:.4f} (SE)   t = {delta['t']:+.2f}")
+    print(f"    per fold (selection)  {delta_sel['per_fold']}")
     print(f"\n    Grabit zone (rows paid >= 90% of their own ceiling, n={zone['n']}):")
     print(f"      MAE  ${zone['mae_baseline']:.2f}M -> ${zone['mae_grabit']:.2f}M  "
           f"({zone['delta_mae']:+.2f})   rows better/worse {zone['rows_better']}/{zone['rows_worse']}")
@@ -460,17 +483,23 @@ def main():
     print("    pooled delta mistakes dilution for weakness. Keep it while the zone")
     print("    MAE delta is negative; drop it if the zone itself turns positive.")
     print("\n    For CHALLENGER changes (features, filters, hyperparameters):")
-    print("    accept when pooled t > 2, A2 moves the same way, and no C2 segment "
-          "regresses by more than $0.3M")
+    print("    accept when SELECTION-POOL paired t > 2, A2 moves the same way, and")
+    print("    no C2 segment regresses by more than $0.3M. The confirmation split")
+    print("    is a canary only — the 2026-07-23 audit caught the pooled metric")
+    print("    fitting the rows it was watching (diff-in-diff +5.6e-5, CI > 0).")
 
     out_dir = OUTPUTS_DIR / "models"
     out_dir.mkdir(parents=True, exist_ok=True)
     payload = {"champion": champion.metrics, "challenger": challenger.metrics,
-               "paired_delta": delta, "grabit_zone": zone,
+               "paired_delta": delta, "paired_delta_selection": delta_sel,
+               "grabit_zone": zone,
                # fold x seed R2 matrices — the reference every future paired
-               # comparison diffs against (same folds, same seeds, per-fold)
+               # comparison diffs against (same folds, same seeds, per-fold).
+               # *_selection is the decision-grade matrix; pooled is context.
                "fold_r2": {"champion": champion.fold_r2.tolist(),
                            "challenger": challenger.fold_r2.tolist()},
+               "fold_r2_selection": {"champion": champion.fold_r2_sel.tolist(),
+                                     "challenger": challenger.fold_r2_sel.tolist()},
                "seeds": list(DEFAULT_SEEDS), "n_splits": N_SPLITS}
     with open(out_dir / "evaluation_suite.json", "w") as fh:
         json.dump(payload, fh, indent=2)
