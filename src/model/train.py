@@ -178,6 +178,21 @@ def _load_draft_years() -> dict[str, int]:
     return out
 
 
+def _load_early_supermax() -> set[tuple[str, int]]:
+    """(normalized_name, start_season) for supermaxes signed 2+ summers early.
+
+    Hand-curated: these are ~1/year, high-profile, and undetectable from any
+    award window anchored to the start season (the qualifying award predates it
+    by 2-3 years). See early_supermax.csv's note column.
+    """
+    from scripts.build_external_features import norm
+    path = RAW_DIR / "raw_external" / "early_supermax.csv"
+    if not path.exists():
+        return set()
+    e = pd.read_csv(path)
+    return set(zip(e["player_name_norm"].apply(norm), e["season"].astype(int)))
+
+
 def _load_elite_set() -> set[tuple[str, int]]:
     """Load (normalized_name, year) pairs for elite award winners."""
     from scripts.build_external_features import norm
@@ -255,18 +270,22 @@ def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
     seasons = df["season"].values
     rose = np.zeros(len(df), dtype=bool)
     supermax = np.zeros(len(df), dtype=bool)
+    early = _load_early_supermax()
     for i in range(len(df)):
         p, s = pns[i], int(seasons[i])
         trig = ((p, s) in elite_set or (p, s - 1) in elite_set
                 or _elite_count(p, [s - 2, s - 1, s]) >= 2)
         if trig and exp[i] <= 6:
             rose[i] = True
-        elif 7 <= exp[i] <= 9 and (
-            trig or _elite_count(p, [s - 3, s - 2, s - 1]) >= 1
-        ):
-            # a designated-veteran deal can be signed two summers before it
-            # starts (Wall: All-NBA 2016-17, signed 2017, effective 2019), so
-            # the qualifying award may sit at s-3
+        elif 7 <= exp[i] <= 9 and (trig or (p, s) in early):
+            # A designated-veteran deal can be signed two summers before it
+            # starts (Wall: All-NBA 2016-17, signed 2017, effective 2019-20),
+            # putting the qualifying award outside any window anchored to the
+            # start season. A blanket s-3 lookback was tried and granted 35%
+            # ceilings to eleven rows, wrongly un-censoring two genuine 30%
+            # max signings (Klay 2019, Fox 2026) — such deals are ~1/year and
+            # high-profile, so they are enumerated in early_supermax.csv
+            # instead. The systematic fix is scraping signing dates.
             supermax[i] = True
 
     base = np.where(supermax, 0.35, base)

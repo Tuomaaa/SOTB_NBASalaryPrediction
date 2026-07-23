@@ -1,4 +1,8 @@
-data/raw/
+# data/raw/* (children, not the directory itself) — excluding the directory
+# would stop git from descending into it, which silently disables every
+# whitelist below: the two long-tracked CSVs only survived because they were
+# force-added before this rule existed.
+data/raw/*
 # ...except the hand-curated award and draft tables. _compute_max_eligible in
 # train.py silently falls back to an age heuristic without them, so a clone
 # that lacks these does not reproduce the published numbers.
@@ -6,6 +10,7 @@ data/raw/
 data/raw/raw_external/*
 !data/raw/raw_external/awards_full.csv
 !data/raw/raw_external/player_draft_2020-2025.matched.corrected.csv
+!data/raw/raw_external/early_supermax.csv
 
 outputs/models/
 __pycache__/

@@ -60,132 +60,42 @@ $2.48M, and mechanism biases match `METHODOLOGY.md`.
 
 ---
 
-## 2. `prev_cap_pct` is stale for 68 training rows
+## 2. Six pre-2022 escalator years still wear a year-1 label
 
-**Severity**: medium — one feature of fourteen, 2.2% of rows, all in training.
+**Severity**: medium — corrupts the definition of a "fresh signing" for six
+training rows. (Residual of a larger entry: the ceiling side of the original
+"thirteen rows above their max" issue was closed in v7.4x/v7.5x — award trigger
+now accepts `s-1`, hand-curated `early_supermax.csv` covers extensions signed
+two summers early (a blanket s-3 lookback was tried first and wrongly
+un-censored Klay 2019 and Fox 2026 — do not reintroduce it), and a
+1.08 x prior-pay floor with `salaries_prehistory.csv` anchors the 2019 boundary.
+`prev_cap_pct` staleness was fixed by the v7.3x rebuild: spot-check shows every
+derivable row matches the corrected-cap value, not the stale one.)
 
-`prev_cap_pct` is "year-1 cap_pct of the player's previous contract", derived in
-`scripts/phase3.py`. It was computed from `cap_pct` values that used the wrong
-2025 and 2026 caps, so any row whose previous contract started in those seasons
-carries a figure inflated by ~9.5% (2025) or deflated by ~7.8% (2026).
+What remains: Stephen Curry 2019, John Wall 2020, Chris Paul 2019, Russell
+Westbrook 2019, Andrew Wiggins 2019, CJ McCollum 2019 are later years of older
+deals labelled year-1 — contracts signed before 2019 have their first
+*observed* season tagged year 1, because the lost structure script only saw
+2019+ data. They no longer break the ceiling (the 1.08 floor covers them), but
+they still sit in training as if they were fresh market prices. This is also
+why `scripts/check_caps.py` reports low hit rates for 2019-2020.
 
-`load_training_data()` in `src/model/train.py` now recomputes `cap_pct` from
-`config.CAP_BY_SEASON` on every load, but it does **not** recompute
-`prev_cap_pct` — that derivation lives in phase3 and is not a simple shift.
+**Reproduce**: compare each row's salary to its *tier-only* ceiling (call
+`_compute_max_eligible` and recompute `base` without the prior-pay floor); the
+six rows exceed it while no genuine fresh signing does.
 
-**Reproduce**:
+**Fix**: `salaries_prehistory.csv` now holds 2016-2018 pay for 155 players —
+enough to run the escalator-chain detection backwards across the 2019 boundary
+for exactly these players and demote mislabeled rows. Alternatively demote any
+year-1 row whose salary exceeds its tier-only ceiling by more than rounding;
+that condition is proof of mislabelling, not a judgement call.
 
-```bash
-python -c "
-import pandas as pd
-t = pd.read_csv('data/processed/training_data_v2.csv')
-y1 = t[t.year_in_contract == 1]
-bad = set(zip(y1[y1.season.isin([2025, 2026])].player_name_norm,
-              y1[y1.season.isin([2025, 2026])].cap_pct.round(6)))
-n = sum((r.player_name_norm, round(r.prev_cap_pct, 6)) in bad
-        for r in t.itertuples() if pd.notna(r.prev_cap_pct))
-print(f'{n} contaminated rows')
-"
-```
-
-**Fix**: re-run `python scripts/phase3.py` to regenerate `prev_cap_pct` against
-the corrected caps, then retrain. Check first what else phase3 rewrites — it
-touches several files in `data/processed/`.
-
-**Verify**: the count reaches 0, and CV R² stays in the same neighbourhood (a
-large move means phase3 changed more than intended).
+**Verify**: the six rows leave the year-1 training set; `check_caps.py` hit
+rates for 2019-2020 rise; A1 moves little (n=6).
 
 ---
 
-## 3. Thirteen year-1 rows are paid above their own `max_eligible_pct`
-
-That is impossible for a genuinely fresh contract, so each one is a bug
-somewhere. They turn out to have **three unrelated causes** — do not try to fix
-them as one thing.
-
-**Reproduce the whole set**:
-
-```bash
-python -c "
-import pandas as pd
-d = pd.read_csv('outputs/web/valuations_export.csv')
-y1 = d[d.year_in_contract == 1]
-over = y1[y1.actual_cap_pct > y1.max_eligible_pct + 1e-9]
-print(over[['player_name','season','actual_cap_pct','max_eligible_pct']].to_string(index=False))
-"
-```
-
-### 3a. The award trigger is off by one season
-
-**Severity**: medium — it understates the ceiling for genuine supermax players,
-which makes the Grabit censoring gate miss them.
-
-`_compute_max_eligible()` in `src/model/train.py` decides Rose Rule and Supermax
-eligibility by asking whether a player was All-NBA/MVP/DPOY **in the season the
-contract starts**. Those awards are earned in the season *before* a contract is
-signed — that is what a team is paying for. Checking season `s` instead of `s-1`
-means a player who earned his supermax in year `s-1` is scored against the
-ordinary ceiling.
-
-Confirmed cases: Ben Simmons 2021 should be 0.30 (Rose Rule), computed 0.25.
-Jaylen Brown 2024 should be 0.35 (Supermax), computed 0.30 — he made All-NBA
-2nd Team in 2023 and signed that summer.
-
-**Fix**: in `_compute_max_eligible`, evaluate the trigger against `s-1`:
-
-```python
-trig = (p, s - 1) in elite_set or _elite_count(p, [s - 3, s - 2, s - 1]) >= 2
-```
-
-Retrain afterwards — this changes `max_eligible_pct`, which changes both the
-Stage-2 clip and which rows the censoring gate admits.
-
-**Verify**: Simmons 2021 reaches 0.30 and Brown 2024 reaches 0.35; five of the
-thirteen rows above drop out (three of those five are the float ties in 3c).
-
-### 3b. Extensions signed years before they begin
-
-**Severity**: low — 2 rows, and a proper fix needs data the repo does not have.
-
-John Wall 2019 and Karl-Anthony Towns 2024 are both paid 35% against a computed
-ceiling of 0.30. Both signed supermax extensions two years before the deal
-began, so their eligibility was judged on a season outside any window anchored
-to the start season. Fixing 3a does not reach them.
-
-**Fix**: needs a signing date per contract, which is not currently scraped.
-Spotrac exposes it. Until then, leave these — do not widen the award window to
-paper over it, as that would hand supermax ceilings to players who never
-qualified.
-
-### 3c. Escalator years still labelled year-1 before 2022
-
-**Severity**: medium — corrupts the definition of a "fresh signing".
-
-Six rows are later years of older deals wearing a year-1 label: Stephen Curry
-2019 at 36.9% of the cap, John Wall 2020 at 37.8%, Chris Paul and Russell
-Westbrook 2019 at 35.3%, Andrew Wiggins and CJ McCollum 2019 marginally over
-25%. No max tier produces those figures on a fresh contract.
-
-The same root cause explains why `scripts/check_caps.py` reports a low hit rate
-for 2019 and 2020 (10/45 and 3/10) although both caps are correct: most of those
-"year-1" max contracts are not year-1, so they land nowhere near a max tier.
-
-Three further rows — Bam Adebayo and Jayson Tatum 2021 at exactly 0.250000,
-Giannis Antetokounmpo 2021 at 0.350001 — are float noise against the ceiling,
-not real violations. A 1e-6 tolerance removes them.
-
-**Fix**: `data/processed/contract_structure_v2.csv` is the source of
-`year_in_contract`. Either improve the match for 2019–2021, or add a validation
-pass that demotes any year-1 row whose salary exceeds its max-eligible ceiling
-by more than rounding — that condition is proof of mislabelling, not a judgement
-call. Do 3a first, or the validation will demote rows that 3a should have fixed.
-
-**Verify**: the reproduce query returns nothing, and `check_caps.py` stops
-reporting a low hit rate for 2019 and 2020.
-
----
-
-## 4. Site and docs quote CV R² from different runs
+## 3. Site and docs quote CV R² from different runs
 
 **Severity**: low — 0.0002 apart, but they are the same headline number.
 
@@ -200,7 +110,7 @@ automatically.
 
 ---
 
-## 5. Signing-mechanism labels: the residual 10%
+## 4. Signing-mechanism labels: the residual 10%
 
 **Severity**: low — the labels are diagnostics, never features.
 
@@ -231,7 +141,7 @@ diagnostic.
 
 ---
 
-## 6. Team and position missing for 5.4% of rows
+## 5. Team and position missing for 5.4% of rows
 
 **Severity**: low — cosmetic on the site, unused by the model.
 
@@ -239,3 +149,38 @@ diagnostic.
 against `data/processed/training_data.csv`. The valuation board renders these
 as "—". Neither field is a model feature, so this affects presentation and the
 team filter only.
+
+---
+
+## 6. Docs lag three landed decisions
+
+**Severity**: medium — METHODOLOGY and VERSION_HISTORY describe a model two
+versions behind the code, and one confirmed architecture decision exists only
+in a chat log until it lands here.
+
+What needs writing, in priority order:
+
+1. **Two-stage semantics, as confirmed 2026-07-23**: Stage 1 predicts value
+   under *default parameters* (today: implicit training-set averages over
+   mechanism/market context); Stage 2 adjusts for *told parameters* (today:
+   exactly one — the legal ceiling `max_eligible_pct`). The C2
+   mechanism-bias table measures precisely the context that Stage 1 averages
+   over and Stage 2 does not yet condition on; any parameter promoted from
+   "averaged" to "told" should shrink its C2 bias, which is the natural
+   acceptance test. Belongs in METHODOLOGY (model section) and CONTEXT.md
+   (vocabulary: consider naming Stage-1 output "reference value").
+2. **VERSION_HISTORY entries for v7.3x-v7.5x** — the annotated git tags carry
+   the one-liners and A1/A2/B1 for each.
+3. **Grabit's keep/drop rule** — judged on its zone (rows paid >= 90% of their
+   own ceiling: MAE, n=65-67, printed by the suite), not the pooled paired
+   delta, which mixed a real zone effect with dilution and, before v7.4x, with
+   a ceiling bug. Replaces the "Grabit Impact on Max Contracts" story in
+   METHODOLOGY.
+4. **Prediction-timepoint convention** — features must be knowable at
+   market open (July 1). This is why exit-mechanism features use option
+   *structure* (knowable at signing) rather than option *decisions*
+   (knowable only at market open), and why FA supply must be computed from
+   contract expirations rather than realized FA lists.
+
+**Verify**: a reader of METHODOLOGY alone can reproduce the current suite
+output without visiting this file or the git log.
