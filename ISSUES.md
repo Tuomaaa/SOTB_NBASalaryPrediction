@@ -201,19 +201,37 @@ lacks a source:
   take; that would also let `_filter_continuations` drop its step-and-veto
   signals for a direct test.
 
-  The signing-date scrape now has a fourth quantified payoff. The exit-structure
-  ablation (2026-07-23) found the length of the expiring contract carries real
-  signal — +0.0032 paired (t=2.32) as a pure increment over the coverage
-  artifact — but only 54% of evaluation rows can see their expiring contract in
-  the current Spotrac blocks, and every deployable fill for the other 46%
-  either reopens the collection-artifact channel (sentinel) or drowns the
-  signal in a poisoned bucket (mode fill scored +0.0002). Transaction-level
-  signing dates would push coverage toward ~95%, where the unknown share is too
-  small to matter and the locked +0.003 becomes collectible. RFA status, by
-  contrast, tested empty once the artifact was removed (+0.0004), and option
-  structure is unmeasurable historically — Spotrac annotates options on current
-  contracts only (has_po is 0.000 for every fa_year before 2023 and 0.35-0.50
-  for 2028+).
+  The signing dates are now scraped —
+  `data/processed/contract_signing_dates.csv`, 3,169 dated signings — and they
+  confirm both curated rows at a 2-summer gap (Wall signed 2017-07-26 for
+  2019-2022, Towns 2022-07-07 for 2024-2027). Five further max-tier evaluation
+  rows are also signed 2+ summers early (Booker 2024, Lillard 2021, Davis 2025,
+  Harden 2019, Adebayo 2026), all extensions, and all already receive the
+  correct tier ceiling through the award-window path — over-tier rows among
+  them are 0, so nothing is broken today. `early_gap >= 2` in
+  `parse_signing_dates.contract_spans()` is now a mechanical test that could
+  replace both the curated list and the award window; that is a
+  `_compute_max_eligible` change and wants its own dispatch.
+
+  **The fourth payoff claimed here does not exist — struck 2026-07-23.** The
+  exit-structure ablation found the expiring contract's length worth +0.0032
+  paired (t=2.32) as a pure increment over the coverage artifact, and this
+  entry predicted that transaction-level signing dates would lift coverage
+  "toward ~95%" and unlock it. Measured, they do the opposite: the dated
+  instrument sees *fewer* expiring contracts than the Spotrac blocks already
+  do (a contract ending at S-1: blocks 60.7%, dates 50.8%, union 62.4%; any
+  contract covering S-1: 87.3% / 79.4% / 88.1%). The blocks table knows 2,727
+  distinct contracts against 1,953 dated ones, because a contract reaches the
+  transactions list only if Spotrac logged the transaction while the contract
+  history retains deals whose transaction entry it never had. Note also that
+  the 54% quoted above could not be reproduced from any definition — the
+  ablation script was a scratchpad experiment and is gone; the nearest
+  construction is 60.7%. **The +0.003 stays locked, and signing dates are not
+  the key to it.** Numbers in `docs/briefs/2026-07-23-signing-dates.RESULT.md`,
+  target 3. RFA status, by contrast, tested empty once the artifact was removed
+  (+0.0004), and option structure is unmeasurable historically — Spotrac
+  annotates options on current contracts only (has_po is 0.000 for every
+  fa_year before 2023 and 0.35-0.50 for 2028+).
 - **`floor_pct`** is the median pay of at-floor rows per (season, experience
   bucket) — a recovery of the veteran-minimum scale from the data's own mass
   points, not the published scale. Buckets with few at-floor rows fall back to
@@ -242,3 +260,89 @@ harness from the v7.8x experiment is the pattern to copy.
 **Verify**: whichever settings win, both zone MAEs stay at or below $6.11M
 (max) and $1.98M (floor), and the selection-pool paired delta does not go
 negative.
+
+---
+
+## 8. 265 more continuation rows the three-signal filter does not reach
+
+**Severity**: medium — it is roughly twice the class ISSUES #2 estimates, it
+sits in training wearing a year-1 label, and it is now directly measurable
+rather than inferred.
+
+With signing dates (`data/processed/contract_signing_dates.csv`, added
+2026-07-23) a row's staleness is decidable outright: season S is a fresh price
+when the covering contract's span STARTS at S, and a continuation when the span
+starts earlier. Scored against `_filter_continuations` on the 1,291-row
+pre-continuation frame:
+
+| date verdict | filter kept | filter demoted |
+|---|---|---|
+| continuation | **265** | 111 |
+| fresh (incl. early-signed first years) | 717 | 0 |
+| undecidable (no covering contract) | 190 | 8 |
+
+The filter's own precision is vindicated — **111 of its 119 demotions are
+confirmed, 8 are undecidable, and 0 are contradicted.** The gap is entirely
+recall. The 265 break down by contract year as 179 in year 2, 50 in year 3, 30
+in year 4, 6 in year 5, and by season as 2019: 76, 2020: 33, 2021: 33, 2022: 22,
+2023: 24, 2024: 26, 2025: 21, 2026: 30 — note 76 in 2019 alone against the
+"~38+ suspected" ISSUES #2 records. The top cases are unambiguous mid-contract
+seasons: Embiid 2023 ($47.6M, year 2 of a deal signed 2021-08-17), Butler 2023,
+Doncic 2022, Gobert 2021.
+
+**Why the filter misses them**: most are extensions, absent from the FA-signings
+list, whose season-over-season pay step falls outside the 0.92-1.081 escalator
+band — an extension's first escalator year steps off a differently-based prior
+salary. Two of the three signals fail, so the consensus never fires.
+
+**Reproduce**: `python scripts/parse_signing_dates.py --cache-dir <cache>`, then
+`contract_spans()` / `covering_contract()` from the same module against the
+pre-continuation frame. Full table and the ten largest disagreements in
+`docs/briefs/2026-07-23-signing-dates.RESULT.md`, target 2.
+
+**What to do**: replace the step-and-veto signals with the direct span test for
+rows that have a signing date, keeping the three-signal consensus as the
+fallback where they do not. This changes the training row count and so is a
+version-bump change, judged on common-row A1 exactly as v7.7x was.
+
+**Caveat before acting**: 19 of the 265 sit in that season's FA-signings list,
+which is evidence against the date verdict on those rows — a ~7% error rate.
+Do not demote a row whose FA-list membership contradicts the span without
+resolving the conflict first; that disagreement is the same instrument clash
+ISSUES #2 warns about, in the other direction.
+
+**Verify**: demotions confirmed by date rise from 111 toward 376; the 2019
+year-1 count falls from 220; the `is2019` control dummy (+0.0032, t=2.38)
+should lose most of its remaining signal, since that offset is the signature
+of exactly these stale prices.
+
+---
+
+## 9. 6.1% of Spotrac contract-block anchors precede their own signing date
+
+**Severity**: low — now detectable and resolved in the one consumer that
+exists, but any new consumer of block spans will hit it.
+
+ISSUES #2 warns that "Spotrac's Free-Agent anchor is unreliable for contracts
+later superseded by an extension". That is now counted rather than suspected:
+of 1,953 dated contracts with a block-derived span, **120 (6.1%) have the block
+anchor starting the contract BEFORE the transaction that signed it** — an
+impossible span. The affected list is a roll-call of renegotiated stars: Kawhi
+Leonard (signed 2021-08-12, anchor 2020), LeBron James (2018-07-09, anchor
+2017), Jimmy Butler (2019-07-06, anchor 2018), Fred VanVleet (2023-07-07,
+anchor 2022), Kyrie Irving (2025-07-06, anchor 2022).
+
+These are the same rows that made a span-only continuation rule delete genuine
+signings. `parse_signing_dates.contract_spans()` resolves them by trusting the
+date — a contract cannot begin before it is signed — which restores VanVleet
+2023, Butler 2019 and Brunson 2022 to year 1.
+
+**Reproduce**: `contract_spans()` and read the `span_conflict` / `span_source`
+columns; `date-resolved` marks the 120.
+
+**What to do**: nothing urgent. But any code that reads `contract_start` from
+`spotrac_signing_types.csv` inherits the bad anchor with no way to see it, so
+prefer `contract_spans()` where a signing date exists.
+
+**Verify**: `spans[spans.span_conflict].span_source.unique()` is
+`['date-resolved']` only, and the three named signings read year 1.
