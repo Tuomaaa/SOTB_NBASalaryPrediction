@@ -72,26 +72,34 @@ un-censored Klay 2019 and Fox 2026 — do not reintroduce it), and a
 `prev_cap_pct` staleness was fixed by the v7.3x rebuild: spot-check shows every
 derivable row matches the corrected-cap value, not the stale one.)
 
-What remains: Stephen Curry 2019, John Wall 2020, Chris Paul 2019, Russell
-Westbrook 2019, Andrew Wiggins 2019, CJ McCollum 2019 are later years of older
-deals labelled year-1 — contracts signed before 2019 have their first
-*observed* season tagged year 1, because the lost structure script only saw
-2019+ data. They no longer break the ceiling (the 1.08 floor covers them), but
-they still sit in training as if they were fresh market prices. This is also
-why `scripts/check_caps.py` reports low hit rates for 2019-2020.
+The six *provable* rows (paid above their tier ceiling: Curry 2019, Wall 2020,
+Paul, Westbrook, Wiggins, McCollum 2019) are demoted as of v7.6x by
+`_filter_mislabeled_year1` in `src/model/train.py` — a year-1 label above the
+tier-only ceiling is proof of mislabelling, and the rule survives rebuilds.
 
-**Reproduce**: compare each row's salary to its *tier-only* ceiling (call
-`_compute_max_eligible` and recompute `base` without the prior-pay floor); the
-six rows exceed it while no genuine fresh signing does.
+What remains is the class those six were the visible tip of: every pre-2019
+contract still running in 2019 has its first *observed* season tagged year 1
+(the lost structure script only saw 2019+ data), and the non-max ones never
+break a ceiling, so nothing flags them. A probe against
+`salaries_prehistory.csv` puts a floor under the size: of the 88 year-1 2019
+rows with 2018 pay on record, **38 step by an escalator-shaped ratio** —
+LeBron at exactly 1.050, George and Embiid at exactly 1.080 — and 23 of the 38
+sit above $15M. The 2019 season also shows it in aggregate: 255 year-1 rows
+against 166-206 in every later season. Training's 2019 slice is salted with
+stale star escalator prices wearing fresh-signing labels.
 
-**Fix**: `salaries_prehistory.csv` now holds 2016-2018 pay for 155 players —
-enough to run the escalator-chain detection backwards across the 2019 boundary
-for exactly these players and demote mislabeled rows. Alternatively demote any
-year-1 row whose salary exceeds its tier-only ceiling by more than rounding;
-that condition is proof of mislabelling, not a judgement call.
+**Reproduce**: `probe_hidden_class.py` logic — join 2019 year-1 rows to 2018
+pay, flag salary steps inside [0.92, 1.08].
 
-**Verify**: the six rows leave the year-1 training set; `check_caps.py` hit
-rates for 2019-2020 rise; A1 moves little (n=6).
+**Fix**: the right instrument is the Spotrac anchored contract spans built by
+`scripts/refresh_spotrac.py` (88% coverage on 2019 evaluation rows): a 2019
+row whose covering contract *starts before 2019* is a continuation — demote
+it. This is decisive where the salary-step heuristic is only suggestive, and
+it does not depend on prehistory coverage.
+
+**Verify**: 2019 year-1 count falls toward the 166-206 range of the other
+seasons; `check_caps.py` hit rates for 2019-2020 rise; report the paired
+common-row delta, not raw R² (the row set changes — D1).
 
 ---
 

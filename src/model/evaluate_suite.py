@@ -50,7 +50,7 @@ from xgboost import XGBRegressor
 from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR
 from src.model.train import (
     load_training_data, _filter_year1, _filter_rookie_scale, _filter_prorated,
-    _compute_max_eligible,
+    _filter_mislabeled_year1, _compute_max_eligible,
     _prepare_Xy, _make_tobit_obj, _XGB_BASE, FEATURE_COLS, TARGET,
 )
 # reuse the canonical label logic so C2 segments match scripts/diagnostics.py
@@ -123,7 +123,8 @@ def load_evaluation_frame(keep_prorated: bool = False) -> tuple[pd.DataFrame, li
     df = _filter_rookie_scale(_filter_year1(load_training_data()))
     if not keep_prorated:
         df = _filter_prorated(df)
-    df = _compute_max_eligible(df).reset_index(drop=True)
+    df = _compute_max_eligible(df)
+    df = _filter_mislabeled_year1(df).reset_index(drop=True)
     df["cap"] = df["season"].map(CAP_BY_SEASON)
     df["salary_m"] = df[TARGET] * df["cap"] / 1e6
 

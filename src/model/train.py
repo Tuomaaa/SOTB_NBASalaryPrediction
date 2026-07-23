@@ -143,6 +143,29 @@ def _filter_prorated(df: pd.DataFrame, floor: float = PRORATED_FLOOR) -> pd.Data
     return filtered
 
 
+def _filter_mislabeled_year1(df: pd.DataFrame, tol: float = 1e-4) -> pd.DataFrame:
+    """Drop year-1 rows paid above their tier ceiling — provable mislabels.
+
+    No fresh signing can exceed the tier maximum (Rose Rule, supermax and the
+    early-signing list included). The no-decrease floor is deliberately NOT
+    part of this test: it exists to legalize escalator pay for Stage-2
+    scoring, and escalator pay is precisely what a fresh contract cannot be.
+    The rows this catches are pre-2019 contracts whose first OBSERVED season
+    was tagged year 1 by the lost structure script — Curry 2019 at 36.9% of a
+    frozen cap and five friends. See ISSUES.md #2.
+    """
+    if "tier_ceiling_pct" not in df.columns:
+        df = _compute_max_eligible(df)
+    mask = (df["year_in_contract"] == 1) & (df[TARGET] > df["tier_ceiling_pct"] + tol)
+    filtered = df[~mask].copy()
+    if mask.any():
+        names = df.loc[mask, "player_name_norm"].str.cat(
+            df.loc[mask, "season"].astype(int).astype(str), sep=" ")
+        print(f"Mislabel filter: dropped {int(mask.sum())} escalator rows wearing "
+              f"a year-1 label ({', '.join(names)})")
+    return filtered
+
+
 def _prepare_Xy(df: pd.DataFrame, features: list[str] | None = None):
     """Return X, y, groups arrays with NaN features filled."""
     if features is None:
@@ -291,6 +314,12 @@ def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
     base = np.where(supermax, 0.35, base)
     base = np.where(rose, np.maximum(base, 0.30), base)
 
+    # The tier ceiling is what a FRESH signing can legally reach. Kept separate
+    # from the final ceiling because the no-decrease floor below legalizes
+    # escalator pay — exactly what a fresh contract cannot be — so year-1 rows
+    # above the tier ceiling are provably mislabeled (see _filter_mislabeled_year1).
+    df["tier_ceiling_pct"] = base
+
     prev_pay = _load_prev_season_cap_pct()
     if prev_pay:
         prior = np.array([
@@ -342,6 +371,7 @@ def train_ridge(df: pd.DataFrame, alpha: float = 1.0) -> tuple[dict, object]:
     df = _filter_year1(df)
     df = _filter_rookie_scale(df)
     df = _filter_prorated(df)
+    df = _filter_mislabeled_year1(df)
     X, y, groups, features = _prepare_Xy(df)
     print(f"Training Ridge (alpha={alpha}) on {len(X)} samples, {len(features)} features")
 
@@ -387,6 +417,7 @@ def train_xgboost(df: pd.DataFrame) -> tuple[dict, object, list[str]]:
     df = _filter_year1(df)
     df = _filter_rookie_scale(df)
     df = _filter_prorated(df)
+    df = _filter_mislabeled_year1(df)
     X, y, groups, features = _prepare_Xy(df)
     seasons = df["season"].values
     print(f"Training XGBoost on {len(X)} samples, {len(features)} features")
@@ -465,6 +496,7 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     df = _filter_rookie_scale(df)
     df = _filter_prorated(df)
     df = _compute_max_eligible(df)
+    df = _filter_mislabeled_year1(df)
 
     X, y, groups, features = _prepare_Xy(df)
     seasons = df["season"].values
