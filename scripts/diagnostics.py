@@ -249,69 +249,50 @@ def _categorize_signing(t):
     return "Other"
 
 
-def _parse_signing_types(html_path):
-    soup = BeautifulSoup(open(html_path, "r", encoding="utf-8").read(), "html.parser")
-    contracts = []
-    for sl in soup.find_all("div", class_="label", string=lambda t: t and "Signed Using" in t):
-        contract = {}
-        container = sl.parent
-        for _ in range(5):
-            if container.parent and container.parent.name not in ("body", "html", "[document]"):
-                container = container.parent
-                if len(container.find_all("div", class_="label")) >= 3:
-                    break
-        for label in container.find_all("div", class_="label"):
-            val_div = label.find_next_sibling("div", class_="value")
-            val = val_div.get_text(strip=True) if val_div else ""
-            if label.get_text(strip=True) == "Signed Using:":
-                contract["signing_type"] = val
-            elif label.get_text(strip=True) == "Contract Terms:":
-                m = re.match(r"(\d+)\s*yr", val)
-                if m:
-                    contract["contract_years"] = int(m.group(1))
-        if contract.get("signing_type"):
-            contracts.append(contract)
-    years = []
-    for t in soup.find_all("table"):
-        headers = [th.get_text(strip=True) for th in t.find_all("th")]
-        if "Year" in headers and "Age" in headers and any("Cash" in h for h in headers):
-            for row in t.find_all("tr")[1:]:
-                cells = [td.get_text(strip=True) for td in row.find_all("td")]
-                if cells and cells[0].isdigit():
-                    years.append(int(cells[0]))
-            break
-    year_idx = len(years)
-    for c in contracts:
-        n = c.get("contract_years", 1)
-        start_idx = max(0, year_idx - n)
-        c["seasons"] = years[start_idx:year_idx]
-        year_idx = start_idx
-    return contracts
+def attach_signing_labels(df, salary_dollars=None):
+    """Attach signing_cat from spotrac_signing_types.csv. Not a model feature.
+
+    The CSV (rebuilt by scripts/refresh_spotrac.py) can legitimately hold
+    several contracts for one player-season: a mid-season buyout puts two real
+    deals on the same season — Westbrook 2022-23 collected supermax cash and
+    then signed a minimum. The label a residual diagnostic needs is the
+    contract that PRODUCED the observed salary, so when candidates compete the
+    one whose AAV sits closest to the row's salary wins. Without a salary the
+    newest candidate (page order) is kept.
+    """
+    from config import PROCESSED_DIR
+    path = PROCESSED_DIR / "spotrac_signing_types.csv"
+    if not path.exists():
+        df = df.copy()
+        df["signing_cat"] = "Unknown"
+        return df
+    st = pd.read_csv(path).dropna(subset=["signing_type"])
+    st["signing_cat"] = st["signing_type"].map(_categorize_signing)
+
+    key = df[["player_name_norm", "season"]].copy()
+    key["_row"] = np.arange(len(key))
+    key["_sal"] = (np.asarray(salary_dollars, dtype=float)
+                   if salary_dollars is not None else np.nan)
+    cand = key.merge(st[["player_name_norm", "season", "signing_cat", "aav"]],
+                     on=["player_name_norm", "season"], how="left")
+    cand["_dist"] = (cand["aav"] - cand["_sal"]).abs()
+    # NaN distance (no salary given, or contract without an AAV) ranks last;
+    # the stable sort then keeps the newest candidate among the unranked.
+    cand["_dist"] = cand["_dist"].fillna(np.inf)
+    cand = (cand.sort_values(["_row", "_dist"], kind="stable")
+                .drop_duplicates("_row", keep="first")
+                .set_index("_row"))
+
+    df = df.copy()
+    df["signing_cat"] = (cand["signing_cat"]
+                         .reindex(np.arange(len(df))).fillna("Unknown").values)
+    return df
 
 
 def _load_signing_type_labels(df):
-    """Load signing type labels from cached Spotrac pages. Not a model feature."""
-    cache_dir = CACHE_DIR / "spotrac_players"
-    if not cache_dir.exists():
-        return df
-    rows = []
-    for pname in df["player_name_norm"].unique():
-        path = cache_dir / f"{_slugify(pname)}.html"
-        if not path.exists():
-            continue
-        for c in _parse_signing_types(path):
-            for s in c.get("seasons", []):
-                rows.append({
-                    "player_name_norm": pname,
-                    "season": s,
-                    "signing_cat": _categorize_signing(c["signing_type"]),
-                })
-    if not rows:
-        return df
-    st = pd.DataFrame(rows).drop_duplicates(["player_name_norm", "season"])
-    df = df.merge(st, on=["player_name_norm", "season"], how="left")
-    df["signing_cat"] = df["signing_cat"].fillna("Unknown")
-    return df
+    """Back-compat wrapper: salary-aware label attach using the salary column."""
+    sal = df["salary"] if "salary" in df.columns else None
+    return attach_signing_labels(df, salary_dollars=sal)
 
 
 def residual_by_signing_type(df, y_true, y_pred):

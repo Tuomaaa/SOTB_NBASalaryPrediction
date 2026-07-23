@@ -200,16 +200,34 @@ automatically.
 
 ---
 
-## 5. Signing mechanism covers only 26% of rows
+## 5. Signing-mechanism labels: the residual 10%
 
-**Severity**: low — a known data limitation, recorded so it is not rediscovered.
+**Severity**: low — the labels are diagnostics, never features.
 
-`data/processed/spotrac_signing_types.csv` matches 818 of 3,113 player-seasons.
-The site surfaces this in its limitations panel.
+Largely fixed 2026-07-23: `scripts/refresh_spotrac.py` rebuilt
+`spotrac_signing_types.csv` with anchor-based season assignment (each contract
+places itself at `fa_year − n … fa_year − 1` instead of the old backward walk,
+which misaligned whenever a page skipped a deal), salary-aware disambiguation
+for mid-season buyouts (Westbrook 2022 was a $46M supermax row labeled
+"Minimum"), and player pages for extension signees harvested via the
+upcoming-FA URL directory. Year-1 evaluation rows are now 85–91% labeled per
+season (was ~43% overall); Minimum-labeled rows above $6M fell from 30 to 6.
 
-Keep the field out of `FEATURE_COLS` if you extend the scrape — `METHODOLOGY.md`
-documents that modelling it *lowers* CV R² by 0.0073, and its value is as an
-out-of-sample diagnostic.
+What remains, for whoever next touches the labels:
+
+- ~10% of evaluation rows are still Unknown — mostly two-way conversions and
+  Exhibit-10s whose Spotrac pages carry no "Signed Using" block. Reproduce:
+  `python scripts/refresh_spotrac.py --reparse-only` prints the per-season table.
+- Six >$6M "Minimum" rows persist (Winslow 2019, Fultz 2019/20, Leonard 2020,
+  Batum 2020, Noah 2020) — stretched/waived money colliding with a same-season
+  minimum where the AAV-distance rule picks the wrong side.
+- Extensions land under "Bird Rights" (n jumped 58 → 353), conflating
+  re-signings with extensions. If the C2 mechanism slice is ever used to argue
+  a retention premium, split these into their own category first.
+
+Keep the field out of `FEATURE_COLS` — `METHODOLOGY.md` documents that
+modelling it *lowers* CV R² by 0.0073; its value is as an out-of-sample
+diagnostic.
 
 ---
 

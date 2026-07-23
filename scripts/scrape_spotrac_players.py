@@ -94,7 +94,22 @@ def scrape_player(url, slug, retries=3):
 
 # ─── Step 4: Parse signing type from player page ────────────────────
 def parse_contracts(html_path):
-    """Extract contract signing types from a player page."""
+    """Extract contract signing types from a player page.
+
+    Season assignment anchors each contract on its own "Free Agent:" year:
+    an n-year deal expiring in fa_year covers start-year seasons
+    [fa_year - n, fa_year - 1]. The previous implementation walked the career
+    earnings table backwards, which assumed the listed contracts tile the
+    career exactly — one missing or superseded deal shifted every assignment
+    below it (Hassan Whiteside's $27M 2019 season landed on a minimum deal).
+
+    Contracts appear newest-first, so a season already claimed by a more
+    recent contract is never reassigned: when a player is waived and re-signs,
+    the new deal wins the overlap and the abandoned tail of the old deal is
+    dropped. Contracts without a parseable anchor are chained immediately
+    before the earliest season claimed so far (pre-2015 pages often omit the
+    Free Agent field).
+    """
     soup = BeautifulSoup(
         open(html_path, "r", encoding="utf-8").read(), "html.parser"
     )
@@ -136,15 +151,18 @@ def parse_contracts(html_path):
                     contract["aav"] = int(raw)
                 except ValueError:
                     pass
+            elif ltext == "Free Agent:":
+                m = re.search(r"(20\d{2}|19\d{2})", val)
+                if m:
+                    contract["fa_year"] = int(m.group(1))
 
         if contract.get("signing_type"):
             contracts.append(contract)
 
-    # Get career earnings for year mapping
+    # Career earnings years — only needed as a last-resort anchor when the
+    # newest contract has no Free Agent field.
     years = []
-    tables = soup.find_all("table")
-    # Find career earnings table (has 'Year', 'Age', 'CashTotal' or similar)
-    for t in tables:
+    for t in soup.find_all("table"):
         headers = [th.get_text(strip=True) for th in t.find_all("th")]
         if "Year" in headers and "Age" in headers and any("Cash" in h for h in headers):
             for row in t.find_all("tr")[1:]:
@@ -153,17 +171,26 @@ def parse_contracts(html_path):
                     years.append(int(cells[0]))
             break
 
-    # Map contracts to years (contracts are most-recent-first, years are chronological)
-    # Work backwards from end of career
-    year_idx = len(years)
+    # Anchored contracts keep their FULL nominal span even when spans overlap:
+    # a mid-season buyout puts two real contracts on one season (Westbrook
+    # 2022-23 — supermax cash, then a minimum signing), and which one a
+    # diagnostic wants depends on the salary being explained. Consumers
+    # disambiguate by matching AAV against the observed salary; suppressing the
+    # overlap here would silently pick one side and mislabel the other.
+    cursor = None  # earliest anchored/assigned start so far, for chaining only
     for c in contracts:
         n = c.get("contract_years", 1)
-        start_idx = year_idx - n
-        if start_idx >= 0:
-            c["seasons"] = years[start_idx:year_idx]
+        fa = c.get("fa_year")
+        if fa is not None:
+            c["seasons"] = list(range(fa - n, fa))
+        elif cursor is not None:
+            c["seasons"] = list(range(cursor - n, cursor))
+        elif years:
+            c["seasons"] = years[-n:]
         else:
-            c["seasons"] = years[:year_idx]
-        year_idx = start_idx
+            c["seasons"] = []
+        if c["seasons"]:
+            cursor = min(c["seasons"]) if cursor is None else min(cursor, min(c["seasons"]))
 
     return contracts
 
