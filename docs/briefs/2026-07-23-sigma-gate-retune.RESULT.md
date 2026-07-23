@@ -58,7 +58,7 @@ entirely from 2025 (0.8246 → 0.8161) while 2026 *gains* the same amount.
 
 ### 3-seed screen, 36 configs — the shape
 
-Full table in `screen_table.txt`. Three facts:
+Full table in Appendix A, boundary probe in Appendix B. Three facts:
 
 - **gate_frac is inert.** Across 0.45 / 0.55 / 0.65 it gates 56 / 55 / 52 of the
   57 max-zone rows. Right-zone MAE moves 0.01-0.05 — below the seed noise. The
@@ -114,7 +114,7 @@ costs 0.0236 — an order of magnitude more.
 zone bar fails calibration by the widest margin in the sweep. The configs that
 hold calibration never reach the zone bar. Incumbent retained.
 
-C2 detail is in `c2.txt`. Worth noting that sigma=0.04 *improves* Bird Rights
+C2 detail is in Appendix D. Worth noting that sigma=0.04 *improves* Bird Rights
 bias (−2.502 → −2.200, |bias| −0.302), which is the same effect seen from the
 other side: Bird Rights is where the max re-signings live, and inflating max
 latents flatters that segment for the same reason it flatters the max zone.
@@ -126,7 +126,7 @@ pushed, and because Stage 2 clips the prediction back onto the bound, overshooti
 is free — so both zones improve monotonically in sigma with no interior optimum,
 and the cost is paid in global calibration.
 
-The measurement (`mech.txt`) is the share of zone rows whose final prediction sits
+The measurement (Appendix C) is the share of zone rows whose final prediction sits
 exactly on its bound:
 
 | sigma | pinned at ceiling (n=57) | right MAE | right bias | pinned at floor (n=297) | floor MAE |
@@ -308,3 +308,200 @@ architect would rather keep a pointer so nobody re-runs the sweep, the minimum i
 > remaining applicable.
 >
 > **Verify**: the champion passes its own guardrail.
+
+---
+
+## Appendix A - full 36-config screen (3 seeds)
+
+Deltas paired against the incumbent scored in the same run. `gR`/`gL` are the
+rows this config actually censors on each side (context; the MAE columns are
+over the FIXED v7.8x zone rows, n=57 and n=297).
+
+```
+
+screen: 36 configs, 3 seeds
+incumbent (0.02, 0.55, 2.0): right 6.103  floor 1.984  A1 0.7649  slope 0.9890
+(v7.8x 10-seed reference: right 6.111  floor 1.984  A1 0.7653)
+
+ sigma  gate    k | rightMAE      dR floorMAE      dF |     dSel      t |  slope      A1 |   gR   gL
+----------------------------------------------------------------------------------------------------
+  0.01  0.45  1.5 |    6.520  +0.417    2.230  +0.246 |  -0.0008  -0.81 | 1.0097  0.7643 |   56  131
+  0.01  0.45  2.0 |    6.506  +0.403    2.175  +0.191 |  -0.0004  -0.46 | 1.0077  0.7645 |   56  195
+  0.01  0.45  2.5 |    6.501  +0.398    2.147  +0.163 |  -0.0002  -0.25 | 1.0070  0.7648 |   56  242
+  0.01  0.45  3.0 |    6.512  +0.409    2.136  +0.152 |  -0.0005  -0.53 | 1.0065  0.7646 |   56  262
+  0.01  0.55  1.5 |    6.518  +0.415    2.231  +0.247 |  -0.0007  -0.73 | 1.0097  0.7643 |   55  131
+  0.01  0.55  2.0 |    6.514  +0.411    2.177  +0.193 |  -0.0005  -0.51 | 1.0079  0.7645 |   55  195
+  0.01  0.55  2.5 |    6.501  +0.398    2.147  +0.163 |  -0.0002  -0.23 | 1.0069  0.7648 |   55  242
+  0.01  0.55  3.0 |    6.513  +0.410    2.136  +0.152 |  -0.0004  -0.51 | 1.0066  0.7646 |   55  262
+  0.01  0.65  1.5 |    6.539  +0.436    2.231  +0.247 |  -0.0011  -1.13 | 1.0099  0.7640 |   52  131
+  0.01  0.65  2.0 |    6.501  +0.398    2.171  +0.187 |  -0.0006  -0.66 | 1.0074  0.7645 |   52  195
+  0.01  0.65  2.5 |    6.496  +0.393    2.146  +0.162 |  -0.0004  -0.52 | 1.0064  0.7644 |   52  242
+  0.01  0.65  3.0 |    6.509  +0.406    2.136  +0.152 |  -0.0006  -0.62 | 1.0066  0.7644 |   52  262
+  0.02  0.45  1.5 |    6.135  +0.032    2.096  +0.113 |  -0.0003  -0.73 | 0.9937  0.7647 |   56  131
+  0.02  0.45  2.0 |    6.100  -0.003    1.984  +0.001 |  -0.0001  -1.16 | 0.9890  0.7649 |   56  195
+  0.02  0.45  2.5 |    6.107  +0.004    1.924  -0.060 |  +0.0001  +0.22 | 0.9870  0.7650 |   56  242
+  0.02  0.45  3.0 |    6.097  -0.006    1.895  -0.089 |  +0.0001  +0.24 | 0.9858  0.7650 |   56  262
+  0.02  0.55  1.5 |    6.139  +0.036    2.097  +0.113 |  -0.0003  -0.76 | 0.9938  0.7647 |   55  131
+  0.02  0.55  2.0 |    6.103  +0.000    1.984  +0.000 |  +0.0000   +nan | 0.9890  0.7649 |   55  195  <-- incumbent
+  0.02  0.55  2.5 |    6.103  -0.000    1.924  -0.059 |  +0.0001  +0.21 | 0.9869  0.7650 |   55  242
+  0.02  0.55  3.0 |    6.091  -0.012    1.895  -0.089 |  +0.0000  +0.10 | 0.9857  0.7650 |   55  262
+  0.02  0.65  1.5 |    6.149  +0.046    2.099  +0.115 |  -0.0003  -0.86 | 0.9942  0.7647 |   52  131
+  0.02  0.65  2.0 |    6.113  +0.010    1.982  -0.002 |  -0.0001  -0.96 | 0.9892  0.7649 |   52  195
+  0.02  0.65  2.5 |    6.116  +0.013    1.920  -0.063 |  -0.0000  -0.17 | 0.9870  0.7648 |   52  242
+  0.02  0.65  3.0 |    6.104  +0.001    1.896  -0.088 |  -0.0003  -1.04 | 0.9857  0.7646 |   52  262
+  0.04  0.45  1.5 |    5.396  -0.707    1.948  -0.036 |  +0.0003  +0.31 | 0.9650  0.7650 |   56  131
+  0.04  0.45  2.0 |    5.375  -0.728    1.761  -0.223 |  -0.0011  -1.34 | 0.9573  0.7638 |   56  195
+  0.04  0.45  2.5 |    5.368  -0.735    1.651  -0.333 |  -0.0013  -1.18 | 0.9537  0.7634 |   56  242
+  0.04  0.45  3.0 |    5.405  -0.698    1.592  -0.391 |  -0.0024  -2.62 | 0.9523  0.7626 |   56  262
+  0.04  0.55  1.5 |    5.396  -0.707    1.947  -0.037 |  +0.0004  +0.35 | 0.9651  0.7650 |   55  131
+  0.04  0.55  2.0 |    5.373  -0.730    1.762  -0.222 |  -0.0011  -1.33 | 0.9573  0.7638 |   55  195
+  0.04  0.55  2.5 |    5.371  -0.732    1.651  -0.332 |  -0.0013  -1.19 | 0.9538  0.7634 |   55  242
+  0.04  0.55  3.0 |    5.407  -0.696    1.593  -0.391 |  -0.0024  -2.57 | 0.9524  0.7627 |   55  262
+  0.04  0.65  1.5 |    5.426  -0.677    1.946  -0.038 |  +0.0002  +0.21 | 0.9659  0.7650 |   52  131
+  0.04  0.65  2.0 |    5.406  -0.697    1.754  -0.230 |  -0.0008  -0.91 | 0.9582  0.7641 |   52  195
+  0.04  0.65  2.5 |    5.391  -0.712    1.652  -0.332 |  -0.0018  -1.93 | 0.9542  0.7633 |   52  242
+  0.04  0.65  3.0 |    5.429  -0.674    1.590  -0.393 |  -0.0025  -2.61 | 0.9533  0.7628 |   52  262
+
+Configs meeting the zone rule (one zone -0.10 or better, other no worse than +0.05):
+  sigma=0.04 gate=0.45 k=3.0  dR -0.698  dF -0.391  dSel -0.0024 (t -2.62)  slope 0.9523
+  sigma=0.04 gate=0.55 k=3.0  dR -0.696  dF -0.391  dSel -0.0024 (t -2.57)  slope 0.9524
+  sigma=0.04 gate=0.45 k=2.5  dR -0.735  dF -0.333  dSel -0.0013 (t -1.18)  slope 0.9537
+  sigma=0.04 gate=0.65 k=3.0  dR -0.674  dF -0.393  dSel -0.0025 (t -2.61)  slope 0.9533
+  sigma=0.04 gate=0.55 k=2.5  dR -0.732  dF -0.332  dSel -0.0013 (t -1.19)  slope 0.9538
+  sigma=0.04 gate=0.65 k=2.5  dR -0.712  dF -0.332  dSel -0.0018 (t -1.93)  slope 0.9542
+  sigma=0.04 gate=0.55 k=2.0  dR -0.730  dF -0.222  dSel -0.0011 (t -1.33)  slope 0.9573
+  sigma=0.04 gate=0.45 k=2.0  dR -0.728  dF -0.223  dSel -0.0011 (t -1.34)  slope 0.9573
+  sigma=0.04 gate=0.65 k=2.0  dR -0.697  dF -0.230  dSel -0.0008 (t -0.91)  slope 0.9582
+  sigma=0.04 gate=0.55 k=1.5  dR -0.707  dF -0.037  dSel +0.0004 (t +0.35)  slope 0.9651
+  sigma=0.04 gate=0.45 k=1.5  dR -0.707  dF -0.036  dSel +0.0003 (t +0.31)  slope 0.9650
+  sigma=0.04 gate=0.65 k=1.5  dR -0.677  dF -0.038  dSel +0.0002 (t +0.21)  slope 0.9659
+
+Within-1-SE survivors on each zone (3-seed SEs are ~2x wide, so this is deliberately generous):
+  right: best 5.368, keeping 12 configs
+    sigma=0.04 gate=0.45 k=2.5  5.368
+    sigma=0.04 gate=0.55 k=2.5  5.371
+    sigma=0.04 gate=0.55 k=2.0  5.373
+    sigma=0.04 gate=0.45 k=2.0  5.375
+    sigma=0.04 gate=0.65 k=2.5  5.391
+    sigma=0.04 gate=0.55 k=1.5  5.396
+    sigma=0.04 gate=0.45 k=1.5  5.396
+    sigma=0.04 gate=0.45 k=3.0  5.405
+  floor: best 1.590, keeping 3 configs
+    sigma=0.04 gate=0.65 k=3.0  1.590
+    sigma=0.04 gate=0.45 k=3.0  1.592
+    sigma=0.04 gate=0.55 k=3.0  1.593
+```
+
+## Appendix B - boundary probe (3 seeds)
+
+Run because sigma=0.04 and k_floor=3.0 both sat on the edge of the brief's grid.
+
+```
+frame 1172 rows | right zone n=57 | floor zone n=297
+[1/11] sigma=0.02 gate=0.55 k=2.0 sl=None  right 6.103  floor 1.984  A1 0.7649  (9.9s)
+[2/11] sigma=0.025 gate=0.55 k=2.5 sl=None  right 5.902  floor 1.841  A1 0.7645  (8.3s)
+[3/11] sigma=0.025 gate=0.55 k=3.0 sl=None  right 5.894  floor 1.803  A1 0.7648  (8.6s)
+[4/11] sigma=0.03 gate=0.55 k=2.0 sl=None  right 5.702  floor 1.860  A1 0.7649  (8.2s)
+[5/11] sigma=0.03 gate=0.55 k=2.5 sl=None  right 5.733  floor 1.766  A1 0.7646  (8.1s)
+[6/11] sigma=0.03 gate=0.55 k=3.0 sl=None  right 5.733  floor 1.728  A1 0.7642  (8.3s)
+[7/11] sigma=0.02 gate=0.55 k=3.5 sl=None  right 6.097  floor 1.883  A1 0.7652  (8.7s)
+[8/11] sigma=0.02 gate=0.55 k=4.0 sl=None  right 6.092  floor 1.879  A1 0.7650  (8.9s)
+[9/11] sigma=0.02 gate=0.55 k=5.0 sl=None  right 6.094  floor 1.876  A1 0.7648  (8.8s)
+[10/11] sigma=0.04 gate=0.55 k=1.0 sl=None  right 5.436  floor 2.314  A1 0.7645  (8.0s)
+[11/11] sigma=0.06 gate=0.55 k=1.5 sl=None  right 4.855  floor 1.867  A1 0.7623  (8.3s)
+wrote C:\Users\panh3\AppData\Local\Temp\claude\C--Users-panh3-Documents-ROSE-Personal-Project-BBall-Analysis\02d3536f-4216-4458-8639-72bce879544a\scratchpad\screen2_results.json
+```
+
+## Appendix C - pinned-at-bound mechanism table
+
+```
+
+right zone n=57   floor zone n=297
+                config | pinned@ceil   rMAE   rBias | pinned@floor   fMAE   fBias
+----------------------------------------------------------------------------------
+          s=0.01 k=1.5 |      15.8%  6.518  -6.478 |       17.2%  2.231  +2.202
+          s=0.01 k=2.0 |      17.5%  6.514  -6.474 |       20.5%  2.177  +2.142
+          s=0.01 k=2.5 |      15.8%  6.501  -6.461 |       20.9%  2.147  +2.110
+          s=0.01 k=3.0 |      17.5%  6.513  -6.473 |       20.5%  2.136  +2.099
+          s=0.02 k=1.5 |      19.3%  6.139  -6.099 |       31.0%  2.097  +2.052
+          s=0.02 k=2.0 |      19.3%  6.103  -6.063 |       35.0%  1.984  +1.928
+          s=0.02 k=2.5 |      19.3%  6.103  -6.063 |       37.0%  1.924  +1.861
+          s=0.02 k=3.0 |      19.3%  6.091  -6.051 |       38.4%  1.895  +1.826
+          s=0.04 k=1.5 |      31.6%  5.396  -5.356 |       40.7%  1.947  +1.873
+          s=0.04 k=2.0 |      31.6%  5.373  -5.333 |       50.8%  1.762  +1.669
+          s=0.04 k=2.5 |      29.8%  5.371  -5.331 |       55.2%  1.651  +1.552
+          s=0.04 k=3.0 |      29.8%  5.407  -5.367 |       56.6%  1.593  +1.490
+          s=0.02 k=2.0 |      19.3%  6.103  -6.063 |       35.0%  1.984  +1.928
+         s=0.025 k=2.5 |      21.1%  5.902  -5.862 |       43.8%  1.841  +1.761
+         s=0.025 k=3.0 |      21.1%  5.894  -5.854 |       46.5%  1.803  +1.720
+          s=0.03 k=2.0 |      21.1%  5.702  -5.662 |       44.4%  1.860  +1.779
+          s=0.03 k=2.5 |      22.8%  5.733  -5.692 |       48.8%  1.766  +1.676
+          s=0.03 k=3.0 |      24.6%  5.733  -5.693 |       50.8%  1.728  +1.634
+          s=0.02 k=3.5 |      19.3%  6.097  -6.057 |       38.0%  1.883  +1.814
+          s=0.02 k=4.0 |      19.3%  6.092  -6.052 |       39.1%  1.879  +1.808
+          s=0.02 k=5.0 |      19.3%  6.094  -6.054 |       38.7%  1.876  +1.805
+          s=0.04 k=1.0 |      31.6%  5.436  -5.396 |       12.8%  2.314  +2.291
+          s=0.06 k=1.5 |      42.1%  4.855  -4.785 |       48.8%  1.867  +1.776
+```
+
+## Appendix D - C2 fixed-row segments, 10 seeds
+
+```
+
+sigma=0.02 gate=0.55 k=3.0  vs incumbent  (C2 limit: |bias| growth <= $0.30M)
+    segment             n  inc bias  cand bias   d|bias|
+    Bird Rights       309    -2.502     -2.547    +0.045
+    Minimum           303    +1.860     +1.759    -0.100
+    MLE               182    +1.056     +0.965    -0.091
+    Unknown           132    +0.223     +0.146    -0.077
+    Cap Space         117    -1.196     -1.253    +0.057
+    Early Bird         48    -1.340     -1.401    +0.061
+    Other              41    +1.460     +1.369    -0.091
+    Non-Bird           22    +1.950     +1.815    -0.135
+    Sign & Trade       15    -3.823     -3.832    +0.008
+    worst |bias| growth: +0.061M  -> PASS
+
+sigma=0.02 gate=0.55 k=2.5  vs incumbent  (C2 limit: |bias| growth <= $0.30M)
+    segment             n  inc bias  cand bias   d|bias|
+    Bird Rights       309    -2.502     -2.527    +0.025
+    Minimum           303    +1.860     +1.792    -0.068
+    MLE               182    +1.056     +1.000    -0.056
+    Unknown           132    +0.223     +0.175    -0.048
+    Cap Space         117    -1.196     -1.234    +0.038
+    Early Bird         48    -1.340     -1.382    +0.042
+    Other              41    +1.460     +1.396    -0.064
+    Non-Bird           22    +1.950     +1.876    -0.074
+    Sign & Trade       15    -3.823     -3.830    +0.007
+    worst |bias| growth: +0.042M  -> PASS
+
+sigma=0.04 gate=0.55 k=1.5  vs incumbent  (C2 limit: |bias| growth <= $0.30M)
+    segment             n  inc bias  cand bias   d|bias|
+    Bird Rights       309    -2.502     -2.200    -0.302
+    Minimum           303    +1.860     +1.813    -0.046
+    MLE               182    +1.056     +1.073    +0.017
+    Unknown           132    +0.223     +0.253    +0.030
+    Cap Space         117    -1.196     -1.150    -0.046
+    Early Bird         48    -1.340     -1.349    +0.009
+    Other              41    +1.460     +1.505    +0.045
+    Non-Bird           22    +1.950     +2.000    +0.049
+    Sign & Trade       15    -3.823     -3.626    -0.198
+    worst |bias| growth: +0.049M  -> PASS
+```
+
+## Appendix E - sigma_left equivalence and side separation
+
+```
+
+1. EQUIVALENCE
+   max abs diff = 0.000e+00   IDENTICAL
+
+2. SIDE SEPARATION (sigma_right / sigma_left -> zone MAEs)
+       sR     sL |  rightMAE  floorMAE
+     0.02   0.02 |     6.103     1.984
+     0.04   0.02 |     5.385     1.992
+     0.02   0.04 |     6.095     1.756
+     0.04   0.04 |     5.373     1.762
+```
+
+Raw artifacts (JSON, per-config OOF `.npz`, and the five experiment scripts)
+are in `../BBall-worker-sigma-gate-evidence/`.
