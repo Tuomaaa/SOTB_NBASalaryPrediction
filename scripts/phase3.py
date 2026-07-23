@@ -121,8 +121,45 @@ def build_team_cap_space(df):
 
 
 # ─── Phase 3B: Contract year + prev_cap_pct ────────────────────────
-def build_contract_features(df):
-    """Derive is_contract_year and prev_cap_pct from contract structure."""
+def _rookie_scale_fill_map(df):
+    """Expected prior-contract cap_pct by draft pick, for first-contract fills.
+
+    A first contract has no observed previous deal, but its economic
+    predecessor is knowable: the rookie scale for that draft slot (or the
+    minimum for second-rounders and the undrafted). Derived from the data's own
+    rookie-scale rows rather than the CBA tables so it needs no maintenance.
+    Enforced monotone decreasing in pick; gaps interpolated.
+    """
+    from src.model.train import _load_rookie_scale_set
+    rs = _load_rookie_scale_set()
+    if not rs:
+        return None
+    mask = df.apply(lambda r: (r["player_name_norm"], r["season"]) in rs, axis=1)
+    rk = df[mask]
+    if len(rk) < 100:
+        return None
+    by_pick = rk.groupby("draft_pick")["cap_pct"].median()
+    picks = pd.Series(index=range(1, 31), dtype=float)
+    picks.update(by_pick)
+    picks = picks.interpolate(limit_direction="both")
+    # medians are noisy pick to pick; the scale itself is strictly decreasing
+    picks = picks[::-1].cummax()[::-1]
+    beyond = df[(df["draft_pick"] > 30) & (df["year_in_contract"] == 1)]
+    fallback = float(beyond["cap_pct"].median()) if len(beyond) else float(picks.min())
+    return picks.to_dict(), fallback
+
+
+def build_contract_features(df, fill="rookie-scale-map"):
+    """Derive is_contract_year and prev_cap_pct from contract structure.
+
+    fill: how first contracts (no observable previous deal) get prev_cap_pct.
+      "rookie-scale-map" — expected rookie-scale value for the player's draft
+          slot, minimum-level for picks past 30. Stable under data refreshes.
+      "median" — the pre-v7.3 behavior: one global median over first-round
+          rows. That constant sat at pick-4 money (~0.069) for everyone from
+          the first pick to the undrafted, and drifted whenever rows were
+          added, churning 1,769 rows on the last refresh.
+    """
     df = df.sort_values(["player_name_norm", "season"]).copy()
 
     # is_contract_year: was the player in the FINAL year of their old contract
@@ -160,9 +197,17 @@ def build_contract_features(df):
             idx = player_yr1.index[i]
             df.loc[idx, "prev_cap_pct"] = cap_pcts[i - 1]
 
-    # Fill missing prev_cap_pct with median rookie scale value for first contracts
-    median_rookie = df[df["draft_pick"] <= 30]["cap_pct"].median()
-    df["prev_cap_pct"] = df["prev_cap_pct"].fillna(median_rookie)
+    # Fill first contracts (no observable previous deal)
+    fill_map = _rookie_scale_fill_map(df) if fill == "rookie-scale-map" else None
+    if fill_map is not None:
+        picks, fallback = fill_map
+        expected = df["draft_pick"].map(
+            lambda p: picks.get(int(p), fallback) if pd.notna(p) else fallback
+        )
+        df["prev_cap_pct"] = df["prev_cap_pct"].fillna(expected)
+    else:
+        median_rookie = df[df["draft_pick"] <= 30]["cap_pct"].median()
+        df["prev_cap_pct"] = df["prev_cap_pct"].fillna(median_rookie)
 
     ct_sum = df["is_contract_year"].sum()
     prev_filled = df["prev_cap_pct"].notna().sum()
