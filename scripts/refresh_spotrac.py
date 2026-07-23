@@ -200,7 +200,9 @@ def rebuild_signing_types() -> pd.DataFrame:
     for path in pages:
         pname = slug_map.get(path.stem, path.stem.replace("-", " "))
         for c in parse_contracts(path):
-            for season in c.get("seasons", []):
+            seasons = c.get("seasons", [])
+            start = min(seasons) if seasons else None
+            for season in seasons:
                 all_rows.append({
                     "player_name_norm": pname,
                     "season": season,
@@ -208,6 +210,9 @@ def rebuild_signing_types() -> pd.DataFrame:
                     "contract_years": c.get("contract_years"),
                     "total_value": c.get("total_value"),
                     "aav": c.get("aav"),
+                    # anchored span start — a year-1 label on a season covered
+                    # by a contract that STARTS EARLIER is a continuation
+                    "contract_start": start,
                 })
     df = pd.DataFrame(all_rows)
     out = PROCESSED_DIR / "spotrac_signing_types.csv"

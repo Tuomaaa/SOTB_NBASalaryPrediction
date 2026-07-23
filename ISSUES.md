@@ -72,34 +72,31 @@ un-censored Klay 2019 and Fox 2026 — do not reintroduce it), and a
 `prev_cap_pct` staleness was fixed by the v7.3x rebuild: spot-check shows every
 derivable row matches the corrected-cap value, not the stale one.)
 
-The six *provable* rows (paid above their tier ceiling: Curry 2019, Wall 2020,
-Paul, Westbrook, Wiggins, McCollum 2019) are demoted as of v7.6x by
-`_filter_mislabeled_year1` in `src/model/train.py` — a year-1 label above the
-tier-only ceiling is proof of mislabelling, and the rule survives rebuilds.
+Largely closed over v7.6x-v7.7x. The six provable rows (paid above their tier
+ceiling) go first via `_filter_mislabeled_year1`; the broader class — ordinary
+contracts whose first observed season wore a year-1 label — is demoted by
+`_filter_continuations`, which requires **three independent signals to agree**:
+the salary-matched Spotrac contract span starts earlier, the season-over-season
+pay step is escalator-shaped (0.92-1.08), and the row is absent from that
+season's FA-signings list. 119 rows fell (2019: 35 down to 2026: 1); common-row
+A1 rose +0.0102. The spot-checked top drops are all verifiable mid-contract
+seasons (LeBron 2019, Simmons 2021, Hayward 2023).
 
-What remains is the class those six were the visible tip of: every pre-2019
-contract still running in 2019 has its first *observed* season tagged year 1
-(the lost structure script only saw 2019+ data), and the non-max ones never
-break a ceiling, so nothing flags them. A probe against
-`salaries_prehistory.csv` puts a floor under the size: of the 88 year-1 2019
-rows with 2018 pay on record, **38 step by an escalator-shaped ratio** —
-LeBron at exactly 1.050, George and Embiid at exactly 1.080 — and 23 of the 38
-sit above $15M. The 2019 season also shows it in aggregate: 255 year-1 rows
-against 166-206 in every later season. Training's 2019 slice is salted with
-stale star escalator prices wearing fresh-signing labels.
+**A warning that must outlive this entry**: the span signal alone is NOT
+sufficient. A span-only version of the filter deleted 346 rows, and 7.2% of
+them sat in that season's actual FA-signings list — Brunson 2022, VanVleet
+2023, Jimmy Butler 2019, all genuine fresh signings. Spotrac's Free-Agent
+anchor is unreliable for contracts later superseded by an extension. Do not
+relax the three-signal consensus back to span-only.
 
-**Reproduce**: `probe_hidden_class.py` logic — join 2019 year-1 rows to 2018
-pay, flag salary steps inside [0.92, 1.08].
+What remains, deliberately: rows where last-season pay is unobservable (2019
+players outside the 153-player prehistory) and span-only suspects are KEPT —
+precision over recall; a stale price in training is cheaper than a deleted
+real one. Expanding `salaries_prehistory.csv` coverage (more cached player
+pages) would convert more of them into testable rows.
 
-**Fix**: the right instrument is the Spotrac anchored contract spans built by
-`scripts/refresh_spotrac.py` (88% coverage on 2019 evaluation rows): a 2019
-row whose covering contract *starts before 2019* is a continuation — demote
-it. This is decisive where the salary-step heuristic is only suggestive, and
-it does not depend on prehistory coverage.
-
-**Verify**: 2019 year-1 count falls toward the 166-206 range of the other
-seasons; `check_caps.py` hit rates for 2019-2020 rise; report the paired
-common-row delta, not raw R² (the row set changes — D1).
+**Verify** (state as of v7.7x): evaluation frame 1172 rows; 2019 year-1 count
+220; `check_caps.py` hit rates for 2019-2020 should have risen.
 
 ---
 

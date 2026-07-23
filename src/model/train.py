@@ -166,6 +166,92 @@ def _filter_mislabeled_year1(df: pd.DataFrame, tol: float = 1e-4) -> pd.DataFram
     return filtered
 
 
+def _filter_continuations(df: pd.DataFrame, aav_tol: float = 0.25) -> pd.DataFrame:
+    """Demote rows whose covering Spotrac contract starts in an earlier season.
+
+    The tier-ceiling test above only catches mislabels paid above a max tier.
+    The bulk of the class is ordinary contracts signed before 2019 whose first
+    observed season was tagged year 1 — a prehistory probe found 38 of 88
+    testable 2019 rows stepping by exact escalator ratios (LeBron 1.050,
+    George and Embiid 1.080). The anchored contract spans built by
+    scripts/refresh_spotrac.py are decisive where the salary-step heuristic is
+    only suggestive: a row covered by a contract that STARTS EARLIER is a
+    continuation, whatever its label says.
+
+    A span alone is NOT sufficient evidence: Spotrac's fa anchor is unreliable
+    for contracts later superseded by an extension, and a span-only version of
+    this filter deleted Brunson 2022, VanVleet 2023 and Jimmy Butler 2019 —
+    all genuine fresh signings (7.2% of its deletions sat in that season's
+    actual FA-signings list). A row is demoted only when three independent
+    signals agree:
+
+      1. span     — the salary-matched covering contract starts earlier
+                    (AAV within aav_tol of the row's pay, so a renegotiated
+                    deal matches its new money, not the superseded shell);
+      2. step     — the player's pay moved from last season by an
+                    escalator-shaped ratio (0.92-1.08: raises are capped at
+                    8% of year-1 salary, declines at 8% likewise), where last
+                    season's pay comes from the full table plus
+                    salaries_prehistory.csv for the 2019 boundary. A fresh
+                    signing lands there only by coincidence (Brunson stepped
+                    15x, VanVleet 1.9x — both instantly cleared);
+      3. veto     — the row is absent from that season's Spotrac FA-signings
+                    list, which enumerates actual fresh signings.
+
+    Rows without last-season pay on record are kept: precision over recall —
+    wrongly deleting a real market price is worse than keeping a stale one.
+    """
+    path = PROCESSED_DIR / "spotrac_signing_types.csv"
+    if not path.exists() or "salary" not in df.columns:
+        return df
+    st = pd.read_csv(path)
+    if "contract_start" not in st.columns:
+        print("WARNING: spotrac_signing_types.csv lacks contract_start — "
+              "rerun scripts/refresh_spotrac.py --reparse-only")
+        return df
+    st = st.dropna(subset=["aav", "contract_start"])
+
+    key = df[["player_name_norm", "season", "salary"]].copy()
+    key["_row"] = np.arange(len(key))
+    cand = key.merge(st[["player_name_norm", "season", "aav", "contract_start"]],
+                     on=["player_name_norm", "season"], how="left")
+    cand["_dist"] = (cand["aav"] - cand["salary"]).abs()
+    best = (cand.sort_values(["_row", "_dist"], kind="stable")
+                .drop_duplicates("_row", keep="first").set_index("_row"))
+
+    close = (best["_dist"] <= aav_tol * best["salary"]).reindex(
+        np.arange(len(df)), fill_value=False).values
+    earlier = (best["contract_start"] < best["season"]).reindex(
+        np.arange(len(df)), fill_value=False).values
+
+    prev_pay = _load_prev_season_cap_pct()
+    cap = df["season"].map(CAP_BY_SEASON)
+    prior_pct = np.array([prev_pay.get((p, int(s) - 1), np.nan)
+                          for p, s in zip(df["player_name_norm"], df["season"])])
+    step = (df["salary"].values / cap.values) / prior_pct
+    escalator_step = (step >= 0.92) & (step <= 1.081)
+    escalator_step = np.where(np.isnan(step), False, escalator_step)
+
+    fa_path = PROCESSED_DIR / "spotrac_fa_signings.csv"
+    if fa_path.exists():
+        fa = pd.read_csv(fa_path)
+        fa_set = set(zip(fa["player_name_norm"], fa["fa_year"].astype(int)))
+        in_fa = np.array([(p, int(s)) in fa_set
+                          for p, s in zip(df["player_name_norm"], df["season"])])
+    else:
+        in_fa = np.zeros(len(df), bool)
+
+    mask = close & earlier & escalator_step & ~in_fa
+
+    filtered = df[~mask].copy()
+    if mask.any():
+        by_season = df.loc[mask].groupby("season").size()
+        detail = ", ".join(f"{int(s)}: {n}" for s, n in by_season.items())
+        print(f"Continuation filter: dropped {int(mask.sum())} rows where span, "
+              f"salary step and FA-list all agree ({detail})")
+    return filtered
+
+
 def _prepare_Xy(df: pd.DataFrame, features: list[str] | None = None):
     """Return X, y, groups arrays with NaN features filled."""
     if features is None:
@@ -335,18 +421,32 @@ def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _make_tobit_obj(cens_mask: np.ndarray, sigma: float = 0.02):
-    """Custom XGBoost objective: censored-normal (Grabit).
+def _make_tobit_obj(cens_mask: np.ndarray, sigma: float = 0.02,
+                    left_mask: np.ndarray | None = None):
+    """Custom XGBoost objective: censored-normal (Grabit), optionally two-sided.
 
     Uncensored rows: standard squared error.
-    Censored rows (max contracts): inverse Mills ratio pushes predictions above ceiling.
+    Right-censored rows (cens_mask — max contracts): the observation is a
+    FLOOR of the latent; the inverse Mills ratio pushes predictions above it.
+    Left-censored rows (left_mask — players pinned at the CBA minimum): the
+    observation is a CEILING of the latent — the league floor props their pay
+    up, so their true market value sits at or below what they were paid. The
+    mirrored gradient lets predictions fall below the observation; Stage 2
+    then clips inference back up to the floor, which is knowable ex ante.
+
+    Note the asymmetry with the dead lower-censoring idea: treating GOOD
+    players on minimums as right-censored fails economically (they could have
+    earned more elsewhere — a choice, not a constraint) and was killed by the
+    oracle experiment. The left mask here is the opposite population: players
+    whose unconstrained price would be BELOW the minimum.
     """
     _c = cens_mask.copy()
+    _l = None if left_mask is None else left_mask.copy()
 
     def obj(y_true, y_pred):
         grad = np.empty_like(y_pred)
         hess = np.empty_like(y_pred)
-        unc = ~_c
+        unc = ~_c if _l is None else ~(_c | _l)
         grad[unc] = y_pred[unc] - y_true[unc]
         hess[unc] = 1.0
         if _c.any():
@@ -354,6 +454,11 @@ def _make_tobit_obj(cens_mask: np.ndarray, sigma: float = 0.02):
             m = np.exp(norm.logpdf(z) - norm.logcdf(z))
             grad[_c] = -sigma * m
             hess[_c] = np.clip(m * (z + m), 1e-6, None)
+        if _l is not None and _l.any():
+            z = (y_true[_l] - y_pred[_l]) / sigma
+            m = np.exp(norm.logpdf(z) - norm.logcdf(z))
+            grad[_l] = sigma * m
+            hess[_l] = np.clip(m * (z + m), 1e-6, None)
         return grad, hess
 
     return obj
@@ -372,6 +477,7 @@ def train_ridge(df: pd.DataFrame, alpha: float = 1.0) -> tuple[dict, object]:
     df = _filter_rookie_scale(df)
     df = _filter_prorated(df)
     df = _filter_mislabeled_year1(df)
+    df = _filter_continuations(df)
     X, y, groups, features = _prepare_Xy(df)
     print(f"Training Ridge (alpha={alpha}) on {len(X)} samples, {len(features)} features")
 
@@ -418,6 +524,7 @@ def train_xgboost(df: pd.DataFrame) -> tuple[dict, object, list[str]]:
     df = _filter_rookie_scale(df)
     df = _filter_prorated(df)
     df = _filter_mislabeled_year1(df)
+    df = _filter_continuations(df)
     X, y, groups, features = _prepare_Xy(df)
     seasons = df["season"].values
     print(f"Training XGBoost on {len(X)} samples, {len(features)} features")
@@ -497,6 +604,7 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     df = _filter_prorated(df)
     df = _compute_max_eligible(df)
     df = _filter_mislabeled_year1(df)
+    df = _filter_continuations(df)
 
     X, y, groups, features = _prepare_Xy(df)
     seasons = df["season"].values
