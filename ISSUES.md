@@ -200,6 +200,20 @@ lacks a source:
   signing date per contract, which Spotrac exposes and the scrape does not yet
   take; that would also let `_filter_continuations` drop its step-and-veto
   signals for a direct test.
+
+  The signing-date scrape now has a fourth quantified payoff. The exit-structure
+  ablation (2026-07-23) found the length of the expiring contract carries real
+  signal — +0.0032 paired (t=2.32) as a pure increment over the coverage
+  artifact — but only 54% of evaluation rows can see their expiring contract in
+  the current Spotrac blocks, and every deployable fill for the other 46%
+  either reopens the collection-artifact channel (sentinel) or drowns the
+  signal in a poisoned bucket (mode fill scored +0.0002). Transaction-level
+  signing dates would push coverage toward ~95%, where the unknown share is too
+  small to matter and the locked +0.003 becomes collectible. RFA status, by
+  contrast, tested empty once the artifact was removed (+0.0004), and option
+  structure is unmeasurable historically — Spotrac annotates options on current
+  contracts only (has_po is 0.000 for every fa_year before 2023 and 0.35-0.50
+  for 2028+).
 - **`floor_pct`** is the median pay of at-floor rows per (season, experience
   bucket) — a recovery of the veteran-minimum scale from the data's own mass
   points, not the published scale. Buckets with few at-floor rows fall back to
