@@ -315,6 +315,31 @@ def layer_c(df, pred_oof) -> dict:
     }
 
 
+def grabit_zone(df, champion_oof, challenger_oof) -> dict:
+    """Zone-local scorecard for the rows Grabit exists for.
+
+    Grabit censors only rows paid >= 90% of their own CBA ceiling — about 5% of
+    the data — so its effect on any pooled metric is diluted ~20x and a pooled
+    t-test mistakes that dilution for weakness. The keep/drop decision for
+    Grabit reads this zone alone: drop it when delta_mae turns positive.
+    """
+    mask = (df[TARGET] >= 0.90 * df["max_eligible_pct"]).values
+    cap_m = df["cap"].values / 1e6
+    err_ch = (champion_oof - df[TARGET].values) * cap_m
+    err_xg = (challenger_oof - df[TARGET].values) * cap_m
+    d_abs = np.abs(err_ch[mask]) - np.abs(err_xg[mask])
+    return {
+        "n": int(mask.sum()),
+        "mae_grabit": float(np.abs(err_ch[mask]).mean()),
+        "mae_baseline": float(np.abs(err_xg[mask]).mean()),
+        "delta_mae": float(d_abs.mean()),
+        "bias_grabit": float(err_ch[mask].mean()),
+        "bias_baseline": float(err_xg[mask].mean()),
+        "rows_better": int((d_abs < -0.005).sum()),
+        "rows_worse": int((d_abs > 0.005).sum()),
+    }
+
+
 def layer_d(df, features, pred_oof, seeds=DEFAULT_SEEDS) -> dict:
     """D2 baseline ladder and D3 the locked confirmation split."""
     y = df[TARGET].values
@@ -421,17 +446,26 @@ def main():
     print_report(df, challenger)
 
     delta = paired_delta(challenger.fold_r2, champion.fold_r2)
+    zone = grabit_zone(df, champion.oof, challenger.oof)
     print(f"\n{'='*74}\n  PAIRED comparison: Grabit v3 minus Baseline XGBoost\n{'='*74}")
-    print(f"    delta CV R2  {delta['delta']:+.4f}  +/- {delta['se']:.4f} (SE)   "
-          f"t = {delta['t']:+.2f}")
+    print(f"    pooled delta CV R2  {delta['delta']:+.4f}  +/- {delta['se']:.4f} (SE)   "
+          f"t = {delta['t']:+.2f}   (context only — see zone verdict)")
     print(f"    per fold     {delta['per_fold']}")
-    print("    accept when t > 2, A2 moves the same way, and no C2 segment "
+    print(f"\n    Grabit zone (rows paid >= 90% of their own ceiling, n={zone['n']}):")
+    print(f"      MAE  ${zone['mae_baseline']:.2f}M -> ${zone['mae_grabit']:.2f}M  "
+          f"({zone['delta_mae']:+.2f})   rows better/worse {zone['rows_better']}/{zone['rows_worse']}")
+    print(f"      bias ${zone['bias_baseline']:+.2f}M -> ${zone['bias_grabit']:+.2f}M")
+    print("    Grabit is a targeted intervention on ~5% of rows; judging it on the")
+    print("    pooled delta mistakes dilution for weakness. Keep it while the zone")
+    print("    MAE delta is negative; drop it if the zone itself turns positive.")
+    print("\n    For CHALLENGER changes (features, filters, hyperparameters):")
+    print("    accept when pooled t > 2, A2 moves the same way, and no C2 segment "
           "regresses by more than $0.3M")
 
     out_dir = OUTPUTS_DIR / "models"
     out_dir.mkdir(parents=True, exist_ok=True)
     payload = {"champion": champion.metrics, "challenger": challenger.metrics,
-               "paired_delta": delta,
+               "paired_delta": delta, "grabit_zone": zone,
                # fold x seed R2 matrices — the reference every future paired
                # comparison diffs against (same folds, same seeds, per-fold)
                "fold_r2": {"champion": champion.fold_r2.tolist(),

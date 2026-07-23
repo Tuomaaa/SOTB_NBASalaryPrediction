@@ -190,8 +190,50 @@ def _load_elite_set() -> set[tuple[str, int]]:
     return set(zip(el["pn"], el["year"].astype(int)))
 
 
+def _load_prev_season_cap_pct() -> dict[tuple[str, int], float]:
+    """(player, season) -> that season's cap_pct, over every row in the data.
+
+    Read from the unfiltered training table so escalator years are present —
+    the ceiling rule below needs a player's actual pay in season-1 even when
+    that row never enters training.
+    """
+    path = PROCESSED_DIR / "training_data_v2.csv"
+    if not path.exists():
+        return {}
+    t = pd.read_csv(path, usecols=["player_name_norm", "season", "salary"])
+    pre = PROCESSED_DIR / "salaries_prehistory.csv"
+    if pre.exists():
+        # 2016-2018 pay parsed from the cached BBRef player pages
+        # (scripts/backfill_prehistory_salaries.py) so the ceiling rule can
+        # anchor the first data season instead of going blind at the boundary
+        t = pd.concat([t, pd.read_csv(pre, usecols=["player_name_norm", "season",
+                                                    "salary"])], ignore_index=True)
+    t = t.drop_duplicates(["player_name_norm", "season"])
+    cap = t["season"].map(CAP_BY_SEASON)
+    pct = t["salary"] / cap
+    t = t[cap.notna()]
+    pct = pct[cap.notna()]
+    return dict(zip(zip(t["player_name_norm"], t["season"].astype(int)), pct))
+
+
 def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute max_eligible_pct with Rose Rule / Supermax from draft + awards data."""
+    """Compute max_eligible_pct with Rose Rule / Supermax from draft + awards data.
+
+    Two rules beyond the 25/30/35 tiers, both found by auditing rows whose
+    actual salary exceeded the computed ceiling (13 of 1,297 — a ceiling that
+    sits below observed pay both mislabels the row as censored and guarantees
+    the Stage-2 clip lands under the truth):
+
+    - The qualifying award can precede the contract: a designated-veteran deal
+      signed the summer after an All-NBA season starts with the award at s-1
+      (Jaylen Brown and Towns 2024 read 30% under a same-season-only lookup).
+    - A veteran's first-year max is the GREATER of the tier and 105% of his
+      previous salary, and legal raises are 8% of year-1 salary, so
+      season-over-season pay never grows by more than 8%. One floor of
+      1.08 x previous-season pay covers both the CBA no-decrease rule and the
+      pre-2019 contracts whose first observed season is mislabeled year-1
+      (Curry 2019 at 36.9% of a frozen cap).
+    """
     from scripts.build_external_features import norm
 
     df = df.copy()
@@ -215,15 +257,29 @@ def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
     supermax = np.zeros(len(df), dtype=bool)
     for i in range(len(df)):
         p, s = pns[i], int(seasons[i])
-        trig = (p, s) in elite_set or _elite_count(p, [s - 2, s - 1, s]) >= 2
-        if trig:
-            if exp[i] <= 6:
-                rose[i] = True
-            elif 7 <= exp[i] <= 9:
-                supermax[i] = True
+        trig = ((p, s) in elite_set or (p, s - 1) in elite_set
+                or _elite_count(p, [s - 2, s - 1, s]) >= 2)
+        if trig and exp[i] <= 6:
+            rose[i] = True
+        elif 7 <= exp[i] <= 9 and (
+            trig or _elite_count(p, [s - 3, s - 2, s - 1]) >= 1
+        ):
+            # a designated-veteran deal can be signed two summers before it
+            # starts (Wall: All-NBA 2016-17, signed 2017, effective 2019), so
+            # the qualifying award may sit at s-3
+            supermax[i] = True
 
     base = np.where(supermax, 0.35, base)
     base = np.where(rose, np.maximum(base, 0.30), base)
+
+    prev_pay = _load_prev_season_cap_pct()
+    if prev_pay:
+        prior = np.array([
+            prev_pay.get((pn, int(s) - 1), np.nan)
+            for pn, s in zip(df["player_name_norm"], df["season"])
+        ])
+        vet_floor = np.where(np.isnan(prior), 0.0, prior * 1.08)
+        base = np.maximum(base, vet_floor)
 
     df["max_eligible_pct"] = base
     df["is_max_contract"] = df[TARGET] >= base * 0.90
