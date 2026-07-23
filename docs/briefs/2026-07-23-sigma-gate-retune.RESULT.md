@@ -11,6 +11,35 @@ zone n=57, floor zone n=297; the in-run incumbent at 10 seeds scores right
 $6.109M / floor $1.983M / A1 0.7652 / B1 0.8329 against the stored reference's
 $6.111M / $1.984M / 0.7653 / 0.8324.
 
+## 0. Architect adjudication (2026-07-23) — verdict confirmed, grounds cleaned
+
+The architect ruled on this bundle. The verdict is unchanged (incumbent held,
+ISSUES #7 closes as "already optimal"), but two things in the sections below are
+now settled rather than open, and one gate is redefined:
+
+- **The C1 guardrail is now RELATIVE, not the absolute [0.99, 1.01].** The
+  architect owns that window and called it a drafting error — it was written
+  without checking that the incumbent's own slope (0.9883) sits outside it. The
+  formal criterion is now: **a candidate's |slope − 1| may not exceed the
+  incumbent's by more than 0.005** (so down to ~0.9833 is admissible). The 0.005
+  is the C2 yardstick reused: 0.005 of scale distortion on a ~$60M max ≈ $0.3M,
+  the same materiality threshold C2 already applies. Section 6 records this as
+  resolved; section 3's C1 row is rescored below under the relative gate.
+- **Under the relative gate, both surviving candidates (0.02/0.55/2.5 and /3.0)
+  now PASS C1** (slope excess +0.0021 and +0.0032, inside 0.005). They still fail
+  the sweep, but on the ZONE objective alone: floor improves $0.061M and $0.090M,
+  both short of the brief's $0.10M bar; k=3.0 misses by $0.010M. The
+  sigma=0.04 family stays out under either reading — its slope excess is +0.0236,
+  ~5x the incumbent's distance from 1, and 0.04/0.55/3.0 also trips the hard
+  ΔSel guard (t=−2.6).
+- **The right-gate death finding is accepted** as-is: no code change (an
+  inert-but-harmless parameter is not worth a change), flagged for a future
+  METHODOLOGY note.
+
+Nothing about the deliverable changes mechanically — no parameter moved, the
+branch still ships only the inert `sigma_left` hook. This section exists so the
+archived document matches the decision it was archived with.
+
 ## 1. What changed and why
 
 Nothing ships. The 36-config grid plus an 11-config boundary probe says sigma is
@@ -97,22 +126,24 @@ open-ended.
 The brief's judging order — zone objectives first, guardrails as no-regression,
 B1 as a final sanity check on the winner only.
 
+Gate 2b is shown under the **adjudicated relative C1 gate** (section 0):
+candidate |slope − 1| may exceed the incumbent's 0.0117 by at most 0.005.
+
 | Gate | 0.02/0.55/2.5 | 0.02/0.55/3.0 | 0.04/0.55/1.5 |
 |---|---|---|---|
 | **1. Zone** (one zone ≤ −0.10, other ≤ +0.05) | **FAIL** (best −0.061) | **FAIL** (best −0.090) | PASS (−0.711 / −0.031) |
 | **2a. dSel** t > −2 | PASS (+0.24) | PASS (−0.67) | PASS (−0.19) |
-| **2b. C1 slope** in [0.99, 1.01] | FAIL (0.9862)\* | FAIL (0.9851)\* | **FAIL** (0.9647) |
+| **2b. C1** slope excess ≤ +0.005 vs incumbent | PASS (+0.0021) | PASS (+0.0032) | **FAIL** (+0.0236) |
 | **2c. C2** fixed-row \|bias\| growth ≤ $0.30M | PASS (+0.061 worst) | PASS (+0.042 worst) | PASS (+0.049 worst) |
 | **3. B1** drop ≤ 0.003 | PASS (+0.0006) | PASS (+0.0009) | PASS (−0.0017) |
 
-\* **See escalation below — the incumbent's own slope is 0.9883, outside the
-stated window.** Under the only self-consistent reading (no degradation relative
-to the incumbent), k=2.5 costs 0.0021 and k=3.0 costs 0.0032, while sigma=0.04
-costs 0.0236 — an order of magnitude more.
-
-**Nothing passes gate 1 and gate 2b together.** The one config that clears the
-zone bar fails calibration by the widest margin in the sweep. The configs that
-hold calibration never reach the zone bar. Incumbent retained.
+**The two k_floor candidates now fail on the zone objective alone.** Both clear
+every guardrail including the relative C1 gate; neither reaches the $0.10M floor
+improvement the brief requires (0.061 and 0.090). sigma=0.04 clears the zone bar
+but fails C1 by ~5x the incumbent's own distance from 1, and the strongest
+sigma=0.04 config (0.04/0.55/3.0, not tabled here) also trips the hard ΔSel
+guard at t=−2.6. No config clears gate 1 and the guardrails together. Incumbent
+retained.
 
 C2 detail is in Appendix D. Worth noting that sigma=0.04 *improves* Bird Rights
 bias (−2.502 → −2.200, |bias| −0.302), which is the same effect seen from the
@@ -168,8 +199,10 @@ publishes, is inflated by exactly the amount of the push.
   something other than fit.
 - **gate_frac does essentially nothing** (52-56 of 57 rows gated across its whole
   range). Either the range is too narrow to bind or the albatross rule it encodes
-  is already satisfied by `is_max_contract`. Worth knowing before anyone spends
-  another sweep on it.
+  is already satisfied by `is_max_contract`. **Architect-accepted**: the binding
+  constraint on this row set is the 0.90 threshold in `is_max_contract`, not
+  gate_frac; no code change (a dead-but-harmless parameter is not worth one),
+  flagged for a future METHODOLOGY note.
 - **A2 was not used as a decision metric anywhere here**, per the brief; it is in
   the JSON for completeness.
 - **Selection-pressure caution.** METHODOLOGY's confirmation-split audit names
@@ -178,21 +211,23 @@ publishes, is inflated by exactly the amount of the push.
   and lands on "change nothing", so it adds no new drift. The confirmation split
   was not read at any point.
 
-## 6. Escalation: the C1 guardrail is not satisfiable as written
+## 6. The C1 guardrail — escalated, then adjudicated
 
-The brief requires the C1 calibration slope to stay in **[0.99, 1.01]**. The
-incumbent's slope is **0.9883** (10 seeds; the stored v7.8x reference is 0.9885).
-The reference model does not satisfy its own guardrail, so the window cannot be
-read as an absolute admissibility criterion — every candidate including the
-status quo fails it.
+**Escalation (what the worker found).** The brief required the C1 calibration
+slope to stay in **[0.99, 1.01]**. The incumbent's slope is **0.9883** (10 seeds;
+the stored v7.8x reference is 0.9885). The reference model does not satisfy its
+own guardrail, so the window could not be read as an absolute admissibility
+criterion — every candidate including the status quo failed it.
 
-I applied the reading that changes nothing about this task's outcome (relative:
-"no meaningful degradation versus the incumbent") and reported both. But fixing
-the rule is architect's lane — `evaluate_suite.py`'s accept/reject rules are
-explicitly off-limits to workers — so I have not changed it. The choice is
-between restating the window around the actual operating point (say [0.98, 1.01])
-and making the gate relative. It matters beyond this task: any future change that
-touches calibration will hit the same contradiction.
+**Adjudication (architect, 2026-07-23).** The absolute window was a drafting
+error and is replaced by a relative gate: **a candidate's |slope − 1| may not
+exceed the incumbent's by more than 0.005.** Rationale: 0.005 of scale
+distortion on a ~$60M max ≈ $0.3M, which is the same materiality threshold C2
+already uses — one yardstick for both. Sampling noise on the paired slope
+difference is far below 0.005, so this is a real tolerance, not a noise band.
+This did not change the verdict (both k_floor candidates still fail on the zone
+objective), but it is now the standing rule; encoding it in `evaluate_suite.py`'s
+accept/reject block is architect's lane, and the text for it is in section 9(b).
 
 ## 7. Files touched
 
@@ -236,16 +271,20 @@ pinned-at-bound share rises 19% -> 42% in step with it. Selecting sigma on
 zone MAE selects how many rows to pin, not how to price them.
 
 gate_frac is inert (52-56 of 57 rows gated across 0.45-0.65). k_floor is
-monotone but saturates just past 3.0, and its best honest gain (floor zone
--$0.090M at k=3.0) misses the +/-0.10 bar while costing 0.003 of slope.
+monotone but saturates just past 3.0; its two admissible settings (2.5, 3.0)
+clear every guardrail, including the now-relative C1 gate, but their floor-zone
+gains ($0.061M, $0.090M) fall short of the brief's $0.10M bar -- k=3.0 by
+$0.010M. sigma=0.04 clears the zone bar only by pinning rows to the ceiling,
+and fails calibration and the ΔSel guard.
 
 Adds an inert sigma_left hook to _make_tobit_obj, verified bit-identical
 when unset; the per-side control it enabled shows the two censored sides
 are independent and additive, which confirms rather than rescues the
 diagnosis above.
 
-Closes ISSUES #7. Files a new issue: the C1 guardrail window [0.99, 1.01]
-excludes the incumbent itself (0.9883) and needs restating.
+Closes ISSUES #7. Replaces the absolute C1 window [0.99, 1.01] -- which
+excluded the incumbent's own 0.9883 -- with a relative gate (slope excess
+<= 0.005 vs incumbent); see RESULT section 6.
 ```
 
 The ISSUES.md edits are NOT on the branch (section 9 explains why) — apply them
@@ -280,34 +319,30 @@ architect would rather keep a pointer so nobody re-runs the sweep, the minimum i
 > across its whole range and is effectively inert. Evidence:
 > `docs/briefs/2026-07-23-sigma-gate-retune.RESULT.md`.
 
-**(b) Add a new entry** for the guardrail contradiction in section 6:
+**(b) Add a new entry** to encode the adjudicated relative C1 gate. The
+contradiction (the absolute [0.99, 1.01] window excluded the incumbent's own
+0.9883) is already RESOLVED by architect decision on 2026-07-23 — the entry is a
+todo to make the code match the decision, not an open question:
 
-> ## N. The C1 calibration guardrail excludes the model it guards
+> ## N. Encode the relative C1 calibration gate
 >
-> **Severity**: low today, blocking the first time a calibration change is
-> judged — the gate cannot be applied as written.
+> **Severity**: low — decided, not yet in code; the accept/reject block still
+> describes no C1 gate, and the old absolute [0.99, 1.01] window (which excluded
+> the champion's own 0.9883 slope) must not be the one that gets written down.
 >
-> The sigma/gate brief (and the acceptance habit it was written from) requires
-> the C1 calibration slope to land in **[0.99, 1.01]**. The champion's slope is
-> **0.9883** at 10 seeds (`outputs/models/evaluation_suite.json`,
-> `champion.C1_calibration_slope`; the v7.8x reference reads 0.9885). The
-> incumbent fails its own admissibility window, so every candidate compared
-> against it fails too, and the gate silently degrades into "reject everything".
+> Adjudicated 2026-07-23 (sigma/gate retune): the C1 gate is **relative**. A
+> candidate is admissible on calibration when **|slope − 1| exceeds the
+> incumbent's by no more than 0.005**. Rationale: 0.005 of scale distortion on a
+> ~$60M max ≈ $0.3M, the same materiality threshold C2 uses; the paired
+> slope-difference noise is far below it. This is the same failure mode
+> METHODOLOGY documents for the C2 rule — an absolute threshold on a quantity
+> only meaningful relative to the operating point.
 >
-> This is the same failure mode METHODOLOGY already documents for the C2 rule —
-> an absolute threshold applied to a quantity that is only meaningful relative
-> to the current operating point.
+> **Fix**: state the relative gate in `evaluate_suite.py`'s accept/reject block
+> next to the C2 rule, so the two cannot drift apart.
 >
-> **Reproduce**: `python -c "import json; print(json.load(open('outputs/models/evaluation_suite.json'))['champion']['C1_calibration_slope'])"`
->
-> **Fix**: either restate the window around the actual operating point (roughly
-> [0.98, 1.01]) or make the gate relative — "slope does not move more than
-> ~0.005 against the incumbent" — and say which in `evaluate_suite.py`'s
-> accept/reject block so the two cannot drift apart again. A relative gate would
-> have produced the same verdict in this task (sigma=0.04 moves it 0.024) while
-> remaining applicable.
->
-> **Verify**: the champion passes its own guardrail.
+> **Verify**: the champion passes its own guardrail (excess 0.000); a candidate
+> at slope 0.983 passes, one at 0.980 fails.
 
 ---
 
