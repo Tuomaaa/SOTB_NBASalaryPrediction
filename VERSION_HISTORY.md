@@ -96,10 +96,22 @@ Signing type breakdown (OOF, $M):
 | Ver | Model | 10-seed CV R² | Forward R² (24-26) | N | Feat | Change |
 |-----|-------|---------------|-------------------|---|------|--------|
 | 7.1x | XGBoost (Grabit) | 0.7581 | 0.8249 | 1556 | 14 | 2026 signings refreshed, 2025/26 caps corrected, four-layer evaluation suite |
-| **7.2x** | **XGBoost (Grabit)** | **0.7588** | **0.8216** | **1297** | **14** | **Prorated partial-season salaries removed from training** |
+| 7.2x | XGBoost (Grabit) | 0.7588 | 0.8216 | 1297 | 14 | Prorated partial-season salaries removed from training |
+| 7.3x | XGBoost (Grabit) | 0.7622 | 0.8237 | 1297 | 14 | First-contract `prev_cap_pct` filled from the rookie scale by draft slot. 2020 season tested and kept |
+| **7.4x** | **XGBoost (Grabit)** | **0.7609** | **0.8240** | **1297** | **14** | **Stage-2 ceiling audit — no-decrease rule, supermax `s-3` lookback, prehistory backfill. Over-cap rows 13 → 0** |
 
-Baseline XGBoost on the same data: CV 0.7570, forward 0.8227. **Paired delta
-+0.0011 ± 0.0004, t = +2.72.**
+### Versioning convention
+
+Every change that moves a published number — data, target, features, model, or
+evaluation protocol — takes the next `vN.Mx` and is tagged on its landing commit
+with the headline A1/A2/B1 in the tag message, so any quoted figure can be
+reproduced with a checkout. Bug fixes count (v5.3x was one); the *kind* of change
+belongs in the Change column, not the numbering. Diagnostics, tooling and
+documentation changes do not consume a number.
+
+Tags: `v7.1x` `09dbe4e` · `v7.2x` `cb27319` · `v7.3x` `b31a6fb` · `v7.4x` `ecdf3da`.
+
+### v7.1x: refreshed data and corrected caps
 
 **The headline numbers fell and that is the correct outcome.** Three separate
 corrections, none of them a model change:
@@ -170,6 +182,101 @@ trips it wherever a segment was already overpredicted. **The guard needs to
 measure segment bias relative to the global level; until it does, treat a C2
 breach on a calibration change as uninformative.**
 
+### v7.3x: rookie-scale fill for first contracts
+
+`prev_cap_pct` anchors a player's next deal on his previous one, but a first
+contract has no previous deal to observe. The old fill was a single number for
+everyone — the median `cap_pct` over first-round rows, which lands on pick-4
+money (~6.9% of cap). An undrafted player's actual predecessor is a minimum deal
+(~1.5%), so the fill overstated it 4.6×; and being a dataset-wide median it
+drifted on every refresh, churning 1,769 rows on the 2026 one.
+
+The fill is now the expected rookie-scale value for the player's own draft slot —
+per-pick medians over the dataset's own rookie-scale rows, interpolated and
+forced monotone in pick — with minimum-level money past pick 30. Derived from the
+data rather than the CBA tables, so it needs no maintenance and is stable under
+refreshes because the rookie scale itself is.
+
+| Layer | v7.2x | v7.3x | paired Δ |
+|---|---|---|---|
+| A1 pooled CV | 0.7588 | **0.7622** | **+0.0034 ± 0.0007, t = +4.91** (all five folds positive) |
+| A2 2024-26 | 0.8343 | 0.8370 | same direction |
+| B1 forward | 0.8216 | 0.8237 | same direction |
+
+C2's worst |bias| growth was +$0.07M against the $0.30M gate. At three times the
+Grabit effect this is the largest single paired improvement since the two-stage
+pipeline itself — from a semantic correction, not a search over the metric.
+
+**The 2020 season was tested in the same pass and kept.** Training *without* 2020
+scored a paired −0.0037 (t = −1.21) and hurt even the rows it was supposed to
+protect: non-2020 rows fell 0.7686 → 0.7650. The COVID season's 167 rows carry
+real pricing signal despite the frozen cap. No code change; the open question is
+closed.
+
+### v7.4x: Stage-2 ceiling audit
+
+A ceiling below observed pay is provably wrong — the salary happened, so it was
+legal — and it does damage twice: the row is mislabelled as censored at a
+threshold it has already passed, and the Stage-2 clip pins the prediction under
+the truth, a guaranteed error. Auditing `actual > max_eligible_pct` found 13 such
+rows in three classes, all now closed.
+
+1. **Missing no-decrease rule, plus a data boundary.** A veteran's first-year max
+   is the greater of his tier and 105% of prior pay, and legal raises cap
+   season-over-season growth at 8%, so the ceiling gains a floor of 1.08 × the
+   previous season's pay. The 2019 rows had no previous season to read — the data
+   starts there — but the cached BBRef player pages carry full salary history, so
+   `scripts/backfill_prehistory_salaries.py` re-parses them offline into
+   `salaries_prehistory.csv` (368 rows, 155 players, 2016–2018). Fixes Curry 2019
+   at 36.9% of a frozen cap against a 35% ceiling, plus Westbrook, Paul, Wiggins,
+   McCollum.
+2. **The qualifying award can precede the start season.** Designated-veteran deals
+   sign up to two summers early — Wall's supermax came from All-NBA 2016-17,
+   signed 2017, effective 2019. The supermax lookup now accepts an elite award
+   back to `s-3` and the Rose path accepts `s-1` (Jaylen Brown and Towns 2024).
+3. **Two rows were float dust** at exactly the tier (Giannis, Adebayo at
+   35.00/25.00). The audit uses a $17K tolerance; no code changed.
+
+| Layer | v7.3x | v7.4x |
+|---|---|---|
+| A1 pooled CV | 0.7622 | 0.7609 |
+| A2 2024-26 | 0.8370 | 0.8366 |
+| B1 forward | 0.8237 | 0.8240 |
+| Calibration slope | 1.001 | **0.9999** |
+| Over-cap rows | 13 | **0** |
+
+**Part of Grabit's measured advantage was this bug.** With honest ceilings the
+pooled paired delta against baseline XGBoost is −0.0001 (t = −0.07) — zero — where
+it read +0.0011 (t = +2.72) at v7.2x. The clip toward too-low ceilings had been
+landing on the mislabelled rows it was clipping onto.
+
+That is not a reason to drop Grabit, and the evaluation protocol changed to say
+so. Grabit censors ~5% of rows, so a pooled test divides its effect by twenty and
+mistakes dilution for weakness. The suite now prints a **zone scorecard** over the
+rows Grabit exists for — those paid ≥90% of their own ceiling:
+
+| Grabit zone (n=65) | Baseline | Grabit |
+|---|---|---|
+| MAE | $7.27M | **$6.52M** |
+| bias | −$6.85M | −$6.43M |
+| rows better / worse | — | **59 / 6** |
+
+The keep/drop rule for Grabit now reads this zone alone: keep it while the zone
+MAE delta is negative, drop it when the zone itself turns positive. The pooled
+`t > 2` rule still governs challenger changes — features, filters,
+hyperparameters — which act on every row.
+
+**A guard to watch.** The locked confirmation split has drifted apart from the
+selection pool over these two versions: 0.7611 / 0.7461 (gap +0.0150) at v7.2x
+against 0.7643 / 0.7415 (gap +0.0228) at v7.4x. The levels are not comparable to
+each other — different players, different difficulty — but the *trend* is the
+signal the split exists to give, and n=186 puts a single reading well inside
+noise. Neither change looks like metric-mining (v7.3x was a semantic fix; v7.4x
+*lowered* pooled R²), so no action now. At the next version bump, re-score each
+accepted change on confirmation rows only; if accepted changes are systematically
+≤0 there while >0 on the selection pool, tighten the protocol so selection
+metrics exclude the confirmation split.
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v7.0x was a statistical
@@ -186,14 +293,21 @@ breach on a calibration change as uninformative.**
 
 ```
 Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 6    Phase 7
-Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data fix
+Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data + protocol
                                                                                      
-0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x
-                        ↗ 0.87                                                       (current)
+0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.761
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.4x
+                        ↗ 0.87                                                                (current)
                   Leaked features
                   (removed in v4.0)
 ```
+
+Phase 7 is flat by design. Every entry in it is a correctness change — refreshed
+data, corrected caps, contaminated rows removed, a semantic fill, honest ceilings
+— and two of the four *lowered* the headline. The line to read for progress in
+this phase is not R² but the count of known-wrong things: an optimistically
+biased test set, two 9%-wrong season targets, 259 prorated rows, a fill 4.6× too
+high for undrafted players, and 13 impossible ceilings, all closed.
 
 ## Notes
 

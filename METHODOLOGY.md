@@ -11,13 +11,16 @@ Predict a player's market value as **cap_pct** (annual salary / salary cap), usi
 | Basketball Reference | Per-season salary, age, team | 4,723 player-seasons (1,086 players, 2019–2031) |
 | nbarapm.com | DARKO DPM, LEBRON, RAPM, usage, box-score rates | 3,880 player-seasons (903 players) |
 | Basketball Reference | Height in inches | 5,416 players |
-| Spotrac | Signing mechanism, contract years, total value, AAV | 2,403 contract-seasons; 981 FA signings (2019–2025) |
+| Basketball Reference | Pre-window salaries for the ceiling floor | 368 player-seasons (155 players, 2016–2018) |
+| Spotrac | Signing mechanism, contract years, total value, AAV | 8,910 contract-seasons; 1,073 FA signings (2019–2026) |
 | Manual reference (raw_external/) | Awards, draft position, team franchise value | Hand-curated CSVs |
 | Manual reference | Salary cap by year, CBA parameters | config.py |
 
 The salary table was refreshed on 2026-07-22, after 2026-27 free agency. The
 previous scrape predated it, so the 2026 season held only players already under
 contract — see "Cap values are load-bearing" and "Sample composition" below.
+Spotrac labels were rebuilt on 2026-07-23; the 2016–2018 salaries were parsed
+offline from the existing HTML cache, not scraped.
 
 ## Season Convention & Intentional Lag
 
@@ -122,7 +125,26 @@ the conditional pricing function is unchanged, only the level moved.
 | Feature | Description |
 |---------|-------------|
 | `cba_era` | Binary: 0 = pre-2023 CBA, 1 = post-2023 CBA |
-| `prev_cap_pct` | Year-1 cap_pct of the player's previous contract. Captures anchoring effect — prior contract value predicts next contract. Filled with median rookie-scale cap_pct for first contracts. |
+| `prev_cap_pct` | Year-1 cap_pct of the player's previous contract. Captures anchoring effect — prior contract value predicts next contract. First contracts are filled from the rookie scale by draft slot; see below. |
+
+#### Filling `prev_cap_pct` for first contracts (v7.3x)
+
+A first contract has no previous deal to observe. Until v7.3x the fill was one
+number for everyone — the median `cap_pct` over first-round rows, which lands on
+pick-4 money (~6.9% of cap). An undrafted player's actual predecessor is a
+minimum deal (~1.5%), so the fill overstated it 4.6×, and because it was a
+dataset-wide median it moved whenever rows were added (the 2026 refresh shifted
+it 0.0704 → 0.0686, churning 1,769 rows).
+
+The fill is now the expected rookie-scale value for the player's own draft slot:
+per-pick medians taken over the dataset's own rookie-scale rows, interpolated
+across gaps and forced monotone decreasing in pick, with minimum-level money past
+pick 30. Derived from the data rather than the CBA salary tables, so it needs no
+maintenance, and stable under refreshes because the rookie scale itself is.
+
+Paired gain **+0.0034 ± 0.0007 (t = +4.91)**, positive in all five folds — three
+times the Grabit effect, and the largest single paired improvement since the
+two-stage pipeline.
 
 ### Features Tested and Rejected
 
@@ -146,8 +168,14 @@ the conditional pricing function is unchanged, only the level moved.
 | `is_contract_year` | +0.0009 | Contract year effect not significant in data |
 | `stayed_with_team` | +0.0006 | Bird rights proxy from Spotrac; near-zero correlation with cap_pct |
 | `P(Minimum \| x)`, `P(Bird \| x)` | **-0.0073** | Fold-honest classifier probabilities. See "Why signing mechanism cannot be a feature" |
-| Post-hoc recalibration (linear) | -0.0013 | Nested, fold-honest. The model is already calibrated (slope 1.0006) |
+| Post-hoc recalibration (linear) | -0.0013 | Nested, fold-honest. The model is already calibrated (slope 0.9999) |
 | Post-hoc recalibration (isotonic) | -0.0052 | As above, and more prone to overfitting the fold |
+
+### Training-set choices tested and rejected
+
+| Change | ΔCV R² | Verdict |
+|--------|--------|---------|
+| Drop the 2020 (COVID) season from training | **-0.0037** (t = -1.21) | **Rejected.** The frozen cap and shortened season make 2020 look like a regime break, but removing its 167 rows hurt even the rows it was meant to protect: non-2020 rows fell 0.7686 → 0.7650. The season carries real pricing signal; it stays in training and is flagged in per-season tables. |
 
 ### Why signing mechanism cannot be a feature
 
@@ -209,9 +237,34 @@ CBA rules cap maximum salary by experience:
 - **7–9 years**: 30% of cap (or 35% with Supermax)
 - **10+ years**: 35% of cap
 
-**Rose Rule**: players with ≤6 years experience who made an All-NBA team, won MVP, or won DPOY in the current or recent seasons qualify for 30% max. Detection uses non-lagged elite award lookup directly from awards data (the award that triggers the extension happens the same season the salary starts).
+**Rose Rule**: players with ≤6 years experience who made an All-NBA team, won MVP,
+or won DPOY qualify for 30% max. The award is looked up at the salary's own season
+and at `s-1`, because a deal signed the summer after an All-NBA season starts the
+year *after* the award.
 
-**Supermax**: players with 7-9 years experience who earned multiple elite awards in a 3-year window qualify for 35% max.
+**Supermax**: players with 7–9 years experience who earned elite awards qualify for
+35% max. The lookback runs to `s-3`: designated-veteran deals can be signed two
+summers before they take effect (Wall's came from All-NBA 2016-17, signed 2017,
+effective 2019).
+
+**No-decrease floor**: a veteran's first-year max is the *greater* of his tier and
+105% of his previous salary, and legal raises cap season-over-season growth at 8%.
+The ceiling therefore also carries a floor of `1.08 × previous season's cap_pct`.
+Anchoring it needs pay from before the training window, so
+`scripts/backfill_prehistory_salaries.py` re-parses the cached BBRef player pages
+offline into `salaries_prehistory.csv` (368 rows, 155 players, 2016–2018).
+
+#### Why the ceiling is audited
+
+A ceiling below observed pay is provably wrong — the salary happened, so it was
+legal — and it does damage twice: the row is mislabelled as censored at a
+threshold it has already passed, and the Stage-2 clip pins the prediction below
+the truth, a guaranteed error. Auditing `actual > max_eligible_pct` found 13 such
+rows before v7.4x (Curry 2019 at 36.9% of a frozen cap against a 35% ceiling,
+Wall and Towns on early-signed designated-veteran deals, and two rows that were
+float dust at exactly the tier). All three rules above came from that audit; the
+count is now **zero**, and it is worth re-running after any change to experience,
+awards, or cap data.
 
 ### Hyperparameters
 
@@ -276,43 +329,101 @@ both ways:
 | 25%+ | −$5.71M | +$0.00M |
 
 The honest reading is the right column: the model is calibrated, with an OLS
-slope of actual on predicted of 1.0006. Fold-honest recalibration confirms it by
+slope of actual on predicted of 0.9999. Fold-honest recalibration confirms it by
 failing to help (linear −0.0013, isotonic −0.0052).
 
 ### D — guards
 
 - **Fixed evaluation set** whenever the training filter changes. R²'s denominator moves with the row set, so R² across different datasets is not comparable. The apparent v3.5x → v4.0 collapse from 0.866 to 0.645 is this effect, not a regression.
-- **Baseline ladder**, so absolute R² is not mistaken for skill: predicting the mean 0.000, `mpg` alone **0.5873**, `mpg + prev_cap_pct` 0.6003, four features 0.7366, full 14 features 0.7581. Minutes per game alone reaches 77% of the full model's R²; the remaining ten features together buy +0.021 over that four-feature model.
-- **Locked confirmation split**: 15% of players by stable hash, held out of every selection decision, opened at a version bump. Currently 0.7622 (n=224) against 0.7572 on the selection pool — no sign of the metric being overfitted by 20+ feature decisions and two hyperparameter sweeps.
+- **Baseline ladder**, so absolute R² is not mistaken for skill: predicting the mean 0.000, `mpg` alone **0.5740**, `mpg + prev_cap_pct` 0.6179, four features 0.7456, full 14 features 0.7609. Minutes per game alone reaches 75% of the full model's R²; the remaining ten features together buy +0.015 over that four-feature model.
+- **Locked confirmation split**: 15% of players by stable hash, held out of every selection decision, opened at a version bump. Currently 0.7415 (n=186) against 0.7643 on the selection pool. The two levels are not comparable to each other — different players, different difficulty — so only the *trend* is informative, and it has widened from +0.0150 at v7.2x to +0.0228 at v7.4x. See "Watching the confirmation split" below.
 
-### Results (v7.1x, 10 seeds, n = 1,556)
+### Results (v7.4x, 10 seeds, n = 1,297)
 
 | Metric | Baseline XGBoost | Grabit + CBA cap |
 |--------|-----------------|------------------|
-| A1 CV R² | 0.7570 | **0.7581** |
-| A2 CV R² (2024-26, n=454) | 0.8234 | **0.8257** |
-| B1 forward R² (2024-26) | 0.8227 | **0.8249** |
-| B1 95% CI | [0.771, 0.864] | [0.770, 0.867] |
-| CV MAE | $3.17M | **$3.14M** |
-| Calibration slope | 1.0145 | **1.0006** |
-| Spearman | 0.7677 | 0.7668 |
+| A1 CV R² | 0.7609 | 0.7609 |
+| A2 CV R² (2024-26, n=397) | 0.8348 | **0.8366** |
+| B1 forward R² (2024-26) | 0.8213 | **0.8240** |
+| B1 95% CI | [0.769, 0.863] | [0.771, 0.867] |
+| CV MAE | $3.32M | **$3.30M** |
+| Calibration slope | 1.0163 | **0.9999** |
+| Spearman | 0.8067 | 0.8062 |
 
-**Paired delta (Grabit − baseline): +0.0011 ± 0.0004, t = +2.72.** Passes the
-acceptance rule; the gain is small because gated censoring touches only ~73 of
-1,556 rows.
+Forward R² by origin (Grabit): 2024 → 0.844 (n=134), 2025 → 0.798 (n=139),
+2026 → 0.827 (n=124). The cost of the forecasting setup relative to A2 is
+−0.0126.
 
-Forward R² by origin (Grabit): 2024 → 0.845 (n=166), 2025 → 0.812 (n=164),
-2026 → 0.811 (n=124). The cost of the forecasting setup relative to A2 is
-−0.0008.
+### Judging Grabit: the zone scorecard
 
-### Acceptance rule
+**Pooled paired delta (Grabit − baseline): −0.0001 ± 0.0010, t = −0.07.** At
+v7.2x this read +0.0011 (t = +2.72); part of that advantage was the ceiling bug
+corrected in v7.4x, where clipping toward too-low ceilings happened to land on
+the mislabelled rows it was clipping onto.
 
-A change is accepted when all four hold:
+The pooled test is nonetheless the wrong instrument. Gated censoring touches 65
+of 1,297 rows — 5% — so a pooled statistic divides the effect by twenty and
+mistakes dilution for weakness. The suite reports a **zone scorecard** over the
+rows Grabit exists for, those paid ≥90% of their own ceiling:
+
+| Grabit zone (n=65) | Baseline | Grabit |
+|---|---|---|
+| MAE | $7.27M | **$6.52M** |
+| bias | −$6.85M | −$6.43M |
+| rows better / worse | — | **59 / 6** |
+
+Bias stays near −$6M in this zone by construction, not by failure: these players
+are paid their ceiling and the Stage-2 clip caps predictions at that ceiling, so
+the residual can only be ≤ 0. MAE is the number that moves.
+
+Spillover is real and two-sided, because one set of trees serves every row. Rows
+at 75–90% of their ceiling are not censored yet gain (bias −$3.21M → −$2.74M);
+rows at 50–75% pay for it (MAE +$0.13M, 67 rows worse against 39 better). The net
+is clearly positive, and no gating threshold can separate the two — they are the
+same mechanism.
+
+### Acceptance rules
+
+**Challenger changes** — features, filters, hyperparameters, anything acting on
+every row — are accepted when all four hold:
 
 1. paired A1 delta > 0 with |Δ| / SE > 2
 2. A2 moves the same direction (significance not required)
 3. no C2 segment's bias worsens by more than $0.3M
 4. MAE does not regress beyond the agreed tolerance
+
+**Grabit** is judged on its zone alone: keep it while the zone MAE delta is
+negative, drop it when the zone itself turns positive. Applying the pooled rule
+to a 5% intervention would have removed it at v7.4x on a t-statistic of −0.07.
+
+### Watching the confirmation split
+
+Every accept/reject in this project's history reads the same metric. Each decision
+carries noise and the winning side is kept, so across 20+ feature decisions, two
+hyperparameter sweeps, and the σ and gate thresholds, the metric can drift upward
+without the model improving. The confirmation split is the canary: it carries only
+15% weight in the decision metric, so it should climb more slowly than the
+selection pool — but not fall while the pool rises.
+
+| | selection pool (n=1,111) | confirmation (n=186) | gap |
+|---|---|---|---|
+| v7.2x | 0.7611 | 0.7461 | +0.0150 |
+| v7.4x | 0.7643 | 0.7415 | +0.0228 |
+
+Three reasons not to act yet: an R² on 186 rows has a bootstrap interval about
+±0.05 wide, so a −0.005 move is well inside noise; and neither recent change looks
+like metric-mining — v7.3x was a semantic correction motivated independently of
+the metric, and v7.4x *lowered* pooled R² in exchange for correctness, which is
+the opposite of what mining produces.
+
+Two honest caveats about the guard as built. The decision metric still *includes*
+the confirmation rows, so it is a diluted version of the real thing; and although
+the protocol says "opened at a version bump", the suite prints it on every run.
+It is a canary, not a sealed envelope. At the next version bump, re-score each
+accepted change on confirmation rows only — the per-row OOF for every version is
+archived in `outputs/models/oof_reference.csv`. If accepted changes are
+systematically ≤0 there while >0 on the selection pool, tighten the protocol so
+selection metrics are computed on the selection pool alone.
 
 ## Holdout vs Valuation
 
@@ -322,48 +433,70 @@ they mean different things:
 - **Signing Board / holdout**: Year-1 filter on train and test both. Produces the **Signing Residual** — a measure of model accuracy against a price the market actually set.
 - **Value Board / valuation**: Year-1 filter on train only, score every row. Produces the **Contract Surplus** — a statement about a team's books, not about model error. R² is not meaningful here; ranking is.
 
-## Diagnostic Findings (v7.1x)
+## Diagnostic Findings (v7.4x)
 
 ### Bias by predicted band
 
 | Predicted band | n | bias | MAE |
 |---------------|---|------|-----|
-| <2% | 464 | +$0.02M | $0.89M |
-| 2-4% | 373 | +$0.39M | $2.44M |
-| 4-8% | 352 | −$0.03M | $4.34M |
-| 8-15% | 196 | −$0.43M | $5.52M |
-| 15-25% | 118 | −$0.64M | $5.64M |
-| 25%+ | 56 | +$1.59M | $5.13M |
+| <2% | 211 | +$0.00M | $0.49M |
+| 2-4% | 348 | +$0.13M | $2.17M |
+| 4-8% | 344 | +$0.59M | $3.97M |
+| 8-15% | 213 | −$0.27M | $5.04M |
+| 15-25% | 124 | −$1.03M | $5.71M |
+| 25%+ | 57 | +$1.44M | $4.77M |
 
-Flat to within ±$0.65M except at the very top, where n is small.
+Flat to within ±$1.05M, with the widest cells at the two thinnest bands.
 
 ### Signing Residual by mechanism
 
 | Mechanism | n | bias | MAE |
 |-----------|---|------|-----|
-| Unknown | 911 | −$0.40M | $3.36M |
-| Minimum | 419 | +$1.45M | $2.35M |
-| MLE | 61 | +$1.42M | $2.59M |
-| Bird Rights | 58 | −$2.78M | $4.92M |
-| Cap Space | 51 | −$0.68M | $4.09M |
-| Early Bird | 27 | −$0.49M | $2.45M |
-| Sign & Trade | 17 | −$3.04M | $6.33M |
+| Bird Rights | 353 | −$2.43M | $4.82M |
+| Minimum | 309 | +$2.51M | $2.59M |
+| MLE | 204 | +$1.32M | $2.26M |
+| Cap Space | 143 | −$0.78M | $3.61M |
+| Unknown | 132 | +$0.59M | $2.66M |
+| Early Bird | 57 | −$1.05M | $2.69M |
+| Other | 49 | +$1.68M | $2.14M |
+| Non-Bird | 27 | +$2.07M | $2.58M |
+| Sign & Trade | 20 | −$4.62M | $5.40M |
 
-Bird Rights and Sign & Trade are underpriced by ~$3M — both are mechanisms that
-let a team exceed the cap for its own player, and the retention premium is
-invisible to the features. Minimum and MLE are overpriced by ~$1.4M. These
-patterns survive controlling for predicted value, but are still not usable as
-features; see "Why signing mechanism cannot be a feature."
+Bird Rights and Sign & Trade are underpriced — both let a team exceed the cap for
+its own player, and the retention premium is invisible to the features. Minimum
+and MLE are overpriced. These patterns survive controlling for predicted value
+but are still not usable as features; see "Why signing mechanism cannot be a
+feature."
 
-Label coverage is only 43%; the 911 `Unknown` rows carry 56% of the squared
-error, so more than half of the total error cannot currently be attributed to a
-mechanism at all. Roughly 7% of `Minimum` labels are also wrong — Spotrac's
-contract blocks are walked backwards to assign seasons and can misalign, which
-put a $27M salary under a minimum label. Correcting those makes the Minimum bias
-*larger* (+$1.91M), so the effect above is understated.
+**Label coverage was rebuilt on 2026-07-23** and now runs 85–91% of year-1
+evaluation rows per season, against ~43% before. `Unknown` fell from 57% of the
+frame to 10%. Three parsing faults were fixed in
+`scripts/scrape_spotrac_players.py` and the pipeline is now
+`scripts/refresh_spotrac.py`:
 
-### Grabit Impact on Max Contracts
-The Grabit censored loss improved predictions for max-contract players across all three CBA tiers (25%, 30%, 35%). Out of 73 max-contract player-seasons, 58 improved, 7 worsened, 8 neutral. The 7 worsened cases are Albatross Contracts (gating catches most but not all) and edge cases where Tobit slightly overpushes.
+- Season assignment walked the career-earnings table backwards, so one skipped
+  deal shifted every assignment below it — a $27M season carried a "Minimum"
+  label. Each contract now anchors itself at `fa_year − n … fa_year − 1` from its
+  own Free Agent field.
+- A mid-season buyout puts two real contracts on one season (Westbrook 2022:
+  supermax cash, then a minimum signing). Overlapping spans are kept and the
+  consumer picks the contract whose AAV is closest to the row's observed salary,
+  since the label a residual diagnostic needs is the contract that *produced*
+  the salary.
+- Cache slugs drop dots, so round-tripping "a.j. green" through a slug silently
+  unlabelled every dotted or hyphenated name. Slugs now map back through the
+  training data.
+
+Two consequences for reading the table above. `Bird Rights` jumped from n=58 to
+n=353 because extensions now resolve and bucket there — it conflates re-signings
+with extensions, so do not read it as a clean retention-premium estimate without
+splitting them first. And Minimum-labelled rows above $6M fell from 30 to 6;
+`ISSUES.md` #5 lists the residual gaps.
+
+### Grabit impact in its zone
+
+See "Judging Grabit: the zone scorecard" above. Over the 65 rows paid ≥90% of
+their own ceiling, MAE falls $7.27M → $6.52M with 59 rows better and 6 worse.
 
 ## Inference Pipeline
 
@@ -382,18 +515,17 @@ The Grabit censored loss improved predictions for max-contract players across al
 
 1. **Rookie max extensions**: players like JJJ, Jalen Williams get max extensions based on projected ceiling — the model sees current-season stats only, not future potential.
 2. **Albatross Contracts**: John Wall, Gordon Hayward — paid max despite poor performance. Gated censoring filters most but not all. The model correctly says they're overpaid.
-3. **prev_cap_pct fill**: first-contract players get median rookie-scale cap_pct as fill value. Because that median is a global statistic it moves whenever rows are added — the 2026 refresh shifted it from 0.0704 to 0.0686. Could be replaced with a draft pick → expected rookie scale mapping, which would be stable.
-4. **Signing mechanism is a label, not a feature** — partly determined by the contract itself, and empirically worthless as a modelled probability. See the dedicated section above.
-5. **No tracking data**: NBA.com tracking data (drives, catch-and-shoot, rim protection) could improve archetype-specific predictions.
-6. **σ tension**: CV prefers σ=0.02 (conservative censored gradients), holdout prefers larger σ (more aggressive). Sticking with CV-optimal to avoid overfitting to a single holdout season.
-7. **Point estimates against a bimodal target**: `y | x` is genuinely bimodal for mid-market players. A conditional mean is the R²-optimal point estimate and is nonetheless wrong for both modes. A distributional output — quantiles, or `P(signs for the minimum)` alongside a conditional market value — would answer the actual question better, and would not be measurable by R².
-8. **The model is not underfitting**: depth 6, learning rate 0.03, and looser `min_child_weight` all score worse than the current settings (0.7648 / 0.7613 / 0.7527 against 0.7661). Added structure cannot be justified as an inductive-bias fix.
+3. **Signing mechanism is a label, not a feature** — partly determined by the contract itself, and empirically worthless as a modelled probability. See the dedicated section above.
+4. **No tracking data**: NBA.com tracking data (drives, catch-and-shoot, rim protection) could improve archetype-specific predictions.
+5. **σ tension**: CV prefers σ=0.02 (conservative censored gradients), holdout prefers larger σ (more aggressive). Sticking with CV-optimal to avoid overfitting to a single holdout season.
+6. **Point estimates against a bimodal target**: `y | x` is genuinely bimodal for mid-market players. A conditional mean is the R²-optimal point estimate and is nonetheless wrong for both modes. A distributional output — quantiles, or `P(signs for the minimum)` alongside a conditional market value — would answer the actual question better, and would not be measurable by R².
+7. **The model is not underfitting**: depth 6, learning rate 0.03, and looser `min_child_weight` all score worse than the current settings (0.7648 / 0.7613 / 0.7527 against 0.7661). Added structure cannot be justified as an inductive-bias fix.
+8. **Grabit's reach is not confined to its gate.** Censoring changes gradients for 65 rows, but one set of trees serves all 1,297, so leaf values shift for their neighbours too. Rows at 75–90% of their ceiling gain without being censored; rows at 50–75% lose slightly. No threshold separates the two — it is the same mechanism, and the net is positive.
 
 ### Pipeline and reproducibility
 
-9. **The contract-structure script was never committed.** Only `contract_structure_v2.csv` survives. Reconstructing the detection from CBA escalator ratios reaches at best 88% agreement on the year-1 flag and 74% on contract length across a 30-point parameter sweep — far too low to regenerate history without invalidating every published version number. The table is therefore extended incrementally: rows whose salary is unchanged keep their assignment byte-for-byte, and only new or changed rows are assigned. Any future change needing a full recompute will hit this wall.
-10. **Regenerating the training data spans three files with no chaining entry point**: `src/features/build_dataset.py` → `scripts/build_external_features.py` → `scripts/phase3.py::build_contract_features`. That last stage, which produces `prev_cap_pct`, lives in an experiment script. Stage 1 is verified faithful — all 14 model features reproduce at 100% on unchanged rows.
-11. **Prorated partial-season rows are still in the training set** (~16%, see "Known contamination"). Removing them is a +0.0048 improvement waiting on a version bump.
+9. **The contract-structure script was never committed.** Only `contract_structure_v2.csv` survives. Reconstructing the detection from CBA escalator ratios reaches at best 88% agreement on the year-1 flag and 74% on contract length across a 30-point parameter sweep — far too low to regenerate history without invalidating every published version number. `scripts/extend_contract_structure.py` therefore extends the table incrementally: rows whose salary is unchanged keep their assignment byte-for-byte, only new or changed rows are assigned, and it hard-fails if an unchanged row would move. Any future change needing a full recompute will still hit this wall.
+10. **`prev_cap_pct` is produced by an experiment script.** The regeneration chain is `src/features/build_dataset.py` → `scripts/build_external_features.py` → `scripts/phase3.py::build_contract_features`, and that last stage lives in `phase3.py` for historical reasons. `scripts/rebuild_training_data.py` now chains all three behind one command and validates that the fifteen cap-independent columns reproduce exactly on shared rows, but the stage itself has not been moved to a home of its own.
 
 ## Reproducibility
 
@@ -401,16 +533,23 @@ The Grabit censored loss improved predictions for max-contract players across al
 # Verify the salary caps still reconcile — do this after touching config.py
 python scripts/check_caps.py
 
-# Rebuild the training data (three stages, in order)
-python -c "import sys; sys.path.insert(0,'.'); from src.features.build_dataset import build_dataset; \
-           build_dataset().to_csv('data/processed/training_data_v2.csv', index=False)"
-python scripts/build_external_features.py
-# stage 3: scripts/phase3.py::build_contract_features adds prev_cap_pct
+# Refresh the data after a signing period. Run in this order: the salary step
+# snapshots the pre-refresh table for the structure step to diff against.
+python scripts/refresh_salaries.py            # ~25 min live; --use-cache to re-parse
+python scripts/extend_contract_structure.py
+python scripts/rebuild_training_data.py       # chains all three build stages
+
+# Signing-mechanism labels for a new FA year (diagnostic only, never a feature)
+python scripts/refresh_spotrac.py --year 2026 --refresh-signees
+python scripts/refresh_spotrac.py --reparse-only   # no network
+
+# Pre-2019 salaries for the ceiling's no-decrease floor (offline, from cache)
+python scripts/backfill_prehistory_salaries.py
 
 # Train and evaluate
 python src/model/train.py
 
-# Full four-layer evaluation, champion vs challenger with a paired delta
+# Full four-layer evaluation, champion vs challenger, paired delta + Grabit zone
 python src/model/evaluate_suite.py
 
 # Generate predictions (Grabit + CBA cap pipeline)
@@ -419,6 +558,9 @@ python src/model/predict.py
 # Residual analysis, SHAP, signing-mechanism slices
 python scripts/diagnostics.py
 ```
+
+Every number quoted in this document can be reproduced by checking out its
+version tag (`v7.1x` … `v7.4x`) and running `src/model/evaluate_suite.py`.
 
 ## References
 
