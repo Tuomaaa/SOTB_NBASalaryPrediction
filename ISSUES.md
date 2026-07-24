@@ -295,3 +295,57 @@ master.
      neutrality), not on common-row A1 improvement — that instrument cannot
      see removals by construction.
 
+---
+
+## 16. 2026 cap and 2026 salaries drifted together onto the stale projection (166.0M vs official 164.961M)
+
+**Severity**: low-moderate — caps are load-bearing; the target for the 2026
+season is rescaled ~0.63%. This is the failure mode CLAUDE.md warns about, and
+it is invisible to `check_caps.py` because the cap and the data are *stale in
+lockstep*.
+
+`CAP_BY_SEASON[2026] = 166_000_000`, but the NBA set the 2026-27 cap at
+**$164,961,000** (official: https://pr.nba.com/2026-27-salary-cap/, confirmed by
+Hoops Rumors 2026-07 — a +0.63% overstatement). The 2026 entry has no
+"projected" comment (unlike 2027+), so it reads as final.
+
+The subtlety: `check_caps.py` currently reports 2026 "ok" (5/11 near-max rows on
+a tier) **at 166.0M**, so the guard does NOT flag it. That is because five 2026
+year-1 max rows still carry salaries computed against the *projected* 166.0M cap
+— `$49,800,000` = 0.30 × 166.0M (bam adebayo, de'aaron fox) and `$41,500,000` =
+0.25 × 166.0M (chet holmgren, jalen williams, paolo banchero), all
+extension/rookie-extension maxes locked at the projection when signed. Meanwhile
+two actual 2026 FA signings already reconcile to the *official* cap —
+`$41,240,250` = 0.25 × 164.961M (austin reaves), `$49,488,300` = 0.30 × 164.961M
+(trae young). The data is a mix; the stale half outvotes and matches the stale
+config, so `check_caps` sees agreement.
+
+**Consequence for a naive fix**: setting the cap to 164.961M *alone* drops 2026
+to 2/11 on-tier, and `_implied_cap` then reports "166,000,000 fits better" and
+flags 2026 WRONG — reverting the fix. The cap and the five stale extension-max
+salaries must be corrected **together**.
+
+**Reproduce**:
+```
+python scripts/check_caps.py           # 2026 "ok" at 166.0M today (masks it)
+python - <<'PY'
+import pandas as pd; from config import PROCESSED_DIR
+d = pd.read_csv(PROCESSED_DIR/'training_data_v2.csv')
+d = d[(d.season==2026)&(d.year_in_contract==1)]
+for cap in (166_000_000, 164_961_000):
+    r=d[d.salary/cap>0.20]; h=(r.salary/cap).apply(lambda p:min(abs(p-t) for t in (.25,.3,.35))<5e-5).sum()
+    print(cap, f'{h}/{len(r)} on tier')   # 5/11 vs 2/11
+PY
+```
+
+**Fix** (architect/data lane, own dispatch — moves the 2026 target scale): set
+`CAP_BY_SEASON[2026] = 164_961_000` AND refresh the five stale extension-max 2026
+salaries to the official-cap figures (0.25/0.30 × 164.961M), then rerun
+`scripts/check_caps.py`. Found during the MLE mass-point recon
+(`docs/briefs/2026-07-24-mle-mass-point.RESULT.md`); the stale cap nudged that
+memo's 2026 cap_pct figures ≤0.63% but did not affect its conclusions.
+
+**Verify**: `CAP_BY_SEASON[2026] == 164_961_000`, the five names above carry
+164.961M-tier salaries, and `check_caps.py` reports 2026 ok with the implied-cap
+probe silent.
+
