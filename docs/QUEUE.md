@@ -7,6 +7,18 @@ Last updated: 2026-07-25, after the censor-widening landing.
 
 ## In flight / ready to launch
 
+- **Per-route δ for the continuous routes** — brief dispatched:
+  `2026-07-26-route-delta.md`. Bird-Rights re-signings and cap-space
+  signings currently share one regression value; C2 has carried Bird at
+  −$2.5M against Cap Space −$0.2M for the whole project. Builds
+  `value_k = f(x) + δ_k` with δ estimated from fold-honest RESIDUALS (never
+  salary means — the 0.180/0.130 extension-vs-re-sign gap is composition,
+  which f(x) already prices). Independent of the max branch and of the
+  classifier's sharpness in the ex-post mode, so it runs in parallel with
+  phase 3. Sequencing note: this was proposed by the user during the
+  architecture discussion and queued behind two max-branch rounds that did
+  not land — promoted 2026-07-26.
+
 - **Service years (ISSUES #20)** — brief dispatched:
   `2026-07-26-service-years.md`. **Run this BEFORE phase 3** (or re-pin
   phase 3 after it lands): it moves the max zone 68 → 70 and removes
