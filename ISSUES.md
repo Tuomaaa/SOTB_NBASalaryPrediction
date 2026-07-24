@@ -233,35 +233,27 @@ gain under 2 points. See #8's source table and the RESULT's target 3.)
 
 ---
 
-## 13. `prev_cap_pct` feature ignores `salaries_prehistory.csv`
+## 16. `salaries_prehistory.csv` misses ~6 of the 2019 eval rows
 
-**Severity**: low-moderate — `prev_cap_pct` is one of the 14 model features, so
-a wrong value is a wrong feature, not merely cosmetic.
+**Severity**: low — the affected rows carry negligible prior pay, so their
+`prev_cap_pct` slot-fill fallback is nearly right anyway.
 
-The FEATURE `prev_cap_pct` in `training_data_v2.csv` (built by
-`scripts/phase3.build_contract_features`) is derived from that table alone, whose
-rows start in 2019. When a row's prior season is 2018 or earlier the lookup
-fails and `prev_cap_pct` gets a constant fill (**0.037227**) instead of the true
-value — even though the salary IS on record. `_load_prev_season_cap_pct` in
-`train.py` (used by `_filter_continuations`) already reads
-`salaries_prehistory.csv` for exactly this boundary and gets it right, so the two
-"prior pay" derivations disagree.
+After the 2018-19 team-salary scrape (`scripts/scrape_2018_salaries.py`), 2018
+prior coverage of the season-2019 eval rows reached 136/142. The remaining 6 are
+two-way / minimum players whose salary is absent from the BBRef `salaries2` team
+table (Alex Caruso, Shake Milton, Wes Iwundu, Wenyen Gabriel, Amile Jefferson),
+plus one **name rename**: **Enes Kanter → Enes Freedom**. His 2018-19 pay is on
+the page under "Enes Kanter" (`norm` → `enes kanter`), but the training data
+carries `enes freedom`, so the join misses it.
 
-**Reproduce**: Klay Thompson 2019 carries `prev_cap_pct = 0.037227`; his 2018-19
-salary is in `salaries_prehistory.csv` as `$18,988,725` = **0.186** of the 2018
-cap, and `_load_prev_season_cap_pct()[("klay thompson", 2018)]` returns 0.186.
-The same 0.037227 fill also appears on his 2020-2023 and 2025-2026 rows, whose
-true priors ARE present, so the feature is broken for more than the 2018
-boundary — `build_contract_features` should be audited, not just extended.
+**Fix**: a small name-alias map applied in `scrape_2018_salaries.py` /
+`_load_prev_season_cap_pct` (kanter→freedom, and any other post-2019 renames)
+would recover the vet row; the two-way players need a two-way salary source, not
+the team salary table. Low priority — none of the six moves a model feature
+materially.
 
-**Fix**: have `build_contract_features` fall back to `salaries_prehistory.csv`
-for pre-2019 priors, the way `_load_prev_season_cap_pct` does, then re-check that
-`prev_cap_pct` reproduces a player's actual prior-season cap_pct across a sample.
-This is a feature-value change and wants its own dispatch (touches the frame all
-14 features live in); measure a common-row A1 delta before landing.
-
-**Verify**: Klay 2019 `prev_cap_pct` ≈ 0.186; no player carries the 0.037227 fill
-where a real prior exists.
+**Verify**: `_load_prev_season_cap_pct()` returns a value for
+`("enes freedom", 2018)`.
 
 ---
 
