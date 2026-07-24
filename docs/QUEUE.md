@@ -79,6 +79,26 @@ Last updated: 2026-07-25, after the censor-widening landing.
   wiring step (production ships plain XGBoost, no Stage 2 — worker-flagged
   integration caveat).
 
+## Standing decisions (do not re-propose without new evidence)
+
+- **The Stage-2 clip never reads the observed salary — in either direction.**
+  Clipping DOWN at actual pay is straight target leakage: over-prediction
+  becomes impossible, so every bargain vanishes from the Value Board by
+  construction and a model that predicts $40M for everyone scores well.
+  Clipping UP to actual pay when the ceiling came out too low is logically
+  defensible (pay ≤ legal max, so the salary certifies a lower bound on the
+  true ceiling) but is still rejected, for two reasons: (a) that contradiction
+  is currently our most sensitive data-error detector — it is how ISSUES #19's
+  12 mis-tiered rows were found — and auto-repairing it silences the alarm,
+  the same failure shape as ISSUES #16 (stale cap + stale salaries agreeing
+  with each other); (b) `predict.py` has no salary for an unsigned free agent,
+  so the guard cannot run at inference and CV would drift optimistic relative
+  to deployment. **Correct form: assert loudly, fix the input.** Empirically
+  the situation is already zero — the only rows above their ceiling are 3
+  float-dust cases at ratio 1.0000 (Adebayo/Tatum 2021 at 0.250000, Giannis at
+  0.350001), so any over-ceiling check should use the same 1e-4 tolerance
+  `_filter_mislabeled_year1` uses. Decided 2026-07-26.
+
 ## Parking lot
 
 Wingspan (wingspan_minus_height), external archetypes, prehistory
