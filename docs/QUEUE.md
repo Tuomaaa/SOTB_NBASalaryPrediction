@@ -16,6 +16,15 @@ Last updated: 2026-07-25, after the censor-widening landing.
   genuine classifier false positives; class definition unchanged, no
   tier-aware targets. The worker reports its touched-row collateral list
   for cross-checking against that review when it lands.
+  **RECONCILED 2026-07-24 (v7.12x, cap-arithmetic verified):** the P>0.5 set
+  is a MIX. (a) Kawhi 2019 / AD 2020 / Kemba 2019 / Kyrie 2019 / Mitchell 2025
+  / Beal 2021 were genuine 30% maxes the is_max LABEL mis-tiered (award path
+  granted 35% without a team-continuity check) — a real bug, NOW FIXED via
+  designated_ineligible.csv; is_max 56→68, they read max, no longer "false
+  positives." (b) Reaves 2026 / Anunoby 2024 ARE genuine false positives (not
+  maxes) — the gate rejects these. Both readings were half-right. **Phase-2
+  worker pinned pre-v7.12x must RE-RUN on the 68-max frame** (labels + zone
+  n=68/MAE 4.44 moved; the mislabeled-max confusion is gone from the smear).
 - **Route mixture, phase 2** — after the feature batch lands: (i) re-run the
   classifier on the batch winners (22 true maxes still under P=0.3, half
   Booker-class); (ii) precision-gated push — push only above a P threshold
@@ -52,6 +61,17 @@ expansion, playoff minutes share, early_gap>=2 mechanical ceiling rule
 #10 and #15 (sigma mechanism; v7.9x/v7.10x records).
 
 ## Recently landed (context)
+
+- v7.12x (61bdfcd) — designated-ceiling award-path fix (ISSUES #19). The
+  award path granted the 35%/30% designated ceiling from All-NBA + experience
+  without the CBA team-continuity requirement, so 12 genuine maxes were
+  mislabeled non-max and their Stage-2 clip sat a tier high. Curated
+  designated_ineligible.csv (mirror of early_supermax) reverts them to their
+  real tier: is_max 56→68, Grabit zone MAE 6.18→4.44, A1 0.7849→0.7878 (same
+  944 rows), confirmation 0.8090. Fixes the "smeared row" confusion at its
+  source. Found via the route-mixture phase-1 review; the user caught two of
+  my wrong reads (Kawhi did NOT take a pay cut; KAT did not trigger Rose)
+  before it was right.
 
 - v7.11x — feature batch: only Arm C (prev_cap_pct = previous-season pay)
   adopted, at the gate boundary (+0.00178, fold-paired t=1.96; magnitude
