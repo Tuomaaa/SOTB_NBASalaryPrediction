@@ -345,6 +345,26 @@ def _load_early_supermax() -> set[tuple[str, int]]:
     return set(zip(e["player_name_norm"].apply(norm), e["season"].astype(int)))
 
 
+def _load_designated_ineligible() -> set[tuple[str, int]]:
+    """(normalized_name, season) for rows the award path wrongly grants the 35%
+    Designated-Veteran ceiling.
+
+    The 35% supermax requires re-signing with the team that holds the player's
+    Bird rights from his rookie deal; the award path (see _compute_max_eligible)
+    fires on All-NBA + 7-9 years alone and cannot see a team change. These rows
+    signed a real 30% max (or less) with a new team, were acquired on a veteran
+    deal, or on a non-designated contract — hand-curated because no reliable team
+    signal exists in the frame (ISSUES #5). Mirror of early_supermax.csv, the
+    inverse case. See the note column and ISSUES #19.
+    """
+    from scripts.build_external_features import norm
+    path = RAW_DIR / "raw_external" / "designated_ineligible.csv"
+    if not path.exists():
+        return set()
+    e = pd.read_csv(path)
+    return set(zip(e["player_name_norm"].apply(norm), e["season"].astype(int)))
+
+
 def _load_elite_set() -> set[tuple[str, int]]:
     """Load (normalized_name, year) pairs for elite award winners."""
     from scripts.build_external_features import norm
@@ -470,8 +490,14 @@ def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
     rose = np.zeros(len(df), dtype=bool)
     supermax = np.zeros(len(df), dtype=bool)
     early = _load_early_supermax()
+    ineligible = _load_designated_ineligible()  # ISSUES #19: team-change/non-DVE
     for i in range(len(df)):
         p, s = pns[i], int(seasons[i])
+        if (p, s) in ineligible:
+            # award path would grant the 35% ceiling, but this deal is not a
+            # Designated Veteran (new team / veteran-deal acquisition / plain
+            # 30% max); leave base at the plain experience tier.
+            continue
         trig = ((p, s) in elite_set or (p, s - 1) in elite_set
                 or _elite_count(p, [s - 2, s - 1, s]) >= 2)
         if trig and exp[i] <= 6:

@@ -11,6 +11,8 @@ data/raw/raw_external/*
 !data/raw/raw_external/awards_full.csv
 !data/raw/raw_external/player_draft_2020-2025.matched.corrected.csv
 !data/raw/raw_external/early_supermax.csv
+!data/raw/raw_external/designated_ineligible.csv
+!data/raw/raw_external/mle_exception_amounts.csv
 
 outputs/models/
 __pycache__/
