@@ -399,3 +399,12 @@ data-driven fix.
 Kyrie 2019 carry `max_eligible_pct == 0.30` and `is_max_contract == True`;
 Gobert 2021 stays 0.35; the max-zone count rises from 56 by roughly these five;
 no row that was correctly 0.35 drops.
+
+**Corroboration (2026-07-25, route-mixture phase 2).** The gated-max-branch
+analysis quantified this entry's cost: mis-tiered/artifact maxes are among the
+largest champion errors in the max zone and sit far below any purity threshold a
+router can set, so they are unreachable by a probability-gated branch. John Wall
+2019 alone (−$14.19M champion error) is 83% of the entire honest win ceiling at
+the pruned τ=0.85 operating point. So #19 is not just a label nit — it is a hard
+ceiling on any future max-zone intervention. Evidence in
+`docs/briefs/2026-07-25-route-mixture-p2.RESULT.md` §7.

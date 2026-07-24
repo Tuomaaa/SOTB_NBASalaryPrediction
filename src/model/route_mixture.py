@@ -66,6 +66,74 @@ _CLF_PARAMS = dict(
 )
 _CLF_ROUNDS = 400
 
+# Phase-2 classifier-only enrichment (2026-07-25-route-mixture-p2 brief).
+# These columns join the CLASSIFIER's feature list ONLY. They never enter the
+# regression's FEATURE_COLS, and P(max) is an OUTPUT composition weight, so no
+# leakage path into the target exists: the classifier is a different model with
+# a different target (route class, not cap_pct), and its probability output is
+# applied to the Grabit latent, never fed back as a regression input. The
+# columns are the failed-regression feature batch — they lost the REGRESSION
+# gates but carry route-discriminating signal the classifier can use.
+#
+# Families (exactly the brief's list): trend derivatives + their coverage flag,
+# season-over-season sign deltas, the early-pricing flag, the previous-season
+# value estimate, the rookie award tier, and the name-cleaned cumulative award
+# score. Fed with NATIVE NaN (XGBoost hist learns a default split direction) —
+# this is the ship form for a tree classifier, matching how the failed-batch
+# RESULT tested native-NaN over median-fill.
+CLF_EXTRA_TREND = [
+    "darko_dpm_z_d1", "darko_dpm_z_slope3", "darko_dpm_z_peakd",
+    "lebron_z_d1", "lebron_z_slope3", "lebron_z_peakd",
+    "rapm_z_d1", "rapm_z_slope3", "rapm_z_peakd",
+    "trend_has_prev",
+]
+CLF_EXTRA_SIGNDELTA = [
+    "darko_dpm_z_signdelta", "lebron_z_signdelta", "rapm_z_signdelta",
+    "mpg_signdelta", "usage_pct_signdelta", "ast_pct_signdelta",
+]
+CLF_EXTRA_MISC = [
+    "is_priced_early", "est_value_prev", "rookie_award_tier",
+    "award_score_cum_clean",
+]
+CLF_EXTRA_COLS = CLF_EXTRA_TREND + CLF_EXTRA_SIGNDELTA + CLF_EXTRA_MISC
+
+_FEATURE_BATCH_PATH = "data/processed/feature_batch_columns.csv"
+
+
+def attach_clf_features(df: pd.DataFrame, extra_cols: list[str] | None = None
+                        ) -> tuple[pd.DataFrame, list[str]]:
+    """Merge the classifier-only enrichment columns onto `df` by (player, season).
+
+    Returns (df_with_extra, clf_features) where clf_features = FEATURE_COLS +
+    the enrichment columns. The regression keeps FEATURE_COLS; only the
+    classifier ever sees the wider list. Native NaN is preserved (no fill) — the
+    tree classifier learns a default direction, which is the tested ship form.
+
+    Idempotent: re-attaching does not duplicate columns.
+    """
+    from src.model.train import FEATURE_COLS
+
+    cols = list(CLF_EXTRA_COLS if extra_cols is None else extra_cols)
+    root = Path(__file__).resolve().parent.parent.parent
+    fb = pd.read_csv(root / _FEATURE_BATCH_PATH)
+    keep = ["player_name_norm", "season"] + [c for c in cols if c in fb.columns]
+    missing = [c for c in cols if c not in fb.columns]
+    if missing:
+        raise KeyError(f"feature_batch_columns.csv missing {missing}")
+
+    out = df.copy()
+    to_drop = [c for c in cols if c in out.columns]
+    if to_drop:
+        out = out.drop(columns=to_drop)
+    fb_keys = fb[["player_name_norm", "season"]]
+    if fb_keys.duplicated().any():
+        raise ValueError("feature_batch_columns.csv has duplicate (player, season) keys")
+    n0 = len(out)
+    out = out.merge(fb[keep], on=["player_name_norm", "season"], how="left")
+    assert len(out) == n0, "attach_clf_features changed row count"
+    clf_features = list(FEATURE_COLS) + cols
+    return out, clf_features
+
 
 # ---------------------------------------------------------------------------
 # Labels
@@ -206,7 +274,8 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
 
 def make_maxbranch_fitter(enabled: bool = False, arm: str = "push_clip",
                           margin: float = 1.05, grabit_params: dict | None = None,
-                          clf_seed_offset: int = 0):
+                          clf_seed_offset: int = 0, tau: float = 0.0,
+                          clf_features: list[str] | None = None):
     """Fitter that composes the MAX branch onto the champion Grabit latent.
 
     enabled=False (the default) returns the champion fitter exactly — the
@@ -214,15 +283,22 @@ def make_maxbranch_fitter(enabled: bool = False, arm: str = "push_clip",
 
     When enabled, the classifier is trained inside the training slice and P(max)
     is predicted on the test slice (fold-honest; P is an output weight). The
-    arms:
+    regression always uses `features` (FEATURE_COLS); the classifier uses
+    `clf_features` when supplied (the phase-2 enriched list), else `features`.
+    P(max) NEVER joins the regression's feature list.
 
-      push_clip (SHIP FORM): adj = latent + P*(margin*hi - latent), then clip
-          into [lo, hi]. High-P rows cross the ceiling and land ON it; low-P
-          rows are untouched; the ambiguous middle moves partway. `margin` is a
+    `tau` gates the intervention: rows with P(max) < tau are left at the
+    champion prediction untouched. tau=0.0 reproduces the phase-1 ungated arms.
+    The arms:
+
+      push_clip (SHIP FORM): for P>=tau, adj = latent + P*(margin*hi - latent),
+          then clip into [lo, hi]; for P<tau, adj = champion. `margin` is a
           FIXED constant — never tuned on zone MAE (that re-opens the one-way
-          valve the sigma sweeps closed).
-      mean:  P*hi + (1-P)*champion, champion = clip(latent, lo, hi)   [ref r1]
-      hard:  P>0.5 -> hi else champion                                [ref r2]
+          valve the sigma sweeps closed). tau is chosen from the OOF purity
+          curve, never from a zone metric.
+      hard:  P>=max(tau, 0.5)-gated -> hi else champion. With tau>0 the switch
+          fires at tau (pred = ceiling for P>=tau).                  [ref]
+      mean:  P*hi + (1-P)*champion (ungated reference)               [ref r1]
 
     clf_seed_offset lets the classifier use a different seed stream from the
     regression if ever needed; 0 shares the seed.
@@ -235,15 +311,19 @@ def make_maxbranch_fitter(enabled: bool = False, arm: str = "push_clip",
         if not enabled:
             return champ
 
-        model = train_route_classifier(train, features, seed + clf_seed_offset)
-        p_max = route_proba(model, test, features)[:, MAX_IDX]
+        cf = clf_features if clf_features is not None else features
+        model = train_route_classifier(train, cf, seed + clf_seed_offset)
+        p_max = route_proba(model, test, cf)[:, MAX_IDX]
+        gate = p_max >= tau if tau > 0 else np.ones(len(test), bool)
 
         if arm == "push_clip":
-            adj = latent + p_max * (margin * hi - latent)
+            pushed = latent + p_max * (margin * hi - latent)
+            adj = np.where(gate, pushed, champ)
         elif arm == "mean":
             adj = p_max * hi + (1.0 - p_max) * champ
         elif arm == "hard":
-            adj = np.where(p_max > 0.5, hi, champ)
+            thresh = tau if tau > 0 else 0.5
+            adj = np.where(p_max >= thresh, hi, champ)
         else:
             raise ValueError(f"unknown arm {arm!r}")
         return np.clip(adj, lo, hi)
