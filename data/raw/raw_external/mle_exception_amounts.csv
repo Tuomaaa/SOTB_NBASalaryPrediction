@@ -1,0 +1,33 @@
+season,exception_type,amount_usd,source_url,note
+2019,non_taxpayer_mle,9258000,https://www.hoopsrumors.com/2019/06/values-of-201920-mid-level-bi-annual-exceptions.html,2019-20 first-year starting salary
+2019,taxpayer_mle,5718000,https://www.hoopsrumors.com/2019/06/values-of-201920-mid-level-bi-annual-exceptions.html,2019-20 first-year starting salary
+2019,room_mle,4767000,https://www.hoopsrumors.com/2019/06/values-of-201920-mid-level-bi-annual-exceptions.html,2019-20 first-year starting salary
+2019,bae,3623000,https://www.hoopsrumors.com/2019/06/values-of-201920-mid-level-bi-annual-exceptions.html,2019-20 first-year starting salary
+2020,non_taxpayer_mle,9258000,https://www.hoopsrumors.com/2020/11/values-of-202021-mid-level-bi-annual-exceptions.html,2020-21 flat vs 2019-20 (cap unchanged at 109.140M)
+2020,taxpayer_mle,5718000,https://www.hoopsrumors.com/2020/11/values-of-202021-mid-level-bi-annual-exceptions.html,2020-21 flat vs 2019-20 (cap unchanged)
+2020,room_mle,4767000,https://www.hoopsrumors.com/2020/11/values-of-202021-mid-level-bi-annual-exceptions.html,2020-21 flat vs 2019-20 (cap unchanged)
+2020,bae,3623000,https://www.hoopsrumors.com/2020/11/values-of-202021-mid-level-bi-annual-exceptions.html,2020-21 flat vs 2019-20 (cap unchanged)
+2021,non_taxpayer_mle,9536000,https://www.hoopsrumors.com/2021/08/values-of-2021-22-mid-level-bi-annual-exceptions.html,2021-22 first-year starting salary (+3%)
+2021,taxpayer_mle,5890000,https://www.hoopsrumors.com/2021/08/values-of-2021-22-mid-level-bi-annual-exceptions.html,2021-22 first-year starting salary
+2021,room_mle,4910000,https://www.hoopsrumors.com/2021/08/values-of-2021-22-mid-level-bi-annual-exceptions.html,2021-22 first-year starting salary
+2021,bae,3732000,https://www.hoopsrumors.com/2021/08/values-of-2021-22-mid-level-bi-annual-exceptions.html,2021-22 first-year starting salary
+2022,non_taxpayer_mle,10490000,https://www.hoopsrumors.com/2022/07/values-of-2022-23-mid-level-bi-annual-exceptions.html,2022-23 first-year starting salary (+10%)
+2022,taxpayer_mle,6479000,https://www.hoopsrumors.com/2022/07/values-of-2022-23-mid-level-bi-annual-exceptions.html,2022-23 first-year starting salary
+2022,room_mle,5401000,https://www.hoopsrumors.com/2022/07/values-of-2022-23-mid-level-bi-annual-exceptions.html,2022-23 first-year starting salary
+2022,bae,4105000,https://www.hoopsrumors.com/2022/07/values-of-2022-23-mid-level-bi-annual-exceptions.html,2022-23 first-year starting salary
+2023,non_taxpayer_mle,12405000,https://www.hoopsrumors.com/2023/07/values-of-2023-24-mid-level-bi-annual-exceptions.html,2023-24 new CBA one-time 7.5pct plus 10pct bump
+2023,taxpayer_mle,5000000,https://www.hoopsrumors.com/2023/07/values-of-2023-24-mid-level-bi-annual-exceptions.html,2023-24 new CBA flat 5MM 2-year max
+2023,room_mle,7723000,https://www.hoopsrumors.com/2023/07/values-of-2023-24-mid-level-bi-annual-exceptions.html,2023-24 new CBA room MLE raised
+2023,bae,4516000,https://www.hoopsrumors.com/2023/07/values-of-2023-24-mid-level-bi-annual-exceptions.html,2023-24 first-year starting salary
+2024,non_taxpayer_mle,12822000,https://www.hoopsrumors.com/2024/06/values-of-2024-25-mid-level-bi-annual-exceptions.html,2024-25 first-year starting salary
+2024,taxpayer_mle,5168000,https://www.hoopsrumors.com/2024/06/values-of-2024-25-mid-level-bi-annual-exceptions.html,2024-25 first-year starting salary
+2024,room_mle,7983000,https://www.hoopsrumors.com/2024/06/values-of-2024-25-mid-level-bi-annual-exceptions.html,2024-25 first-year starting salary
+2024,bae,4668000,https://www.hoopsrumors.com/2024/06/values-of-2024-25-mid-level-bi-annual-exceptions.html,2024-25 first-year starting salary
+2025,non_taxpayer_mle,14104000,https://www.hoopsrumors.com/2025/06/values-of-2025-26-mid-level-bi-annual-exceptions.html,2025-26 first-year starting salary
+2025,taxpayer_mle,5685000,https://www.hoopsrumors.com/2025/06/values-of-2025-26-mid-level-bi-annual-exceptions.html,2025-26 first-year starting salary
+2025,room_mle,8781000,https://www.hoopsrumors.com/2025/06/values-of-2025-26-mid-level-bi-annual-exceptions.html,2025-26 first-year starting salary
+2025,bae,5134000,https://www.hoopsrumors.com/2025/06/values-of-2025-26-mid-level-bi-annual-exceptions.html,2025-26 first-year starting salary
+2026,non_taxpayer_mle,15044000,https://www.hoopsrumors.com/2026/07/values-of-2026-27-mid-level-bi-annual-exceptions.html,2026-27 first-year starting salary
+2026,taxpayer_mle,6064000,https://www.hoopsrumors.com/2026/07/values-of-2026-27-mid-level-bi-annual-exceptions.html,2026-27 first-year starting salary
+2026,room_mle,9366000,https://www.hoopsrumors.com/2026/07/values-of-2026-27-mid-level-bi-annual-exceptions.html,2026-27 first-year starting salary
+2026,bae,5477000,https://www.hoopsrumors.com/2026/07/values-of-2026-27-mid-level-bi-annual-exceptions.html,2026-27 first-year starting salary
