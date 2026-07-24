@@ -7,10 +7,15 @@ Last updated: 2026-07-25, after the censor-widening landing.
 
 ## In flight / ready to launch
 
-- **Route-mixture phase 2 brief** — next to write. Prerequisites all in:
-  feature-batch columns delivered, the 44 smeared rows' three-way split
-  documented below (hand-classification against tx_text "maximum" keywords
-  is the likely instrument), threshold by calibration purity.
+- **Route-mixture phase 2** — brief dispatched:
+  `2026-07-25-route-mixture-p2.md`. Enriched classifier (feature-batch
+  columns as classifier-only inputs) → threshold by calibration purity
+  (≥90% or stop) → gated push-then-clip, same win/brake battery. NOTE: the
+  earlier "tier-max signings mislabeled" reading of the P>0.5 rows was
+  OVERTURNED — a separate agent's row review (in progress) reads them as
+  genuine classifier false positives; class definition unchanged, no
+  tier-aware targets. The worker reports its touched-row collateral list
+  for cross-checking against that review when it lands.
 - **Route mixture, phase 2** — after the feature batch lands: (i) re-run the
   classifier on the batch winners (22 true maxes still under P=0.3, half
   Booker-class); (ii) precision-gated push — push only above a P threshold
