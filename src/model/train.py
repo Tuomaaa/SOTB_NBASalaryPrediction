@@ -377,6 +377,15 @@ def _load_elite_set() -> set[tuple[str, int]]:
     return set(zip(el["pn"], el["year"].astype(int)))
 
 
+def _load_name_aliases() -> dict[str, str]:
+    """old_name -> current_name from player_name_aliases.csv."""
+    path = RAW_DIR / "raw_external" / "player_name_aliases.csv"
+    if not path.exists():
+        return {}
+    al = pd.read_csv(path)
+    return dict(zip(al["old_name"], al["current_name"]))
+
+
 def _load_prev_season_cap_pct() -> dict[tuple[str, int], float]:
     """(player, season) -> that season's cap_pct, over every row in the data.
 
@@ -395,6 +404,8 @@ def _load_prev_season_cap_pct() -> dict[tuple[str, int], float]:
         # anchor the first data season instead of going blind at the boundary
         t = pd.concat([t, pd.read_csv(pre, usecols=["player_name_norm", "season",
                                                     "salary"])], ignore_index=True)
+    aliases = _load_name_aliases()
+    t["player_name_norm"] = t["player_name_norm"].replace(aliases)
     t = t.drop_duplicates(["player_name_norm", "season"])
     cap = t["season"].map(CAP_BY_SEASON)
     pct = t["salary"] / cap
@@ -844,6 +855,106 @@ def print_results(results: dict):
             print(f"    {feat:25s} {imp:.4f}")
 
 
+def _multiseed_grabit_cv(df: pd.DataFrame, seeds: list[int] | None = None,
+                         **grabit_kw) -> dict:
+    """10-seed Grabit CV — the canonical number every document quotes.
+
+    train_grabit runs one seed at a time. This wrapper calls it once per seed,
+    collects the per-fold R² vectors, and averages across seeds, matching the
+    protocol in evaluate_suite.oof_groupkfold. The returned dict is the union
+    of the single-seed result (for the model object and feature list) plus
+    the 10-seed averages under the same keys so grabit_results.json carries
+    the same quantity as evaluation_suite.json's A1.
+    """
+    from sklearn.metrics import r2_score, mean_absolute_error
+    from xgboost import XGBRegressor
+
+    if seeds is None:
+        seeds = list(range(10))
+
+    filt = _filter_continuations(_filter_mislabeled_year1(_compute_max_eligible(
+        _filter_prorated(_filter_rookie_scale(_filter_year1(df.copy()))))))
+    filt = _compute_floor(filt)
+    X, y, groups, features = _prepare_Xy(filt)
+    seasons = filt["season"].values
+    max_elig = filt["max_eligible_pct"].values
+    is_max = filt["is_max_contract"].values
+    at_floor = filt["is_at_floor"].values
+    floor_pct = filt["floor_pct"].values
+
+    sigma = grabit_kw.get("sigma", 0.02)
+    gate_frac = grabit_kw.get("gate_frac", 0.55)
+    floor_gate_k = grabit_kw.get("floor_gate_k", 2.0)
+    sigma_left = grabit_kw.get("sigma_left", None)
+    censor_c = grabit_kw.get("censor_c", None)
+
+    cv = GroupKFold(n_splits=5)
+    folds = list(cv.split(X, y, groups))
+
+    # Baseline OOF for gating (seed-invariant: uses _XGB_BASE's random_state)
+    oof_bl = np.full(len(y), np.nan)
+    for tr_i, va_i in folds:
+        m = XGBRegressor(**_XGB_BASE)
+        m.fit(X.iloc[tr_i], y[tr_i])
+        oof_bl[va_i] = m.predict(X.iloc[va_i])
+    right_pop = is_max if censor_c is None else (y >= censor_c * max_elig)
+    gate = right_pop & (oof_bl >= gate_frac * max_elig)
+    gate_l = at_floor & (oof_bl <= floor_gate_k * y)
+
+    all_fold_r2 = []
+    all_fold_mae = []
+    oof_acc = np.zeros(len(y))
+    for seed in seeds:
+        oof = np.full(len(y), np.nan)
+        seed_fold_r2 = []
+        seed_fold_mae = []
+        for fi, (tr_i, va_i) in enumerate(folds):
+            obj = _make_tobit_obj(gate[tr_i], sigma, left_mask=gate_l[tr_i],
+                                  sigma_left=sigma_left)
+            m = XGBRegressor(**{**_XGB_BASE, "objective": obj,
+                                "random_state": seed,
+                                "base_score": float(y[tr_i].mean())})
+            m.fit(X.iloc[tr_i], y[tr_i])
+            latent = m.predict(X.iloc[va_i])
+            capped = np.clip(latent, floor_pct[va_i], max_elig[va_i])
+            oof[va_i] = capped
+            seed_fold_r2.append(r2_score(y[va_i], capped))
+            seed_fold_mae.append(mean_absolute_error(y[va_i], capped))
+        all_fold_r2.append(seed_fold_r2)
+        all_fold_mae.append(seed_fold_mae)
+        oof_acc += oof
+
+    oof_avg = oof_acc / len(seeds)
+    fold_r2_arr = np.array(all_fold_r2)  # (seeds, folds)
+    fold_mae_arr = np.array(all_fold_mae)
+
+    recent_mask = seasons >= 2024
+    recent_r2 = (r2_score(y[recent_mask], oof_avg[recent_mask])
+                 if recent_mask.sum() > 10 else float("nan"))
+    recent_mae = (mean_absolute_error(y[recent_mask], oof_avg[recent_mask])
+                  if recent_mask.sum() > 10 else float("nan"))
+
+    return {
+        "model": "Grabit v4",
+        "sigma": sigma,
+        "floor_gate_k": floor_gate_k,
+        "n_samples": len(X),
+        "n_features": len(features),
+        "n_censored": int(gate.sum()),
+        "n_left_censored": int(gate_l.sum()),
+        "n_seeds": len(seeds),
+        "features": features,
+        "cv_r2_mean": float(r2_score(y, oof_avg)),
+        "cv_r2_std": float(fold_r2_arr.mean(axis=0).std(ddof=1)),
+        "cv_mae_mean": float(np.abs(oof_avg - y).mean()),
+        "cv_mae_std": float(fold_mae_arr.mean(axis=0).std(ddof=1)),
+        "cv_r2_recent": float(recent_r2),
+        "cv_mae_recent": float(recent_mae),
+        "recent_n": int(recent_mask.sum()),
+        "cv_r2_single_seed": float(np.mean(fold_r2_arr[0])),
+    }
+
+
 if __name__ == "__main__":
     df = load_training_data()
     print(f"Loaded {len(df)} rows")
@@ -863,10 +974,20 @@ if __name__ == "__main__":
         rm = r.get("cv_mae_recent", float("nan"))
         print(f"  {r['model']:18s} {r['cv_r2_mean']:.4f}     {rr:.4f}       {r['cv_mae_mean']:.4f}     {rm:.4f}")
 
+    # The canonical CV R² is the 10-seed average (same protocol as
+    # evaluate_suite.py). Write it into grabit_results.json so the
+    # file's headline matches evaluation_suite.json's A1.
+    print(f"\n{'='*60}")
+    print(f"  Computing 10-seed Grabit CV (canonical)")
+    print(f"{'='*60}")
+    canon = _multiseed_grabit_cv(df, sigma=0.02)
+    print(f"  10-seed CV R²: {canon['cv_r2_mean']:.4f}")
+    print(f"  single-seed CV R²: {canon['cv_r2_single_seed']:.4f}")
+
     model_dir = OUTPUTS_DIR / "models"
     model_dir.mkdir(parents=True, exist_ok=True)
     with open(model_dir / "xgb_results.json", "w") as f:
         json.dump(xgb_results, f, indent=2)
     with open(model_dir / "grabit_results.json", "w") as f:
-        json.dump(grabit_results, f, indent=2)
+        json.dump(canon, f, indent=2)
     print(f"\nResults saved to {model_dir}")

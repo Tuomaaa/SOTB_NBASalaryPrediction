@@ -42,6 +42,16 @@ OUT = PROCESSED_DIR / "salaries_prehistory.csv"
 # genuine conflict to surface, not scrape/rounding noise
 CONFLICT_TOL = 50_000
 
+from config import RAW_DIR as _RAW_DIR
+_ALIAS_PATH = _RAW_DIR / "raw_external" / "player_name_aliases.csv"
+
+
+def _load_aliases() -> dict[str, str]:
+    if not _ALIAS_PATH.exists():
+        return {}
+    al = pd.read_csv(_ALIAS_PATH)
+    return dict(zip(al["old_name"], al["current_name"]))
+
 
 def scrape_team_2019_salaries(team: str) -> pd.DataFrame:
     """Parse the `salaries2` table off /teams/<team>/2019.html.
@@ -110,6 +120,8 @@ def main() -> None:
         raise SystemExit("No team pages parsed — refusing to write.")
 
     scraped = pd.concat(frames, ignore_index=True)
+    aliases = _load_aliases()
+    scraped["player_name_norm"] = scraped["player_name_norm"].replace(aliases)
     # A player traded mid-season appears on each team's page with the portion
     # that team paid; sum within (player, season) to the season cap hit, the
     # same convention backfill_prehistory_salaries.py uses. Keep the first

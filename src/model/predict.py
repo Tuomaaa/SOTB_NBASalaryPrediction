@@ -1,7 +1,11 @@
-"""Generate predictions for a target season using a trained XGBoost model.
+"""Generate predictions for upcoming free agents using the champion Grabit stack.
 
-Loads impact metrics for the target season, engineers features, runs inference,
-identifies free agents, and computes salary diffs.
+Trains the two-sided censored-normal Grabit model on all seasons before the
+target, applies Stage-2 CBA bounds (max eligible + floor clip), and identifies
+free agents by comparing against the salary roll.
+
+This is the same pipeline export_web.py uses to produce the portfolio site's
+valuations — it must stay in sync with that path.
 """
 
 import sys
@@ -14,11 +18,12 @@ import numpy as np
 import pandas as pd
 
 from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON
-from src.features.base_rating import add_base_rating
-from src.features.age_curve import add_age_features
-from src.features.availability import compute_availability
-from src.features.cba_constraints import add_cba_features
-from src.model.train import load_training_data, train_xgboost, FEATURE_COLS
+from src.model.train import (
+    load_training_data, train_grabit, _compute_max_eligible, _compute_floor,
+    _filter_year1, _filter_rookie_scale, _filter_prorated,
+    _filter_mislabeled_year1, _filter_continuations,
+    _prepare_Xy, FEATURE_COLS, TARGET,
+)
 
 
 def _normalize_name(name: str) -> str:
@@ -27,15 +32,28 @@ def _normalize_name(name: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
-def predict(target_season: int = 2026) -> pd.DataFrame:
-    """Train model and generate predictions for target_season."""
-    # --- Train ---
-    df = load_training_data()
-    print(f"Training data: {len(df)} rows")
-    xgb_results, model, features = train_xgboost(df)
-    print(f"XGBoost CV R²: {xgb_results['cv_r2_mean']:.4f}")
+def _training_medians(df: pd.DataFrame) -> tuple[list[str], pd.Series]:
+    """Feature list and fill values from the filtered training set."""
+    tr = _filter_continuations(_filter_mislabeled_year1(_compute_max_eligible(
+        _filter_prorated(_filter_rookie_scale(_filter_year1(df))))))
+    X_tr, _, _, features = _prepare_Xy(tr)
+    return features, X_tr.median()
 
-    # --- Load prediction data ---
+
+def predict(target_season: int = 2026) -> pd.DataFrame:
+    """Train the champion Grabit model and predict the target season."""
+    df = load_training_data()
+    train_df = df[df["season"] < target_season].copy()
+    print(f"Training on {len(train_df)} rows (seasons < {target_season})")
+
+    results, model, features = train_grabit(train_df, sigma=0.02)
+    print(f"Grabit CV R²: {results['cv_r2_mean']:.4f}")
+
+    tr_features, medians = _training_medians(train_df)
+    if tr_features != features:
+        raise SystemExit("feature list drifted between fit and export")
+
+    # Build prediction frame from impact metrics
     impact = pd.read_csv(PROCESSED_DIR / "impact_metrics.csv")
     pred_df = impact[
         (impact["season"] == target_season)
@@ -44,7 +62,12 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     ].copy()
     print(f"\n{target_season} players with complete data: {len(pred_df)}")
 
-    # --- Feature engineering ---
+    # Borrow features from each player's most recent training row
+    from src.features.base_rating import add_base_rating
+    from src.features.age_curve import add_age_features
+    from src.features.availability import compute_availability
+    from src.features.cba_constraints import add_cba_features
+
     pred_df = add_base_rating(pred_df)
     pred_df = add_age_features(pred_df)
     pred_df = compute_availability(pred_df)
@@ -62,51 +85,42 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
             on="player_name_norm", how="left",
         )
 
-    # --- External features (award_score_cum, draft_pick) ---
-    train_data = pd.read_csv(
-        PROCESSED_DIR / "training_data_v2.csv"
-        if (PROCESSED_DIR / "training_data_v2.csv").exists()
-        else PROCESSED_DIR / "training_data.csv"
-    )
-    ext_cols = ["player_name_norm", "season", "award_score_cum", "draft_pick", "prev_cap_pct"]
-    ext = train_data[[c for c in ext_cols if c in train_data.columns]].drop_duplicates(
-        ["player_name_norm", "season"]
-    )
-    if "award_score_cum" in ext.columns:
-        award_latest = ext.sort_values("season").drop_duplicates("player_name_norm", keep="last")
-        pred_df = pred_df.merge(
-            award_latest[["player_name_norm", "award_score_cum"]],
-            on="player_name_norm", how="left",
-        )
-        pred_df["award_score_cum"] = pred_df["award_score_cum"].fillna(0)
-    if "draft_pick" in ext.columns:
-        draft_latest = ext.drop_duplicates("player_name_norm", keep="first")
-        pred_df = pred_df.merge(
-            draft_latest[["player_name_norm", "draft_pick"]],
-            on="player_name_norm", how="left",
-        )
+    # Borrow stable features from history
+    hist = df.sort_values("season").groupby("player_name_norm").last()
+    for col in ("draft_pick", "prev_cap_pct", "award_score_cum", "ast_pct",
+                "availability_3yr"):
+        if col in hist.columns:
+            borrowed = pred_df["player_name_norm"].map(hist[col])
+            if col in pred_df.columns:
+                pred_df[col] = pred_df[col].where(pred_df[col].notna(), borrowed)
+            else:
+                pred_df[col] = borrowed
+    if "draft_pick" in pred_df.columns:
         pred_df["draft_pick"] = pred_df["draft_pick"].fillna(75)
-    if "prev_cap_pct" in ext.columns:
-        prev_latest = ext.sort_values("season").drop_duplicates("player_name_norm", keep="last")
-        pred_df = pred_df.merge(
-            prev_latest[["player_name_norm", "prev_cap_pct"]],
-            on="player_name_norm", how="left",
-        )
-        median_rookie = train_data[train_data["draft_pick"] <= 30]["cap_pct"].median()
-        pred_df["prev_cap_pct"] = pred_df["prev_cap_pct"].fillna(median_rookie)
 
-    # --- Predict ---
-    X_pred = pred_df[[f for f in features if f in pred_df.columns]].copy()
-    for f in features:
-        if f not in X_pred.columns:
-            X_pred[f] = 0
-    X_pred = X_pred[features].fillna(X_pred.median()).fillna(0)
+    # Predict: latent value from Grabit, then Stage-2 CBA clip
+    X_pred = pred_df.reindex(columns=features).fillna(medians).fillna(0)
+    latent = model.predict(X_pred)
 
-    pred_df["predicted_cap_pct"] = model.predict(X_pred)
+    # Compute CBA bounds for the prediction rows
+    pred_df["cap_pct"] = latent  # temporary for _compute_max_eligible
+    pred_df["salary"] = latent * CAP_BY_SEASON.get(target_season, 153_000_000)
+    pred_df = _compute_max_eligible(pred_df)
+    pred_df = _compute_floor(pred_df)
+
+    max_elig = pred_df["max_eligible_pct"].values
+    floor_pct = pred_df["floor_pct"].values
+    capped = np.clip(latent, floor_pct, max_elig)
+
     cap = CAP_BY_SEASON.get(target_season, 153_000_000)
-    pred_df["predicted_salary"] = pred_df["predicted_cap_pct"] * cap
+    pred_df["latent_cap_pct"] = latent
+    pred_df["predicted_cap_pct"] = capped
+    pred_df["predicted_salary"] = capped * cap
+    pred_df["latent_salary"] = latent * cap
+    pred_df["is_capped"] = latent > max_elig + 1e-9
+    pred_df["is_floored"] = latent < floor_pct - 1e-9
 
-    # --- FA identification + diff ---
+    # FA identification + diff
     sal = pd.read_csv(PROCESSED_DIR / "salaries.csv")
     sal["player_name_norm"] = sal["player"].apply(_normalize_name)
 
@@ -133,10 +147,10 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     )
     pred_df["diff"] = pred_df["predicted_salary"] - pred_df["reference_salary"]
 
-    # --- Output ---
     out_cols = [
         "player_name", "player_name_norm", "season", "age", "position",
-        "predicted_cap_pct", "predicted_salary",
+        "predicted_cap_pct", "predicted_salary", "latent_cap_pct", "latent_salary",
+        "is_capped", "is_floored",
         "is_free_agent", "actual_salary", "reference_salary", "diff",
         "darko_dpm", "lebron", "rapm",
         "minutes", "usage_pct", "team_abbreviation",
@@ -157,9 +171,18 @@ if __name__ == "__main__":
     fa.to_csv(pred_dir / "free_agents_2026.csv", index=False)
 
     print(f"\nSaved: {len(out)} total, {len(fa)} FAs")
+    n_capped = out.get("is_capped", pd.Series(dtype=bool)).sum()
+    n_floored = out.get("is_floored", pd.Series(dtype=bool)).sum()
+    print(f"CBA bounds: {n_capped} capped, {n_floored} floored")
     print(f"\nTop 20:")
     for _, r in out.head(20).iterrows():
         fa_tag = " [FA]" if r.get("is_free_agent") else ""
         diff_s = f" diff={r['diff']/1e6:+.1f}M" if pd.notna(r.get("diff")) else ""
+        bound = ""
+        if r.get("is_capped"):
+            bound = " [MAX]"
+        elif r.get("is_floored"):
+            bound = " [MIN]"
         pn = str(r["player_name"])[:25]
-        print(f"  {pn:25s} age={r['age']:.0f} pred=${r['predicted_salary']/1e6:5.1f}M{diff_s}{fa_tag}")
+        print(f"  {pn:25s} age={r['age']:.0f} pred=${r['predicted_salary']/1e6:5.1f}M"
+              f"{bound}{diff_s}{fa_tag}")
