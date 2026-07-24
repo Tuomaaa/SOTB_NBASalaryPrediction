@@ -11,15 +11,16 @@ Last updated: 2026-07-25, after the censor-widening landing.
   (trend / stats-as-of-signing / Arm B swap / prior-year est value /
   rookie-award tier), full challenger gates each, failed arms still feed the
   classifier.
-- **Route mixture, phase 1** — brief ready: `2026-07-25-route-mixture.md`.
-  The multiclass route classifier + the MAX branch (push-then-clip, fixed
-  1.05 margin), win bar $0.50M on the true-max zone with the counterweight
-  band and 25%+ predicted band as brakes. Adopting it starts the v8.0 line.
-  Can run in parallel with the feature batch (machinery is feature-agnostic;
-  re-run with batch winners at landing).
-- Later phases on the same machinery: floor branch → MLE branch (conditional
-  on the P(mle) separability AUC) → continuous split + per-route δ
-  (Bird retention premium, possibly split extension/re-sign).
+- **Route mixture, phase 2** — after the feature batch lands: (i) re-run the
+  classifier on the batch winners (22 true maxes still under P=0.3, half
+  Booker-class); (ii) precision-gated push — push only above a P threshold
+  chosen from the CALIBRATION TABLE (probability-space rule, never tuned on
+  zone MAE); the P≥0.7 region is ≥92% pinned and near-pure. Then the floor
+  branch (P(floor) AUC 0.8233, pull-down mirror, same brake discipline).
+  MLE branch HOLD: P(mle) AUC 0.7158 — team-cap membership invisible.
+  A gating branch starts the v8.0 line and needs a separate predict.py
+  wiring step (production ships plain XGBoost, no Stage 2 — worker-flagged
+  integration caveat).
 
 ## Parking lot
 
@@ -30,6 +31,13 @@ expansion, playoff minutes share, early_gap>=2 mechanical ceiling rule
 
 ## Recently landed (context)
 
+- Route-mixture phase 1 (a040144) — classifier machinery landed, flag OFF,
+  bit-identical when off. P(max) AUC 0.9650, median P on true maxes 0.52
+  (0.36 pre-repair — the prev_cap_pct fix cashing in). Max branch did NOT
+  gate: wins its zone −$1.59M (3× the bar) but raw-P continuous push smears
+  moderate P onto ~49 non-max rows — brakes +$2.0/+$2.2M, B1 −0.017
+  (origin-2025 big-dollar overshoots). Verdict: form problem, not
+  classifier problem; see phase 2 above. No version number.
 - Censor-widening experiment — NO WINNER (e8e3c6a). The premise fell
   informatively: the counterweight band is itself underpredicted $4.6M, so
   a global dial has no interior optimum; ceiling for a calibrated global
