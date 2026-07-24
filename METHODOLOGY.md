@@ -11,7 +11,7 @@ Predict a player's market value as **cap_pct** (annual salary / salary cap), usi
 | Basketball Reference | Per-season salary, age, team | 4,723 player-seasons (1,086 players, 2019–2031) |
 | nbarapm.com | DARKO DPM, LEBRON, RAPM, usage, box-score rates | 3,880 player-seasons (903 players) |
 | Basketball Reference | Height in inches | 5,416 players |
-| Basketball Reference | Pre-window salaries for the ceiling floor | 368 player-seasons (155 players, 2016–2018) |
+| Basketball Reference | Pre-window salaries for the ceiling floor and `prev_cap_pct` | 767 player-seasons (~550 players, 2016–2018) |
 | Spotrac | Signing mechanism, contract years, total value, AAV | 8,910 contract-seasons; 1,073 FA signings (2019–2026) |
 | Manual reference (raw_external/) | Awards, draft position, team franchise value | Hand-curated CSVs |
 | Manual reference | Salary cap by year, CBA parameters | config.py |
@@ -136,6 +136,32 @@ Rows without last-season pay on record are kept: precision over recall, since a
 stale price in training is cheaper than a deleted real one. 119 rows fall; the
 largest are verifiable mid-contract seasons (LeBron 2019, Simmons 2021,
 Hayward 2023). Common-row A1 rose +0.0102, the largest paired gain of Phase 7.
+
+**v7.9x replaced the primary path with a dated-span test.** With correct spans
+(see below), `_filter_continuations` now demotes a row outright when a dated
+contract covers it and starts before the season, unless the season is
+renegotiated-fresh or the row appears in that season's FA-signings list; the
+three-signal consensus stays the fallback for rows no dated contract covers.
+Frame 1,172 → 949 (342 demoted — 335 by span, 7 by fallback — 0 contradicted).
+
+#### Span rules
+
+Spotrac's `fa_year` on an option-final deal is the **option-decision summer**,
+not the start season, so the correct span is `[fa_year − years + 1, fa_year]`;
+the naive formula started one season early. An unmatched extension starts paying
+at `signing_season + 1`. Of the 1,953 dated contracts, 120 block anchors (6.1%)
+predate their own signing and are date-resolved — a block anchor alone is never
+a trustworthy span.
+
+#### Renegotiation convention (adjudicated 2026-07-24)
+
+A renegotiation-and-extend re-prices its signing season to market, so that
+season is **fresh** even though an older span covers it. Six pairs in the data:
+Turner 2022, Sabonis 2023, Clarkson 2023, Isaac 2024, Markkanen 2024, JJJ 2025.
+JJJ 2025 was the one acceptance-list mismatch: the brief expected it to stay
+continuation, but its 2025-26 salary was raised $11.6M by the renegotiation on
+2025-07-13 — structurally identical to Markkanen 2024 and Turner 2022. Resolved
+as fresh.
 
 ## Feature Set (14 features)
 
@@ -350,7 +376,8 @@ effective 2019).
 The ceiling therefore also carries a floor of `1.08 × previous season's cap_pct`.
 Anchoring it needs pay from before the training window, so
 `scripts/backfill_prehistory_salaries.py` re-parses the cached BBRef player pages
-offline into `salaries_prehistory.csv` (368 rows, 155 players, 2016–2018).
+offline into `salaries_prehistory.csv` (767 rows, ~550 players, 2016–2018; the
+2018 count grew from 155 to ~550 via the v7.10x team-salary scrape).
 
 #### Why the ceiling is audited
 
@@ -363,6 +390,36 @@ Wall and Towns on early-signed designated-veteran deals, and two rows that were
 float dust at exactly the tier). All three rules above came from that audit; the
 count is now **zero**, and it is worth re-running after any change to experience,
 awards, or cap data.
+
+#### The designated-ceiling gate (v7.12x)
+
+The award path in `_compute_max_eligible` granted the 35%/30% designated ceiling
+from All-NBA + experience alone, without the CBA's team-continuity requirement.
+12 genuine maxes were mis-tiered: players who changed teams (Kawhi 2019), were
+acquired on veteran deals (AD 2020), or signed the 25% base of a rookie
+extension whose Rose escalator lands in a later year (KAT 2019, Tatum 2021). A
+curated `designated_ineligible.csv` — the inverse of `early_supermax.csv` —
+gates the award loop. Both curated lists share the same data gap (no team signal
+in the frame) and the same eventual fix (a signing-date team-match test).
+
+#### The Stage-2 clip never reads the observed salary (standing decision, 2026-07-26)
+
+Clipping DOWN at actual pay is straight target leakage: over-prediction becomes
+impossible, so every bargain vanishes from the Value Board by construction and a
+model that predicts $40M for everyone scores well. Clipping UP to actual pay
+when the ceiling came out too low is logically defensible (pay ≤ legal max, so
+the salary certifies a lower bound on the true ceiling) but is rejected for two
+reasons: (a) that contradiction is currently the project's most sensitive
+data-error detector — it is how ISSUES #19's 12 mis-tiered rows were found —
+and auto-repairing it silences the alarm, the same failure shape as the
+stale-cap/stale-salary lockstep (where wrong cap ÷ wrong salary agrees and the
+cross-check passes); (b) `predict.py` has no salary for an unsigned free agent,
+so the guard cannot run at inference and CV would drift optimistic relative to
+deployment. **Correct form: assert loudly, fix the input.** Empirically the
+situation is already zero — the only rows above their ceiling are three
+float-dust cases at ratio 1.0000 (Adebayo/Tatum 2021 at 0.250000, Giannis at
+0.350001), so any over-ceiling check should use the same 1e-4 tolerance
+`_filter_mislabeled_year1` uses.
 
 #### The floor
 
@@ -389,11 +446,29 @@ Tobit-specific:
 - **Right gate = 0.55**: baseline prediction must reach 55% of `max_eligible_pct` to be censored.
 - **Left gate k = 2.0**: baseline prediction must be at most 2.0 × observed pay to be censored. Screened over {1.5, 2.0, 3.0}; 3.0 improved the floor zone slightly more but pushed the sub-2% predicted band further negative, and 2.0 was the best floor-zone gain that left non-floor rows untouched.
 
-**Both were tuned before v7.6x-v7.7x changed the row set**, and σ in particular
-dates from a training set with different censoring-zone membership (the max zone
-has been 73 → 67 → 61 → 57 rows across this phase). A re-sweep judged on zone
-metrics rather than pooled R² is the obvious next hyperparameter task; nothing
-suggests it is urgent.
+**Re-swept at v7.8x (2026-07-23); the incumbent held.** A 36-config grid
+(sigma × gate_frac × k_floor) plus an 11-config boundary probe confirmed that
+0.02 / 0.55 / 2.0 is optimal — or rather, that the alternatives fail for a
+structural reason rather than by a close margin.
+
+**Never select sigma on zone MAE.** Both censored sides are one-way valves:
+every zone row is biased toward its CBA bound, and Stage 2's clip makes
+overshooting free, so zone MAE falls monotonically in sigma out to 0.06 with no
+interior optimum. The pinned-at-bound share climbs 19% → 42% in step with
+sigma, and the cost lands on the calibration slope (0.9883 → 0.9647 at
+σ = 0.04). Selecting sigma this way degenerates into "how many rows do you want
+pinned to the bound" — the clip's geometry is choosing the parameter, not the
+data. Evidence: `docs/briefs/2026-07-23-sigma-gate-retune.RESULT.md`.
+
+**gate_frac is inert on this row set** (52–56 of 57 max-zone rows gated across
+0.45–0.65); the binding constraint is `is_max_contract`'s 0.90 threshold, not
+gate_frac. k_floor is monotone and saturates just past 3.0 — its two admissible
+settings (2.5, 3.0) clear every guardrail but their floor-zone gains ($0.061M,
+$0.090M) fall short of the brief's $0.10M bar.
+
+`_make_tobit_obj` also carries an inert `sigma_left` hook (bit-identical when
+unset); the per-side control it enabled showed the two censored sides are
+independent and additive, confirming the valve diagnosis.
 
 ## Evaluation Protocol
 
@@ -532,12 +607,31 @@ must be assigned to segments by something neither model produced.
 ### Acceptance rules
 
 **Challenger changes** — features, filters, hyperparameters, anything acting on
-every row — are accepted when all four hold:
+every row — are accepted when all five hold:
 
 1. paired A1 delta > 0 with |Δ| / SE > 2, **computed on selection-pool rows only**
 2. A2 moves the same direction (significance not required)
 3. no C2 segment's bias worsens by more than $0.3M
-4. MAE does not regress beyond the agreed tolerance
+4. C1 calibration: the candidate's |slope − 1| may not exceed the incumbent's by
+   more than **0.005** (≈ $0.3M of scale distortion at a ~$60M max — the same
+   materiality threshold C2 uses)
+5. MAE does not regress beyond the agreed tolerance
+
+**The C1 gate is relative, not absolute** (adjudicated 2026-07-23). The earlier
+absolute window [0.99, 1.01] excluded the champion's own slope (0.9883) — a
+drafting error discovered during the sigma/gate retune. The relative gate uses
+C2's own $0.3M yardstick: 0.005 of scale distortion on a ~$60M max. Paired
+slope-difference noise is far below 0.005, so this is a real tolerance, not a
+noise band.
+
+**Pure-removal changes** (filter tightening that drops rows without altering the
+model) cannot be judged on common-row A1, which scores only rows both frames keep
+and is by construction blind to the benefit of removing stale rows. The judging
+criteria are: (i) the pre-registered contamination signal shrinks or collapses;
+(ii) C2 fixed-segment |bias| growth stays within $0.3M; (iii) common-row A1 is
+neutral (the change does no harm). v7.9x established this: its common-row A1
+was −0.0009 (t −0.13, neutral) while its pre-registered `is2019` control
+collapsed from +0.0035 (t 2.29) to −0.0004 (t −0.91).
 
 **Each Grabit side** is judged on its own zone: keep it while that zone's MAE
 delta is negative, drop the side whose zone turns positive. Applying the pooled

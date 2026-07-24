@@ -102,7 +102,11 @@ Signing type breakdown (OOF, $M):
 | 7.5x | XGBoost (Grabit) | 0.7610 | 0.8239 | 1297 | 14 | Curated early-supermax list replaces the blanket `s-3` lookback, which had un-censored two genuine max signings |
 | 7.6x | XGBoost (Grabit) | 0.7635 | 0.8200 | 1291 | 14 | Year-1 rows paid above their *tier* ceiling demoted — 6 provable escalator mislabels |
 | 7.7x | XGBoost (Grabit) | 0.7647 | 0.8283 | 1172 | 14 | Three-signal continuation demotion — 119 stale escalator rows out. Largest paired gain of the phase |
-| **7.8x** | **XGBoost (Grabit v4)** | **0.7653** | **0.8324** | **1172** | **14** | **Two-sided Grabit — left-censoring at the CBA floor. Pooled MAE $3.18M → $3.07M** |
+| 7.8x | XGBoost (Grabit v4) | 0.7653 | 0.8324 | 1172 | 14 | Two-sided Grabit — left-censoring at the CBA floor. Pooled MAE $3.18M → $3.07M |
+| 7.9x | XGBoost (Grabit v4) | 0.7631 | 0.8191 | 949 | 14 | Continuation filter v2 — dated-span demotion. Frame 1,172 → 949 (342 demoted, 0 contradicted) |
+| 7.10x | XGBoost (Grabit v4) | 0.7849 | 0.8276 | 944 | 14 | `prev_cap_pct` repair + 2026 cap correction. Paired ΔSel +0.0135 (t 7.6). Frame 949 → 944 |
+| 7.11x | XGBoost (Grabit v4) | 0.7856 | 0.8298 | 944 | 14 | `prev_cap_pct` = previous-season pay (feature-batch Arm C, boundary call). ΔSel +0.00178 (t 1.96) |
+| **7.12x** | **XGBoost (Grabit v4)** | **0.7878** | **0.8303** | **944** | **14** | **Designated-ceiling award-path fix (ISSUES #19). Max zone 56 → 68, zone MAE 6.18 → 4.44** |
 
 ### Versioning convention
 
@@ -114,7 +118,9 @@ belongs in the Change column, not the numbering. Diagnostics, tooling and
 documentation changes do not consume a number.
 
 Tags: `v7.1x` `09dbe4e` · `v7.2x` `cb27319` · `v7.3x` `b31a6fb` · `v7.4x` `ecdf3da` ·
-`v7.5x` `c17880d` · `v7.6x` `d7c72ef` · `v7.7x` `63e290c` · `v7.8x` `c03eb9a`.
+`v7.5x` `c17880d` · `v7.6x` `d7c72ef` · `v7.7x` `63e290c` · `v7.8x` `c03eb9a` ·
+`v7.9x` `ddf4bae` · `v7.10x` `(see git tag)` · `v7.11x` `(see git tag)` ·
+`v7.12x` `61bdfcd`.
 
 ### v7.1x: refreshed data and corrected caps
 
@@ -486,6 +492,190 @@ calibration axis. Fixed-row segments showed every non-floor band flat or better.
 **When comparing two models, define the segments on fixed rows, never on either
 model's predictions.**
 
+### v7.9x: continuation filter v2 — dated spans
+
+The three-signal filter (v7.7x) caught the easy cases — rows whose escalator
+step, span, and FA-list veto all agreed — but left the mid-contract years where
+the step signal failed. Two data-layer fixes widened the span instrument's
+reach, and the filter was then swapped from a three-signal consensus to a
+dated-span test.
+
+**The 10-day parse bug.** `parse_contracts` read a 10-day deal's terms string
+`10 yr(s) / $85,578` as a 10-YEAR contract, fabricating phantom spans back to
+1980. `spotrac_signing_types.csv` 8,954 → 5,769 rows; 328 phantom >5yr
+contracts removed (326 at 10yr, 2 legitimate 6yr deals from the 2005-CBA era).
+The continuation filter still dropped the same 119 rows afterward — no phantom
+span was load-bearing. Evidence:
+`docs/briefs/2026-07-24-continuation-filter-v2.RESULT.md`.
+
+**Span fixes.** Three corrections to `contract_spans`:
+
+- **Option-aware anchor**: Spotrac's `fa_year` on an option-final deal is the
+  option-decision summer, so the span was starting one season early. The fix
+  slides the span onto the option season when the option year exceeds the
+  nominal end (49 spans affected, 14 change start — Embiid, Doncic, Gobert,
+  Butler and 10 more).
+- **Extension fallback +1**: unmatched extensions start paying at
+  `signing_season + 1`, not `signing_season` (24 spans affected).
+- **Renegotiation carve-out**: a renegotiation-and-extend re-prices its signing
+  season to market, so that season is **fresh** even though an older span covers
+  it (6 pairs — Turner 2022, Sabonis 2023, Clarkson 2023, Isaac 2024,
+  Markkanen 2024, JJJ 2025).
+
+With correct spans, `_filter_continuations` now demotes a row outright when a
+dated contract covers it and starts before the season, unless the season is
+renegotiated-fresh or the row appears in that season's FA-signings list; rows the
+dates cannot decide fall back to the unchanged three-signal consensus. Frame
+**1,172 → 949** (342 demoted — 335 by dated span, 7 by fallback — 0
+contradicted by any instrument).
+
+| Layer | v7.8x (1,172 rows) | v7.9x (949 rows) |
+|---|---|---|
+| A1 | 0.7653 | 0.7631 |
+| A2 | 0.8465 | 0.8160 |
+| B1 | 0.8324 | 0.8191 |
+
+**These headlines are not comparable** — different row sets, different R²
+denominators (D1). The change itself was judged on the 949 common rows:
+
+| instrument | result |
+|---|---|
+| Common-row paired A1 (selection) | −0.0009, t −0.13 — **neutral** |
+| C2 max \|bias\| growth | +$0.16M — **pass** |
+| `is2019` contamination control | +0.0035 (t 2.29) → −0.0004 (t −0.91) — **eliminated** |
+
+**A pure-removal change cannot be judged on common-row A1**, which scores only
+rows both frames keep and is by construction blind to the benefit of removing
+stale rows. The pre-registered success criterion was the `is2019` season-offset
+signal that ISSUES #8 measured as the signature of the remaining stale prices —
+it collapses to noise on the new frame. The common-row neutrality confirms the
+change did no harm; the `is2019` collapse is where the benefit shows up.
+
+Tags: `v7.9x` `ddf4bae`.
+
+### v7.10x: `prev_cap_pct` repair + 2026 cap correction
+
+The model's second-strongest anchor was fabricated for a large minority of rows.
+`phase3.build_contract_features` derived `prev_cap_pct` by looking back inside
+the 2019+ training table only, so any fresh signing whose previous contract began
+before 2019 — all of season 2019, plus later vets coming off long pre-2019
+deals — took the rookie-scale slot fill instead of its real prior pay (Klay
+Thompson 2019: 0.037 for a true 0.186). The fix has two parts.
+
+**Part 1**: scrape the 30 BBRef 2018-19 team salary tables (extend-only, +399
+players, 0 conflicts). Season-2019 prior coverage goes from **28% → 96%**; the
+6 still missing are two-way/minimum players absent from the team salary table,
+plus the Enes Kanter → Enes Freedom rename.
+
+**Part 2**: after the year-1 lookback loop, fill every remaining row from
+observed previous-season pay — the same union of the salary table and
+`salaries_prehistory.csv` that `_load_prev_season_cap_pct` already anchors the
+ceiling rule on — leaving the slot fill only for true first contracts. Klay
+2019 → 0.186, escalator rows → their real priors, 2024 stays 0.300.
+
+| instrument | ref (buggy) | Arm A (repair) | paired |
+|---|---|---|---|
+| A1 selection | 0.7631 | 0.7732 | **+0.0135 ± 0.0018, t +7.60** |
+| A2 | 0.8160 | 0.8232 | same direction |
+| B1 forward | 0.8191 | 0.8255 | same direction |
+| C2 max \|bias\| growth | — | +$0.16M | pass |
+| 2019 segment bias | −$0.74M | −$0.42M | halved |
+
+**ΔSel above +0.01 (the red-flag line) — explained, not spurious:** this repairs
+the #2 feature on the largest season's rows (2019 prior coverage 28%→96%) plus
+every escalator. Corroborated by the B1 forward lift and free of leakage
+(prior-season pay is strictly ex ante). Evidence:
+`docs/briefs/2026-07-24-prev-cap-pct-fix.RESULT.md`.
+
+**2026 cap correction.** The configured cap sat at a stale projection; the
+official value is **$164,961,000**. Five extension-max salaries that were stale
+in lockstep failed to trigger `check_caps.py` — an instance of the
+"stale-in-lockstep" failure mode, where wrong cap ÷ wrong salary still produces
+the expected tier share and the cross-check passes. The check now reconciles
+7/11 on-tier at the official cap.
+
+**Frame 949 → 944.** Extending `salaries_prehistory.csv` made five 2019
+continuations newly decidable and demoted (Millsap, Snell, Galloway, Okafor,
+Ferrell — all genuine escalator continuations, none in the FA list). This is
+ISSUES #2's documented decidability gain.
+
+Rookie-exit anchor arms (flag / NaN / slot-average) all failed a gate and were
+not adopted. The breakout-class bias (−$3.16M) is assigned to the max
+classifier.
+
+Tags: `v7.10x` `(see git tag)`.
+
+### v7.11x: `prev_cap_pct` = previous-season pay (feature batch)
+
+Five candidate feature arms scored against the 14-feature Grabit champion on the
+944-row frame. Only one moved the model: **Arm C**, which replaces
+`prev_cap_pct`'s "previous contract's year-1 pay" semantics with a uniform
+"previous-season actual pay" — a one-function swap in
+`build_contract_features(prev_mode="prev-season")`. Evidence:
+`docs/briefs/2026-07-25-feature-batch.RESULT.md`.
+
+| arm | what | ΔSel | t (fold) | verdict |
+|---|---|---|---|---|
+| **c** | prev_cap_pct = prev-season pay, uniform | **+0.00178** | **+1.96** | **adopted (boundary)** |
+| a | +9 trend columns (native NaN) | −0.00015 | −0.05 | rejected — flat |
+| b_replace | production features ← as-of-signing | −0.03218 | −4.40 | rejected — harmful |
+| d1 | +est_value_prev | +0.00008 | +0.03 | rejected — flat |
+| e_new | +rookie_award_tier ordinal | +0.00017 | +0.15 | rejected — flat |
+
+**Adoption rationale for Arm C at the boundary** (per-fold t = 1.96, a hair
+under the t > 2 gate): (i) the magnitude +0.00178 reproduces the pre-registered
++0.0020 from the prev-cap RESULT; (ii) A1, A2, B1 and MAE all improve in the
+same direction; (iii) C2 is pristine (max fixed-segment |bias| growth +$0.031M);
+(iv) it is a semantics simplification rather than added capacity — the model now
+reads one thing ("what were you paid last season?") instead of conditionally
+reading year-1-of-the-prior-deal or last-season, depending on where the lookback
+landed.
+
+**Protocol correction.** The prev-cap RESULT's "t = 7.0" for the same comparison
+was **seed-paired** — seed sd ≈ 0.001 inflates t roughly 3× relative to the
+canonical fold pairing. The magnitude reproduces; the t does not. **The pairing
+unit is always the fold**, per the worker brief; seed-to-seed variation measures
+RNG, not signal.
+
+**Rejected arms and why.** Trend features, prior-year estimated value, and
+rookie-award ordinal are all flat because DARKO already encodes trajectory and
+the existing awards channel already carries the pedigree signal.
+Stats-as-of-signing (Arm B replace) is actively harmful: the market prices
+expected growth, so current-season production beats signing-date production for
+extensions — breakout bias moved −$2.87M → −$5.06M, and only MPJ 2022
+(priced pre-injury) is the rare inversion.
+
+Tags: `v7.11x` `(see git tag)`.
+
+### v7.12x: designated-ceiling award-path fix (ISSUES #19)
+
+`_compute_max_eligible` granted the 35% Designated-Veteran / 30% Rose ceiling
+from All-NBA + experience alone, blind to the CBA's team-continuity requirement.
+12 genuine maxes wore a ceiling one tier too high:
+
+- **35% → 30%** (changed teams, acquired on vet deals, or non-designated):
+  Kawhi 2019, AD 2020, Kemba 2019, Kyrie 2019, Mitchell 2025, Beal 2021,
+  Sabonis 2023/24, Randle 2022, Brunson 2025.
+- **30% → 25%** (rookie extension paid the 25% base; the Rose escalator is a
+  later year, and KAT's award window was off-by-one): KAT 2019, Tatum 2021,
+  Ja 2023, Holmgren 2026, J. Williams 2026.
+
+New curated `data/raw/raw_external/designated_ineligible.csv` — the inverse of
+`early_supermax.csv` — gates the award path in `_compute_max_eligible`. No team
+signal exists in the frame, so a curated list is the safe fix pending a
+signing-date team-match test. Frame unchanged at 944.
+
+| metric | before | after |
+|---|---|---|
+| Max zone (`is_max`) | 56 | **68** |
+| Grabit zone MAE | $6.18M | **$4.44M** |
+| A1 (same 944 rows) | 0.7849 | **0.7878** |
+| Confirmation | — | 0.8090 |
+
+Evidence: the landing commit `61bdfcd`.
+
+Tags: `v7.12x` `61bdfcd`.
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v7.0x was a statistical
@@ -513,28 +703,32 @@ model's predictions.**
 Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 6    Phase 7
 Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data + protocol
                                                                                      
-0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.765
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.8x
+0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.788
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.12x
                         ↗ 0.87                                                                (current)
                   Leaked features
                   (removed in v4.0)
 ```
 
-Phase 7 looks flat and mostly is, by design: six of its eight entries are
-correctness changes — refreshed data, corrected caps, contaminated rows removed,
-a semantic fill, honest ceilings, four rows re-censored — and two of them
-*lowered* the headline. The count of known-wrong things is the better progress
-line: an optimistically biased test set, two 9%-wrong season targets, 259
-prorated rows, a fill 4.6× too high for undrafted players, 13 impossible
-ceilings, and 125 escalator years filed as fresh signings, all closed.
+Phase 7 looks flat through v7.8x and then jumps. The v7.1x–v7.8x plateau was by
+design: six of those eight entries are correctness changes — refreshed data,
+corrected caps, contaminated rows removed, a semantic fill, honest ceilings, four
+rows re-censored — and two of them *lowered* the headline. v7.9x–v7.12x continue
+that pattern (three filter/repair changes and one label fix) but the compounding
+finally shows: the 944-row frame's A1 0.7878 is the highest the project has
+recorded on a clean dataset, and every point came from removing something wrong
+rather than adding modelling complexity.
 
-Two entries did move the model rather than the data. v7.7x is the largest paired
-gain of the phase (+0.0102) precisely *because* it is a correctness change — the
-model stopped being asked to explain prices that were never set in the season
-they were filed under. v7.8x is the only genuine modelling change since v7.0x,
-and its effect is invisible in R² and plain in MAE ($3.18M → $3.07M, CI
-excluding zero): it fixes 297 small-dollar rows that squared error barely
-notices.
+The count of known-wrong things is the better progress line: an optimistically
+biased test set, two 9%-wrong season targets, 259 prorated rows, a fill 4.6×
+too high for undrafted players, 13 impossible ceilings, 342 escalator years
+filed as fresh signings, a fabricated prior-pay feature on 28% of a season's
+rows, and 12 mis-tiered max contracts — all closed.
+
+v7.10x's `prev_cap_pct` repair (+0.0135, t 7.6) is the largest single paired
+gain in the project's recent history — repairing the #2 feature on the largest
+season's rows. v7.12x's max-zone MAE drop (6.18 → 4.44) is the largest zone
+improvement, from relabelling 12 genuine maxes the award path had mis-tiered.
 
 ## Notes
 
