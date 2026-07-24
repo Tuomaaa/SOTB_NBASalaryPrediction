@@ -3,36 +3,23 @@
 Maintained by the architect session. One line per item; briefs under
 `docs/briefs/`, decisions in the RESULT files and tags.
 
-Last updated: 2026-07-24, after the v7.10x landing.
+Last updated: 2026-07-25, after the censor-widening landing.
 
-## In flight
+## In flight / ready to launch
 
-- **Censor-widening experiment** — worker out (brief
-  `2026-07-24-censor-widening.md`, pinned 4156404). Win line: true-max zone
-  ≥ $0.30M better, counterweight band bias growth ≤ $0.3M. If it wins it
-  lands as the interim; the unified architecture then challenges the new
-  incumbent.
-
-## Next up (order matters)
-
-1. **Unified architecture** — the signing-route probability function +
-   per-route Stage-2 corrections (max/min/MLE snap branches from CBA
-   numbers; continuous routes as shared f(x) + per-route fold-honest δ).
-   P is an OUTPUT composition weight, never a feature (the rejected
-   P(mechanism|x)-as-input, −0.0073, is a different thing). Branches adopt
-   one at a time: max (push-then-clip) → min → MLE (needs a features-only
-   separability AUC first; amounts table already curated) → continuous
-   split + δ. Calibration judged on the predicted-band bias table, not the
-   global slope. Brief waits only on the censor-widening result.
-2. **Feature batch** (rides with the architecture work, same paired
-   harness): (a) trend features (1-yr delta / 3-yr slope / peak-minus-
-   current); (b) stats-as-of-signing for extensions; (c) Arm B prev_cap_pct
-   semantics swap (+0.0020 over A, t=7, needs ship-form verification);
-   (d) prior-year estimated value darko×mpg×$/win — new-column arm and
-   rookie-exit in-slot arm; (e) rookie-award tier ordinal (ROY/All-Rookie
-   1st/2nd/none — check award_score_cum's existing weighting first).
-   Everything that fails the regression gates still feeds the route
-   classifier.
+- **Feature batch** — brief ready: `2026-07-25-feature-batch.md`. Five arms
+  (trend / stats-as-of-signing / Arm B swap / prior-year est value /
+  rookie-award tier), full challenger gates each, failed arms still feed the
+  classifier.
+- **Route mixture, phase 1** — brief ready: `2026-07-25-route-mixture.md`.
+  The multiclass route classifier + the MAX branch (push-then-clip, fixed
+  1.05 margin), win bar $0.50M on the true-max zone with the counterweight
+  band and 25%+ predicted band as brakes. Adopting it starts the v8.0 line.
+  Can run in parallel with the feature batch (machinery is feature-agnostic;
+  re-run with batch winners at landing).
+- Later phases on the same machinery: floor branch → MLE branch (conditional
+  on the P(mle) separability AUC) → continuous split + per-route δ
+  (Bird retention premium, possibly split extension/re-sign).
 
 ## Parking lot
 
@@ -43,6 +30,11 @@ expansion, playoff minutes share, early_gap>=2 mechanical ceiling rule
 
 ## Recently landed (context)
 
+- Censor-widening experiment — NO WINNER (e8e3c6a). The premise fell
+  informatively: the counterweight band is itself underpredicted $4.6M, so
+  a global dial has no interior optimum; ceiling for a calibrated global
+  push is −$0.26M. Inert censor_c hook shipped; everything funnels to the
+  per-row P.
 - v7.10x — prev_cap_pct repair (paired +0.0135, t=7.6) + 2026 cap
   correction to the official 164,961,000; frame 944. Rookie-exit anchor
   arms all rejected (slot-average fails C2 despite best headline); the
