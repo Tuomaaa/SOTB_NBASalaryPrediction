@@ -32,7 +32,10 @@ from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR
 from src.model.train import (
     FEATURE_COLS,
     TARGET,
+    _compute_floor,
     _compute_max_eligible,
+    _filter_continuations,
+    _filter_mislabeled_year1,
     _filter_prorated,
     _filter_rookie_scale,
     _filter_year1,
@@ -45,6 +48,13 @@ from src.model.train import (
 DEFAULT_OUT = (
     Path(__file__).resolve().parents[2] / "WebPage" / "public" / "data" / "nba"
 )
+
+# The model is trained on every season before this one, so the holdout season's
+# signings are a genuine forward prediction — the model never saw them. That is
+# what makes the Signing Board's accuracy claim honest: scoring the rows the
+# model was fit on would understate its error by roughly a third. Everything at
+# or after this season is out-of-sample; earlier seasons are the training data.
+HOLDOUT_SEASON = 2026
 
 # Site theme tokens, mirrored from WebPage/app/globals.css :root
 PALETTE = {
@@ -78,8 +88,11 @@ FEATURE_LABELS = {
 }
 
 
-# Spotrac writes signing mechanisms in two styles — title case for some, a
-# hyphenated slug for others. Canonicalise so the filter and the chart agree.
+# Spotrac writes signing mechanisms in a mix of styles, and refresh_spotrac.py
+# has partially normalised them, so the same mechanism appears both as a
+# hyphenated slug and in title case. Map every observed form to one canonical
+# label. If a new one shows up, _load_signing_types raises rather than dropping
+# it silently — add it here.
 SIGNING_LABELS = {
     "Minimum": "Minimum",
     "Bird Rights": "Bird Rights",
@@ -88,11 +101,16 @@ SIGNING_LABELS = {
     "Hardship": "Hardship",
     "cap-space": "Cap Space",
     "sign-and-trade": "Sign & Trade",
+    "extend-and-trade": "Extend & Trade",
     "rookie-scale-exception": "Rookie Scale",
+    "second-round-exception": "Second Round",
     "non-taxpayer-mid-level-exception": "Non-Taxpayer MLE",
+    "Non-Taxpayer MLE": "Non-Taxpayer MLE",
     "taxpayer-mid-level-exception": "Taxpayer MLE",
+    "Taxpayer MLE": "Taxpayer MLE",
     "room-mid-level-exception": "Room MLE",
     "bi-annual-exception": "Bi-Annual Exception",
+    "Bi-Annual": "Bi-Annual Exception",
     "qualifying-offer": "Qualifying Offer",
     "disabled-player-exception": "Disabled Player",
 }
@@ -127,34 +145,41 @@ def _training_medians(df: pd.DataFrame) -> tuple[list[str], pd.Series]:
     the *filtered* training set. Predicting the full dataset has to reuse both,
     or the full-set rows get imputed against a different distribution.
 
-    The filter chain here must stay identical to the one inside train_grabit —
-    including the prorated-salary filter added in v7.2x — or the medians come
-    from a different row set than the model was fit on.
+    The filter chain here must stay identical to the one inside train_grabit,
+    or the medians come from a different row set than the model was fit on. Pass
+    the same season-restricted df that was handed to train_grabit — the medians
+    must reflect only the seasons the model actually saw.
     """
-    tr = _filter_prorated(_filter_rookie_scale(_filter_year1(df)))
+    tr = _filter_continuations(_filter_mislabeled_year1(_compute_max_eligible(
+        _filter_prorated(_filter_rookie_scale(_filter_year1(df))))))
     X_tr, _, _, features = _prepare_Xy(tr)
     return features, X_tr.median()
 
 
 def build_frame(df: pd.DataFrame, model, features: list[str],
                 medians: pd.Series) -> tuple[pd.DataFrame, np.ndarray]:
-    """Predict latent + capped value for every player-season, with SHAP.
+    """Predict latent + bounded value for every player-season, with SHAP.
 
-    The model is fit on year-1 non-rookie-scale rows only, but it is applied to
-    all rows here. Escalator years (year_in_contract >= 2) are outside the
-    training domain by construction — the site labels those separately as
-    Contract Surplus rather than Signing Residual.
+    The model is fit on the training seasons only, but it is applied to all
+    rows here. Two kinds of row are outside that training domain: escalator and
+    rookie-scale years (labelled Contract Surplus, not Signing Residual), and
+    everything in HOLDOUT_SEASON and later, which the model never saw at all —
+    those carry a genuine forward prediction and are flagged is_forward.
     """
     import shap
 
     full = _compute_max_eligible(df.copy())
+    full = _compute_floor(full)
 
     X = full.reindex(columns=features).copy()
     X = X.fillna(medians).fillna(0)
 
     latent = model.predict(X)
     max_elig = full["max_eligible_pct"].values
-    capped = np.minimum(latent, max_elig)
+    floor_pct = full["floor_pct"].values
+    # Stage 2 is two-sided: the ceiling caps a max player below his latent
+    # worth, the floor lifts an at-minimum player up to what the CBA guarantees.
+    capped = np.clip(latent, floor_pct, max_elig)
 
     explainer = shap.TreeExplainer(model)
     shap_vals = explainer.shap_values(X)
@@ -187,8 +212,10 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
         "latent_cap_pct": latent,
         "pred_cap_pct": capped,
         "max_eligible_pct": max_elig,
+        "floor_pct": floor_pct,
         "cap": cap,
     })
+    out["is_forward"] = out["season"] >= HOLDOUT_SEASON
     # A first-round pick's slotted years often carry year_in_contract == 1 in
     # the contract-structure data, which would put a rookie-scale salary on the
     # Signing Board as though a team had freshly negotiated it. Flag them so the
@@ -202,7 +229,9 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     out["pred_salary"] = out["pred_cap_pct"] * out["cap"]
     out["latent_salary"] = out["latent_cap_pct"] * out["cap"]
     out["surplus"] = out["pred_salary"] - out["actual_salary"]
+    # Which CBA bound, if any, moved the prediction off its latent value.
     out["is_capped"] = out["latent_cap_pct"] > out["max_eligible_pct"] + 1e-9
+    out["is_floored"] = out["latent_cap_pct"] < out["floor_pct"] - 1e-9
 
     for col in ("darko_dpm_z", "lebron_z", "rapm_z", "mpg", "usage_pct",
                 "availability_3yr", "ast_pct", "height_inches", "draft_pick",
@@ -225,7 +254,7 @@ def _round(x, nd=2):
 
 
 def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
-               results: dict, dest: Path) -> None:
+               results: dict, fwd_metrics: dict, dest: Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
     M = 1e6
 
@@ -245,6 +274,8 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
             "lat": _round(r.latent_salary / M),
             "sur": _round(r.surplus / M),
             "cap": bool(r.is_capped),
+            "flr": bool(r.is_floored),
+            "fwd": bool(r.is_forward),
             "rs": bool(r.is_rookie_scale),
             "st": None if pd.isna(r.signing_type) else r.signing_type,
             "dk": _round(r.darko_dpm_z),
@@ -290,19 +321,28 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
         out.groupby("season")["base_salary"].first() / M
     ).round(2).to_dict()
 
+    signing = (out["year_in_contract"] == 1) & ~out["is_rookie_scale"]
+
     meta = {
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "model": results["model"],
+        "holdoutSeason": HOLDOUT_SEASON,
+        # Forward accuracy — the model's error on the holdout season's signings,
+        # which it never saw. This is the honest headline the Signing Board
+        # quotes; scoring the training rows would understate it by a third.
+        "forwardR2": _round(fwd_metrics["r2"], 4),
+        "forwardMae": _round(fwd_metrics["mae_m"], 2),
+        "forwardN": fwd_metrics["n"],
+        # Pooled cross-validation on the training seasons (< holdout) — the
+        # structural "selection" number, a different quantity from forward
+        # accuracy and not to be quoted as if it were the same.
+        "cvR2": _round(results["cv_r2_mean"], 4),
+        "cvMae": _round(results["cv_mae_mean"], 4),
         "sigma": results.get("sigma"),
         "nTrain": results["n_samples"],
         "nFeatures": results["n_features"],
         "nCensored": results.get("n_censored"),
-        "cvR2": _round(results["cv_r2_mean"], 4),
-        "cvR2Std": _round(results.get("cv_r2_std"), 4),
-        "cvMae": _round(results["cv_mae_mean"], 4),
-        "cvR2Recent": _round(results.get("cv_r2_recent"), 4),
-        "cvMaeRecent": _round(results.get("cv_mae_recent"), 4),
-        "recentN": results.get("recent_n"),
+        "nLeftCensored": results.get("n_left_censored"),
         "features": [{"key": f, "label": FEATURE_LABELS.get(f, f)}
                      for f in features],
         "capBySeason": {str(k): v for k, v in CAP_BY_SEASON.items()},
@@ -313,9 +353,10 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
         "signingTypes": sorted(s for s in out["signing_type"].dropna().unique()),
         "nRows": len(out),
         "nYear1": int((out["year_in_contract"] == 1).sum()),
-        # Rows the model is actually fit on: year-1 and not rookie-scale.
-        "nSigning": int(((out["year_in_contract"] == 1)
-                         & ~out["is_rookie_scale"]).sum()),
+        # Negotiated first years: year-1 and not rookie-scale.
+        "nSigning": int(signing.sum()),
+        # Of those, the ones the model never saw — the forward slice.
+        "nForward": int((signing & out["is_forward"]).sum()),
     }
     (dest / "meta.json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -358,18 +399,22 @@ def write_charts(out: pd.DataFrame, shap_vals: np.ndarray,
     dest.mkdir(parents=True, exist_ok=True)
     M = 1e6
 
-    # 1. Predicted vs actual, year-1 rows (the model's training domain).
-    y1 = out[out["year_in_contract"] == 1]
+    # 1. Predicted vs actual on the holdout season's signings — forward,
+    #    out-of-sample, so the scatter shows real predictive accuracy rather
+    #    than the model recalling its own training rows.
+    y1 = out[out["is_forward"] & (out["year_in_contract"] == 1)
+             & ~out["is_rookie_scale"]]
     fig, ax = plt.subplots(figsize=(7, 6.2))
     _style_axes(ax)
-    plain = y1[~y1["is_capped"]]
-    capped = y1[y1["is_capped"]]
+    plain = y1[~y1["is_capped"] & ~y1["is_floored"]]
+    bound = y1[y1["is_capped"] | y1["is_floored"]]
     ax.scatter(plain["actual_salary"] / M, plain["pred_salary"] / M, s=16,
                color=PALETTE["teal"], alpha=0.55, linewidths=0,
-               label="Uncensored")
-    ax.scatter(capped["actual_salary"] / M, capped["pred_salary"] / M, s=34,
-               color=PALETTE["pink"], alpha=0.9, linewidths=0,
-               label="CBA-capped (Grabit)")
+               label="Priced by the model")
+    if len(bound):
+        ax.scatter(bound["actual_salary"] / M, bound["pred_salary"] / M, s=34,
+                   color=PALETTE["pink"], alpha=0.9, linewidths=0,
+                   label="At a CBA bound")
     lim = max(y1["actual_salary"].max(), y1["pred_salary"].max()) / M * 1.05
     ax.plot([0, lim], [0, lim], color=PALETTE["ink_soft"], linewidth=1,
             linestyle="--", alpha=0.6)
@@ -377,7 +422,7 @@ def write_charts(out: pd.DataFrame, shap_vals: np.ndarray,
     ax.set_ylim(0, lim)
     ax.set_xlabel("Actual salary ($M)")
     ax.set_ylabel("Predicted salary ($M)")
-    ax.set_title("Predicted vs actual — year-1 contracts")
+    ax.set_title(f"Predicted vs actual — {HOLDOUT_SEASON} signings (forward)")
     leg = ax.legend(frameon=False, loc="upper left")
     for t in leg.get_texts():
         t.set_color(PALETTE["ink_soft"])
@@ -399,8 +444,12 @@ def write_charts(out: pd.DataFrame, shap_vals: np.ndarray,
     fig.savefig(dest / "shap_importance.png", dpi=160)
     plt.close(fig)
 
-    # 3. Signing Residual by signing mechanism (year-1 rows only).
-    st = y1.dropna(subset=["signing_type"])
+    # 3. Signing Residual by signing mechanism. Uses all negotiated first years,
+    #    not just the forward slice, so each mechanism has enough rows for the
+    #    bias to be stable — this chart shows the shape of the pattern, and the
+    #    project page carries the precise out-of-fold figures alongside it.
+    st_rows = out[(out["year_in_contract"] == 1) & ~out["is_rookie_scale"]]
+    st = st_rows.dropna(subset=["signing_type"])
     if len(st):
         agg = (st.groupby("signing_type")
                  .agg(bias=("surplus", "mean"), n=("surplus", "size"))
@@ -460,7 +509,40 @@ def write_charts(out: pd.DataFrame, shap_vals: np.ndarray,
         print(f"  {p.name:32s} {p.stat().st_size / 1024:7.1f} KB")
 
 
+def _check_forward(fwd_r2: float, tol: float = 0.03) -> None:
+    """Cross-check the forward R² against the evaluation suite's rolling-origin
+    number for the same season.
+
+    The two are computed by independent code paths — this exporter and
+    evaluate_suite.py — so they will not agree to the dollar. A gap beyond tol
+    means one of them is wrong, most likely that this export has slipped back to
+    scoring rows the model was trained on (which would inflate the number).
+    """
+    suite = OUTPUTS_DIR / "models" / "evaluation_suite.json"
+    if not suite.exists():
+        print("  (no evaluation_suite.json — skipping forward cross-check)")
+        return
+    d = json.loads(suite.read_text(encoding="utf-8"))
+    origin = (d.get("champion", {}).get("B1_by_origin", {})
+              .get(str(HOLDOUT_SEASON)))
+    if not origin or "r2" not in origin:
+        print(f"  (suite has no rolling-origin R² for {HOLDOUT_SEASON})")
+        return
+    ref = origin["r2"]
+    gap = abs(ref - fwd_r2)
+    if gap > tol:
+        raise SystemExit(
+            f"Forward R² {fwd_r2:.4f} is {gap:.3f} off the evaluation suite's "
+            f"rolling-origin {HOLDOUT_SEASON} R² of {ref:.4f}. Either the model "
+            "changed and evaluate_suite.py needs a rerun, or this export is "
+            "scoring rows the model was trained on."
+        )
+    print(f"  forward R² {fwd_r2:.4f} matches suite's {ref:.4f} (Δ{gap:.3f})")
+
+
 def main() -> None:
+    from sklearn.metrics import mean_absolute_error, r2_score
+
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT,
                     help=f"output directory (default: {DEFAULT_OUT})")
@@ -469,36 +551,40 @@ def main() -> None:
     df = load_training_data()
     print(f"Loaded {len(df)} player-seasons")
 
-    results, model, features = train_grabit(df, sigma=0.02)
-    print(f"\nGrabit v3: CV R² {results['cv_r2_mean']:.4f}  "
-          f"(2024-26: {results['cv_r2_recent']:.4f}, n={results['recent_n']})")
+    # Fit on every season before the holdout, so the holdout's signings are a
+    # true forward prediction. train_grabit filters the frame it is given, so a
+    # season-restricted df is all it takes — no change to train.py.
+    train_df = df[df["season"] < HOLDOUT_SEASON].copy()
+    results, model, features = train_grabit(train_df, sigma=0.02)
+    print(f"\n{results['model']} fit on seasons < {HOLDOUT_SEASON}: "
+          f"{results['n_samples']} rows, pooled CV R² {results['cv_r2_mean']:.4f}")
 
-    # The site quotes CV metrics from train.py's own run. If this fit has
-    # drifted from that one, the headline numbers and the table would describe
-    # different models.
-    canon = OUTPUTS_DIR / "models" / "grabit_results.json"
-    if canon.exists():
-        prev = json.loads(canon.read_text(encoding="utf-8"))
-        gap = abs(prev["cv_r2_mean"] - results["cv_r2_mean"])
-        if gap > 1e-6:
-            raise SystemExit(
-                f"CV R² differs from {canon.name} by {gap:.2e} "
-                f"({prev['cv_r2_mean']:.6f} vs {results['cv_r2_mean']:.6f}). "
-                "Re-run src/model/train.py so the quoted metrics match."
-            )
-        print(f"  matches {canon.name}")
-
-    tr_features, medians = _training_medians(df)
+    tr_features, medians = _training_medians(train_df)
     if tr_features != features:
         raise SystemExit("feature list drifted between fit and export")
 
     out, shap_vals = build_frame(df, model, features, medians)
+
+    # The headline the Signing Board quotes is the forward number: accuracy on
+    # the signings the model never saw. Compute it on the holdout year-1 rows.
+    fwd = out[out["is_forward"] & (out["year_in_contract"] == 1)
+              & ~out["is_rookie_scale"]]
+    fwd_metrics = {
+        "r2": float(r2_score(fwd["actual_cap_pct"], fwd["pred_cap_pct"])),
+        "mae_m": float(mean_absolute_error(fwd["actual_salary"],
+                                           fwd["pred_salary"]) / 1e6),
+        "n": int(len(fwd)),
+    }
     print(f"Scored {len(out)} rows  "
           f"({int((out['year_in_contract'] == 1).sum())} year-1, "
-          f"{int(out['is_capped'].sum())} CBA-capped)")
+          f"{int(out['is_capped'].sum())} capped, "
+          f"{int(out['is_floored'].sum())} floored)")
+    print(f"Forward {HOLDOUT_SEASON}: R² {fwd_metrics['r2']:.4f}, "
+          f"MAE ${fwd_metrics['mae_m']:.2f}M on {fwd_metrics['n']} unseen signings")
+    _check_forward(fwd_metrics["r2"])
 
     print("\nJSON:")
-    write_json(out, shap_vals, features, results, args.out)
+    write_json(out, shap_vals, features, results, fwd_metrics, args.out)
     print("\nCharts:")
     write_charts(out, shap_vals, features, args.out / "charts")
 
