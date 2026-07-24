@@ -7,10 +7,10 @@ Last updated: 2026-07-25, after the censor-widening landing.
 
 ## In flight / ready to launch
 
-- **Feature batch** — brief ready: `2026-07-25-feature-batch.md`. Five arms
-  (trend / stats-as-of-signing / Arm B swap / prior-year est value /
-  rookie-award tier), full challenger gates each, failed arms still feed the
-  classifier.
+- **Route-mixture phase 2 brief** — next to write. Prerequisites all in:
+  feature-batch columns delivered, the 44 smeared rows' three-way split
+  documented below (hand-classification against tx_text "maximum" keywords
+  is the likely instrument), threshold by calibration purity.
 - **Route mixture, phase 2** — after the feature batch lands: (i) re-run the
   classifier on the batch winners (22 true maxes still under P=0.3, half
   Booker-class); (ii) precision-gated push — push only above a P threshold
@@ -45,6 +45,17 @@ expansion, playoff minutes share, early_gap>=2 mechanical ceiling rule
 
 ## Recently landed (context)
 
+- v7.11x — feature batch: only Arm C (prev_cap_pct = previous-season pay)
+  adopted, at the gate boundary (+0.00178, fold-paired t=1.96; magnitude
+  pre-registered, all instruments improve, semantics simplification).
+  Four arms rejected: trend / est-value / rookie-award flat (existing
+  features already carry the signal), stats-as-of-signing harmful (the
+  market prices expected growth, so current-season stats beat signing-date
+  stats for extensions; MPJ is the rare inversion). All columns delivered
+  in data/processed/feature_batch_columns.csv for the phase-2 classifier.
+  Protocol correction: the prev-cap RESULT's "t=7.0" was SEED-paired
+  (canonical fold-paired t≈2); pairing unit is the fold, always. New
+  ISSUES entry: awards_full name-join drops footnote-marked stars.
 - Route-mixture phase 1 (a040144) — classifier machinery landed, flag OFF,
   bit-identical when off. P(max) AUC 0.9650, median P on true maxes 0.52
   (0.36 pre-repair — the prev_cap_pct fix cashing in). Max branch did NOT
