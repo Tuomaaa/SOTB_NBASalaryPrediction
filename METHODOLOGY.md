@@ -62,7 +62,15 @@ into a CSV cannot survive.
 4. **Year-1 filter**: only keep `year_in_contract == 1` rows. Years 2+ are CBA-mandated escalators (5%/8% raises), not market evaluations. Reduces to **1,808 rows**.
 5. **Rookie scale filter**: remove 1st-round picks in years 2-4 of rookie deal (slotted by draft position, not market). Uses draft_data.csv for precise identification. Reduces to **1,556 rows** across 666 players, 2019–2026.
 6. **Prorated filter**: drop rows below 1.2% of that season's cap — partial-season pay, not an annual contract value. Reduces to **1,297 rows**. See below.
-7. **GroupKFold CV**: 5-fold, same player stays in same fold to prevent within-player leakage.
+7. **Mislabel filter** (v7.6x): drop year-1 rows paid above their *tier* ceiling — provable escalator mislabels. Reduces to **1,291 rows**. See below.
+8. **Continuation filter** (v7.7x): drop rows a three-signal consensus identifies as later years of older deals. Reduces to **1,172 rows**. See below.
+9. **GroupKFold CV**: 5-fold, same player stays in same fold to prevent within-player leakage.
+
+The last two filters exist because the contract-structure table tags a
+pre-2019 contract's *first observed* season as year 1 — the detector never saw
+the seasons before the data starts — and the salary-chain detector also breaks
+mid-deal whenever escalator ratios drift. Both classes put escalator prices into
+training wearing fresh-signing labels.
 
 ### Sample composition
 
@@ -90,6 +98,44 @@ fixed evaluation set of the 1,297 clean rows, varying only the training set:
 R² 0.7534 → 0.7588, MAE $3.289M → $3.327M, bias **−$0.423M → +$0.101M**.
 Re-centring the filtered predictions by their mean shift returns R² to 0.7522 —
 the conditional pricing function is unchanged, only the level moved.
+
+### Mislabelled year-1 rows (removed in v7.6x)
+
+No fresh signing can exceed its tier maximum, so a year-1 label on a salary above
+that ceiling is *proof* the row is a later year of an older deal — not a
+judgement call. `_filter_mislabeled_year1` drops six: Curry, Paul, Westbrook,
+Wiggins and McCollum 2019, Wall 2020.
+
+The test uses the **tier-only** ceiling, exposed as `tier_ceiling_pct` beside the
+floored `max_eligible_pct`. The no-decrease floor exists to legalise escalator
+pay for Stage-2 scoring, and escalator pay is exactly what a fresh contract
+cannot be, so including it would make the test vacuous.
+
+### Continuation rows (removed in v7.7x)
+
+The six above were the visible tip. Of the 88 year-1 2019 rows with 2018 pay on
+record, 38 stepped by an escalator-shaped ratio — LeBron at exactly 1.050, George
+and Embiid at exactly 1.080 — and 2019 carried 255 year-1 rows against 166-206 in
+every later season.
+
+The instrument is the anchored contract span from `scripts/refresh_spotrac.py`.
+**A span alone is not sufficient evidence** — a span-only filter deleted 346 rows
+of which 7.2% appeared in that season's actual FA-signings list (Brunson 2022,
+VanVleet 2023, Jimmy Butler 2019), because Spotrac's Free-Agent anchor is
+unreliable for contracts later superseded by an extension. `_filter_continuations`
+demotes a row only when three independent signals agree:
+
+1. **span** — the salary-matched covering contract starts earlier (AAV within 25%
+   of the row's pay, so a renegotiated deal matches its new money rather than the
+   superseded shell);
+2. **step** — pay moved from last season by an escalator-shaped ratio
+   (0.92-1.081), reading `salaries_prehistory.csv` at the 2019 boundary;
+3. **veto** — the row is absent from that season's FA-signings list.
+
+Rows without last-season pay on record are kept: precision over recall, since a
+stale price in training is cheaper than a deleted real one. 119 rows fall; the
+largest are verifiable mid-contract seasons (LeBron 2019, Simmons 2021,
+Hayward 2023). Common-row A1 rose +0.0102, the largest paired gain of Phase 7.
 
 ## Feature Set (14 features)
 
@@ -201,6 +247,20 @@ room. Modelling the mechanism itself is a dead end for point accuracy.
 
 ## Model — Two-Stage Pipeline
 
+The two stages answer different questions, and the split is the model's main
+structural claim:
+
+- **Stage 1** estimates value under *default parameters* — what the market pays
+  a player with these characteristics, with signing context averaged over the
+  training distribution rather than fixed at any particular value.
+- **Stage 2** adjusts for *told parameters* — the constraints this particular
+  contract faced. Today exactly two are told: the legal ceiling and the legal
+  floor. Everything else (mechanism, market conditions, negotiating posture)
+  stays averaged inside Stage 1, which is precisely what the C2 mechanism-bias
+  table measures. **Promoting a parameter from "averaged" to "told" should
+  shrink its C2 bias** — that is the natural acceptance test for any future
+  Stage-2 extension.
+
 ### Stage 1: Grabit (Nonlinear Tobit via XGBoost)
 
 ```python
@@ -212,24 +272,62 @@ XGBRegressor(
     colsample_bytree=0.7,
     min_child_weight=10,
     tree_method="hist",
-    objective=make_tobit_obj(censored_mask, sigma=0.02),
+    objective=make_tobit_obj(right_mask, sigma=0.02, left_mask=left_mask),
 )
 ```
 
-Standard XGBoost treats all training rows equally. But max-contract players' observed salary is a **ceiling**, not their true market value — a player worth 40% of the cap still gets paid 35% because that's the CBA maximum. Standard squared-error loss trains the model to predict 35%, permanently underpredicting elite players.
+Standard XGBoost treats all training rows equally. But a salary pinned against a
+CBA bound is not a market price — it is the bound. **Grabit** (Sigrist &
+Hirnschall, 2019) replaces the loss with a censored-normal likelihood, and since
+v7.8x the project censors **both** bounds:
 
-**Grabit** (Sigrist & Hirnschall, 2019) replaces XGBoost's loss function with a censored-normal likelihood:
-- **Uncensored rows** (non-max contracts): standard squared error. `grad = pred - actual`, `hess = 1`.
-- **Censored rows** (max contracts): the loss says "the true value is *at least* this much." `grad = -σ × m(z)`, `hess = m(z) × (z + m(z))`, where `m(z) = φ(z)/Φ(z)` is the inverse Mills ratio. This pushes predictions *above* the observed ceiling.
+- **Uncensored rows**: standard squared error. `grad = pred − actual`, `hess = 1`.
+- **Right-censored rows** (max contracts): the observation is a *floor* of the
+  latent — a player worth 40% of the cap is paid 35% because that is the maximum.
+  `grad = −σ·m(z)`, `hess = m(z)·(z + m(z))` with `m(z) = φ(z)/Φ(z)` the inverse
+  Mills ratio and `z = (pred − actual)/σ`. Pushes predictions *above* the
+  observation.
+- **Left-censored rows** (at the veteran minimum): the observation is a *ceiling*
+  of the latent — the league floor props the player's pay above his unconstrained
+  price. Mirrored: `z = (actual − pred)/σ`, `grad = +σ·m(z)`. Lets predictions
+  fall *below* the observation.
 
-The model outputs a **latent value** — what the player would earn in a CBA-free market.
+The model outputs a **latent value** — what the player would earn in a market
+with no CBA bounds at all.
 
-**Gated censoring**: not all max contracts are true max-value players. Albatross contracts (John Wall 2020, Gordon Hayward 2023) are players paid the max despite declining performance. Censoring these would corrupt the signal. We only censor max-contract rows where the baseline XGBoost prediction ≥ 55% of max_eligible — filtering out ~5 albatross rows per run.
+**Gated censoring** on both sides. Not every row at a bound is bound-constrained:
 
-### Stage 2: CBA Cap
+- *Right gate*: albatross contracts (John Wall 2020, Gordon Hayward 2023) are
+  paid the max despite declining performance, and censoring them would corrupt
+  the signal. Censor only where the baseline XGBoost prediction ≥ 55% of
+  `max_eligible_pct` — about five rows filtered per run.
+- *Left gate*: a ring-chasing veteran on a minimum is making a **choice**, not
+  hitting a constraint, and his latent should stay meaningful. Censor only where
+  the baseline prediction ≤ `k × observed`, with **k = 2.0** chosen by screening
+  {1.5, 2.0, 3.0} on the floor zone.
+
+Both gates encode the same rule: **the model must corroborate that the bound
+binds.**
+
+#### Why the floor is censorable and "good players on minimums" is not
+
+METHODOLOGY previously recorded that extending censoring to the lower bound was
+a dead end. That finding stands *for the population it tested* — treating good
+players on minimums as right-censored — and the reason is economic, not
+statistical: a good player on a minimum could have signed elsewhere for more, so
+his salary reflects a **choice** and the censoring premise is simply false. The
+oracle experiment (fold-honest `P(mechanism | x)` scores −0.0073; a leaky oracle
+gains only +0.0137) measured that dead end.
+
+The v7.8x population is the opposite one: players whose unconstrained price sits
+*below* the minimum, held up by a rule **no contract can cross**. That is a
+genuine constraint, mathematically identical to the max ceiling with the sign
+flipped, and it was worth $0.42M per row on 297 rows.
+
+### Stage 2: CBA bounds
 
 ```
-final_prediction = min(latent_value, max_eligible_pct)
+final_prediction = clip(latent_value, floor_pct, max_eligible_pct)
 ```
 
 CBA rules cap maximum salary by experience:
@@ -266,13 +364,36 @@ float dust at exactly the tier). All three rules above came from that audit; the
 count is now **zero**, and it is worth re-running after any change to experience,
 awards, or cap data.
 
+#### The floor
+
+`_compute_floor` is the ceiling's mirror. `is_at_floor` marks Minimum-labelled
+rows inside the veteran-minimum band (≤2.5% of cap; the prorated filter has
+already removed everything below 1.2%). `floor_pct` is a
+(season, experience-bucket) lookup whose values are **recovered from the data's
+own mass points** rather than from maintained CBA tables — 0.0148 of the cap for
+two-year veterans, 0.0235 for ten-year veterans, visible as spikes in the target
+distribution. Buckets are 0-2 / 3-5 / 6-9 / 10+ years of experience, falling back
+to the season minimum where a cell is empty.
+
+The `is_at_floor` label reads the observed outcome and is therefore a
+**training-time** device, exactly as `is_max_contract` is on the other side. At
+inference the floor clip needs only season and experience, both knowable before
+the market opens.
+
 ### Hyperparameters
 
 Base XGBoost hyperparameters found via two-phase grid search (Phase 1: depth×n_est×lr, 64 combos; Phase 2: mcw×sub×col, 27 combos; 10 seeds each).
 
 Tobit-specific:
-- **σ = 0.02**: controls the balance between censored and uncensored gradients. CV-optimal across grid [0.02, 0.04, 0.06, 0.10]. Larger σ improves holdout but risks overfitting.
-- **Censoring gate threshold = 0.55**: baseline prediction must reach 55% of max_eligible to be censored.
+- **σ = 0.02**: controls the balance between censored and uncensored gradients. CV-optimal across grid [0.02, 0.04, 0.06, 0.10]. Larger σ improves holdout but risks overfitting. Shared by both sides.
+- **Right gate = 0.55**: baseline prediction must reach 55% of `max_eligible_pct` to be censored.
+- **Left gate k = 2.0**: baseline prediction must be at most 2.0 × observed pay to be censored. Screened over {1.5, 2.0, 3.0}; 3.0 improved the floor zone slightly more but pushed the sub-2% predicted band further negative, and 2.0 was the best floor-zone gain that left non-floor rows untouched.
+
+**Both were tuned before v7.6x-v7.7x changed the row set**, and σ in particular
+dates from a training set with different censoring-zone membership (the max zone
+has been 73 → 67 → 61 → 57 rows across this phase). A re-sweep judged on zone
+metrics rather than pooled R² is the obvious next hyperparameter task; nothing
+suggests it is urgent.
 
 ## Evaluation Protocol
 
@@ -336,94 +457,145 @@ failing to help (linear −0.0013, isotonic −0.0052).
 
 - **Fixed evaluation set** whenever the training filter changes. R²'s denominator moves with the row set, so R² across different datasets is not comparable. The apparent v3.5x → v4.0 collapse from 0.866 to 0.645 is this effect, not a regression.
 - **Baseline ladder**, so absolute R² is not mistaken for skill: predicting the mean 0.000, `mpg` alone **0.5740**, `mpg + prev_cap_pct` 0.6179, four features 0.7456, full 14 features 0.7609. Minutes per game alone reaches 75% of the full model's R²; the remaining ten features together buy +0.015 over that four-feature model.
-- **Locked confirmation split**: 15% of players by stable hash, held out of every selection decision, opened at a version bump. Currently 0.7415 (n=186) against 0.7643 on the selection pool. The two levels are not comparable to each other — different players, different difficulty — so only the *trend* is informative, and it has widened from +0.0150 at v7.2x to +0.0228 at v7.4x. See "Watching the confirmation split" below.
+- **Locked confirmation split**: 15% of players by stable hash, excluded from the metric that decides since 2026-07-23. Currently 0.7857 (n=168) against 0.7616 on the selection pool. The two levels are not comparable to each other — different players, different difficulty — so only the *trend* is informative. It widened against the pool from +0.0150 (v7.2x) to +0.0228 (v7.4x), an audit confirmed the drift was real, and the protocol changed in response. See "The confirmation split, and why decisions now exclude it" below.
 
-### Results (v7.4x, 10 seeds, n = 1,297)
+### Results (v7.8x, 10 seeds, n = 1,172)
 
-| Metric | Baseline XGBoost | Grabit + CBA cap |
+| Metric | Baseline XGBoost | Grabit v4 (two-sided) |
 |--------|-----------------|------------------|
-| A1 CV R² | 0.7609 | 0.7609 |
-| A2 CV R² (2024-26, n=397) | 0.8348 | **0.8366** |
-| B1 forward R² (2024-26) | 0.8213 | **0.8240** |
-| B1 95% CI | [0.769, 0.863] | [0.771, 0.867] |
-| CV MAE | $3.32M | **$3.30M** |
-| Calibration slope | 1.0163 | **0.9999** |
-| Spearman | 0.8067 | 0.8062 |
+| A1 CV R² | 0.7633 | **0.7653** |
+| A2 CV R² (2024-26, n=386) | — | **0.8465** |
+| B1 forward R² (2024-26) | — | **0.8324** |
+| B1 95% CI | — | [0.779, 0.877] |
+| CV MAE | — | **$3.065M** |
+| CV bias | — | −$0.116M |
+| Calibration slope | — | 0.9885 |
+| Spearman | — | 0.7901 |
 
-Forward R² by origin (Grabit): 2024 → 0.844 (n=134), 2025 → 0.798 (n=139),
-2026 → 0.827 (n=124). The cost of the forecasting setup relative to A2 is
-−0.0126.
+Forward R² by origin: 2024 → 0.852 (n=132), 2025 → 0.824 (n=131),
+2026 → 0.812 (n=123). The cost of the forecasting setup relative to A2 is
+−0.014.
 
-### Judging Grabit: the zone scorecard
+Fold sd is 0.044 against seed sd 0.0014 — a factor of 31, which is why every
+comparison is paired by fold.
 
-**Pooled paired delta (Grabit − baseline): −0.0001 ± 0.0010, t = −0.07.** At
-v7.2x this read +0.0011 (t = +2.72); part of that advantage was the ceiling bug
-corrected in v7.4x, where clipping toward too-low ceilings happened to land on
-the mislabelled rows it was clipping onto.
+### Judging Grabit: the zone scorecards
 
-The pooled test is nonetheless the wrong instrument. Gated censoring touches 65
-of 1,297 rows — 5% — so a pooled statistic divides the effect by twenty and
-mistakes dilution for weakness. The suite reports a **zone scorecard** over the
-rows Grabit exists for, those paid ≥90% of their own ceiling:
+**Selection-pool paired delta (Grabit − baseline): +0.0022 ± 0.0016, t = +1.39.**
+This has ranged from +0.0011 (t = +2.72) at v7.2x to −0.0001 (t = −0.07) at
+v7.4x, when the ceiling bug that had been inflating it was fixed.
 
-| Grabit zone (n=65) | Baseline | Grabit |
+The pooled test is the wrong instrument regardless of what it reads. Censoring
+touches 57 + 297 = 354 of 1,172 rows, and the two sides pull in opposite
+directions, so a single pooled statistic averages a large max-side effect and a
+large floor-side effect over rows that neither touches. The suite reports a
+**scorecard per zone**:
+
+| Max zone (n=57) — paid ≥90% of own ceiling | Baseline | Grabit |
 |---|---|---|
-| MAE | $7.27M | **$6.52M** |
-| bias | −$6.85M | −$6.43M |
-| rows better / worse | — | **59 / 6** |
+| MAE | $7.07M | **$6.11M** |
+| bias | −$6.60M | −$6.07M |
+| rows better / worse | — | **55 / 2** |
 
-Bias stays near −$6M in this zone by construction, not by failure: these players
-are paid their ceiling and the Stage-2 clip caps predictions at that ceiling, so
-the residual can only be ≤ 0. MAE is the number that moves.
+| Floor zone (n=297) — pinned at the CBA minimum | One-sided (v7.7x) | Two-sided (v7.8x) |
+|---|---|---|
+| MAE | $2.40M | **$1.98M** |
+| bias | +$2.37M | +$1.93M |
+| rows better / worse | — | **254 / 43** |
+| per-row \|error\| change | — | **−$0.42M, 95% cluster CI [−0.469, −0.374]** |
 
-Spillover is real and two-sided, because one set of trees serves every row. Rows
-at 75–90% of their ceiling are not censored yet gain (bias −$3.21M → −$2.74M);
-rows at 50–75% pay for it (MAE +$0.13M, 67 rows worse against 39 better). The net
-is clearly positive, and no gating threshold can separate the two — they are the
-same mechanism.
+Bias stays near −$6M in the max zone by construction, not by failure: those
+players are paid their ceiling and Stage 2 caps predictions at that ceiling, so
+the residual can only be ≤ 0. MAE is the number that moves. The floor zone is the
+mirror image with bias ≥ 0.
+
+**The floor side also moves the pooled dollar metric**: MAE $3.181M → $3.065M,
+95% cluster-bootstrap CI [−0.139, −0.091], excluding zero. R² barely notices the
+same change (0.7647 → 0.7653) because it weights by squared error and these are
+297 small-dollar rows, while MAE weights by row and they are 25% of the sample.
+**Where R² and MAE disagree this sharply, the disagreement is arithmetic, not
+contradiction** — read both.
+
+**Spillover differs by side, and one set of trees serves every row.** On the max
+side it is two-sided: rows at 75–90% of their ceiling are not censored yet gain
+(bias −$3.21M → −$2.74M), while rows at 50–75% pay for it (MAE +$0.13M). On the
+floor side it is favourable — the neighbours were overpredicted too, so the
+downward pull helps them: non-floor rows move −$0.012M with a CI spanning zero,
+and the worst fixed-row segment |bias| growth is +$0.07M against the $0.30M gate.
+
+**Segment checks between two models must use fixed rows.** A predicted-band
+decomposition of v7.8x first read "−$1.21M on 2-4% others", which looked like
+serious damage and was band-composition shift — the same regression-to-the-mean
+artifact layer C exists to avoid, reappearing on the model-comparison axis. Rows
+must be assigned to segments by something neither model produced.
 
 ### Acceptance rules
 
 **Challenger changes** — features, filters, hyperparameters, anything acting on
 every row — are accepted when all four hold:
 
-1. paired A1 delta > 0 with |Δ| / SE > 2
+1. paired A1 delta > 0 with |Δ| / SE > 2, **computed on selection-pool rows only**
 2. A2 moves the same direction (significance not required)
 3. no C2 segment's bias worsens by more than $0.3M
 4. MAE does not regress beyond the agreed tolerance
 
-**Grabit** is judged on its zone alone: keep it while the zone MAE delta is
-negative, drop it when the zone itself turns positive. Applying the pooled rule
-to a 5% intervention would have removed it at v7.4x on a t-statistic of −0.07.
+**Each Grabit side** is judged on its own zone: keep it while that zone's MAE
+delta is negative, drop the side whose zone turns positive. Applying the pooled
+rule to a 5% intervention would have removed the max side at v7.4x on a
+t-statistic of −0.07.
 
-### Watching the confirmation split
+**Rule 3 is unreliable for level corrections.** The guard compares |bias|, so a
+change that shifts every segment by the same amount necessarily trips it wherever
+a segment was already overpredicted — v7.2x breached it while improving four
+segments and worsening two by the identical mechanism. Treat a C2 breach on a
+calibration change as uninformative until the guard measures segment bias
+*relative to the global level*.
 
-Every accept/reject in this project's history reads the same metric. Each decision
+### The confirmation split, and why decisions now exclude it
+
+Every accept/reject in this project's history read the same metric. Each decision
 carries noise and the winning side is kept, so across 20+ feature decisions, two
-hyperparameter sweeps, and the σ and gate thresholds, the metric can drift upward
-without the model improving. The confirmation split is the canary: it carries only
-15% weight in the decision metric, so it should climb more slowly than the
-selection pool — but not fall while the pool rises.
+hyperparameter sweeps, and the sigma and gate thresholds, the metric can drift
+upward without the model improving. The confirmation split — 15% of players,
+assigned by a hash of the name so it cannot drift — is the canary: it carries
+only 15% weight in a pooled decision metric, so it should climb more slowly than
+the selection pool, but not fall while the pool rises.
 
-| | selection pool (n=1,111) | confirmation (n=186) | gap |
+It fell. The audit promised at v7.4x was run over v7.2x → v7.5x, on identical
+rows with identical fold assignment:
+
+| Slice | v7.2x | v7.5x | delta |
 |---|---|---|---|
-| v7.2x | 0.7611 | 0.7461 | +0.0150 |
-| v7.4x | 0.7643 | 0.7415 | +0.0228 |
+| Selection pool (n=1,107) | 0.7568 | 0.7603 | **+0.0035** |
+| Confirmation split (n=184) | 0.7533 | 0.7481 | **−0.0052** |
 
-Three reasons not to act yet: an R² on 186 rows has a bootstrap interval about
-±0.05 wide, so a −0.005 move is well inside noise; and neither recent change looks
-like metric-mining — v7.3x was a semantic correction motivated independently of
-the metric, and v7.4x *lowered* pooled R² in exchange for correctness, which is
-the opposite of what mining produces.
+Difference-in-differences on row-level squared-error improvement, bootstrapped by
+player cluster: **+5.6e-5, 95% CI [+8.5e-6, +1.11e-4] — excluding zero**, and the
+result survives removing the six rows v7.6x later demoted.
 
-Two honest caveats about the guard as built. The decision metric still *includes*
-the confirmation rows, so it is a diluted version of the real thing; and although
-the protocol says "opened at a version bump", the suite prints it on every run.
-It is a canary, not a sealed envelope. At the next version bump, re-score each
-accepted change on confirmation rows only — the per-row OOF for every version is
-archived in `outputs/models/oof_reference.csv`. If accepted changes are
-systematically ≤0 there while >0 on the selection pool, tighten the protocol so
-selection metrics are computed on the selection pool alone.
+**The protocol changed in response.** `oof_groupkfold` returns a second fold ×
+seed matrix computed on selection-pool validation rows only; `paired_delta` for
+accept/reject reads that matrix, and both persist in `evaluation_suite.json`
+(`fold_r2_selection` decides, `fold_r2` is context). Confirmation rows still
+serve as training data in other folds — they are excluded only from the metric
+that decides. Headline A1/A2/B1 stay pooled for continuity.
+
+Honest limits on the finding: the CI's lower bound sits near zero, and one
+plausible channel is innocent — v7.3x's rookie-scale fill table is estimated from
+the whole dataset, 85% of which is selection-pool players, so it would help those
+rows more without anyone gaming anything. The evidence is *moderate and
+directionally clear*, not a verdict. Tightening costs 7% of the decision sample,
+which makes it a cheap precaution either way.
+
+The split is a canary, not a sealed envelope: the suite prints it on every run.
+Per-version per-row OOF is archived in `outputs/models/oof_reference.csv`, and
+the suite now rotates one generation to `oof_reference_prev.csv` before
+overwriting, so the paired comparison against the previous state survives a
+rerun.
+
+Post-change readings (v7.8x): selection 0.7616, confirmation 0.7857 — the
+confirmation slice now scores *above* the pool, which is what the v7.6x-v7.7x
+cleanups look like when they help rows nobody was watching.
 
 ## Holdout vs Valuation
 
@@ -433,34 +605,46 @@ they mean different things:
 - **Signing Board / holdout**: Year-1 filter on train and test both. Produces the **Signing Residual** — a measure of model accuracy against a price the market actually set.
 - **Value Board / valuation**: Year-1 filter on train only, score every row. Produces the **Contract Surplus** — a statement about a team's books, not about model error. R² is not meaningful here; ranking is.
 
-## Diagnostic Findings (v7.4x)
+## Diagnostic Findings (v7.8x, n = 1,172)
 
 ### Bias by predicted band
 
 | Predicted band | n | bias | MAE |
 |---------------|---|------|-----|
-| <2% | 211 | +$0.00M | $0.49M |
-| 2-4% | 348 | +$0.13M | $2.17M |
-| 4-8% | 344 | +$0.59M | $3.97M |
-| 8-15% | 213 | −$0.27M | $5.04M |
-| 15-25% | 124 | −$1.03M | $5.71M |
-| 25%+ | 57 | +$1.44M | $4.77M |
+| <2% | 301 | −$0.42M | — |
+| 2-4% | 261 | −$0.17M | — |
+| 4-8% | 286 | +$0.34M | — |
+| 8-15% | 185 | −$0.13M | — |
+| 15-25% | 96 | −$0.15M | — |
+| 25%+ | 43 | −$0.51M | — |
 
-Flat to within ±$1.05M, with the widest cells at the two thinnest bands.
+Flat to within ±$0.51M — tighter than at v7.4x (±$1.05M), mostly because
+v7.8x's floor clip removed the overprediction that used to sit in the bottom
+bands. Calibration slope 0.9885, intercept +0.0019.
+
+**Bands must be cut on the prediction, never on the target.** Binning residuals
+by actual salary produces a steep monotone gradient even when calibration is
+perfect; earlier versions of this document reported that artifact as a finding.
+The same trap reappears when *comparing two models* — see the band-composition
+warning under "Judging Grabit".
 
 ### Signing Residual by mechanism
 
 | Mechanism | n | bias | MAE |
 |-----------|---|------|-----|
-| Bird Rights | 353 | −$2.43M | $4.82M |
-| Minimum | 309 | +$2.51M | $2.59M |
-| MLE | 204 | +$1.32M | $2.26M |
-| Cap Space | 143 | −$0.78M | $3.61M |
-| Unknown | 132 | +$0.59M | $2.66M |
-| Early Bird | 57 | −$1.05M | $2.69M |
-| Other | 49 | +$1.68M | $2.14M |
-| Non-Bird | 27 | +$2.07M | $2.58M |
-| Sign & Trade | 20 | −$4.62M | $5.40M |
+| Bird Rights | 309 | −$2.50M | $4.76M |
+| Minimum | 303 | +$1.86M | $1.99M |
+| MLE | 182 | +$1.05M | $2.26M |
+| Cap Space | 117 | −$1.18M | $3.60M |
+| Unknown | 132 | +$0.24M | $2.56M |
+| Early Bird | 48 | −$1.35M | $2.74M |
+| Other | 41 | +$1.45M | $2.03M |
+| Non-Bird | 22 | +$1.92M | $2.38M |
+| Sign & Trade | 15 | −$3.83M | $4.48M |
+
+Minimum's bias fell from +$2.51M to +$1.86M and its MAE from $2.59M to $1.99M
+between v7.4x and v7.8x — that segment is the floor zone under another name, and
+the left-censoring branch is what moved it.
 
 Bird Rights and Sign & Trade are underpriced — both let a team exceed the cap for
 its own player, and the retention premium is invisible to the features. Minimum
@@ -493,21 +677,29 @@ with extensions, so do not read it as a clean retention-premium estimate without
 splitting them first. And Minimum-labelled rows above $6M fell from 30 to 6;
 `ISSUES.md` #5 lists the residual gaps.
 
-### Grabit impact in its zone
+### Grabit impact in its zones
 
-See "Judging Grabit: the zone scorecard" above. Over the 65 rows paid ≥90% of
-their own ceiling, MAE falls $7.27M → $6.52M with 59 rows better and 6 worse.
+See "Judging Grabit: the zone scorecards" above. Over the 57 rows paid ≥90% of
+their own ceiling, MAE falls $7.07M → $6.11M (55 better, 2 worse). Over the 297
+rows pinned at the CBA minimum, MAE falls $2.40M → $1.98M (254 better, 43 worse),
+per-row |error| −$0.42M with a cluster-bootstrap CI of [−0.469, −0.374].
 
 ## Inference Pipeline
 
 `src/model/predict.py`:
-1. Load training data, apply year-1 + rookie filters
-2. Compute max_eligible_pct with Rose Rule / Supermax detection
-3. Train baseline XGBoost → compute gated censoring mask
-4. Train Grabit XGBoost (censored loss) on all training data
-5. Predict latent value → apply CBA cap: `min(latent, max_eligible_pct)`
+1. Load training data, apply the full filter chain (year-1, rookie, prorated,
+   mislabel, continuation)
+2. Compute `max_eligible_pct` (Rose Rule / supermax / no-decrease floor) and
+   `floor_pct` (season × experience bucket)
+3. Train baseline XGBoost → compute both gated censoring masks
+4. Train Grabit XGBoost (two-sided censored loss) on all training data
+5. Predict latent value → apply CBA bounds: `clip(latent, floor_pct, max_eligible_pct)`
 6. Convert cap_pct to salary dollars
 7. Output: predictions CSV + free agents CSV
+
+Both bounds are knowable before the market opens: the ceiling needs experience
+and award history, the floor needs season and experience. The `is_at_floor` and
+`is_max_contract` labels read observed pay and are training-time devices only.
 
 ## Known Issues & Limitations
 
@@ -520,12 +712,13 @@ their own ceiling, MAE falls $7.27M → $6.52M with 59 rows better and 6 worse.
 5. **σ tension**: CV prefers σ=0.02 (conservative censored gradients), holdout prefers larger σ (more aggressive). Sticking with CV-optimal to avoid overfitting to a single holdout season.
 6. **Point estimates against a bimodal target**: `y | x` is genuinely bimodal for mid-market players. A conditional mean is the R²-optimal point estimate and is nonetheless wrong for both modes. A distributional output — quantiles, or `P(signs for the minimum)` alongside a conditional market value — would answer the actual question better, and would not be measurable by R².
 7. **The model is not underfitting**: depth 6, learning rate 0.03, and looser `min_child_weight` all score worse than the current settings (0.7648 / 0.7613 / 0.7527 against 0.7661). Added structure cannot be justified as an inductive-bias fix.
-8. **Grabit's reach is not confined to its gate.** Censoring changes gradients for 65 rows, but one set of trees serves all 1,297, so leaf values shift for their neighbours too. Rows at 75–90% of their ceiling gain without being censored; rows at 50–75% lose slightly. No threshold separates the two — it is the same mechanism, and the net is positive.
+8. **Grabit's reach is not confined to its gates.** Censoring changes gradients for 354 rows, but one set of trees serves all 1,172, so leaf values shift for their neighbours too. On the max side this cuts both ways — rows at 75–90% of their ceiling gain without being censored, rows at 50–75% lose slightly. On the floor side it is favourable, because the neighbouring rows were overpredicted in the same direction. No threshold separates the effects; it is the same mechanism, and the net is positive on both sides.
+9. **The floor lookup is a data-derived approximation.** `floor_pct` is the median pay of at-floor rows per (season, experience bucket), not the CBA minimum scale itself. It recovers the mass points closely and needs no maintenance, but a season with few at-floor rows in a bucket falls back to the season minimum. A published scale would be exact.
 
 ### Pipeline and reproducibility
 
-9. **The contract-structure script was never committed.** Only `contract_structure_v2.csv` survives. Reconstructing the detection from CBA escalator ratios reaches at best 88% agreement on the year-1 flag and 74% on contract length across a 30-point parameter sweep — far too low to regenerate history without invalidating every published version number. `scripts/extend_contract_structure.py` therefore extends the table incrementally: rows whose salary is unchanged keep their assignment byte-for-byte, only new or changed rows are assigned, and it hard-fails if an unchanged row would move. Any future change needing a full recompute will still hit this wall.
-10. **`prev_cap_pct` is produced by an experiment script.** The regeneration chain is `src/features/build_dataset.py` → `scripts/build_external_features.py` → `scripts/phase3.py::build_contract_features`, and that last stage lives in `phase3.py` for historical reasons. `scripts/rebuild_training_data.py` now chains all three behind one command and validates that the fifteen cap-independent columns reproduce exactly on shared rows, but the stage itself has not been moved to a home of its own.
+10. **The contract-structure script was never committed.** Only `contract_structure_v2.csv` survives. Reconstructing the detection from CBA escalator ratios reaches at best 88% agreement on the year-1 flag and 74% on contract length across a 30-point parameter sweep — far too low to regenerate history without invalidating every published version number. `scripts/extend_contract_structure.py` therefore extends the table incrementally: rows whose salary is unchanged keep their assignment byte-for-byte, only new or changed rows are assigned, and it hard-fails if an unchanged row would move. Any future change needing a full recompute will still hit this wall.
+11. **`prev_cap_pct` is produced by an experiment script.** The regeneration chain is `src/features/build_dataset.py` → `scripts/build_external_features.py` → `scripts/phase3.py::build_contract_features`, and that last stage lives in `phase3.py` for historical reasons. `scripts/rebuild_training_data.py` now chains all three behind one command and validates that the fifteen cap-independent columns reproduce exactly on shared rows, but the stage itself has not been moved to a home of its own.
 
 ## Reproducibility
 
@@ -560,7 +753,7 @@ python scripts/diagnostics.py
 ```
 
 Every number quoted in this document can be reproduced by checking out its
-version tag (`v7.1x` … `v7.4x`) and running `src/model/evaluate_suite.py`.
+version tag (`v7.1x` … `v7.8x`) and running `src/model/evaluate_suite.py`.
 
 ## References
 

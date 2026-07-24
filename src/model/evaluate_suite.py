@@ -539,6 +539,11 @@ def main():
     print("    no C2 segment regresses by more than $0.3M. The confirmation split")
     print("    is a canary only — the 2026-07-23 audit caught the pooled metric")
     print("    fitting the rows it was watching (diff-in-diff +5.6e-5, CI > 0).")
+    print("    A feature whose values (or missingness) align with seasons must")
+    print("    also beat a pure season-dummy control: supply_samepos passed t>2")
+    print("    AND the forward veto, yet an is2019 flag with zero market content")
+    print("    recovered 70% of its gain — the B1 veto cannot see a feature that")
+    print("    absorbs a season offset on the TRAINING side.")
 
     out_dir = OUTPUTS_DIR / "models"
     out_dir.mkdir(parents=True, exist_ok=True)

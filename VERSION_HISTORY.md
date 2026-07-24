@@ -98,7 +98,11 @@ Signing type breakdown (OOF, $M):
 | 7.1x | XGBoost (Grabit) | 0.7581 | 0.8249 | 1556 | 14 | 2026 signings refreshed, 2025/26 caps corrected, four-layer evaluation suite |
 | 7.2x | XGBoost (Grabit) | 0.7588 | 0.8216 | 1297 | 14 | Prorated partial-season salaries removed from training |
 | 7.3x | XGBoost (Grabit) | 0.7622 | 0.8237 | 1297 | 14 | First-contract `prev_cap_pct` filled from the rookie scale by draft slot. 2020 season tested and kept |
-| **7.4x** | **XGBoost (Grabit)** | **0.7609** | **0.8240** | **1297** | **14** | **Stage-2 ceiling audit — no-decrease rule, supermax `s-3` lookback, prehistory backfill. Over-cap rows 13 → 0** |
+| 7.4x | XGBoost (Grabit) | 0.7609 | 0.8240 | 1297 | 14 | Stage-2 ceiling audit — no-decrease rule, supermax `s-3` lookback, prehistory backfill. Over-cap rows 13 → 0 |
+| 7.5x | XGBoost (Grabit) | 0.7610 | 0.8239 | 1297 | 14 | Curated early-supermax list replaces the blanket `s-3` lookback, which had un-censored two genuine max signings |
+| 7.6x | XGBoost (Grabit) | 0.7635 | 0.8200 | 1291 | 14 | Year-1 rows paid above their *tier* ceiling demoted — 6 provable escalator mislabels |
+| 7.7x | XGBoost (Grabit) | 0.7647 | 0.8283 | 1172 | 14 | Three-signal continuation demotion — 119 stale escalator rows out. Largest paired gain of the phase |
+| **7.8x** | **XGBoost (Grabit v4)** | **0.7653** | **0.8324** | **1172** | **14** | **Two-sided Grabit — left-censoring at the CBA floor. Pooled MAE $3.18M → $3.07M** |
 
 ### Versioning convention
 
@@ -109,7 +113,8 @@ reproduced with a checkout. Bug fixes count (v5.3x was one); the *kind* of chang
 belongs in the Change column, not the numbering. Diagnostics, tooling and
 documentation changes do not consume a number.
 
-Tags: `v7.1x` `09dbe4e` · `v7.2x` `cb27319` · `v7.3x` `b31a6fb` · `v7.4x` `ecdf3da`.
+Tags: `v7.1x` `09dbe4e` · `v7.2x` `cb27319` · `v7.3x` `b31a6fb` · `v7.4x` `ecdf3da` ·
+`v7.5x` `c17880d` · `v7.6x` `d7c72ef` · `v7.7x` `63e290c` · `v7.8x` `c03eb9a`.
 
 ### v7.1x: refreshed data and corrected caps
 
@@ -277,6 +282,210 @@ accepted change on confirmation rows only; if accepted changes are systematicall
 ≤0 there while >0 on the selection pool, tighten the protocol so selection
 metrics exclude the confirmation split.
 
+### v7.5x: the early-supermax list
+
+v7.4x widened the supermax award window to `s-3` to reach two extensions signed
+two summers before they began. The window was too blunt: it handed 35% ceilings
+to eleven rows, and two of them were genuine 30% max signings — Klay Thompson
+2019 and De'Aaron Fox 2026 fell to 86% of an inflated ceiling and dropped out of
+the censoring zone entirely. `ISSUES.md` had warned against exactly this
+("do not widen the award window to paper over it").
+
+Early-signed supermaxes run about one per year and are high-profile, so they are
+enumerated instead:
+`data/raw/raw_external/early_supermax.csv` carries John Wall 2019 and
+Karl-Anthony Towns 2024 with the qualifying award in a note column. All four
+sentinel cases now sit at their true ceilings and inside the zone; over-cap rows
+stay at 0. Headline movement is nil (A1 0.7609 → 0.7610) because only four rows
+change hands — the point is that the right four rows are censored.
+
+**The systematic fix is a signing date per contract**, which Spotrac exposes and
+the scrape does not yet take. Until then the list is the honest instrument.
+
+**Committing that CSV exposed a dead whitelist.** `.gitignore` excluded
+`data/raw/` — the directory itself, so git never descended into it and no `!`
+rule below could fire. The two hand-curated reference tables the model depends
+on, `awards_full.csv` and `player_draft_2020-2025.matched.corrected.csv`, had
+therefore **never been in version control**: CLAUDE.md's warning that "a clone
+that lacks these does not reproduce the published numbers" described the state
+of every clone. The exclusion is now `data/raw/*` and both tables are tracked
+(`0f667cd`). Without them `_compute_max_eligible` silently degrades to an age
+heuristic.
+
+### v7.6x: year-1 rows above their tier ceiling
+
+No fresh signing can exceed its tier maximum. A year-1 label on a salary above
+that ceiling is therefore *proof* the row is a later year of an older deal, not
+a judgement call — so `_filter_mislabeled_year1` drops it at load in every
+trainer and in the suite.
+
+The test deliberately uses the **tier-only** ceiling, exposed as
+`tier_ceiling_pct` alongside the floored `max_eligible_pct`. The no-decrease
+floor added in v7.4x exists to legalise escalator pay for Stage-2 scoring, and
+escalator pay is exactly what a fresh contract cannot be; including it would
+make the test vacuous.
+
+Six rows fall: Curry, Paul, Westbrook, Wiggins and McCollum 2019, Wall 2020.
+Rule-based rather than a data edit, so it survives rebuilds and refreshes.
+
+| Layer | v7.5x | v7.6x |
+|---|---|---|
+| A1, common rows | 0.7589 | **0.7635** (+0.0046) |
+| A1, headline | 0.7610 | 0.7635 |
+| A2 2024-26 | 0.8368 | 0.8269 |
+| B1 forward | 0.8239 | 0.8200 |
+| Grabit zone | n=67, MAE $6.59M | n=61, MAE $6.45M (59/2) |
+
+The row set changes (1297 → 1291), so **the common-row line is the honest one**;
+the A2/B1 dips are fold-reassignment noise, since six rows confined to 2019-2020
+cannot move a 386-row 2024-26 slice by a point.
+
+**These six were the visible tip of a much larger class.** A probe against
+`salaries_prehistory.csv` found that of the 88 year-1 2019 rows with 2018 pay on
+record, **38 step by an escalator-shaped ratio** — LeBron at exactly 1.050, Paul
+George and Joel Embiid at exactly 1.080 — and 23 of those sit above $15M. The
+aggregate said the same thing: 2019 carried 255 year-1 rows against 166-206 in
+every later season.
+
+### Protocol change: decisions read the selection pool only
+
+*No version number — the evaluation protocol changed, no published figure moved.*
+
+The v7.4x entry promised to re-score accepted changes on confirmation rows at
+the next bump. Done, and the signal held. Over v7.2x → v7.5x, on identical rows
+with identical fold assignment:
+
+| Slice | v7.2x | v7.5x | Δ |
+|---|---|---|---|
+| Selection pool (n=1107) | 0.7568 | 0.7603 | **+0.0035** |
+| Confirmation split (n=184) | 0.7533 | 0.7481 | **−0.0052** |
+
+Difference-in-differences on row-level squared-error improvement, bootstrapped
+by player cluster: **+5.6 × 10⁻⁵, 95% CI [+8.5, +111.1] × 10⁻⁶ — excluding
+zero**, and it survives removing the six v7.6x rows. Dozens of accept/reject
+reads had begun fitting the rows they were watching.
+
+`oof_groupkfold` now returns a second fold × seed matrix computed on
+selection-pool validation rows only; `paired_delta` for accept/reject reads that
+matrix, and both persist in `evaluation_suite.json` (`fold_r2_selection` is
+decision-grade, `fold_r2` is context). Confirmation rows still serve as training
+data in other folds — they are excluded only from the metric that decides.
+Headline A1/A2/B1 stay pooled for continuity.
+
+The honest limits: the CI's lower bound sits near zero, and one plausible
+channel is innocent — v7.3x's fill table is estimated from the whole dataset,
+85% of which is selection-pool players. The evidence is *moderate and
+directionally clear*, not a verdict. Tightening costs 7% of the decision sample,
+so it is a free precaution either way.
+
+### v7.7x: continuations, and why one signal was not enough
+
+The class v7.6x exposed spans every season, not just 2019 — the salary-chain
+detector breaks mid-deal whenever ratios drift. The instrument is the anchored
+contract span from `scripts/refresh_spotrac.py`: a row covered by a contract
+that *starts earlier* is a continuation, whatever its label says.
+
+**The first cut used the span alone and was wrong.** It deleted 346 rows, and
+7.2% of them appeared in that season's actual Spotrac FA-signings list —
+Jalen Brunson 2022, Fred VanVleet 2023, Jimmy Butler 2019, all unambiguously
+fresh signings. Spotrac's Free-Agent anchor is unreliable for contracts later
+superseded by an extension, so span evidence alone deletes real market prices.
+
+`_filter_continuations` demotes a row only when **three independent signals
+agree**:
+
+1. **span** — the salary-matched covering contract starts in an earlier season
+   (AAV within 25% of the row's pay, so a renegotiated deal matches its new
+   money rather than the superseded shell);
+2. **step** — pay moved from last season by an escalator-shaped ratio
+   (0.92-1.081; raises cap at 8% of year-1 salary), with last season's pay read
+   from the full table plus `salaries_prehistory.csv` at the 2019 boundary.
+   Brunson stepped 15×, VanVleet 1.9× — both clear instantly;
+3. **veto** — the row is absent from that season's FA-signings list.
+
+Rows without last-season pay on record are kept. Precision over recall: a stale
+price in training is cheaper than a deleted real one.
+
+119 rows fall (2019: 35, tapering to 2026: 1). The largest are all verifiable
+mid-contract seasons — LeBron 2019, Ben Simmons 2021, Gordon Hayward 2023.
+
+| Layer | v7.6x | v7.7x |
+|---|---|---|
+| A1, common rows | 0.7545 | **0.7647 (+0.0102)** |
+| A2 2024-26 | 0.8269 | 0.8431 |
+| B1 forward | 0.8200 | 0.8283 |
+| Grabit zone | n=61, MAE $6.45M | n=57, MAE $6.14M (53/3) |
+
+**+0.0102 is the largest single paired gain in the v7.x line** — three times the
+rookie-scale fill, nine times the two-stage pipeline itself. It is also a
+correctness change, not a modelling one: what improved is that the model stopped
+being asked to explain prices that were never set in the season they were filed
+under.
+
+The confirmation canary moved *with* this change (confirmation 0.786 against
+selection 0.761), which is what a genuine cleanup looks like and not what
+metric-fitting looks like.
+
+### v7.8x: the CBA floor is a bound too
+
+Grabit had censored one side for eight versions. The other bound was visible in
+plain sight: the champion overpredicted the 297 rows pinned at the veteran
+minimum by **+$2.38M, with 93% of rows overshot**. The league floor props those
+players' pay above their unconstrained price, so the observation is a *ceiling*
+of the latent — the exact mirror of a max contract, where the observation is a
+*floor* of it.
+
+**This is not the idea the oracle experiment killed.** That one treated *good*
+players on minimums as right-censored, and it fails economically: a good player
+on a minimum could have signed elsewhere for more, so his salary is a choice,
+not a constraint. The population here is the opposite one — players whose
+unconstrained price sits *below* the minimum, held up by a rule no contract can
+cross. The oracle result says nothing about it.
+
+Mechanics, all mirrors of the right side:
+
+- `_compute_floor` derives `is_at_floor` (Minimum-labelled rows inside the
+  vet-min band, ≤2.5% of cap) and `floor_pct`, a (season, experience-bucket)
+  lookup recovered from the data's own mass points — 0.0148 for two-year vets,
+  0.0235 for ten-year vets — rather than maintained CBA tables.
+- The left gate mirrors the albatross gate: censor only rows the baseline also
+  prices near the floor (`pred ≤ k × observed`, screened over k ∈ {1.5, 2.0,
+  3.0}, adopted at 2.0). A ring-chasing veteran priced well above his pay stays
+  uncensored, so his latent keeps meaning.
+- Stage 2 becomes `clip(latent, floor_pct, max_eligible_pct)`.
+- `floor_gate_k=0` reproduces v7.7x exactly.
+
+Results, 10 seeds, against the one-sided champion on identical rows:
+
+| | v7.7x | v7.8x | 95% cluster CI |
+|---|---|---|---|
+| **Floor zone** MAE (n=297) | $2.40M | **$1.98M** | per-row \|err\| **[−0.469, −0.374]** |
+| Floor zone bias | +$2.37M | +$1.93M | 254/43 better/worse |
+| **Pooled MAE** (n=1172) | $3.181M | **$3.065M** | **[−0.139, −0.091]** |
+| Pooled bias | +$0.118M | −$0.116M | |
+| Spillover, non-floor rows | — | −$0.012M | [−0.035, +0.012] — includes 0 |
+| A1 / A2 / B1 | 0.7647 / 0.8431 / 0.8283 | 0.7653 / 0.8465 / 0.8324 | selection t = +1.39 |
+
+**The two headline verdicts differ, and the arithmetic explains why.** R² weights
+by squared error, so 297 rows whose dollar errors are small contribute almost
+nothing to it; MAE weights by row, and those rows are 25% of the sample. The
+same intervention is large under one metric and invisible under the other. Under
+the project's stated rule — R² as the headline, MAE as a guard — this passes on
+the guard and on its zone, exactly as the right side does.
+
+**Spillover is favourable here, unlike the right side.** The rows neighbouring
+the floor were also overpredicted, so the shared-tree pull points the right way;
+the max side taxes its 50-75% neighbours instead. Fixed-row segments: worst
+non-floor |bias| growth +$0.07M against the $0.30M gate.
+
+**A scare that dissolved.** A predicted-band decomposition first read
+"−$1.21M on 2-4% others", which looked like serious damage. It was
+band-composition shift — the same regression-to-the-mean artifact that layer C
+exists to avoid, reappearing on the model-comparison axis instead of the
+calibration axis. Fixed-row segments showed every non-floor band flat or better.
+**When comparing two models, define the segments on fixed rows, never on either
+model's predictions.**
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v7.0x was a statistical
@@ -284,10 +493,19 @@ metrics exclude the confirmation split.
   gradient even for a perfectly calibrated model. Binned by predicted value
   instead, bias is flat within ±$0.65M. The model was never systematically
   underpaying stars by $6M.
-- **Extending Tobit censoring to the lower bound is a dead end for accuracy.**
-  Feeding back a fold-honest `P(mechanism | x)` scores −0.0073; a leaky oracle
-  with the realised mechanism gains only +0.0137. The Minimum/MLE residual gap
-  is the spread of a bimodal `y | x`, not recoverable error.
+- **Extending Tobit censoring to the lower bound is a dead end for accuracy** —
+  *for the population that finding tested.* Feeding back a fold-honest
+  `P(mechanism | x)` scores −0.0073; a leaky oracle with the realised mechanism
+  gains only +0.0137. The Minimum/MLE residual gap is the spread of a bimodal
+  `y | x`, not recoverable error.
+
+  **v7.8x sharpened the scope of this.** What is dead is treating *good* players
+  on minimums as right-censored: they could have earned more elsewhere, so their
+  salary is a choice and the censoring premise is false. Players whose
+  unconstrained price sits *below* the minimum are the opposite case — the floor
+  is a rule no contract can cross — and left-censoring them is worth $0.42M per
+  row on 297 rows. Read the original finding as being about *mechanism as a
+  proxy for unobserved choice*, not about bounds in general.
 
 ## Key milestones
 
@@ -295,19 +513,28 @@ metrics exclude the confirmation split.
 Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 6    Phase 7
 Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data + protocol
                                                                                      
-0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.761
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.4x
+0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.765
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.8x
                         ↗ 0.87                                                                (current)
                   Leaked features
                   (removed in v4.0)
 ```
 
-Phase 7 is flat by design. Every entry in it is a correctness change — refreshed
-data, corrected caps, contaminated rows removed, a semantic fill, honest ceilings
-— and two of the four *lowered* the headline. The line to read for progress in
-this phase is not R² but the count of known-wrong things: an optimistically
-biased test set, two 9%-wrong season targets, 259 prorated rows, a fill 4.6× too
-high for undrafted players, and 13 impossible ceilings, all closed.
+Phase 7 looks flat and mostly is, by design: six of its eight entries are
+correctness changes — refreshed data, corrected caps, contaminated rows removed,
+a semantic fill, honest ceilings, four rows re-censored — and two of them
+*lowered* the headline. The count of known-wrong things is the better progress
+line: an optimistically biased test set, two 9%-wrong season targets, 259
+prorated rows, a fill 4.6× too high for undrafted players, 13 impossible
+ceilings, and 125 escalator years filed as fresh signings, all closed.
+
+Two entries did move the model rather than the data. v7.7x is the largest paired
+gain of the phase (+0.0102) precisely *because* it is a correctness change — the
+model stopped being asked to explain prices that were never set in the season
+they were filed under. v7.8x is the only genuine modelling change since v7.0x,
+and its effect is invisible in R² and plain in MAE ($3.18M → $3.07M, CI
+excluding zero): it fixes 297 small-dollar rows that squared error barely
+notices.
 
 ## Notes
 

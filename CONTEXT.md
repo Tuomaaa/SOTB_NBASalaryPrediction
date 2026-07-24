@@ -15,10 +15,17 @@ compare directly.
 _Avoid_: salary, dollars, AAV (all fine for display, never for storage)
 
 **Latent Value**:
-What a player is worth with no CBA ceiling applied — the output of the Grabit
-stage. For most players this equals their predicted salary; for elite players
-it exceeds what any team is permitted to pay.
+What a player is worth with no CBA bound applied — the output of the Grabit
+stage. For most players this equals their predicted salary; for elite players it
+exceeds what any team is permitted to pay, and for marginal players it falls
+below what any team is permitted to offer.
 _Avoid_: true value, unconstrained salary, raw prediction
+
+**Floor Percentage**:
+The lowest cap percentage a specific player may legally be paid, set by the
+veteran-minimum scale for his years of experience. The mirror of Max-Eligible
+Percentage; like it, varies per player rather than being a league constant.
+_Avoid_: minimum, vet min, salary floor (ambiguous with the prorated cutoff)
 
 **Max-Eligible Percentage**:
 The highest cap percentage a specific player may legally be paid, set by their
@@ -27,8 +34,8 @@ Varies per player, not a league-wide constant.
 _Avoid_: max contract, salary ceiling, cap
 
 **Predicted Salary**:
-Latent Value clipped to Max-Eligible Percentage. The number a team could
-actually put on a contract.
+Latent Value clipped into the band between Floor Percentage and Max-Eligible
+Percentage. The number a team could actually put on a contract.
 
 ### Contract structure
 
@@ -77,15 +84,31 @@ the maximum while his production has fallen away.
 ### Censoring
 
 **Censored Observation**:
-A player-season whose recorded salary is the Max-Eligible ceiling rather than
-his worth, so the observation is a lower bound on Latent Value.
+A player-season whose recorded salary is a CBA bound rather than his worth.
+Right-censored at the Max-Eligible ceiling, the observation is a *lower* bound
+on Latent Value; left-censored at the Floor Percentage, it is an *upper* bound.
 _Avoid_: capped, truncated, maxed out
 
 **Gated Censoring**:
-The rule deciding which max-salary players count as Censored Observations. A
-player qualifies only if the uncensored model already values him near the
-ceiling — which excludes Albatross Contracts, where a max salary reflects a
-past decision rather than a suppressed present worth.
+The rule deciding which rows at a bound count as Censored Observations. A player
+qualifies only if the uncensored model agrees the bound binds — near the ceiling
+on the right, near the floor on the left. This excludes Albatross Contracts,
+where a max salary reflects a past decision rather than suppressed present
+worth, and veterans who *chose* a minimum while priced well above it.
+
+**Zone**:
+The rows one censoring side exists to fix — the Max Zone (paid at least 90% of
+their own Max-Eligible Percentage) and the Floor Zone (pinned at the minimum).
+Each side's keep/drop decision reads its own zone's MAE, because a pooled
+statistic averages a targeted effect over rows it never touches.
+_Avoid_: censored set (that is the gated subset, which is smaller)
+
+**Default Parameters / Told Parameters**:
+The split between the two stages. Stage 1 prices a player under *default
+parameters* — signing context averaged over the training distribution. Stage 2
+adjusts for *told parameters*, the constraints this contract actually faced;
+today exactly two are told, the ceiling and the floor. Everything still averaged
+inside Stage 1 shows up as mechanism bias in the C2 diagnostic.
 
 ### Inputs
 
