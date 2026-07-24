@@ -7,6 +7,19 @@ Last updated: 2026-07-25, after the censor-widening landing.
 
 ## In flight / ready to launch
 
+- **Route-mixture phase 3** — brief dispatched:
+  `2026-07-26-route-mixture-p3.md`. Phase 2's "structurally unwinnable"
+  verdict was an ISSUES #19 artifact: on corrected labels (v7.12x) the
+  architect's re-run of the worker's own harness gives 90%-purity τ=0.64,
+  36/68 touchable maxes, honest ceiling $0.85M, realized true-max
+  **−$0.83M — the Win gate PASSES**. It now fails the brakes instead
+  (25%+ band +$1.08M, counterweight +$0.36M vs +$0.30M), with only 4
+  collateral rows and the damage concentrated in Aldridge 2019 (+$10.9M)
+  and Reaves 2026 (+$9.7M, P 0.739 — excluded by any τ ≥ 0.80). Phase 3
+  re-registers τ as "smallest τ with purity 1.000" (still probability-space,
+  no zone metric) and runs {base, enriched} × {τ*, τ₉₀}. A passing cell is
+  the v8.0 candidate.
+
 - **Route-mixture phase 2** — brief dispatched:
   `2026-07-25-route-mixture-p2.md`. Enriched classifier (feature-batch
   columns as classifier-only inputs) → threshold by calibration purity
