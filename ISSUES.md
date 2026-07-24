@@ -14,43 +14,36 @@ Ordered roughly by how much damage each one does.
 
 ## 2. Continuation rows: the part deliberately left in
 
-**Severity**: low — the provable and the corroborated cases are gone; what
-remains is kept on purpose.
+**Severity**: low — everything decidable is gone as of v7.9x; what remains is
+kept on purpose.
 
-Closed over v7.6x-v7.7x. Six rows paid above their *tier* ceiling are provable
-mislabels and go via `_filter_mislabeled_year1`. The broader class — ordinary
-pre-2019 contracts whose first observed season wore a year-1 label — is demoted
-by `_filter_continuations` on a three-signal consensus: the salary-matched
-Spotrac span starts earlier, the season-over-season pay step is escalator-shaped
-(0.92-1.081), and the row is absent from that season's FA-signings list. 119 rows
-fell (2019: 35, tapering to 2026: 1); common-row A1 rose +0.0102. Spot-checked
-top drops are verifiable mid-contract seasons (LeBron 2019, Simmons 2021,
-Hayward 2023).
+Closed in three steps. v7.6x: six rows paid above their *tier* ceiling
+(`_filter_mislabeled_year1`). v7.7x: 119 rows on a three-signal consensus
+(+0.0102 common-row A1). v7.9x: the dated-span branch — option-aware anchors,
+extension fallback +1, renegotiation carve-out — demotes 342 rows total (335
+by dated span, 7 by the consensus fallback), frame 1,291 → 949, zero demotions
+contradicted by any instrument. The `is2019` season offset that quantified the
+remaining contamination (+0.0035, t=2.29 at v7.8x) measures −0.0004 (t=−0.91)
+on the new frame: the stale class is gone from where it could be seen.
 
-**A warning that must outlive this entry**: the span signal alone is NOT
-sufficient. A span-only version deleted 346 rows, 7.2% of which sat in that
-season's actual FA-signings list — Brunson 2022, VanVleet 2023, Jimmy Butler
-2019, all genuine fresh signings. Spotrac's Free-Agent anchor is unreliable for
-contracts later superseded by an extension. **Do not relax the consensus back to
-span-only.**
+**A warning that must outlive this entry**: a BLOCK-anchor span alone is NOT
+sufficient. A span-only rule once deleted Brunson 2022, VanVleet 2023 and
+Jimmy Butler 2019 — all genuine fresh signings; Spotrac's Free-Agent anchor is
+unreliable for contracts later superseded or option-final. The v7.9x dated
+branch is span-based but keeps the FA-signings-list veto for exactly that
+reason: 19 rows whose dated span reads continuation but who sit in that
+season's FA list are KEPT (Horford 2019, Draymond 2023, …). **Do not remove
+the veto.**
 
-What remains, deliberately: rows whose last-season pay is unobservable (2019
-players outside the 155-player prehistory) and span-only suspects are KEPT.
-Precision over recall — a stale price in training is cheaper than a deleted real
-one. Expanding `salaries_prehistory.csv` (more cached BBRef player pages, parsed
-offline by `scripts/backfill_prehistory_salaries.py`) converts more of them into
-testable rows; a scraped signing date would settle them outright.
+What remains, deliberately: rows no dated contract covers fall back to the
+three-signal consensus, and rows whose last-season pay is also unobservable
+are kept outright — precision over recall; Millsap 2019 is the canonical kept
+suspect. Expanding `salaries_prehistory.csv` or the player-page transactions
+cache converts more of them into decidable rows.
 
-**The payoff is now quantified**: during the supply-feature ablation
-(2026-07-23) a pure `is2019` dummy scored +0.0032 paired on the selection pool
-(t = 2.38) — the 2019 slice still carries a season-level offset the features
-cannot explain, exactly the signature of the stale prices left in. Cleaning
-the remaining continuations is worth roughly that much; a season dummy itself
-is not adoptable (it is memorization by construction — at inference every
-future season scores 0 and it only launders training).
-
-**Verify** (state at v7.8x): evaluation frame 1,172 rows; 2019 year-1 count 220
-against 255 before; `check_caps.py` hit rates for 2019-2020 risen.
+**Verify** (state at v7.9x): evaluation frame 949 rows; 2019 year-1 count 147
+(was 220); the filter prints "dropped 342 rows (335 by dated span, 7 by
+three-signal consensus)".
 
 ---
 
@@ -182,136 +175,6 @@ lacks a source:
 
 ---
 
-## 8. 265 more continuation rows the three-signal filter does not reach
-
-> **Addressed on branch `worker/continuation-filter-v2` (2026-07-24), pending
-> architect landing** — spans fixed, residue remeasured to 223, filter swapped to
-> a dated-span demotion (frame 1,172 → 949). Evidence:
-> `docs/briefs/2026-07-24-continuation-filter-v2.RESULT.md`. Common-row A1 is
-> neutral (−0.0009, t=−0.13) but the `is2019` offset is eliminated. One open
-> item (JJJ 2025 renegotiation, see #14). Delete this entry when landed.
-
-**Severity**: medium — 265 is an UPPER BOUND, not a count (see the architect
-review below); the true residue sits in training wearing a year-1 label, and
-it is now directly measurable rather than inferred.
-
-With signing dates (`data/processed/contract_signing_dates.csv`, added
-2026-07-23) a row's staleness is decidable outright: season S is a fresh price
-when the covering contract's span STARTS at S, and a continuation when the span
-starts earlier. Scored against `_filter_continuations` on the 1,291-row
-pre-continuation frame:
-
-| date verdict | filter kept | filter demoted |
-|---|---|---|
-| continuation | **265** | 111 |
-| fresh (incl. early-signed first years) | 717 | 0 |
-| undecidable (no covering contract) | 190 | 8 |
-
-The filter's own precision is vindicated — **111 of its 119 demotions are
-confirmed, 8 are undecidable, and 0 are contradicted.** The gap is entirely
-recall. The 265 break down by contract year as 179 in year 2, 50 in year 3, 30
-in year 4, 6 in year 5, and by season as 2019: 76, 2020: 33, 2021: 33, 2022: 22,
-2023: 24, 2024: 26, 2025: 21, 2026: 30 — note 76 in 2019 alone against the
-"~38+ suspected" ISSUES #2 records. The top cases by salary are Embiid 2023,
-Butler 2023, Doncic 2022, Gobert 2021 — but see the architect review below:
-those four are extension FIRST paying years misread as year 2, not
-mid-contract seasons.
-
-**Why the filter misses them**: most are extensions, absent from the FA-signings
-list, whose season-over-season pay step falls outside the 0.92-1.081 escalator
-band — an extension's first escalator year steps off a differently-based prior
-salary. Two of the three signals fail, so the consensus never fires.
-
-**Reproduce**: `python scripts/parse_signing_dates.py --cache-dir <cache>`, then
-`contract_spans()` / `covering_contract()` from the same module against the
-pre-continuation frame. Full table and the ten largest disagreements in
-`docs/briefs/2026-07-23-signing-dates.RESULT.md`, target 2.
-
-**Architect review (2026-07-23)** — the span derivation starts extensions one
-year early, which inflates the 265 and misclassifies its head. Three
-mechanisms, each verified against cap arithmetic on the top-10 table:
-
-- **Option years pull the block anchor early.** Spotrac's `fa_year` for a
-  deal whose final year is a player option is the option-decision summer, so
-  `start = fa_year − years` begins the deal one season early. Embiid 2023 is
-  $47.6M = 0.35 × the 2023 cap — the supermax's FIRST paying year, not
-  "2 of 4"; same off-by-one for Gobert 2021 (vet-max year 1), Doncic 2022
-  (30% Rose year 1), Butler 2023.
-- **The signing-season fallback starts extensions a year early.** An
-  extension begins paying the season AFTER it is signed: KD 2026 and
-  Holmgren 2026 (both `match_confidence=none`, fallback spans) are first
-  paying years read as "2 of 2" / "2 of 5".
-- **Renegotiations re-price a season mid-span.** Markkanen 2024's $42.2M was
-  set 2024-08-07 ("renegotiation-and-extend" in its own tx_text) — a fresh
-  price wearing a year-4 span.
-
-Under the standing convention — an extension's first paying year is a year-1
-training row, and v7.7x kept every such row — **7 of the 10 largest
-"disagreements" are correctly kept today.** The year-2 bucket (179 of 265) is
-exactly where this false-positive class concentrates. The true residue is the
-JJJ 2025 / Randle 2024 / Griffin 2019 class, extension years 2+; its size is
-unknown until the spans are fixed.
-
-**What to do, in order**: (1) fix `contract_spans()` — a final-year option in
-the tx_text makes the span `[fa_year − years + 1, fa_year]`; an extension's
-fallback span starts at `signing_season + 1`; a "renegotiat" match marks the
-renegotiated season fresh. (2) Remeasure this table, with the head cases as
-the acceptance test: Embiid 2023 / Doncic 2022 / Gobert 2021 / KD 2026 /
-Holmgren 2026 read year 1, Markkanen 2024 reads fresh, JJJ 2025 / Randle 2024
-/ Griffin 2019 stay continuations. (3) Only then the filter change: direct
-span test where a date exists, three-signal consensus as the fallback. That
-changes the training row count and so is a version-bump change, judged on
-common-row A1 exactly as v7.7x was.
-
-**Caveat before acting**: 19 of the 265 sit in that season's FA-signings list,
-which is evidence against the date verdict on those rows — a ~7% error rate.
-Do not demote a row whose FA-list membership contradicts the span without
-resolving the conflict first; that disagreement is the same instrument clash
-ISSUES #2 warns about, in the other direction.
-
-**Verify**: after the span fix, the remeasured residue's head matches the
-acceptance list above; after the filter change, confirmed demotions rise from
-111 toward the remeasured count, the 2019 year-1 count falls from 220, and
-the `is2019` control dummy (+0.0032, t=2.38) loses most of its remaining
-signal, since that offset is the signature of exactly these stale prices.
-
----
-
-## 9. 6.1% of Spotrac contract-block anchors precede their own signing date
-
-**Severity**: low — now detectable and resolved in the one consumer that
-exists, but any new consumer of block spans will hit it.
-
-ISSUES #2 warns that "Spotrac's Free-Agent anchor is unreliable for contracts
-later superseded by an extension". That is now counted rather than suspected:
-of 1,953 dated contracts with a block-derived span, **120 (6.1%) have the block
-anchor starting the contract BEFORE the transaction that signed it** — an
-impossible span. The affected list is a roll-call of renegotiated stars: Kawhi
-Leonard (signed 2021-08-12, anchor 2020), LeBron James (2018-07-09, anchor
-2017), Jimmy Butler (2019-07-06, anchor 2018), Fred VanVleet (2023-07-07,
-anchor 2022), Kyrie Irving (2025-07-06, anchor 2022).
-
-These are the same rows that made a span-only continuation rule delete genuine
-signings. `parse_signing_dates.contract_spans()` resolves them by trusting the
-date — a contract cannot begin before it is signed — which restores VanVleet
-2023, Butler 2019 and Brunson 2022 to year 1.
-
-**Reproduce**: `contract_spans()` and read the `span_conflict` / `span_source`
-columns; `date-resolved` marks the 120.
-
-**What to do**: nothing urgent. But any code that reads `contract_start` from
-`spotrac_signing_types.csv` inherits the bad anchor with no way to see it, so
-prefer `contract_spans()` where a signing date exists. Note the limit of the
-current resolution: it fires only when the anchor lands BEFORE the signing
-date. The option-year off-by-one (#8, architect review) leaves the anchor at
-or after the signing season and passes silently, so `contract_spans()` needs
-the option-aware fix before any consumer trusts its year numbers.
-
-**Verify**: `spans[spans.span_conflict].span_source.unique()` is
-`['date-resolved']` only, and the three named signings read year 1.
-
----
-
 ## 10. Record the sigma sweep's mechanism and the relative C1 gate in METHODOLOGY
 
 **Severity**: low — docs only; the decisions are made and the code already
@@ -340,64 +203,6 @@ on this row set. Two findings belong in METHODOLOGY (docs lane):
 `_make_tobit_obj` also gained an inert `sigma_left` hook (bit-identical when
 unset); the side-separation control it enabled showed the two censored sides
 are independent and additive.
-
----
-
-## 11. Spotrac 10-day contracts are parsed as 10-YEAR contracts
-
-> **Fixed on branch `worker/continuation-filter-v2` (2026-07-24), pending
-> architect landing.** `parse_contracts` now drops parsed length > 5 and never
-> reads a year from a "day" field; reparse gives 5,769 rows, `contract_years.max()
-> == 5`, `min(contract_start) == 2003`, filter still drops the same 119.
-> **Correction to this entry**: the "2 at 6" are NOT 10-day money — they are the
-> legitimate 6-year deals LeBron James 2010 ($109.8M) and Luol Deng 2008 ($71.0M)
-> from the 2005 CBA. Both start pre-2019 and are read by no in-window consumer, so
-> "drop > 5" removes them harmlessly. Delete this entry when landed.
-
-**Severity**: low-moderate — the table is diagnostic-only, so no published
-metric moves, but the bad rows feed `_filter_continuations`, which does.
-
-`parse_contracts` in `scripts/scrape_spotrac_players.py` reads contract length
-with `re.match(r"(\d+)\s*yr", val)` against the "Contract Terms:" field. Spotrac
-writes a 10-day deal's terms in a form that leaves `10` as the captured number,
-so the contract is recorded with `contract_years = 10`. The anchoring step then
-expands it across ten fabricated seasons walking backwards from the anchor —
-Anthony Tolliver has phantom contracts starting in 1980, 1990, 1998, 1999 and
-2000; Alfonzo McKinnie in 1981 and 1991.
-
-**Reproduce**:
-
-```bash
-python -c "import pandas as pd; c=pd.read_csv('data/processed/spotrac_signing_types.csv').drop_duplicates(['player_name_norm','contract_start','contract_years','total_value','aav']); print(c['contract_years'].value_counts().sort_index()); print(c[c.contract_years>5].head(20).to_string())"
-```
-
-328 of 2,727 distinct contracts have `contract_years > 5`, which is not a legal
-NBA contract length in any era in the window — 326 at exactly 10, 2 at 6. Their
-total values ($41k–$176k) and AAVs ($4k–$18k) are 10-day money, confirming the
-reading. **20 of them carry a `contract_start` inside 2019–2026**, where they
-can collide with real evaluation rows.
-
-**Why it matters beyond the label**: `_filter_continuations` demotes a row when
-a salary-matched covering contract starts earlier than the row's season. A
-phantom 10-year span is exactly the shape that produces a spurious "starts
-earlier" signal. The AAV-distance test (`aav_tol = 0.25`) screens most of them
-out because 10-day AAVs are tiny, so the damage is probably zero today — but it
-is zero by luck, not by construction.
-
-**Fix**: reject the parse when the terms string does not actually say years.
-Match `(\d+)\s*yr` only after confirming the field has no "day" token, and drop
-any contract whose parsed length exceeds 5. Then re-run
-`python scripts/refresh_spotrac.py --reparse-only` (no network). Cross-check:
-`contract_signing_dates.csv` independently classes 344 ten-day transactions
-via `contract_class` — the two instruments should agree on who the 10-day
-players are.
-
-**Verify**: `contract_years.max() <= 5` over the whole table; no contract has
-`contract_start` before 1990; the continuation filter still drops 119 rows with
-the same per-season split (2019: 35 … 2026: 1) — if that count moves, a phantom
-span *was* load-bearing and the change needs a common-row A1 delta before it
-lands. Natural home: fold into the #8 filter-v2 work, which touches the same
-span machinery.
 
 ---
 
@@ -460,21 +265,33 @@ where a real prior exists.
 
 ---
 
-## 14. JJJ 2025 — is a renegotiated final year "fresh" or a "continuation"?
+## 15. Record v7.9x and its conventions in VERSION_HISTORY / METHODOLOGY
 
-**Severity**: low — one training row; it does not move any headline (kept by both
-the incumbent and the v2 filter). But it is an unresolved convention question the
-architect owns.
+**Severity**: low — docs lane only; the decisions are made and the code is on
+master.
 
-The continuation-filter-v2 work (#8) treats a renegotiation-and-extend's signing
-season as a fresh price (Markkanen 2024, Turner 2022) — the season is re-priced
-to market even though an older span still covers it. **Jaren Jackson Jr. 2025**
-is structurally identical: his 2021 extension is front-loaded/declining, and the
-2025-07-13 Renegotiation-and-Extend raised his 2025-26 salary by $11,586,605 to
-the observed $35.0M (yic=1 in the contract table). So the same rule reads it
-**fresh**, but the 2026-07-24 brief's acceptance list expects it to *stay
-continuation*. No mechanical rule separates JJJ 2025 from Markkanen 2024 /
-Turner 2022. Decide whether a renegotiated final year is a fresh market price
-(keep) or a mid-contract continuation (demote); the answer sets the convention
-for all six renegotiation pairs. Evidence:
-`docs/briefs/2026-07-24-continuation-filter-v2.RESULT.md` §4.1.
+- **VERSION_HISTORY**: v7.9x = continuation filter v2 + the 10-day parse fix
+  (`spotrac_signing_types.csv` 8,954 → 5,769 rows). Frame 1,172 → 949 (342
+  demoted, 0 contradicted). Common-row paired A1 −0.0009 (t=−0.13) — neutral
+  by construction, since the instrument scores only rows both frames keep and
+  is blind to the benefit of removals; the pre-registered success criterion
+  was the `is2019` control, +0.0035 (t=2.29) → −0.0004 (t=−0.91). C2 max
+  |bias| growth +0.16M. New-frame A1/A2/B1 are in the refreshed
+  `evaluation_suite.json`.
+- **METHODOLOGY**, three items:
+  1. The **renegotiation convention**, adjudicated 2026-07-24: a
+     renegotiation-and-extend re-prices its signing season to market, so that
+     season is FRESH even though an older span covers it. Rules all six pairs
+     the data contains — Turner 2022, Sabonis 2023, Clarkson 2023, Isaac 2024,
+     Markkanen 2024, and JJJ 2025 (whose 2025-26 salary was raised $11.6M on
+     2025-07-13; the one acceptance-list mismatch, resolved this way).
+  2. The **span rules**: Spotrac's `fa_year` on an option-final deal is the
+     option-decision summer, so the span is `[fa_year − years + 1, fa_year]`;
+     an unmatched extension starts paying at `signing_season + 1`; 120 block
+     anchors (6.1%) predate their own signing and are date-resolved. A block
+     anchor alone is never a trustworthy span.
+  3. The **protocol lesson**: a pure-removal change is judged on its
+     pre-registered contamination signal plus guardrails (C2, common-row
+     neutrality), not on common-row A1 improvement — that instrument cannot
+     see removals by construction.
+
