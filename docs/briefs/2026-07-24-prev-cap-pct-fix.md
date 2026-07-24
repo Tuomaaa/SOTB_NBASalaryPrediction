@@ -81,7 +81,23 @@ On top of the winning arm, test the anchor question:
   leaked `is_rookie_scale`, which described the CURRENT contract — state the
   distinction in the RESULT so the ablation graveyard is not misread),
 - (iii) `prev_cap_pct = NaN` for rookie-exit rows, native-NaN handling,
-- (iv) flag + NaN.
+- (iv) flag + NaN,
+- (v) **slot-average anchor** (user-proposed): fill rookie-exit rows' prev
+  with the mean first-MARKET-contract (second NBA contract) year-1 cap_pct of
+  that draft slot, 2019-now. Arms (ii)-(iv) only MARK the anchor as
+  untrustworthy; this one relocates it to the pedigree's base rate. Two
+  non-negotiable disciplines: **fold-honest** — the averaged contracts
+  include these very rows' own targets, so the fill for any evaluation fold
+  is computed from training-fold rows only, own row excluded (the v4.0
+  target-leak family otherwise; the fold-honest P(mechanism|x) precedent,
+  −0.0073, is the cautionary prior — this arm may well lose, test it anyway
+  because it is the only arm that moves the anchor VALUE); and **binned
+  picks** (1-3 / 4-10 / 11-20 / 21-30 / 2nd-round+undrafted) — single slots
+  have n≈3-5 in-window and one Markkanen swings a slot's mean. Test (v)
+  alone and (v)+flag. Note `draft_pick` is already a feature, so (v) is
+  donated capacity, not new information — whether the depth-limited tree can
+  build this average itself on 949 rows is exactly what the comparison
+  against (ii)/(iii) answers.
 
 ## Judging
 
