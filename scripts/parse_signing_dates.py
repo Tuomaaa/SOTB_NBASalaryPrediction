@@ -322,28 +322,69 @@ def match_transactions(sign: pd.DataFrame, blocks: pd.DataFrame,
 
 
 # ─── Spans, for the consumers ───────────────────────────────────────
+# Final-year option annotation, e.g. "2026-27 Player Option", "2025 Club
+# Option". The year is the START year of the option season (2026-27 -> 2026).
+# Only options carrying a 4-digit year are usable; a bare "Player Option"
+# (Durant 2017) or "3rd Year Club Option" (Millsap 2017) yields None, which is
+# safe — those rows never need the anchor correction (see contract_spans).
+OPTION_YEAR_RE = re.compile(r"(\d{4})(?:-\d{2})?\s+(?:Player|Club|Team)\s+Option",
+                            re.I)
+
+
+def _option_year(tx_text: str | None) -> float:
+    """Latest final-year-option season stated in a transaction, or NaN."""
+    if not tx_text:
+        return np.nan
+    years = [int(y) for y in OPTION_YEAR_RE.findall(tx_text)]
+    return float(max(years)) if years else np.nan
+
+
 def contract_spans(sd: pd.DataFrame | None = None) -> pd.DataFrame:
     """Dated contracts with the seasons they cover.
 
-    Every consumer of this table needs the same three-step derivation, so it
-    lives here once rather than in four analyses:
+    Every consumer of this table needs the same derivation, so it lives here
+    once rather than in four analyses:
 
-    1. Where a block matched, the span starts at `fa_year_matched - years`.
-       This is the only instrument that knows an extension takes effect after
-       it is signed — Towns signed in July 2022 for a span starting 2024.
+    1. Where a block matched, the span nominally starts at
+       `fa_year_matched - years`. This is the only instrument that knows an
+       extension takes effect after it is signed — Towns signed July 2022 for a
+       span starting 2024.
+
+       **Option-aware anchor.** When the deal's final year is a player/club
+       option, Spotrac's `fa_year` is the option-DECISION summer, which sits one
+       season inside the nominal end, so `[fa - years, fa - 1]` starts the deal
+       a year early (Embiid 2023 read as "2 of 4" when $47.6M = 0.35x the 2023
+       cap is the supermax's year 1). The correction keys on the option season
+       carried in the transaction text: when a final-year option year exceeds
+       the nominal span end, the span slides forward to end ON that option
+       season, `[option - years + 1, option]`. The test `option_year >
+       naive_end` self-restricts to exactly the deals Spotrac anchored on the
+       option — a fresh signing's or a correctly-anchored extension's final-year
+       option already lands on the nominal end (Trae's 2021 extension, Randle's
+       2021 extension), so it is left untouched.
+
     2. Where nothing matched, the contract is assumed to start in its own
-       signing season. Correct for a fresh signing, wrong for an undated
-       extension, so `span_source` keeps the distinction visible.
-    3. **Where the two disagree, the date wins.** A block anchor earlier than
-       the signing date describes a contract that began before it existed;
-       6.1% of spans read that way, and they are the superseded shells of
-       renegotiated deals that ISSUES #2 warns the Free-Agent anchor cannot be
-       trusted on. Resolving them to the signing season is what makes VanVleet
-       2023, Butler 2019 and Brunson 2022 — the three genuine signings a
-       span-only rule wrongly cut — read as year 1 again.
+       signing season — EXCEPT an unmatched extension, which begins paying the
+       season AFTER it is signed (`signing_season + 1`); Durant 2026 and
+       Holmgren 2026 are first paying years that read as "2 of n" without this.
+       `span_source` keeps the distinction visible.
 
-    Season `S` is a *fresh price* when `span_start == S`, whether or not the
-    ink dried that summer; it is a continuation when `span_start < S`.
+    3. **Where block-anchor and date disagree, the date wins.** A block anchor
+       earlier than the signing date describes a contract that began before it
+       existed; the superseded shells of renegotiated deals ISSUES #2 warns the
+       Free-Agent anchor cannot be trusted on. Resolving them to the signing
+       season is what makes Butler 2019 read as year 1 again.
+
+    `is_reneg` flags a renegotiation-and-extend: its signing season is a FRESH
+    price even though an older deal's span still covers it (Markkanen 2024,
+    Turner 2022), so a consumer must treat `(player, signing_season)` as fresh
+    regardless of the covering span. The renegotiation re-prices the current
+    season and adds later years, so the extension span this row carries does not
+    itself cover the repriced season; the flag is how a consumer recovers it.
+
+    Season `S` is a *fresh price* when `span_start == S` (or S is renegotiated-
+    fresh), whether or not the ink dried that summer; it is a continuation when
+    `span_start < S`.
     """
     if sd is None:
         sd = pd.read_csv(PROCESSED_DIR / "contract_signing_dates.csv",
@@ -353,24 +394,58 @@ def contract_spans(sd: pd.DataFrame | None = None) -> pd.DataFrame:
     s["signing_season"] = s["signing_season"].astype(int)
 
     matched = s["fa_year_matched"].notna()
-    anchor = np.where(matched, s["fa_year_matched"] - s["contract_years"],
-                      s["signing_season"])
-    anchor = pd.to_numeric(pd.Series(anchor, index=s.index), errors="coerce")
+    is_ext = s["is_extension"].fillna(0).astype(int) == 1
+    s["option_year"] = s["tx_text"].map(_option_year)
+
+    yrs = s["contract_years"]
+    fa = pd.to_numeric(s["fa_year_matched"], errors="coerce")
+    naive_start = fa - yrs
+    naive_end = fa - 1
+    # option-aware slide: end the span on the option season when the option
+    # sits beyond the nominal end (matched deals only; fallback rows have no fa)
+    opt_shift = (matched & s["option_year"].notna()
+                 & (s["option_year"] > naive_end))
+    block_anchor = np.where(opt_shift, s["option_year"] - yrs + 1, naive_start)
+
+    # fallback: signing season, +1 for an unmatched extension (fix 2)
+    fallback_anchor = np.where(is_ext, s["signing_season"] + 1,
+                               s["signing_season"])
+
+    anchor = pd.to_numeric(pd.Series(np.where(matched, block_anchor,
+                                              fallback_anchor), index=s.index),
+                           errors="coerce")
     s = s[anchor.notna()].copy()
+    matched = matched[s.index]
+    opt_shift = opt_shift[s.index]
     anchor = anchor[anchor.notna()].astype(int)
 
+    s["option_shifted"] = opt_shift.values
     s["span_conflict"] = anchor < s["signing_season"]
     s["span_start"] = np.where(s["span_conflict"], s["signing_season"], anchor)
     s["span_end"] = s["span_start"] + s["contract_years"] - 1
     s["span_source"] = np.where(
         s["span_conflict"], "date-resolved",
-        np.where(matched[s.index], "block", "assumed"))
+        np.where(opt_shift.values, "option-shifted",
+                 np.where(matched.values, "block", "assumed")))
+    s["is_reneg"] = s["tx_text"].str.contains("renegotiat", case=False,
+                                              na=False)
     s["aav"] = s["total_value"] / s["contract_years"]
     # summers between signing and the contract taking effect; >= 2 is the
     # early-supermax class that no award window anchored on the start season
     # can reach (early_supermax.csv exists for exactly this)
     s["early_gap"] = s["span_start"] - s["signing_season"]
     return s
+
+
+def renegotiated_seasons(spans: pd.DataFrame) -> set[tuple[str, int]]:
+    """`(player_name_norm, season)` pairs re-priced by a renegotiation.
+
+    A renegotiation-and-extend bumps the current (signing) season's salary to a
+    fresh figure, so that season is a fresh price even though an older deal's
+    span still covers it. See `contract_spans` `is_reneg`.
+    """
+    r = spans[spans["is_reneg"]]
+    return set(zip(r["player_name_norm"], r["signing_season"].astype(int)))
 
 
 def covering_contract(spans: pd.DataFrame, player: str, season: int,

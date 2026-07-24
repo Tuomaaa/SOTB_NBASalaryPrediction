@@ -1859,7 +1859,7 @@ lauri-markkanen,lauri markkanen,2021-08-28,2021,4.0,67470000.0,0,standard,CHI,20
 lauri-markkanen,lauri markkanen,2024-08-07,2024,4.0,195800000.0,1,standard,UTA,2029.0,exact,"Signed a 4 year $195.8 million contract extension with Utah (UTA) as part of a renegotiation-and-extend. 2024-25 salary was increased by $24,1318,56"
 lebron-james,lebron james,2003-07-03,2003,3.0,12900000.0,0,standard,CLE,,none,Signed a 3 year $12.9 million contract with Cleveland (CLE)
 lebron-james,lebron james,2006-07-18,2006,4.0,60400000.0,1,rookie-scale,CLE,,none,Signed a 4 year $60.4 million rookie scale extension with Cleveland (CLE)
-lebron-james,lebron james,2010-07-09,2010,6.0,110000000.0,0,standard,CLE,2014.0,exact,Signed a 6 year $110 million contract with Cleveland (CLE)
+lebron-james,lebron james,2010-07-09,2010,6.0,110000000.0,0,standard,CLE,,none,Signed a 6 year $110 million contract with Cleveland (CLE)
 lebron-james,lebron james,2014-07-12,2014,2.0,42200000.0,0,standard,CLE,2015.0,exact,Signed a 2 year $42.2 million contract with Cleveland (CLE)
 lebron-james,lebron james,2016-08-12,2016,3.0,100000000.0,0,standard,CLE,2018.0,exact,Signed a 3 year $100 million contact with Cleveland (CLE)
 lebron-james,lebron james,2018-07-09,2018,4.0,153500000.0,0,standard,LAL,2021.0,exact,Signed a 4 year $153.5 million maximum contract with Los Angeles (LAL)
@@ -1915,7 +1915,7 @@ luke-kornet,luke kornet,2022-07-09,2022,2.0,4550000.0,0,standard,BOS,2021.0,ambi
 luke-kornet,luke kornet,2024-07-02,2024,1.0,,0,standard,BOS,,unmatchable,Signed a 1 year contract with Boston (BOS)
 luke-kornet,luke kornet,2025-07-07,2025,4.0,40700000.0,0,standard,SAS,2029.0,exact,Signed a 4 year $40.7 million contract with San Antonio (SAS) - includes 2028-29 Club Option
 luol-deng,luol deng,2004-07-16,2004,3.0,7330000.0,0,standard,CHI,,none,Signed a 3 year $7.33 million contract with Chicago (CHI)
-luol-deng,luol deng,2008-07-01,2008,6.0,71000000.0,0,standard,CHI,2014.0,exact,Signed a 6 year $71 million contract with Chicago (CHI)
+luol-deng,luol deng,2008-07-01,2008,6.0,71000000.0,0,standard,CHI,,none,Signed a 6 year $71 million contract with Chicago (CHI)
 luol-deng,luol deng,2014-07-15,2014,2.0,19870000.0,0,standard,MIA,2016.0,exact,Signed a 2 year $19.87 million contract with Miami (MIA) - includes Player Option
 luol-deng,luol deng,2016-07-07,2016,4.0,72000000.0,0,standard,LAL,2020.0,exact,Signed a 4 year $72 million contract with Los Angeles (LAL)
 luol-deng,luol deng,2018-09-10,2018,1.0,2400000.0,0,standard,MIN,2019.0,exact,Signed a 1 year $2.4 million contract with Minnesota (MIN)
@@ -2007,7 +2007,7 @@ marjon-beauchamp,marjon beauchamp,2025-10-14,2025,,,0,exhibit-10,PHI,,unmatchabl
 marjon-beauchamp,marjon beauchamp,2025-12-26,2025,,,0,two-way,PHI,,unmatchable,Signed a Two-Way contract with Philadelphia (PHI)
 mark-williams,mark williams,2022-07-02,2022,4.0,18000000.0,0,rookie-scale,CHA,2026.0,exact,Signed a 4 year $18.00 million Rookie Scale contract with Charlotte (CHA)
 mark-williams,mark williams,2026-07-07,2026,3.0,38000000.0,0,standard,PHX,2029.0,exact,Signed a 3 year $38 million contract with Phoenix (PHX)
-markelle-fultz,markelle fultz,2017-07-08,2017,4.0,37400000.0,0,rookie-scale,PHI,2017.0,exact,Signed a 4 year $37.4 million rookie scale contract with Philadelphia (PHI)
+markelle-fultz,markelle fultz,2017-07-08,2017,4.0,37400000.0,0,rookie-scale,PHI,2021.0,exact,Signed a 4 year $37.4 million rookie scale contract with Philadelphia (PHI)
 markelle-fultz,markelle fultz,2020-12-21,2020,3.0,50000000.0,1,standard,ORL,2024.0,exact,Signed a 3 year $50 million rookie contract extension with Orlando (ORL) - includes 2023 $2 million guaranteed
 markelle-fultz,markelle fultz,2025-02-12,2024,,,0,rest-of-season,SAC,,unmatchable,Signed a Rest-of-Season contract with Sacramento (SAC)
 markelle-fultz,markelle fultz,2026-03-23,2025,,,0,10-day,TOR,,unmatchable,Signed a 10-day contract with Toronto (TOR)
@@ -2856,7 +2856,7 @@ thomas-bryant,thomas bryant,2026-07-07,2026,1.0,3520000.0,0,standard,CLE,2027.0,
 thon-maker,thon maker,2016-07-30,2016,4.0,11620000.0,0,rookie-scale,MIL,2020.0,exact,Signed a 4 year $11.62 million rookie scale contract with Milwaukee (MIL)
 thon-maker,thon maker,2020-11-30,2020,,,0,standard,CLE,,unmatchable,Signed a contract with Cleveland (CLE) - training camp
 thon-maker,thon maker,2024-10-01,2024,,,0,exhibit-10,HOU,,unmatchable,Signed a contract with Houston (HOU) - Exhibit 10
-tim-frazier,tim frazier,2014-08-20,2014,1.0,507000.0,0,standard,BOS,1954.0,exact,Signed a 1 year $507k contract with Boston (BOS)
+tim-frazier,tim frazier,2014-08-20,2014,1.0,507000.0,0,standard,BOS,2014.0,exact,Signed a 1 year $507k contract with Boston (BOS)
 tim-frazier,tim frazier,2015-02-05,2014,,,0,10-day,PHI,,unmatchable,Signed a 10-day contract with Philadelphia (PHI)
 tim-frazier,tim frazier,2015-02-20,2014,,,0,10-day,PHI,,unmatchable,Signed a 10-day contract with Philadelphia (PHI)
 tim-frazier,tim frazier,2015-03-30,2014,2.0,895000.0,0,standard,POR,2016.0,exact,Signed a 2 year $895k contract with Portland (POR)

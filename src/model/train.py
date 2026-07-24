@@ -182,8 +182,8 @@ def _filter_continuations(df: pd.DataFrame, aav_tol: float = 0.25) -> pd.DataFra
     for contracts later superseded by an extension, and a span-only version of
     this filter deleted Brunson 2022, VanVleet 2023 and Jimmy Butler 2019 —
     all genuine fresh signings (7.2% of its deletions sat in that season's
-    actual FA-signings list). A row is demoted only when three independent
-    signals agree:
+    actual FA-signings list). Where no dated contract covers a row, it is
+    demoted only when three independent signals agree:
 
       1. span     — the salary-matched covering contract starts earlier
                     (AAV within aav_tol of the row's pay, so a renegotiated
@@ -198,8 +198,25 @@ def _filter_continuations(df: pd.DataFrame, aav_tol: float = 0.25) -> pd.DataFra
       3. veto     — the row is absent from that season's Spotrac FA-signings
                     list, which enumerates actual fresh signings.
 
-    Rows without last-season pay on record are kept: precision over recall —
-    wrongly deleting a real market price is worse than keeping a stale one.
+    **Where a dated signing DOES cover the row** (contract_signing_dates.csv,
+    via parse_signing_dates.contract_spans), the span is decisive on its own and
+    the step signal is dropped — an extension's first escalator year steps off a
+    differently-based prior salary, so the 0.92-1.08 test misses the mid-contract
+    seasons of extensions the dates catch outright (ISSUES #8). The row is
+    demoted when its covering span STARTS BEFORE the season, unless:
+      (a) the season is renegotiated-fresh — a renegotiation-and-extend re-prices
+          the current season to market even though an older span still covers it
+          (Markkanen 2024, Turner 2022); or
+      (b) the row is in that season's FA-signings list — an FA-list appearance
+          contradicting the span is the ISSUES #2 instrument clash, and precision
+          over recall keeps it (Al Horford 2019, Draymond Green 2023).
+    The covering span uses the option-aware / extension-fallback anchor from
+    contract_spans, so a first paying year (Embiid 2023, Durant 2026) reads as a
+    fresh year 1 and is kept.
+
+    Rows the dates cannot decide keep the three-signal consensus; rows without
+    last-season pay on record are kept: precision over recall — wrongly deleting
+    a real market price is worse than keeping a stale one.
     """
     path = PROCESSED_DIR / "spotrac_signing_types.csv"
     if not path.exists() or "salary" not in df.columns:
@@ -241,14 +258,40 @@ def _filter_continuations(df: pd.DataFrame, aav_tol: float = 0.25) -> pd.DataFra
     else:
         in_fa = np.zeros(len(df), bool)
 
-    mask = close & earlier & escalator_step & ~in_fa
+    three_signal = close & earlier & escalator_step & ~in_fa
+
+    # Date branch: a dated span covering the row decides it outright.
+    has_date = np.zeros(len(df), bool)
+    date_demote = np.zeros(len(df), bool)
+    sd_path = PROCESSED_DIR / "contract_signing_dates.csv"
+    if sd_path.exists():
+        from scripts.parse_signing_dates import (
+            contract_spans, covering_contract, renegotiated_seasons,
+        )
+        spans = contract_spans()
+        reneg = renegotiated_seasons(spans)
+        seasons = df["season"].astype(int).values
+        salaries = df["salary"].values
+        for i, (p, s, sal) in enumerate(zip(df["player_name_norm"], seasons,
+                                            salaries)):
+            cov = covering_contract(spans, p, int(s), salary=float(sal))
+            if cov is None:
+                continue
+            has_date[i] = True
+            if int(cov["span_start"]) < int(s) and (p, int(s)) not in reneg \
+                    and not in_fa[i]:
+                date_demote[i] = True
+
+    mask = np.where(has_date, date_demote, three_signal)
 
     filtered = df[~mask].copy()
     if mask.any():
         by_season = df.loc[mask].groupby("season").size()
         detail = ", ".join(f"{int(s)}: {n}" for s, n in by_season.items())
-        print(f"Continuation filter: dropped {int(mask.sum())} rows where span, "
-              f"salary step and FA-list all agree ({detail})")
+        n_date = int((mask & has_date).sum())
+        print(f"Continuation filter: dropped {int(mask.sum())} rows "
+              f"({n_date} by dated span, {int(mask.sum()) - n_date} by "
+              f"three-signal consensus) ({detail})")
     return filtered
 
 

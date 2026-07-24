@@ -245,6 +245,13 @@ lacks a source:
 
 ## 8. 265 more continuation rows the three-signal filter does not reach
 
+> **Addressed on branch `worker/continuation-filter-v2` (2026-07-24), pending
+> architect landing** — spans fixed, residue remeasured to 223, filter swapped to
+> a dated-span demotion (frame 1,172 → 949). Evidence:
+> `docs/briefs/2026-07-24-continuation-filter-v2.RESULT.md`. Common-row A1 is
+> neutral (−0.0009, t=−0.13) but the `is2019` offset is eliminated. One open
+> item (JJJ 2025 renegotiation, see #14). Delete this entry when landed.
+
 **Severity**: medium — 265 is an UPPER BOUND, not a count (see the architect
 review below); the true residue sits in training wearing a year-1 label, and
 it is now directly measurable rather than inferred.
@@ -399,6 +406,15 @@ are independent and additive.
 
 ## 11. Spotrac 10-day contracts are parsed as 10-YEAR contracts
 
+> **Fixed on branch `worker/continuation-filter-v2` (2026-07-24), pending
+> architect landing.** `parse_contracts` now drops parsed length > 5 and never
+> reads a year from a "day" field; reparse gives 5,769 rows, `contract_years.max()
+> == 5`, `min(contract_start) == 2003`, filter still drops the same 119.
+> **Correction to this entry**: the "2 at 6" are NOT 10-day money — they are the
+> legitimate 6-year deals LeBron James 2010 ($109.8M) and Luol Deng 2008 ($71.0M)
+> from the 2005 CBA. Both start pre-2019 and are read by no in-window consumer, so
+> "drop > 5" removes them harmlessly. Delete this entry when landed.
+
 **Severity**: low-moderate — the table is diagnostic-only, so no published
 metric moves, but the bad rows feed `_filter_continuations`, which does.
 
@@ -470,3 +486,56 @@ signed-FA page. (The memo predicted transaction-level signing dates would raise
 coverage; the signing-dates shadow analysis, landed the same day, measured the
 opposite — the dated instrument covers FEWER contracts than the blocks, union
 gain under 2 points. See #8's source table and the RESULT's target 3.)
+
+---
+
+## 13. `prev_cap_pct` feature ignores `salaries_prehistory.csv`
+
+**Severity**: low-moderate — `prev_cap_pct` is one of the 14 model features, so
+a wrong value is a wrong feature, not merely cosmetic.
+
+The FEATURE `prev_cap_pct` in `training_data_v2.csv` (built by
+`scripts/phase3.build_contract_features`) is derived from that table alone, whose
+rows start in 2019. When a row's prior season is 2018 or earlier the lookup
+fails and `prev_cap_pct` gets a constant fill (**0.037227**) instead of the true
+value — even though the salary IS on record. `_load_prev_season_cap_pct` in
+`train.py` (used by `_filter_continuations`) already reads
+`salaries_prehistory.csv` for exactly this boundary and gets it right, so the two
+"prior pay" derivations disagree.
+
+**Reproduce**: Klay Thompson 2019 carries `prev_cap_pct = 0.037227`; his 2018-19
+salary is in `salaries_prehistory.csv` as `$18,988,725` = **0.186** of the 2018
+cap, and `_load_prev_season_cap_pct()[("klay thompson", 2018)]` returns 0.186.
+The same 0.037227 fill also appears on his 2020-2023 and 2025-2026 rows, whose
+true priors ARE present, so the feature is broken for more than the 2018
+boundary — `build_contract_features` should be audited, not just extended.
+
+**Fix**: have `build_contract_features` fall back to `salaries_prehistory.csv`
+for pre-2019 priors, the way `_load_prev_season_cap_pct` does, then re-check that
+`prev_cap_pct` reproduces a player's actual prior-season cap_pct across a sample.
+This is a feature-value change and wants its own dispatch (touches the frame all
+14 features live in); measure a common-row A1 delta before landing.
+
+**Verify**: Klay 2019 `prev_cap_pct` ≈ 0.186; no player carries the 0.037227 fill
+where a real prior exists.
+
+---
+
+## 14. JJJ 2025 — is a renegotiated final year "fresh" or a "continuation"?
+
+**Severity**: low — one training row; it does not move any headline (kept by both
+the incumbent and the v2 filter). But it is an unresolved convention question the
+architect owns.
+
+The continuation-filter-v2 work (#8) treats a renegotiation-and-extend's signing
+season as a fresh price (Markkanen 2024, Turner 2022) — the season is re-priced
+to market even though an older span still covers it. **Jaren Jackson Jr. 2025**
+is structurally identical: his 2021 extension is front-loaded/declining, and the
+2025-07-13 Renegotiation-and-Extend raised his 2025-26 salary by $11,586,605 to
+the observed $35.0M (yic=1 in the contract table). So the same rule reads it
+**fresh**, but the 2026-07-24 brief's acceptance list expects it to *stay
+continuation*. No mechanical rule separates JJJ 2025 from Markkanen 2024 /
+Turner 2022. Decide whether a renegotiated final year is a fresh market price
+(keep) or a mid-contract continuation (demote); the answer sets the convention
+for all six renegotiation pairs. Evidence:
+`docs/briefs/2026-07-24-continuation-filter-v2.RESULT.md` §4.1.

@@ -139,9 +139,17 @@ def parse_contracts(html_path):
                 contract["signing_type"] = val
             elif ltext == "Contract Terms:":
                 contract["terms"] = val
-                m = re.match(r"(\d+)\s*yr", val)
-                if m:
-                    contract["contract_years"] = int(m.group(1))
+                # A 10-day deal's terms read "10 yr(s) / $151,821": Spotrac
+                # mechanically appends "yr(s)" to a day count, so a naive year
+                # parse records a phantom 10-YEAR contract (ISSUES #11). Guard
+                # it two ways — never read a year count from a field that says
+                # "day", and (at the append below) reject any parsed length
+                # above the 5-year CBA maximum, whose 10-day money ($41k-$176k)
+                # betrays the misread.
+                if "day" not in val.lower():
+                    m = re.match(r"(\d+)\s*yr", val)
+                    if m:
+                        contract["contract_years"] = int(m.group(1))
                 m2 = re.search(r"\$[\d,]+", val.replace(" ", ""))
                 if m2:
                     contract["total_value"] = int(m2.group().replace("$", "").replace(",", ""))
@@ -156,7 +164,12 @@ def parse_contracts(html_path):
                 if m:
                     contract["fa_year"] = int(m.group(1))
 
-        if contract.get("signing_type"):
+        # Reject contracts whose parsed length exceeds the 5-year CBA maximum:
+        # these are 10-day deals misread as decade-long ones (ISSUES #11), and
+        # their phantom spans (Tolliver "starting" in 1980) feed
+        # _filter_continuations a spurious "starts earlier" signal.
+        yrs = contract.get("contract_years")
+        if contract.get("signing_type") and not (yrs is not None and yrs > 5):
             contracts.append(contract)
 
     # Career earnings years — only needed as a last-resort anchor when the
