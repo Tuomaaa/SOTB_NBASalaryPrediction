@@ -289,3 +289,41 @@ master.
      pre-registered contamination signal plus guardrails (C2, common-row
      neutrality), not on common-row A1 improvement — that instrument cannot
      see removals by construction.
+
+---
+
+## 18. `awards_full.csv` name join drops footnote-marked stars from award_score_cum
+
+**Severity**: low — real data defect, but fixing it does NOT help the model
+(measured slightly negative), so it is documentation, not a pending fix.
+
+90 of 943 rows in `data/raw/raw_external/awards_full.csv` carry footnote junk in
+`player_name_norm` — trailing `^` (the dominant marker), `§`, `†`, the Unicode
+replacement char, and concatenated tokens (`bam adebayost1`, `ben simmonscovid2`).
+`scripts/build_external_features.norm` strips accents and lowercases but does
+**not** remove these, so `norm("Kevin Durant^") == "kevin durant^"` and the join
+to the training names misses. The affected rows are exactly the high-value
+players: **all 13 Rookie-of-the-Year winners** (Wiggins, Towns, Luka, Ja, LaMelo,
+Barnes, Banchero, Wembanyama, …) and MVP / All-NBA seasons for Durant, Curry,
+Giannis, Jokić, Harden, Westbrook. So `award_score_cum` and `all_nba_cum`
+silently under-credit the stars whose award history matters most.
+
+**See it:**
+```
+python -c "import pandas as pd; aw=pd.read_csv('data/raw/raw_external/awards_full.csv'); \
+print(aw[aw.player_name_norm.str.contains(r'[^a-z .\'-]', regex=True)].award.value_counts())"
+```
+Every ROY row appears; `norm('Kevin Durant^')` still ends in `^`.
+
+**What to do (if ever):** strip the junk with
+`re.sub(r"[^a-z .'-]", "", name)` inside `norm` (or a dedicated award-name
+cleaner) before the award merge. `scripts/feature_batch._clean_award_name` is a
+working implementation. **But do not expect a model gain:** the 2026-07-25
+feature batch measured the name-cleaned `award_score_cum` (control arm
+`e_cleanonly`) at paired ΔSel −0.0042 (A2 −0.0052) against the incumbent — the
+recovered superstar award mass is redundant with `darko`/`prev_cap_pct` and the
+players are ceiling-pinned, so it adds variance without lift. Fix it for
+correctness and any future award-based diagnostic, not for CV.
+
+**Verify a fix:** `norm("Kevin Durant^") == "kevin durant"` and
+`award_score_cum > 0` for luka doncic / ja morant in their post-rookie seasons.

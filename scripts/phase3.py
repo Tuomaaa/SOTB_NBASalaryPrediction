@@ -151,7 +151,7 @@ def _rookie_scale_fill_map(df):
     return picks.to_dict(), fallback
 
 
-def build_contract_features(df, fill="rookie-scale-map"):
+def build_contract_features(df, fill="rookie-scale-map", prev_mode="year1-loop"):
     """Derive is_contract_year and prev_cap_pct from contract structure.
 
     fill: how first contracts (no observable previous deal) get prev_cap_pct.
@@ -161,6 +161,14 @@ def build_contract_features(df, fill="rookie-scale-map"):
           rows. That constant sat at pick-4 money (~0.069) for everyone from
           the first pick to the undrafted, and drifted whenever rows were
           added, churning 1,769 rows on the last refresh.
+
+    prev_mode: the SEMANTICS of prev_cap_pct (Arm A vs Arm B).
+      "year1-loop" — Arm A (shipped): prev_cap_pct is the year-1 cap_pct of the
+          player's PREVIOUS contract, filled from observed prior-season pay only
+          where the year-1 lookback cannot reach.
+      "prev-season" — Arm B: prev_cap_pct is uniformly the player's PREVIOUS
+          SEASON's actual pay (drops the year-1 loop entirely). Both modes end
+          with the identical rookie-scale-map fill for true first contracts.
     """
     df = df.sort_values(["player_name_norm", "season"]).copy()
 
@@ -187,17 +195,22 @@ def build_contract_features(df, fill="rookie-scale-map"):
     # prev_cap_pct: year-1 cap_pct of the PREVIOUS contract
     # For each player at year_in_contract=1, look back to find the most recent
     # year_in_contract=1 row and use its cap_pct.
+    # Arm B ("prev-season") skips this loop: prev_cap_pct is filled uniformly
+    # from observed prior-season pay below, for every row.
     df["prev_cap_pct"] = np.nan
-    yr1_rows = df[df["year_in_contract"] == 1].sort_values(["player_name_norm", "season"])
+    if prev_mode == "year1-loop":
+        yr1_rows = df[df["year_in_contract"] == 1].sort_values(["player_name_norm", "season"])
 
-    for player in yr1_rows["player_name_norm"].unique():
-        player_yr1 = yr1_rows[yr1_rows["player_name_norm"] == player].sort_values("season")
-        seasons = player_yr1["season"].values
-        cap_pcts = player_yr1["cap_pct"].values
+        for player in yr1_rows["player_name_norm"].unique():
+            player_yr1 = yr1_rows[yr1_rows["player_name_norm"] == player].sort_values("season")
+            seasons = player_yr1["season"].values
+            cap_pcts = player_yr1["cap_pct"].values
 
-        for i in range(1, len(seasons)):
-            idx = player_yr1.index[i]
-            df.loc[idx, "prev_cap_pct"] = cap_pcts[i - 1]
+            for i in range(1, len(seasons)):
+                idx = player_yr1.index[i]
+                df.loc[idx, "prev_cap_pct"] = cap_pcts[i - 1]
+    elif prev_mode != "prev-season":
+        raise ValueError(f"unknown prev_mode {prev_mode!r}")
 
     # Fall back to observed PREVIOUS-SEASON pay for every row the year-1
     # lookback cannot reach: a fresh signing whose prior contract predates the
