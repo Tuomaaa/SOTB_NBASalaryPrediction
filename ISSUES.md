@@ -337,4 +337,77 @@ correctness and any future award-based diagnostic, not for CV.
 **Verify a fix:** `norm("Kevin Durant^") == "kevin durant"` and
 `award_score_cum > 0` for luka doncic / ja morant in their post-rookie seasons.
 
+---
+
+## 20. Three zone-gate protocol defects found while re-judging the max branch
+
+**Severity**: medium for the first, low for the other two — none changed the
+2026-07-26 phase-3 verdict, but the first could hand a future candidate an
+adoption it did not earn. Found building `scripts/eval_route_mixture_p3.py`;
+full numbers in `docs/briefs/2026-07-26-route-mixture-p3.RESULT.md` §8.
+
+**(a) Zone-MAE gates pool the confirmation split.** The route-mixture "Win"
+gate — true-max zone MAE must improve by ≥ $0.50M — is computed over all 68 zone
+rows, 12 of which are locked confirmation players. The worker brief's own rule
+says the confirmation split must never enter a decision metric, and on this
+frame the distinction is not academic: **every phase-3 cell won 2–10× more on
+the 12 canary rows than on the 56 decidable ones.**
+
+```
+                 zone-MAE win vs champion
+                  all      sel      conf
+base_tau*       +0.12    +0.15    +0.00
+base_tau90      +1.12    +0.76    +2.79
+enriched_tau*   +0.42    +0.17    +1.58     <- pooled $0.42M is $0.17M decidable
+enriched_tau90  +0.83    +0.54    +2.20
+```
+
+The same leak shows in A1: `enriched_tau*` posts pooled A1 0.7906 against the
+champion's 0.7878 while its selection-pool paired ΔSel is −0.0001 (t −0.20) —
+the whole pooled gain is confirmation rows. The cause is mundane (the 15%
+per-player split happens to hold Wall 2019, Kemba 2019 and both Mitchell rows,
+four of the six rows carrying the τ\* win), which is exactly why it will recur:
+the max zone is 68 rows, so a 12-row subset can carry a headline.
+
+Note this is narrower than "all zone metrics are wrong". `grabit_zone` /
+`floor_zone` in `evaluate_suite.py` are *reporting* scorecards for a landed
+intervention and pooling is defensible there. The defect is using a pooled zone
+MAE as an **accept/reject** bar.
+
+*Reproduce*: `OMP_NUM_THREADS=6 python scripts/eval_route_mixture_p3.py`, the
+"WIN GATE split by the confirmation lock" block.
+*Fix*: any zone gate that decides adoption computes its MAE over
+`~df["is_confirmation"]` rows only, and says so in the printed protocol block.
+The reporting number can stay pooled as long as the two are labelled apart.
+*Know it is fixed*: the gate table prints a selection-row zone MAE, and
+re-running phase 3 shows `enriched_tau*` at +$0.17M rather than +$0.42M.
+
+**(b) `scripts/eval_route_mixture_p2.py` compares moving row groups.** Its 25%+
+predicted-band brake scores the champion on the *champion's* ≥25% rows and the
+candidate on the *candidate's* ≥25% rows. The worker brief forbids exactly this
+for model-vs-model comparison — and the candidate's band is larger by
+construction, because pushing rows up moves them into it (55 vs 52 rows at
+enriched τ\*, 63 vs 52 at base τ₉₀). The gap is material in magnitude: at
+enriched τ₉₀ the brake reads **+$1.08M own-band vs +$0.82M fixed-row**. Both
+breach the +$0.30M bar, so no published verdict moves, but the own-band number
+is the one quoted in the phase-3 dispatch brief.
+
+*Fix*: score both models on the champion's band (p3's `band25_metrics` does
+this and reports both readings). *Know it is fixed*: the two readings are
+printed side by side and the gate cites the fixed-row one.
+
+**(c) "C2 |bias| growth" is implemented as a signed change.** `evaluate_suite`'s
+protocol text and every brief say a segment fails when its **|bias| grows** by
+more than $0.30M; the phase-1/2 harnesses compute `bias_cand − bias_champ` and
+threshold its absolute value. These diverge whenever a segment's bias moves
+*toward* zero — which is what a max-branch push does to Bird Rights
+(−$2.44M → −$2.03M at base τ₉₀). Max signed change +$0.41M would breach; max
+|bias| growth is +$0.026M and does not. Phase 3 reports both and gates on the
+literal wording.
+
+*Fix*: pick one and make the code and the prose agree — `abs(b_cand) −
+abs(b_champ)` matches the documented intent, and a bias shrinking toward zero
+should not be scored as a regression. *Know it is fixed*: one number, one name,
+and `scripts/diagnostics.py` plus any zone harness use the same helper.
+
 
