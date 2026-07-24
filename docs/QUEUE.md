@@ -7,6 +7,19 @@ Last updated: 2026-07-25, after the censor-widening landing.
 
 ## In flight / ready to launch
 
+- **Service years (ISSUES #20)** — brief dispatched:
+  `2026-07-26-service-years.md`. **Run this BEFORE phase 3** (or re-pin
+  phase 3 after it lands): it moves the max zone 68 → 70 and removes
+  Reaves 2026 from the phase-3 collateral list, where he is the #2
+  brake-killer at +$9.71M. Audit that scoped it: of the 53 rows landing
+  exactly on a CBA tier (knife-edge — 10,000× the tolerance adds 4 rows),
+  exactly 2 carry a ceiling above the tier they landed on (Reaves 2026,
+  Butler 2019), both from the `age − 19` service fallback that covers 24%
+  of rows. NOTE the design constraint written into the brief: the ceiling
+  must stay computable BEFORE signing, so the exact-tier hit is a
+  DETECTOR and the fix is a real debut-season source — never
+  `ceiling = the tier the salary landed on`.
+
 - **Route-mixture phase 3** — brief dispatched:
   `2026-07-26-route-mixture-p3.md`. Phase 2's "structurally unwinnable"
   verdict was an ISSUES #19 artifact: on corrected labels (v7.12x) the
