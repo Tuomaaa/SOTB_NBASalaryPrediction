@@ -12,68 +12,6 @@ Ordered roughly by how much damage each one does.
 
 ---
 
-## 1. The published site is seven versions stale and cannot be republished as-is
-
-**Severity**: high — it is a public accuracy claim, it is flattering, and the
-one command that would refresh it is now broken in three places.
-
-`outputs/web/valuations_export.csv` was written 2026-07-22 with 3,113 rows and a
-1,556-row Signing Board: that is the **v7.1x** row set, before the prorated,
-mislabel and continuation filters. `outputs/models/grabit_results.json` holds
-`Grabit v3, n=1297, cv_r2 0.7586` — the **v7.2x-v7.5x** era. The docs describe
-v7.8x (n=1,172, two-sided censoring). Every number on the site disagrees with
-every number in `METHODOLOGY.md`.
-
-### 1a. The residuals it shows are in-sample
-
-`scripts/export_web.py` fits Grabit on the training rows and then scores those
-same rows, on a page whose own copy calls it "a genuine read on accuracy".
-
-| | MAE |
-|---|---|
-| What the board shows (in-sample) | $2.48M |
-| Cross-validated, v7.8x pooled | **$3.07M** |
-| Cross-validated, v7.8x 2024-26 | **$3.19M** |
-
-**Fix**: `train_grabit()` already computes `oof_pred`, the out-of-fold prediction
-for every training row, and throws it away. Return it, and have `build_frame()`
-prefer the out-of-fold value for any row in the training set, falling back to the
-fitted model only for rows the model never saw (escalator years, rookie-scale
-seasons — the Value Board's extra rows).
-
-The two boards then rest on different predictions *by design*, which is correct:
-the Signing Board asks "how well does this generalise", the Value Board asks
-"what is this player worth", and only the first has a holdout answer.
-`components/nba/Explorer.tsx` copy should say so.
-
-### 1b. `export_web.py` has drifted from the model it exports
-
-Three concrete breakages, all introduced by v7.6x-v7.8x:
-
-- **Filter chain** (`_training_medians`, line ~134) runs
-  `_filter_prorated(_filter_rookie_scale(_filter_year1(df)))` and stops there.
-  Its own docstring says the chain "must stay identical to the one inside
-  `train_grabit`"; it is missing `_filter_mislabeled_year1` and
-  `_filter_continuations`, so imputation medians come from 1,297 rows while the
-  model is fit on 1,172.
-- **Stage 2** (`build_frame`, line ~157) is `np.minimum(latent, max_elig)` — the
-  ceiling only. v7.8x's Stage 2 is `clip(latent, floor_pct, max_eligible_pct)`,
-  so at-floor players would publish with un-clipped latents. `is_capped`
-  (line ~205) likewise only detects the ceiling; a floor-clipped row needs its
-  own flag for the site to explain what it is looking at.
-- **Label** (line ~473) prints "Grabit v3" unconditionally.
-
-**The `canon` guard is working as designed** and will refuse to publish: it
-compares the fresh fit's CV R² against `grabit_results.json` and exits on a
-mismatch >1e-6. Re-run `src/model/train.py` after fixing the above, so the
-quoted metrics and the table describe the same model.
-
-**Verify**: Signing Board MAE lands near the cross-validated figure rather than
-$2.48M; mechanism biases match `METHODOLOGY.md` (Bird Rights −$2.50M on n=309);
-`meta.json` reports n=1,172 and a two-sided model.
-
----
-
 ## 2. Continuation rows: the part deliberately left in
 
 **Severity**: low — the provable and the corroborated cases are gone; what
@@ -118,21 +56,22 @@ against 255 before; `check_caps.py` hit rates for 2019-2020 risen.
 
 ## 3. Single-seed and 10-seed CV R² are both called "the" CV R²
 
-**Severity**: low on its own; it becomes the visible symptom of #1 whenever the
-site is republished.
+**Severity**: low — the site now leads with the forward number, not this one.
 
 `src/model/train.py` writes `grabit_results.json` from a **single-seed** run;
 `METHODOLOGY.md`, `PROJECT_BRIEF.md` and `evaluation_suite.json` quote the
 **10-seed** average. Both are defensible numbers, but they are reported under
-the same name, and `export_web.py` propagates the single-seed one to the site
-through `meta.json`.
+the same name. The site's headline is now the forward R² (out-of-sample on the
+holdout season), which `export_web.py` cross-checks against
+`evaluation_suite.json`; but `meta.json` still carries a secondary `cvR2` from a
+single-seed fit on the training seasons, so the two-name ambiguity persists in
+that field.
 
 **Fix**: pick one as canonical — the 10-seed average is the one every document
-uses — and have `train.py` write that into `grabit_results.json` so the export
-inherits it automatically. Note this interacts with the `canon` guard in
-`export_web.py`, which compares its own single fit against that file; if the
-file holds a 10-seed mean, the guard needs to compare against a 10-seed mean too
-or it will always trip.
+uses — and have `train.py` write that into `grabit_results.json` so any consumer
+inherits it. `export_web.py` no longer reads that file (it was rewritten to
+forward-mode and dropped the `canon` guard for a rolling-origin cross-check), so
+this is now only about keeping `train.py`'s own output honest.
 
 ---
 
