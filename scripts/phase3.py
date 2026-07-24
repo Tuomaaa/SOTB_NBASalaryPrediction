@@ -151,7 +151,7 @@ def _rookie_scale_fill_map(df):
     return picks.to_dict(), fallback
 
 
-def build_contract_features(df, fill="rookie-scale-map", prev_mode="year1-loop"):
+def build_contract_features(df, fill="rookie-scale-map", prev_mode="prev-season"):
     """Derive is_contract_year and prev_cap_pct from contract structure.
 
     fill: how first contracts (no observable previous deal) get prev_cap_pct.
@@ -162,13 +162,19 @@ def build_contract_features(df, fill="rookie-scale-map", prev_mode="year1-loop")
           the first pick to the undrafted, and drifted whenever rows were
           added, churning 1,769 rows on the last refresh.
 
-    prev_mode: the SEMANTICS of prev_cap_pct (Arm A vs Arm B).
-      "year1-loop" — Arm A (shipped): prev_cap_pct is the year-1 cap_pct of the
-          player's PREVIOUS contract, filled from observed prior-season pay only
-          where the year-1 lookback cannot reach.
-      "prev-season" — Arm B: prev_cap_pct is uniformly the player's PREVIOUS
-          SEASON's actual pay (drops the year-1 loop entirely). Both modes end
-          with the identical rookie-scale-map fill for true first contracts.
+    prev_mode: the SEMANTICS of prev_cap_pct.
+      "prev-season" — SHIPPED (v7.11x, the feature-batch Arm C boundary call):
+          prev_cap_pct is uniformly the player's PREVIOUS SEASON's actual pay.
+          ΔSel +0.00178 (per-fold t=1.96) over year1-loop, magnitude
+          pre-registered by the prev-cap RESULT; A1/A2/B1/MAE all improve,
+          C2 max +$0.031M. Adopted as a semantics simplification at the gate
+          boundary — see 2026-07-25-feature-batch.RESULT.md §3.
+      "year1-loop" — the v7.10x form: prev_cap_pct is the year-1 cap_pct of
+          the player's PREVIOUS contract, filled from observed prior-season
+          pay only where the year-1 lookback cannot reach. Kept for
+          reproducing v7.10x-era builds.
+    Both modes end with the identical rookie-scale-map fill for true first
+    contracts.
     """
     df = df.sort_values(["player_name_norm", "season"]).copy()
 
