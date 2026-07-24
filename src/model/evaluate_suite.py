@@ -82,7 +82,8 @@ def baseline_fitter(train: pd.DataFrame, test: pd.DataFrame,
 
 def make_grabit_fitter(sigma: float = 0.02, gate_frac: float = 0.55,
                        floor_gate_k: float = 2.0,
-                       sigma_left: float | None = None):
+                       sigma_left: float | None = None,
+                       censor_c: float | None = None):
     """Grabit v4: two-sided censored-normal loss, then both CBA bounds.
 
     Right side censors gated max rows (observation floors the latent); left
@@ -94,16 +95,23 @@ def make_grabit_fitter(sigma: float = 0.02, gate_frac: float = 0.55,
 
     floor_gate_k=0 disables the left side (reproduces Grabit v3).
     sigma_left=None ties the left side's sigma to the right's (shipped default).
+    censor_c=None keys the right population on is_max_contract (>=0.90 of own
+    ceiling, the shipped default). A float c widens the right-censored
+    population to every row paid at least c*max_eligible_pct — a TRAINING-loss
+    mask off cap_pct, same kind of quantity the existing gates already read,
+    never recomputed on test rows and never a feature (see the 2026-07-24
+    censor-widening brief). At c=0.90 it reproduces is_max_contract.
     """
     def fitter(train, test, features, seed):
         y_tr = train[TARGET].values
         max_elig_tr = train["max_eligible_pct"].values
         is_max_tr = train["is_max_contract"].values.astype(bool)
+        right_pop = is_max_tr if censor_c is None else (y_tr >= censor_c * max_elig_tr)
 
         base = XGBRegressor(**{**_XGB_BASE, "random_state": seed})
         base.fit(train[features], y_tr)
         bp = base.predict(train[features])
-        gate = is_max_tr & (bp >= gate_frac * max_elig_tr)
+        gate = right_pop & (bp >= gate_frac * max_elig_tr)
         if floor_gate_k > 0 and "is_at_floor" in train.columns:
             gate_l = train["is_at_floor"].values & (bp <= floor_gate_k * y_tr)
         else:

@@ -690,7 +690,9 @@ def train_xgboost(df: pd.DataFrame) -> tuple[dict, object, list[str]]:
 
 def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
                  gate_frac: float = 0.55,
-                 floor_gate_k: float = 2.0) -> tuple[dict, object, list[str]]:
+                 floor_gate_k: float = 2.0,
+                 sigma_left: float | None = None,
+                 censor_c: float | None = None) -> tuple[dict, object, list[str]]:
     """Train Grabit v4: two-sided censored-normal loss + CBA bounds.
 
     Stage 1: right-censor max rows where baseline pred >= gate_frac * ceiling
@@ -700,6 +702,11 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     population from the dead good-players-on-minimums idea). Both gates mirror
     the albatross logic: the model must corroborate that the bound binds.
     Stage 2: final_pred = clip(latent, floor_pct, max_eligible_pct).
+
+    censor_c=None keys the right population on is_max_contract (shipped
+    default); a float c widens it to rows paid >= c*max_eligible_pct (a
+    training-loss mask off cap_pct, never a feature). sigma_left=None ties the
+    left side's sigma to the right's. See the 2026-07-24 censor-widening brief.
     """
     from xgboost import XGBRegressor
     from sklearn.metrics import r2_score, mean_absolute_error
@@ -716,13 +723,14 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     seasons = df["season"].values
     max_elig = df["max_eligible_pct"].values
     is_max = df["is_max_contract"].values
+    right_pop = is_max if censor_c is None else (y >= censor_c * max_elig)
     at_floor = df["is_at_floor"].values
     floor_pct = df["floor_pct"].values
 
     print(f"Training Grabit v4 (σ={sigma}, gate={gate_frac}, "
-          f"floor_k={floor_gate_k}) on {len(X)} samples")
-    print(f"  Max contract rows: {is_max.sum()}/{len(X)}; "
-          f"at-floor rows: {at_floor.sum()}")
+          f"floor_k={floor_gate_k}, censor_c={censor_c}) on {len(X)} samples")
+    print(f"  Right-censor population: {right_pop.sum()}/{len(X)} "
+          f"(is_max {is_max.sum()}); at-floor rows: {at_floor.sum()}")
 
     cv = GroupKFold(n_splits=5)
     folds = list(cv.split(X, y, groups))
@@ -733,7 +741,7 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
         m = XGBRegressor(**_XGB_BASE)
         m.fit(X.iloc[tr_i], y[tr_i])
         oof_bl[va_i] = m.predict(X.iloc[va_i])
-    gate = is_max & (oof_bl >= gate_frac * max_elig)
+    gate = right_pop & (oof_bl >= gate_frac * max_elig)
     gate_l = at_floor & (oof_bl <= floor_gate_k * y)
     print(f"  Gated censored rows: right {gate.sum()}/{is_max.sum()} max, "
           f"left {gate_l.sum()}/{at_floor.sum()} at-floor")
@@ -743,7 +751,8 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     fold_r2 = []
     fold_mae = []
     for fi, (tr_i, va_i) in enumerate(folds):
-        obj = _make_tobit_obj(gate[tr_i], sigma, left_mask=gate_l[tr_i])
+        obj = _make_tobit_obj(gate[tr_i], sigma, left_mask=gate_l[tr_i],
+                              sigma_left=sigma_left)
         m = XGBRegressor(**{**_XGB_BASE, "objective": obj,
                             "base_score": float(y[tr_i].mean())})
         m.fit(X.iloc[tr_i], y[tr_i])
@@ -761,7 +770,8 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     recent_mae = mean_absolute_error(y[recent_mask], oof_pred[recent_mask]) if recent_mask.sum() > 10 else float("nan")
 
     # Final model on all data
-    obj_final = _make_tobit_obj(gate, sigma, left_mask=gate_l)
+    obj_final = _make_tobit_obj(gate, sigma, left_mask=gate_l,
+                                sigma_left=sigma_left)
     m_final = XGBRegressor(**{**_XGB_BASE, "objective": obj_final,
                               "base_score": float(y.mean())})
     m_final.fit(X, y)
