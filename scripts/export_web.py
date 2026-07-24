@@ -244,7 +244,114 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
         raise SystemExit("signing_type merge changed the row count")
 
     out["base_salary"] = expected * out["cap"]
-    return out, shap_vals
+    out["is_fa"] = False
+    return out, shap_vals, expected
+
+
+def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
+                     features: list[str], medians: pd.Series, expected: float,
+                     df: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
+    """Append holdout-season free agents the salary data does not yet cover.
+
+    A player can have a full season of impact metrics and no contract row: a
+    free agent who has not re-signed, or one who signed so recently the salary
+    scrape has not caught it. The salary is the model's target, so those rows
+    fall out of training and out of build_frame — and a valuation board that
+    exists to price players should not drop the very players whose price is the
+    open question. These carry a market value (latent) with no actual salary to
+    compare against, so they belong on the Value Board only and are flagged
+    is_fa. The Signing Board, which measures accuracy against a real contract,
+    excludes them.
+
+    Impact metrics supply the three ratings, usage, minutes and age; the
+    remaining features are borrowed from the player's most recent training row.
+    The ratings are z-scored against the holdout season's *training* players —
+    the same basis build_dataset used — so an FA's z sits on the same scale as
+    everyone already on the board.
+    """
+    import shap
+
+    im = pd.read_csv(PROCESSED_DIR / "impact_metrics.csv")
+    im = im[im["season"] == HOLDOUT_SEASON].drop_duplicates("player_name_norm")
+
+    have = set(out.loc[out["season"] == HOLDOUT_SEASON, "player_name_norm"])
+    fa = im[~im["player_name_norm"].isin(have)].copy()
+
+    # Same z-score basis as the model saw: the holdout season's training players.
+    t_hold = df[df["season"] == HOLDOUT_SEASON]
+    for raw, zc in (("darko_dpm", "darko_dpm_z"), ("lebron", "lebron_z"),
+                    ("rapm", "rapm_z")):
+        mu, sd = t_hold[raw].mean(), t_hold[raw].std()
+        fa[zc] = (fa[raw] - mu) / sd
+
+    fa["mpg"] = fa["minutes"] / fa["games"].replace(0, np.nan)
+    fa["cba_era"] = 1
+
+    # Everything else comes from the player's most recent season on record.
+    hist = df.sort_values("season").groupby("player_name_norm").last()
+    fa = fa[fa["player_name_norm"].isin(hist.index)].copy()
+    # Position is stable and worth borrowing; team is not — a free agent's last
+    # team is stale the moment he signs elsewhere, so it is left blank.
+    for col in ("age", "height_inches", "draft_pick", "prev_cap_pct",
+                "award_score_cum", "ast_pct", "availability_3yr", "position"):
+        borrowed = fa["player_name_norm"].map(hist[col]) if col in hist else np.nan
+        if col == "age":
+            # Prefer this season's age from impact metrics; fall back to history.
+            fa["age"] = fa["age"].where(fa["age"].notna(), borrowed) \
+                if "age" in fa.columns else borrowed
+        else:
+            fa[col] = borrowed
+    fa["age_squared"] = fa["age"] ** 2
+
+    X = fa.reindex(columns=features).fillna(medians).fillna(0)
+    latent = model.predict(X)
+    shap_fa = shap.TreeExplainer(model).shap_values(X)
+
+    cap = float(CAP_BY_SEASON[HOLDOUT_SEASON])
+    fa_out = pd.DataFrame({
+        "player_name": fa["player_name"].values,
+        "player_name_norm": fa["player_name_norm"].values,
+        "season": HOLDOUT_SEASON,
+        "team": np.nan,
+        "position": fa["position"].values,
+        "age": fa["age"].values,
+        "year_in_contract": np.nan,
+        "contract_years": np.nan,
+        "actual_cap_pct": np.nan,
+        "latent_cap_pct": latent,
+        # Value Board shows market value; there is no CBA clip without a contract.
+        "pred_cap_pct": latent,
+        "max_eligible_pct": np.nan,
+        "floor_pct": np.nan,
+        "cap": cap,
+        "is_forward": True,
+        "is_rookie_scale": False,
+        "actual_salary": np.nan,
+        "pred_salary": latent * cap,
+        "latent_salary": latent * cap,
+        "surplus": np.nan,
+        "is_capped": False,
+        "is_floored": False,
+        "darko_dpm_z": fa["darko_dpm_z"].values,
+        "lebron_z": fa["lebron_z"].values,
+        "rapm_z": fa["rapm_z"].values,
+        "mpg": fa["mpg"].values,
+        "usage_pct": fa["usage_pct"].values,
+        "availability_3yr": fa["availability_3yr"].values,
+        "ast_pct": fa["ast_pct"].values,
+        "height_inches": fa["height_inches"].values,
+        "draft_pick": fa["draft_pick"].values,
+        "award_score_cum": fa["award_score_cum"].values,
+        "signing_type": np.nan,
+        "base_salary": expected * cap,
+        "is_fa": True,
+    })
+
+    print(f"  Free agents added: {len(fa_out)} "
+          f"(impact metrics, no contract on file)")
+    combined = pd.concat([out, fa_out], ignore_index=True)
+    combined_shap = np.vstack([shap_vals, shap_fa])
+    return combined, combined_shap
 
 
 def _round(x, nd=2):
@@ -277,6 +384,7 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
             "flr": bool(r.is_floored),
             "fwd": bool(r.is_forward),
             "rs": bool(r.is_rookie_scale),
+            "fa": bool(r.is_fa),
             "st": None if pd.isna(r.signing_type) else r.signing_type,
             "dk": _round(r.darko_dpm_z),
             "lb": _round(r.lebron_z),
@@ -357,6 +465,8 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
         "nSigning": int(signing.sum()),
         # Of those, the ones the model never saw — the forward slice.
         "nForward": int((signing & out["is_forward"]).sum()),
+        # Free agents priced with no contract on file (Value Board only).
+        "nFa": int(out["is_fa"].sum()),
     }
     (dest / "meta.json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -563,10 +673,13 @@ def main() -> None:
     if tr_features != features:
         raise SystemExit("feature list drifted between fit and export")
 
-    out, shap_vals = build_frame(df, model, features, medians)
+    out, shap_vals, expected = build_frame(df, model, features, medians)
+    out, shap_vals = _add_free_agents(out, shap_vals, model, features, medians,
+                                      expected, df)
 
     # The headline the Signing Board quotes is the forward number: accuracy on
-    # the signings the model never saw. Compute it on the holdout year-1 rows.
+    # the signings the model never saw. Free agents (year_in_contract NaN) carry
+    # no actual salary and are excluded here by the year-1 condition.
     fwd = out[out["is_forward"] & (out["year_in_contract"] == 1)
               & ~out["is_rookie_scale"]]
     fwd_metrics = {
