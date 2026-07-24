@@ -22,19 +22,22 @@ Last updated: 2026-07-25, after the censor-widening landing.
   chosen from the CALIBRATION TABLE (probability-space rule, never tuned on
   zone MAE); pick the threshold on CALIBRATION PURITY, not just P height.
   The 44 smeared rows split three ways and MUST be hand-classified before
-  phase 2 (2026-07-25 review, corrected): (1) genuine tier-max signings the
-  is_max label misses — signed AT a tier they qualified for, KAT 2019 / AD
-  2020 / Kawhi 2019; widening the max CLASS to paid-at-any-tier is the fix
-  for these. (2) classifier FALSE POSITIVES — good-but-not-max players the
-  metrics oversold, e.g. **Reaves 2026 (signed his largest legal deal, ~25%
-  by coincidence, NOT a max)** — these are what the gate must reject, and
-  they sit as high as P=0.74, so the [0.7,0.9) bin is only 72% pure and even
-  [0.9,1.0) is 78%. The safe threshold may be high enough that the branch
-  only touches ironclad maxes — consistent with the −$0.26M global ceiling
-  meaning little headroom remains. (3) fallen-star leak (Oladipo/Lillard/
-  Drummond at P 0.2-0.3, $20-30M push damage) — killed by any gate, belongs
-  to P(floor). Do NOT build a tier-aware push target that trusts P — it
-  would push the Reaves class to a tier they never signed. Then the floor
+  phase 2 (2026-07-25 review, twice-corrected): (1) **genuine maxes the label
+  mis-tiers** — Kawhi 2019 / AD 2020 / Kemba 2019 / Butler 2019 / Kyrie 2019
+  signed real 30% maxes but `_compute_max_eligible` grants them a 35% ceiling
+  off All-NBA without the own-team requirement, so is_max misses them
+  (ISSUES #19, a real bug — fix it and the max zone grows, these stop being
+  "false positives"). (2) classifier FALSE POSITIVES — good-but-not-max
+  players the metrics oversold, **Reaves 2026 (signed his largest LEGAL deal,
+  Early Bird, ~25% by coincidence, NOT a max)**, Anunoby 2024 — these are what
+  the gate must reject, and they sit as high as P=0.74, so the [0.7,0.9) bin
+  is only 72% pure. The safe threshold may be high enough the branch only
+  touches ironclad maxes — consistent with the −$0.26M global ceiling. (3)
+  fallen-star leak (Oladipo/Lillard/Drummond at P 0.2-0.3, $20-30M push
+  damage) — killed by any gate, belongs to P(floor). Do NOT build a
+  tier-aware push target that trusts P — it would push the Reaves class to a
+  tier they never signed. Landing ISSUES #19 FIRST is the cleanest sequence:
+  it removes class (1) from the confusion entirely. Then the floor
   branch (P(floor) AUC 0.8233, pull-down mirror, same brake discipline).
   MLE branch HOLD: P(mle) AUC 0.7158 — team-cap membership invisible.
   A gating branch starts the v8.0 line and needs a separate predict.py

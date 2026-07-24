@@ -327,3 +327,75 @@ correctness and any future award-based diagnostic, not for CV.
 
 **Verify a fix:** `norm("Kevin Durant^") == "kevin durant"` and
 `award_score_cum > 0` for luka doncic / ja morant in their post-rookie seasons.
+
+---
+
+## 19. `_compute_max_eligible` grants the 35%/30% Designated-Player ceiling from awards alone, mis-tiering genuine maxes
+
+**Severity**: low-moderate — mislabels a handful of genuine max signings as
+non-max and inflates their Stage-2 clip ceiling by one tier. It does not move a
+published metric today, but it corrupts the `is_max_contract` label the whole
+route-mixture / censoring line depends on, and it was actively misleading the
+phase-2 max-branch analysis (these rows read as "classifier false positives"
+when the classifier is right and the LABEL is wrong).
+
+**The bug.** In `_compute_max_eligible` (`src/model/train.py`), the supermax
+path
+```python
+elif 7 <= exp[i] <= 9 and (trig or (p, s) in early):
+    supermax[i] = True          # -> base = 0.35
+```
+grants the 35% Designated-Veteran ceiling to any 7-9-year player with a recent
+All-NBA (`trig`), and the Rose path grants 30% to any ≤6-year player with one.
+**Neither checks the eligibility condition the CBA actually imposes**: the 35%
+Designated Veteran and the 30% Designated Rookie both require the player to
+re-sign with the team that holds his Bird rights from his rookie deal. A star
+who makes All-NBA and then *changes teams* can only get the ordinary tier (30%
+at 7-9 years, 25% on a rookie extension), not the designated ceiling.
+
+**Effect.** `is_max_contract = cap_pct >= max_eligible_pct * 0.90`. A genuine
+30% max under a wrongly-granted 35% ceiling scores 30/35 = 0.857 < 0.90 → the
+row is labeled **not** a max. And `max_eligible_pct` (the Stage-2 clip bound) is
+a full tier too high for that player.
+
+**See it** — 16 rows sit at ratio 0.80-0.90 with cap_pct ≥ 24% and no max flag:
+```
+python -c "import sys; sys.path.insert(0,'.'); from src.model.evaluate_suite import load_evaluation_frame as L; d,_=L(); r=d.cap_pct/d.max_eligible_pct; s=d[(~d.is_max_contract)&(r.between(.80,.90))&(d.cap_pct>=.24)]; print(s[['player_name_norm','season','cap_pct','tier_ceiling_pct']].to_string())"
+```
+They split three ways — **do not treat all 16 as bugs**:
+
+- **Clean mis-tiered maxes** (7-9 yr, All-NBA, CHANGED teams that summer → real
+  max was 30%, ceiling wrongly 35%): **Kawhi 2019** (TOR→LAC), **AD 2020**
+  (to LAL), **Kemba 2019** (S&T→BOS), **Jimmy Butler 2019** (S&T→MIA),
+  **Kyrie 2019** (S&T→BKN). These are genuine 30% maxes the label misses.
+- **Rose-rule rookie-extension cases** needing per-player award verification
+  (ceiling 30%, signed 25%): KAT 2019, Tatum 2021, Ja 2023, Holmgren 2026,
+  Jalen Williams 2026 — some legitimately signed the 25% base without hitting
+  the All-NBA escalator, so 30% may over-grant; check each.
+- **Not maxes at all** (generic experience tier, over-generous but not a missed
+  max): **Reaves 2026**, Anunoby 2024 — good-player deals near a tier by
+  coincidence. Gobert 2021 (ratio 0.898) is a genuine own-team supermax and is
+  likely CORRECT at 35%.
+
+**Why it is not a one-line fix.** The model has no team-continuity signal — it
+cannot see that Kawhi's 2019 deal was with a new team. The safe distinction
+needs "is this a re-signing with the Bird-rights team," which is the same data
+gap ISSUES #6 records for `early_supermax.csv` and which the signing-date /
+transaction data (`contract_signing_dates.csv`, now landed) may be able to
+close (a transaction's team vs the prior contract's team). A blanket "don't
+grant the designated ceiling from awards" would re-break the genuine own-team
+supermaxes (Gobert, and the curated early_supermax rows). So the fix is a
+team-match test, not a threshold change, and wants its own dispatch.
+
+**What to do.** Add a team-continuity gate to the supermax/Rose paths: grant
+0.35 (resp. Rose 0.30) only when the signing team equals the rookie-deal Bird
+team. Derive the team match from `contract_signing_dates.csv` +
+`spotrac_signing_types.csv` (both carry team). Until then, the five clean cases
+above can be enumerated in a small curated exclusion list mirroring
+`early_supermax.csv`, if a quick correctness patch is wanted before the
+data-driven fix.
+
+**Verify:** after the fix, Kawhi 2019 / AD 2020 / Kemba 2019 / Butler 2019 /
+Kyrie 2019 carry `max_eligible_pct == 0.30` and `is_max_contract == True`;
+Gobert 2021 stays 0.35; the max-zone count rises from 56 by roughly these five;
+no row that was correctly 0.35 drops.
