@@ -15,7 +15,16 @@ Last updated: 2026-07-25, after the censor-widening landing.
   classifier on the batch winners (22 true maxes still under P=0.3, half
   Booker-class); (ii) precision-gated push — push only above a P threshold
   chosen from the CALIBRATION TABLE (probability-space rule, never tuned on
-  zone MAE); the P≥0.7 region is ≥92% pinned and near-pure. Then the floor
+  zone MAE); the P≥0.7 region is ≥92% pinned and near-pure; (iii) **tier-aware
+  branch target** (2026-07-25 row-level review of the 44 smeared rows): most
+  P>0.5 "false positives" are REAL tier-max signings the is_max label misses —
+  players signed AT the 25/30% tier while eligible for a higher one (Morant
+  2023, KAT 2019, AD 2020, Kemba/Kawhi 2019, Reaves 2026). Push to the nearest
+  tier at/above the prediction, not to max_eligible (Reaves: pred 38.3 → 25%
+  tier 41.2 = his exact signing); consider widening the max CLASS to
+  paid-at-any-tier. The fallen-star leak (Oladipo/Lillard/Drummond at P
+  0.2-0.3 with $20-30M push damage) is killed by the precision gate and
+  belongs to P(floor). Then the floor
   branch (P(floor) AUC 0.8233, pull-down mirror, same brake discipline).
   MLE branch HOLD: P(mle) AUC 0.7158 — team-cap membership invisible.
   A gating branch starts the v8.0 line and needs a separate predict.py
