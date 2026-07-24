@@ -37,13 +37,16 @@ the veto.**
 
 What remains, deliberately: rows no dated contract covers fall back to the
 three-signal consensus, and rows whose last-season pay is also unobservable
-are kept outright — precision over recall; Millsap 2019 is the canonical kept
+are kept outright — precision over recall; Millsap 2019 was the canonical kept
 suspect. Expanding `salaries_prehistory.csv` or the player-page transactions
-cache converts more of them into decidable rows.
+cache converts more of them into decidable rows — and did: the 2018 team-salary
+scrape (2026-07-24) made five of them decidable and demoted (Millsap, Snell,
+Galloway, Okafor, Ferrell — all escalator continuations, none in the FA list),
+frame 949 → 944.
 
-**Verify** (state at v7.9x): evaluation frame 949 rows; 2019 year-1 count 147
-(was 220); the filter prints "dropped 342 rows (335 by dated span, 7 by
-three-signal consensus)".
+**Verify** (state after the prev_cap_pct landing): evaluation frame 944 rows;
+2019 year-1 count 142; the filter prints "dropped 347 rows (335 by dated span,
+12 by three-signal consensus)".
 
 ---
 
@@ -233,35 +236,27 @@ gain under 2 points. See #8's source table and the RESULT's target 3.)
 
 ---
 
-## 13. `prev_cap_pct` feature ignores `salaries_prehistory.csv`
+## 17. `salaries_prehistory.csv` misses ~6 of the 2019 eval rows
 
-**Severity**: low-moderate — `prev_cap_pct` is one of the 14 model features, so
-a wrong value is a wrong feature, not merely cosmetic.
+**Severity**: low — the affected rows carry negligible prior pay, so their
+`prev_cap_pct` slot-fill fallback is nearly right anyway.
 
-The FEATURE `prev_cap_pct` in `training_data_v2.csv` (built by
-`scripts/phase3.build_contract_features`) is derived from that table alone, whose
-rows start in 2019. When a row's prior season is 2018 or earlier the lookup
-fails and `prev_cap_pct` gets a constant fill (**0.037227**) instead of the true
-value — even though the salary IS on record. `_load_prev_season_cap_pct` in
-`train.py` (used by `_filter_continuations`) already reads
-`salaries_prehistory.csv` for exactly this boundary and gets it right, so the two
-"prior pay" derivations disagree.
+After the 2018-19 team-salary scrape (`scripts/scrape_2018_salaries.py`), 2018
+prior coverage of the season-2019 eval rows reached 136/142. The remaining 6 are
+two-way / minimum players whose salary is absent from the BBRef `salaries2` team
+table (Alex Caruso, Shake Milton, Wes Iwundu, Wenyen Gabriel, Amile Jefferson),
+plus one **name rename**: **Enes Kanter → Enes Freedom**. His 2018-19 pay is on
+the page under "Enes Kanter" (`norm` → `enes kanter`), but the training data
+carries `enes freedom`, so the join misses it.
 
-**Reproduce**: Klay Thompson 2019 carries `prev_cap_pct = 0.037227`; his 2018-19
-salary is in `salaries_prehistory.csv` as `$18,988,725` = **0.186** of the 2018
-cap, and `_load_prev_season_cap_pct()[("klay thompson", 2018)]` returns 0.186.
-The same 0.037227 fill also appears on his 2020-2023 and 2025-2026 rows, whose
-true priors ARE present, so the feature is broken for more than the 2018
-boundary — `build_contract_features` should be audited, not just extended.
+**Fix**: a small name-alias map applied in `scrape_2018_salaries.py` /
+`_load_prev_season_cap_pct` (kanter→freedom, and any other post-2019 renames)
+would recover the vet row; the two-way players need a two-way salary source, not
+the team salary table. Low priority — none of the six moves a model feature
+materially.
 
-**Fix**: have `build_contract_features` fall back to `salaries_prehistory.csv`
-for pre-2019 priors, the way `_load_prev_season_cap_pct` does, then re-check that
-`prev_cap_pct` reproduces a player's actual prior-season cap_pct across a sample.
-This is a feature-value change and wants its own dispatch (touches the frame all
-14 features live in); measure a common-row A1 delta before landing.
-
-**Verify**: Klay 2019 `prev_cap_pct` ≈ 0.186; no player carries the 0.037227 fill
-where a real prior exists.
+**Verify**: `_load_prev_season_cap_pct()` returns a value for
+`("enes freedom", 2018)`.
 
 ---
 
@@ -294,58 +289,3 @@ master.
      pre-registered contamination signal plus guardrails (C2, common-row
      neutrality), not on common-row A1 improvement — that instrument cannot
      see removals by construction.
-
----
-
-## 16. 2026 cap and 2026 salaries drifted together onto the stale projection (166.0M vs official 164.961M)
-
-**Severity**: low-moderate — caps are load-bearing; the target for the 2026
-season is rescaled ~0.63%. This is the failure mode CLAUDE.md warns about, and
-it is invisible to `check_caps.py` because the cap and the data are *stale in
-lockstep*.
-
-`CAP_BY_SEASON[2026] = 166_000_000`, but the NBA set the 2026-27 cap at
-**$164,961,000** (official: https://pr.nba.com/2026-27-salary-cap/, confirmed by
-Hoops Rumors 2026-07 — a +0.63% overstatement). The 2026 entry has no
-"projected" comment (unlike 2027+), so it reads as final.
-
-The subtlety: `check_caps.py` currently reports 2026 "ok" (5/11 near-max rows on
-a tier) **at 166.0M**, so the guard does NOT flag it. That is because five 2026
-year-1 max rows still carry salaries computed against the *projected* 166.0M cap
-— `$49,800,000` = 0.30 × 166.0M (bam adebayo, de'aaron fox) and `$41,500,000` =
-0.25 × 166.0M (chet holmgren, jalen williams, paolo banchero), all
-extension/rookie-extension maxes locked at the projection when signed. Meanwhile
-two actual 2026 FA signings already reconcile to the *official* cap —
-`$41,240,250` = 0.25 × 164.961M (austin reaves), `$49,488,300` = 0.30 × 164.961M
-(trae young). The data is a mix; the stale half outvotes and matches the stale
-config, so `check_caps` sees agreement.
-
-**Consequence for a naive fix**: setting the cap to 164.961M *alone* drops 2026
-to 2/11 on-tier, and `_implied_cap` then reports "166,000,000 fits better" and
-flags 2026 WRONG — reverting the fix. The cap and the five stale extension-max
-salaries must be corrected **together**.
-
-**Reproduce**:
-```
-python scripts/check_caps.py           # 2026 "ok" at 166.0M today (masks it)
-python - <<'PY'
-import pandas as pd; from config import PROCESSED_DIR
-d = pd.read_csv(PROCESSED_DIR/'training_data_v2.csv')
-d = d[(d.season==2026)&(d.year_in_contract==1)]
-for cap in (166_000_000, 164_961_000):
-    r=d[d.salary/cap>0.20]; h=(r.salary/cap).apply(lambda p:min(abs(p-t) for t in (.25,.3,.35))<5e-5).sum()
-    print(cap, f'{h}/{len(r)} on tier')   # 5/11 vs 2/11
-PY
-```
-
-**Fix** (architect/data lane, own dispatch — moves the 2026 target scale): set
-`CAP_BY_SEASON[2026] = 164_961_000` AND refresh the five stale extension-max 2026
-salaries to the official-cap figures (0.25/0.30 × 164.961M), then rerun
-`scripts/check_caps.py`. Found during the MLE mass-point recon
-(`docs/briefs/2026-07-24-mle-mass-point.RESULT.md`); the stale cap nudged that
-memo's 2026 cap_pct figures ≤0.63% but did not affect its conclusions.
-
-**Verify**: `CAP_BY_SEASON[2026] == 164_961_000`, the five names above carry
-164.961M-tier salaries, and `check_caps.py` reports 2026 ok with the implied-cap
-probe silent.
-

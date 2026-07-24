@@ -25,8 +25,8 @@ CAP_BY_SEASON = {
     2023: 136_021_000,
     2024: 140_588_000,
     2025: 154_647_000,
-    2026: 166_000_000,
-    2027: 174_300_000,  # projected, +5% on 2026
+    2026: 164_961_000,  # official (pr.nba.com); was the 166.0M projection — ISSUES #16
+    2027: 174_300_000,  # projected
     2028: 183_000_000,  # projected
     2029: 192_150_000,  # projected
 }

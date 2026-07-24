@@ -14,7 +14,9 @@ from sklearn.model_selection import GroupKFold, cross_validate
 from sklearn.metrics import r2_score, mean_absolute_error
 
 from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON
-from src.model.train import load_training_data, _filter_year1, _filter_rookie_scale, FEATURE_COLS, TARGET
+from src.model.train import (load_training_data, _filter_year1,
+                              _filter_rookie_scale, _load_prev_season_cap_pct,
+                              FEATURE_COLS, TARGET)
 
 PARAMS = dict(
     n_estimators=500, max_depth=4, learning_rate=0.01,
@@ -197,7 +199,25 @@ def build_contract_features(df, fill="rookie-scale-map"):
             idx = player_yr1.index[i]
             df.loc[idx, "prev_cap_pct"] = cap_pcts[i - 1]
 
-    # Fill first contracts (no observable previous deal)
+    # Fall back to observed PREVIOUS-SEASON pay for every row the year-1
+    # lookback cannot reach: a fresh signing whose prior contract predates the
+    # training table (all of season 2019, plus later vets coming off long
+    # pre-2019 deals), and every escalator row. Reads the same union of the
+    # salary table and salaries_prehistory.csv that _load_prev_season_cap_pct
+    # anchors the ceiling rule on, so the "prior pay" the feature and the
+    # ceiling see now agree (ISSUES #13) instead of the feature going blind at
+    # the 2018 boundary and taking the rookie-slot fill (Klay 2019: 0.037 slot
+    # money in place of his true 0.186). Observed prior-season pay is the proxy
+    # for the previous contract's year-1; the rookie-scale slot fill below now
+    # survives only for true first contracts, players with no NBA pay on record.
+    prev_pay = _load_prev_season_cap_pct()
+    prev_season_pct = pd.Series(
+        [prev_pay.get((p, int(s) - 1), np.nan)
+         for p, s in zip(df["player_name_norm"], df["season"])],
+        index=df.index)
+    df["prev_cap_pct"] = df["prev_cap_pct"].fillna(prev_season_pct)
+
+    # Fill true first contracts (no observable previous deal at all)
     fill_map = _rookie_scale_fill_map(df) if fill == "rookie-scale-map" else None
     if fill_map is not None:
         picks, fallback = fill_map
