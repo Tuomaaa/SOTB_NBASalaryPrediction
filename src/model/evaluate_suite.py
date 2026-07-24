@@ -81,7 +81,8 @@ def baseline_fitter(train: pd.DataFrame, test: pd.DataFrame,
 
 
 def make_grabit_fitter(sigma: float = 0.02, gate_frac: float = 0.55,
-                       floor_gate_k: float = 2.0):
+                       floor_gate_k: float = 2.0,
+                       sigma_left: float | None = None):
     """Grabit v4: two-sided censored-normal loss, then both CBA bounds.
 
     Right side censors gated max rows (observation floors the latent); left
@@ -92,6 +93,7 @@ def make_grabit_fitter(sigma: float = 0.02, gate_frac: float = 0.55,
     the bound binds. Stage 2 clips into [floor_pct, max_eligible_pct].
 
     floor_gate_k=0 disables the left side (reproduces Grabit v3).
+    sigma_left=None ties the left side's sigma to the right's (shipped default).
     """
     def fitter(train, test, features, seed):
         y_tr = train[TARGET].values
@@ -108,8 +110,9 @@ def make_grabit_fitter(sigma: float = 0.02, gate_frac: float = 0.55,
             gate_l = np.zeros(len(train), bool)
 
         model = XGBRegressor(**{**_XGB_BASE, "random_state": seed,
-                                "objective": _make_tobit_obj(gate, sigma,
-                                                             left_mask=gate_l),
+                                "objective": _make_tobit_obj(
+                                    gate, sigma, left_mask=gate_l,
+                                    sigma_left=sigma_left),
                                 "base_score": float(y_tr.mean())})
         model.fit(train[features], y_tr)
         latent = model.predict(test[features])
@@ -541,6 +544,13 @@ def main():
     print("    AND the forward veto, yet an is2019 flag with zero market content")
     print("    recovered 70% of its gain — the B1 veto cannot see a feature that")
     print("    absorbs a season offset on the TRAINING side.")
+    print("    The C1 calibration gate is RELATIVE (adjudicated 2026-07-23): a")
+    print("    candidate's |slope - 1| may exceed the incumbent's by at most 0.005")
+    print("    (~$0.3M of scale at a $60M max — C2's own yardstick). Never an")
+    print("    absolute window: [0.99, 1.01] excluded the champion's own 0.9883.")
+    print("    And never select sigma on zone MAE — Stage 2's clip makes the")
+    print("    censored sides one-way valves, so zone MAE is monotone in sigma;")
+    print("    see docs/briefs/2026-07-23-sigma-gate-retune.RESULT.md.")
 
     out_dir = OUTPUTS_DIR / "models"
     out_dir.mkdir(parents=True, exist_ok=True)

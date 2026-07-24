@@ -469,7 +469,8 @@ def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _make_tobit_obj(cens_mask: np.ndarray, sigma: float = 0.02,
-                    left_mask: np.ndarray | None = None):
+                    left_mask: np.ndarray | None = None,
+                    sigma_left: float | None = None):
     """Custom XGBoost objective: censored-normal (Grabit), optionally two-sided.
 
     Uncensored rows: standard squared error.
@@ -486,9 +487,18 @@ def _make_tobit_obj(cens_mask: np.ndarray, sigma: float = 0.02,
     earned more elsewhere — a choice, not a constraint) and was killed by the
     oracle experiment. The left mask here is the opposite population: players
     whose unconstrained price would be BELOW the minimum.
+
+    sigma_left defaults to sigma, which reproduces the single-sigma behaviour
+    exactly. It exists because the two sides censor populations of very
+    different scale — 57 max rows spread over ~10% of the cap against 297
+    at-floor rows packed into a 1% band — and sigma is the width over which the
+    censored likelihood transitions, so there is no reason in principle for one
+    number to fit both. Pass it only with zone-scorecard evidence.
     """
     _c = cens_mask.copy()
     _l = None if left_mask is None else left_mask.copy()
+    _s_r = sigma
+    _s_l = sigma if sigma_left is None else sigma_left
 
     def obj(y_true, y_pred):
         grad = np.empty_like(y_pred)
@@ -497,14 +507,14 @@ def _make_tobit_obj(cens_mask: np.ndarray, sigma: float = 0.02,
         grad[unc] = y_pred[unc] - y_true[unc]
         hess[unc] = 1.0
         if _c.any():
-            z = (y_pred[_c] - y_true[_c]) / sigma
+            z = (y_pred[_c] - y_true[_c]) / _s_r
             m = np.exp(norm.logpdf(z) - norm.logcdf(z))
-            grad[_c] = -sigma * m
+            grad[_c] = -_s_r * m
             hess[_c] = np.clip(m * (z + m), 1e-6, None)
         if _l is not None and _l.any():
-            z = (y_true[_l] - y_pred[_l]) / sigma
+            z = (y_true[_l] - y_pred[_l]) / _s_l
             m = np.exp(norm.logpdf(z) - norm.logcdf(z))
-            grad[_l] = sigma * m
+            grad[_l] = _s_l * m
             hess[_l] = np.clip(m * (z + m), 1e-6, None)
         return grad, hess
 
