@@ -338,3 +338,51 @@ correctness and any future award-based diagnostic, not for CV.
 `award_score_cum > 0` for luka doncic / ja morant in their post-rookie seasons.
 
 
+
+---
+
+## 20. The experience fallback (`age − 19`) over-tiers players with no draft year
+
+**Severity**: moderate — same damage shape as the fixed #19 (a real max wears
+a ceiling one tier too high, so `is_max_contract` misses it and the Stage-2
+clip sits above the truth), on a different code path.
+
+`_compute_max_eligible` derives service years as `season − draft_year`, and
+where the draft table has no entry it falls back to `age − 19`
+([train.py:483](src/model/train.py:483)). That fallback fires on **223 of 944
+evaluation rows (24%)** and systematically overstates service for anyone who
+entered late or undrafted — every extra year pushes toward the 7-9 (30%) and
+10+ (35%) brackets.
+
+Two rows are provably mis-tiered by it, and both signed **exactly at a tier**,
+which is the signature of a max:
+
+| row | pay | true tier | tier granted | real service | fallback said |
+|---|---|---|---|---|---|
+| austin reaves 2026 | **25.000%** of cap | 25% | 30% | 5 (undrafted 2021) | 8 |
+| jimmy butler 2019 | **30.000%** of cap | 30% | 35% | 8 (drafted 2011) | 10 |
+
+Both currently read `is_max_contract = False` at ~83-86% of their inflated
+ceilings. Reaves is also the second-largest collateral row in the route-mixture
+phase-3 re-run (+$9.71M push damage) purely because of this label.
+
+**Reproduce**:
+
+```bash
+python -c "import sys; sys.path.insert(0,'.'); from src.model.evaluate_suite import load_evaluation_frame; d,_=load_evaluation_frame(); m=d[d.player_name_norm.isin(['austin reaves','jimmy butler'])&d.season.isin([2026,2019])]; print(m[['player_name_norm','season','cap_pct','tier_ceiling_pct','is_max_contract']])"
+```
+
+**Fix**: give the ceiling rule a real service-year source instead of the age
+proxy — first NBA season per player, derivable from the cached BBRef player
+pages already used by `scripts/height.py` (or from the earliest season in
+`salaries.csv` + `salaries_prehistory.csv` as an offline approximation, which
+covers 2016+ and is exact for anyone whose debut is inside that window). Keep
+`age − 19` only as a last resort and log how many rows use it. A curated
+two-row patch (mirroring `designated_ineligible.csv`) is the cheap stopgap if
+the service-year source is deferred, but the systematic fix is preferred —
+24% of rows currently rest on the proxy.
+
+**Verify**: Reaves 2026 `tier_ceiling_pct == 0.25` and `is_max_contract` True;
+Butler 2019 `tier_ceiling_pct == 0.30` and True; the max zone grows 68 → 70;
+no row's ceiling falls below its own pay (`over-tier count == 0`); frame stays
+944.
