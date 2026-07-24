@@ -24,7 +24,21 @@ carry a ceiling above the tier they landed on**:
 | austin reaves 2026 | 25.000% | 25% | 30% | 5 (undrafted, debut 2021-22) | 8 |
 | jimmy butler 2019 | 30.000% | 30% | 35% | 8 (drafted 2011) | 10 |
 
-Both read `is_max_contract = False` today and both are real maxes.
+Both read `is_max_contract = False` today and both are real maxes. The rest of
+the audit is clean and there is no grey zone to adjudicate: **0 rows** carry a
+ceiling BELOW the tier they landed on (the v7.4x over-tier invariant holds),
+and the near-miss band (0.5-3% off a tier) contains only four rows, none of
+which looks like a rounded max (JJJ 2026 and Durant 2019 are already labeled
+max; Harden 2025 and Horford 2019 sit far below their own 35% ceilings).
+
+**One adjacent row to check, not necessarily to change**: `trae young 2026`
+lands exactly on 30% with a correct `tier_ceiling_pct` of 0.30, but its
+`max_eligible_pct` is **0.324** via the no-decrease floor (a veteran's max is
+the greater of the tier and 105% of prior pay). The label is already right, so
+this is a clip-precision question only — the Stage-2 upper bound sits at
+$53.5M when the deal's true ceiling was $49.5M. Verify the floor's arithmetic
+on this row (his prior-season pay × the legal multiplier) and report whether
+0.324 is the rule working or an arithmetic error; only change it if the latter.
 
 ## The rule this task must NOT implement
 
