@@ -544,6 +544,13 @@ def main():
     print("    AND the forward veto, yet an is2019 flag with zero market content")
     print("    recovered 70% of its gain — the B1 veto cannot see a feature that")
     print("    absorbs a season offset on the TRAINING side.")
+    print("    The C1 calibration gate is RELATIVE (adjudicated 2026-07-23): a")
+    print("    candidate's |slope - 1| may exceed the incumbent's by at most 0.005")
+    print("    (~$0.3M of scale at a $60M max — C2's own yardstick). Never an")
+    print("    absolute window: [0.99, 1.01] excluded the champion's own 0.9883.")
+    print("    And never select sigma on zone MAE — Stage 2's clip makes the")
+    print("    censored sides one-way valves, so zone MAE is monotone in sigma;")
+    print("    see docs/briefs/2026-07-23-sigma-gate-retune.RESULT.md.")
 
     out_dir = OUTPUTS_DIR / "models"
     out_dir.mkdir(parents=True, exist_ok=True)

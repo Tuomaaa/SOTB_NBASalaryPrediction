@@ -243,26 +243,6 @@ lacks a source:
 
 ---
 
-## 7. Sigma and both gates were tuned on a different row set
-
-**Severity**: low — the settings still pass their zone tests, so this is
-opportunity rather than damage.
-
-`sigma = 0.02` dates from a 1,487-row training set with 73 rows in the max zone.
-The zone is now 57 rows of 1,172, and a second censoring side exists that did
-not when sigma was chosen. The right gate (0.55) is equally old; only the left
-gate (k = 2.0) was screened on the current data, over {1.5, 2.0, 3.0}.
-
-**Fix**: re-sweep sigma and both gates judged on **zone** MAE rather than pooled
-R², with the pooled selection-pool delta as a no-regression guard. The screening
-harness from the v7.8x experiment is the pattern to copy.
-
-**Verify**: whichever settings win, both zone MAEs stay at or below $6.11M
-(max) and $1.98M (floor), and the selection-pool paired delta does not go
-negative.
-
----
-
 ## 8. 265 more continuation rows the three-signal filter does not reach
 
 **Severity**: medium — 265 is an UPPER BOUND, not a count (see the architect
@@ -383,3 +363,34 @@ the option-aware fix before any consumer trusts its year numbers.
 
 **Verify**: `spans[spans.span_conflict].span_source.unique()` is
 `['date-resolved']` only, and the three named signings read year 1.
+
+---
+
+## 10. Record the sigma sweep's mechanism and the relative C1 gate in METHODOLOGY
+
+**Severity**: low — docs only; the decisions are made and the code already
+matches them.
+
+Old entry #7 closed 2026-07-23: a 36-config sweep plus boundary probe held the
+incumbent censoring settings (0.02 / 0.55 / 2.0). Full evidence in
+`docs/briefs/2026-07-23-sigma-gate-retune.RESULT.md` — do not re-run the sweep
+on this row set. Two findings belong in METHODOLOGY (docs lane):
+
+- **Sigma must never be selected on zone MAE.** Both censored sides are one-way
+  valves: every zone row is biased toward its CBA bound and Stage 2's clip
+  makes overshooting free, so zone MAE falls monotonically in sigma out to
+  0.06 with no interior optimum, while the pinned-at-bound share climbs
+  19% → 42% and the bill lands on the calibration slope (0.9883 → 0.9647 at
+  sigma=0.04). Judged this way sigma degenerates into "how many rows to pin".
+  gate_frac is inert on this row set (52-56 of 57 rows gated across
+  0.45-0.65); the binding constraint is `is_max_contract`'s 0.90 threshold.
+- **The C1 calibration gate is RELATIVE**, adjudicated 2026-07-23: a candidate
+  is admissible when |slope − 1| exceeds the incumbent's by no more than
+  0.005 (≈ $0.3M of scale distortion at a $60M max — C2's own materiality
+  yardstick; paired slope-difference noise is far below it). The absolute
+  [0.99, 1.01] window is dead — it excluded the champion's own 0.9883. Now
+  encoded in `evaluate_suite.py`'s printed protocol block.
+
+`_make_tobit_obj` also gained an inert `sigma_left` hook (bit-identical when
+unset); the side-separation control it enabled showed the two censored sides
+are independent and additive.
