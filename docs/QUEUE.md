@@ -7,6 +7,18 @@ Last updated: 2026-07-25, after the censor-widening landing.
 
 ## In flight / ready to launch
 
+- **Cleanup debt** — brief dispatched: `2026-07-26-cleanup-debt.md`.
+  ISSUES #18 (awards name join drops all 13 ROY winners + star MVP rows;
+  measured, adopt unless t < −2 — the isolated fix scored −0.00422/t−1.67),
+  #17 (Kanter→Freedom alias), #3 (single- vs 10-seed CV under one name),
+  and `predict.py`, which CLAUDE.md documents as production inference while
+  shipping plain XGBoost with no censoring and no Stage-2 clip.
+- **Docs catch-up** — brief dispatched: `2026-07-26-docs-catchup.md`.
+  VERSION_HISTORY stops at v7.8x; four versions to write, plus ISSUES #10
+  (sigma mechanism + relative C1 gate) and #15 (renegotiation convention,
+  span rules, the pure-removal protocol lesson) into METHODOLOGY, plus the
+  standing decision below. Docs lane only, no code or data.
+
 - **Per-route δ for the continuous routes** — brief dispatched:
   `2026-07-26-route-delta.md`. Bird-Rights re-signings and cap-space
   signings currently share one regression value; C2 has carried Bird at
