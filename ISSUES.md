@@ -242,3 +242,73 @@ harness from the v7.8x experiment is the pattern to copy.
 **Verify**: whichever settings win, both zone MAEs stay at or below $6.11M
 (max) and $1.98M (floor), and the selection-pool paired delta does not go
 negative.
+
+---
+
+## 8. Spotrac 10-day contracts are parsed as 10-YEAR contracts
+
+**Severity**: low-moderate — the table is diagnostic-only, so no published
+metric moves, but the bad rows feed `_filter_continuations`, which does.
+
+`parse_contracts` in `scripts/scrape_spotrac_players.py` reads contract length
+with `re.match(r"(\d+)\s*yr", val)` against the "Contract Terms:" field. Spotrac
+writes a 10-day deal's terms in a form that leaves `10` as the captured number,
+so the contract is recorded with `contract_years = 10`. The anchoring step then
+expands it across ten fabricated seasons walking backwards from the anchor —
+Anthony Tolliver has phantom contracts starting in 1980, 1990, 1998, 1999 and
+2000; Alfonzo McKinnie in 1981 and 1991.
+
+**Reproduce**:
+
+```bash
+python -c "import pandas as pd; c=pd.read_csv('data/processed/spotrac_signing_types.csv').drop_duplicates(['player_name_norm','contract_start','contract_years','total_value','aav']); print(c['contract_years'].value_counts().sort_index()); print(c[c.contract_years>5].head(20).to_string())"
+```
+
+328 of 2,727 distinct contracts have `contract_years > 5`, which is not a legal
+NBA contract length in any era in the window — 326 at exactly 10, 2 at 6. Their
+total values ($41k–$176k) and AAVs ($4k–$18k) are 10-day money, confirming the
+reading. **20 of them carry a `contract_start` inside 2019–2026**, where they
+can collide with real evaluation rows.
+
+**Why it matters beyond the label**: `_filter_continuations` demotes a row when
+a salary-matched covering contract starts earlier than the row's season. A
+phantom 10-year span is exactly the shape that produces a spurious "starts
+earlier" signal. The AAV-distance test (`aav_tol = 0.25`) screens most of them
+out because 10-day AAVs are tiny, so the damage is probably zero today — but it
+is zero by luck, not by construction.
+
+**Fix**: reject the parse when the terms string does not actually say years.
+Match `(\d+)\s*yr` only after confirming the field has no "day" token, and drop
+any contract whose parsed length exceeds 5. Then re-run
+`python scripts/refresh_spotrac.py --reparse-only` (no network).
+
+**Verify**: `contract_years.max() <= 5` over the whole table; no contract has
+`contract_start` before 1990; the continuation filter still drops 119 rows with
+the same per-season split (2019: 35 … 2026: 1) — if that count moves, a phantom
+span *was* load-bearing and the change needs a common-row A1 delta before it
+lands.
+
+---
+
+## 9. AAV is unavailable for half the evaluation frame, non-randomly
+
+**Severity**: low — informational, and it bounds what any contract-structure
+work can attempt.
+
+Established by the 2026-07-23 AAV target-variable memo
+(`docs/briefs/2026-07-23-aav-target-memo.RESULT.md`). Only **604 of 1,172**
+evaluation rows (51.5%) can be assigned a contract whose total value reconciles
+with the row's year-1 pay under a legal escalator. The missing half is not
+random: coverage runs 79% above $25M and 27% below $3M, 81% on Bird Rights and
+35% on Minimum-labelled rows. The covered subset's mean salary is $12.4M against
+$5.5M for the uncovered.
+
+This is the same collection-coverage channel the worker brief's gate 2 warns
+about, and it means **any** feature derived from contract structure — length,
+AAV, guarantee share, option structure — inherits a missingness pattern aligned
+with player quality. Cost it as an increment over an explicit coverage-indicator
+arm, never as a raw delta.
+
+The root causes are the two above plus extensions that never appear on a
+signed-FA page. Transaction-level signing dates (already wanted by #6) would
+raise coverage the most.
