@@ -7,6 +7,18 @@ Last updated: 2026-07-26, after the five-worker landing (v7.13x).
 
 ## In flight / ready to launch
 
+- **Extension route (ISSUES #21)** — brief dispatched:
+  `2026-07-26-extension-route.md`. Implements the veteran-extension raise cap
+  (120%/140%, greater of prior pay and the league average salary) with the
+  rookie-scale/veteran split done on a proper instrument, gated on
+  "rows paid above their own cap ≈ 0" — the check that caught the architect's
+  two failed attempts. Then the user's full six-route mixture
+  (max/floor/mle/bird/capspace/extension) with the centering discipline the
+  δ failure taught, then a phase-3 re-run. Adjudicated in the brief: these
+  rows are NOT right-censored — the cap binds only conditional on choosing to
+  extend, the same "choice, not constraint" that killed censoring good
+  players on minimums; Brunson 2025 took a widely-reported discount.
+
 Nothing. Five workers landed together on 2026-07-26 (v7.13x); the two
 architecture lines below are decided, and what remains is listed under
 "Open work".
