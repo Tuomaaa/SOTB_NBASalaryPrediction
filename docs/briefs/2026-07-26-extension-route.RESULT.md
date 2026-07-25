@@ -29,14 +29,18 @@ and 35 land on their computed cap to within $5,000**, with the 1.20/1.40 split
 keyed on the SIGNING season showing zero crossings. The hard gate leaves **3
 over-cap rows of 156**, each traced to a specific defect in our own salary table
 (ISSUES #22), not to the rule. The honest headroom is **not** negligible: the
-champion prices 11 rows above their corrected ceiling and snapping exactly those
+champion prices 12 rows above their corrected ceiling and snapping exactly those
 is worth an oracle **ΔR² +0.0065**. Part 2 therefore ran, and its verdict is
 split: the **full six-route mixture fails every gate** (ΔSel −0.0479, t = −2.50),
 while the **extension route alone is the only positive ex-ante arm** — ΔSel
 +0.0118, A2 +0.018, B1 **+0.0135**, C1 and C2 both improving — and fails only the
-t > 2 bar at **t = 1.48**. Part 3's answer is negative and useful: the phase-3
-collateral does not collapse, and the counterweight-band hypothesis in ISSUES #21
-is refuted.
+t > 2 bar at **t = 1.48**. Part 3, as amended, sweeps τ and selects **τ\* = 0.52**
+by the pre-registered `expected win − expected collateral` rule: **no arm passes**,
+the collateral does **not** collapse, and the reason is sharp — the extension
+ceilings are right for all three capped collateral rows (arm D proves it) but no
+ex-ante gate on P(extension) reaches them, because the classifier reads Brunson
+at P(extension) = **0.061**. The counterweight-band hypothesis in ISSUES #21 is
+refuted separately.
 
 ---
 
@@ -129,6 +133,7 @@ column and a source URL.
 
 | signing season | CBA | mult | published cap | precision | source |
 |---|---|---|---|---|---|
+| 2017 | 2017 | 1.20 | $10,610,000 | **upper-bound proxy** | Hoops Rumors 2018-11 |
 | 2018 | 2017 | 1.20 | $10,610,000 | rounded to 10k | Hoops Rumors 2018-11 |
 | 2019 | 2017 | 1.20 | $11,470,000 | rounded to 10k | Hoops Rumors 2019-12 |
 | 2020 | 2017 | 1.20 | $12,000,000 | rounded to 100k | Hoops Rumors 2021-01 |
@@ -140,10 +145,15 @@ column and a source URL.
 
 Two disclosures. **The 2021 figure is published rounded to $12.4MM and Gafford
 was paid $12,402,000** — $2,000 above the stored value, or 1.5e-5 in cap_pct,
-inside the 1e-4 tolerance the gate uses. **Signing season 2017 is not in the
-table**; the only row that needs it (Harden 2019) is designated-veteran exempt,
-and the code prints a warning and falls back to the tier ceiling for any signing
-season it lacks, so a missing figure can never produce a ceiling below pay.
+inside the 1e-4 tolerance the gate uses. **2017/18's own figure was not located**;
+the 2018/19 value stands in as an explicit upper bound, since the Estimated
+Average Player Salary rises with the cap and overstating it can only raise a
+ceiling, never push one below pay. It is non-binding for all three rows that use
+it: Harden 2019 and Wall 2019 are designated-veteran exempt, and LaMarcus
+Aldridge 2019's prior-salary route gives $26.82M against this route's $10.61M.
+That row matters — my first pass had no 2017 entry at all, the code fell back to
+the tier ceiling, and Aldridge's ceiling read $38.20M instead of $26.82M, which
+hid the single largest extension-capped collateral row in Part 3.
 
 ### 1d. HARD GATE
 
@@ -183,19 +193,19 @@ mislabel a row as censored.
 
 ### 1e. The honest headroom
 
-The corrected ceiling is dramatically lower than the tier ceiling: **60 veteran
-rows have their ceiling lowered by more than $0.1M, $1,080M in total, up to
+The corrected ceiling is dramatically lower than the tier ceiling: **61 veteran
+rows have their ceiling lowered by more than $0.1M, $1,092M in total, up to
 $31.4M on one row** (Wendell Carter Jr. 2026, $49.49M → $18.10M; P.J. Washington
 2026 $49.49M → $19.81M reproduces ISSUES #21's $29.7M headline).
 
-The champion prices **11 rows above their corrected cap**. Snapping exactly those
+The champion prices **12 rows above their corrected cap**. Snapping exactly those
 to it:
 
 | | champion | snapped | Δ |
 |---|---|---|---|
-| A1 CV R² | 0.7865 | **0.7930** | **+0.00650** |
-| MAE | $3.076M | $3.008M | −$0.068M |
-| bias | −$0.162M | −$0.241M | −$0.079M |
+| A1 CV R² | 0.7865 | **0.7931** | **+0.00653** |
+| MAE | $3.076M | $3.007M | −$0.069M |
+| bias | −$0.162M | −$0.242M | −$0.080M |
 
 | row | pay | champion | cap | cut | MAE gain |
 |---|---|---|---|---|---|
@@ -209,10 +219,11 @@ to it:
 | wendell carter jr. 2026 | $18.10M | $20.90M | $18.10M | $2.79M | +$2.79M |
 | toumani camara 2026 | $18.08M | $21.87M | $19.42M | $2.45M | +$2.45M |
 | josh hart 2024 | $18.14M | $20.40M | $18.14M | $2.25M | +$2.25M |
+| lamarcus aldridge 2019 | $26.00M | $27.79M | $26.82M | $0.98M | +$0.98M |
 | spencer dinwiddie 2019 | $10.61M | $10.71M | $10.61M | $0.10M | +$0.10M |
 
-Total prediction cut $74.2M over 11 rows, mean MAE gain +$5.87M/row. Ten of the
-eleven improve; the one that worsens is Murray, the trade-bonus row from the hard
+Total prediction cut $75.2M over 12 rows, mean MAE gain +$5.46M/row. Eleven of
+the twelve improve; the one that worsens is Murray, the trade-bonus row from the hard
 gate. **This headroom is not negligible** — it is three times the +0.002 feature
 bar — so Part 2 was run.
 
@@ -324,7 +335,7 @@ The two contribute almost equally in the mean (+0.0048 and +0.0053, summing to
 the combined +0.0118) and have opposite statistical characters:
 
 - **The cap is lumpy.** t = 0.90, with one fold carrying +0.0253 and two folds
-  slightly negative. That is what a sparse legal ceiling on 11 rows looks like —
+  slightly negative. That is what a sparse legal ceiling on 12 rows looks like —
   it either catches a fold's big overprediction or it does not.
 - **The premium is broad.** t = 3.05 with all five folds positive: extensions are
   systematically underpriced by the pooled surface (route bias −$1.62M) and
@@ -396,7 +407,7 @@ the route carries both effects.
 
 1. **ΔSel +0.0118 on ext_only is above the +0.01 re-verify line.** It decomposes
    into +0.0048 from the legal ceiling and +0.0053 from the route premium, and
-   both mechanisms are ordinary. The ceiling removes 11 predictions that exceed a
+   both mechanisms are ordinary. The ceiling removes 12 predictions that exceed a
    legal bound, three of them by $10-21M (Zubac $39.3M → $18.1M); removing three
    $10M+ errors from 944 rows is worth roughly that much R², and the effect is
    fold-concentrated (fold 2 +0.0418) which is also why t = 1.48. The premium is
@@ -420,7 +431,37 @@ the route carries both effects.
 
 ---
 
-## Part 3 — the phase-3 re-run
+## Part 2b — the per-leg criterion from the 2026-07-26 standing decision
+
+QUEUE's standing decision (33b585f) asks each route to be judged on
+**(value gap from f(x)) × (unreliability of P)**, not on whether the six-route
+form gated as a whole. My arms measure exactly those pairs:
+
+| route | value gap from f | P AUC | measured ex-ante ΔSel | verdict by the criterion |
+|---|---|---|---|---|
+| max + floor + mle + extension together | large | — | −0.0466 (t −2.55) | the structural block does not earn it |
+| bird + capspace (δ only) | +$1.61M / +$0.10M | 0.783 / 0.724 | −0.0020 (t −1.52) | null, as predicted |
+| **extension — truncation leg** | binds on 12 rows, up to $21M | **0.989** | **+0.0048 (t 0.90)** | best P in the set; effect real but lumpy |
+| **extension — premium leg** | +$1.5-2.0M on 102 rows | 0.989 | **+0.0053 (t 3.05)** | broad and significant, but C1 +0.0070 |
+
+Two things the decision flagged, now measured:
+
+- **Extension "gets no presumption either way", and its truncation shape "cannot
+  drift the whole surface".** Confirmed: mean signed movement of the ext_only arm
+  is **+$0.006M** across 944 rows, against the bird premium's $0.3-0.6M lift.
+  The truncation is the reason — it can only cut, and only where a legal ceiling
+  sits below the price.
+- **"It can systematically under-predict young risers who reach free agency
+  instead — the mirror failure."** This is real and is measured in Part 3's arm
+  D: clipping every row at its extension ceiling regardless of route costs
+  exactly that population. The ship form's P-weighting is what contains it, and
+  the containment is imperfect in the opposite direction — see below.
+
+---
+
+## Part 3 — the phase-3 re-run, and the τ sweep (brief amended 2026-07-25)
+
+### 3a. The unmodified re-run
 
 `scripts/eval_route_mixture_p3.py` was re-run **unmodified**. It reproduces the
 stored run exactly: champion A1 0.7868, A2 0.8340, true-max zone n=70 MAE $4.28M
@@ -429,30 +470,133 @@ bias −$4.25M, counterweight n=32 bias −$4.96M, `champion_repro_max_absdiff`
 `route_mixture_p3_eval.json` — e.g. base_tau* win +$0.24M / dSel t +1.62,
 enriched_tau90 win +$1.16M / dSel t −2.04.
 
-**This is the expected result and it answers the question.** The extension cap
-deliberately does not enter `max_eligible_pct` (the brief's own trap: right-
-censoring extension rows is forbidden), so nothing upstream of p3 moves and the
-max branch cannot change. The substantive question — *would the extension route
-have removed the collateral?* — is answered by annotating p3's collateral rows
-with their extension status:
+**This is the expected result.** The extension cap deliberately does not enter
+`max_eligible_pct` (the brief's own trap: right-censoring extension rows is
+forbidden), so nothing upstream of p3 moves and the max branch cannot change.
+The substantive questions are answered by the sweep below and by annotating p3's
+collateral with extension status. At the ENRICHED classifier's τ90 = 0.49 — the
+cell the amendment's numbers refer to:
 
-| collateral row (base_tau90) | pay | champion | pushed | damage | tier ceiling | extension cap | binds? |
+| collateral row | pay | champion | pushed | damage | tier ceiling | extension ceiling | binds? |
 |---|---|---|---|---|---|---|---|
-| james harden 2022 | $33.00M | $38.48M | $46.89M | **$8.41M** | $52.64M | — (not an extension) | no |
-| marcus smart 2022 | $17.46M | $28.72M | $35.17M | **$6.45M** | $43.28M | $43.28M (DVP-exempt) | no |
-| tyler herro 2023 | $27.00M | $30.96M | $34.01M | $3.04M | $34.01M | $34.01M (rookie-scale) | no |
+| marcus smart 2022 | $17.46M | $28.72M | $39.89M | **$11.17M** | $43.28M | $43.28M as audited (DVP-exempt); **$16.61M** ex ante | audit no / ex ante **yes** |
+| lamarcus aldridge 2019 | $26.00M | $27.66M | $38.20M | **$10.54M** | $38.20M | **$26.82M** | **yes** |
+| demarcus cousins 2019 | $3.50M | $15.69M | $19.78M | $4.09M | $32.74M | — (not an extension) | no |
 | jalen brunson 2025 | $34.94M | $45.20M | $46.39M | $1.19M | $46.39M | **$34.94M** | **yes** |
 | jaylen brown 2020 | $23.44M | $27.29M | $27.29M | $0.00M | $27.29M | $27.29M (rookie-scale) | no |
 
-**The brief's premise is wrong in the way that matters.** Four of the five are
-extension rows, not three — but the raise cap **binds on exactly one of them**,
-Brunson, carrying **$1.19M of the $19.09M total damage: 6%, not 82%**. Two are
-rookie-scale extensions, whose cap IS the tier ceiling by construction, and one
-(Smart) is exempted by the designated-veteran carve-out. The two largest damage
-rows, Harden $8.41M and Smart $6.45M, are untouched by the raise cap. If Smart's
-designated-veteran over-grant is corrected (ISSUES #23) his cap becomes $16.61M
-and the extension-capped share rises to 40% — still not 82%, and it requires a
-separate fix.
+**The brief's premise is right on the ceilings and wrong on the delivery.**
+Three of the five (Smart, Aldridge, Brunson) do have an extension ceiling below
+the pushed prediction, and they carry $22.90M of the $26.99M damage — **85%,
+close to the brief's 82%**. My earlier reading of the BASE classifier's τ90 cell
+(a different collateral set: Harden 2022, Smart, Herro 2023, Brunson, Brown)
+showed only 6%; the enriched cell is the one the amendment describes and it
+confirms the architect's arithmetic.
+
+Two caveats on that 85%. Smart's audited cap is the tier, because our machinery
+grants him a designated-veteran ceiling from a DPOY that postdates his signing
+(**ISSUES #23**); his ex-ante `ext_value_pct` correctly reads $16.61M, so the
+ceiling that would actually be applied does bind. And Aldridge needed signing
+season 2017, which my first table lacked — see the disclosure in 1c.
+
+### 3b. The τ sweep and the pre-registered selection
+
+`scripts/eval_max_branch_tau_sweep.py` sweeps τ from 0.30 to 0.94 in steps of
+0.02 on the **enriched** classifier, scoring four arms per step from one fit pass
+(champion latent + the 4-class classifier for P(max) + the 6-class classifier for
+P(extension), 10 seeds × 5 folds, all arms on bit-identical fits):
+
+| arm | what it is |
+|---|---|
+| **A** | `push_clip` — the phase-3 ship form |
+| **B** | A, then clipped at `ext_value_pct` where **P(extension) ≥ 0.50** — the amendment's question, threshold fixed before the run |
+| C | same at **P(extension) ≥ 0.25** — diagnostic, NOT pre-registered |
+| D | same **unconditionally** — diagnostic; the route-oracle upper bound and the mirror failure |
+
+Selection reads only `expected win − expected collateral`, both computed from P,
+the champion's OOF predictions and the ceilings:
+
+| τ | n≥τ | nMax | purity | E[win] | E[coll] | **OBJ** | A:win | A:25band | A:t | B:win | B:25band | B:t | C:win | C:25band | C:t | D:win | D:25band |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0.30 | 69 | 56 | 0.812 | 125.9 | 67.7 | 58.2 | +1.39 | +1.60 | −1.39 | +1.39 | +0.95 | −0.49 | +1.33 | +0.79 | −0.29 | −0.93 | −1.37 |
+| 0.40 | 61 | 52 | 0.852 | 101.5 | 51.6 | 49.9 | +1.25 | +1.39 | −1.98 | +1.25 | +0.74 | −0.49 | +1.19 | +0.58 | −0.23 | −0.95 | −1.58 |
+| 0.46 | 55 | 48 | 0.873 | 93.7 | 44.4 | 49.3 | +1.18 | +1.33 | −1.88 | +1.18 | +0.68 | −0.30 | +1.11 | +0.52 | −0.03 | −1.01 | −1.62 |
+| 0.50 | 53 | 48 | 0.906 | 93.7 | 28.8 | 64.9 | +1.13 | +1.26 | −1.73 | +1.13 | +0.61 | −0.07 | +1.06 | +0.45 | +0.24 | −1.05 | −1.67 |
+| **0.52** | **52** | **48** | **0.923** | **93.7** | **20.1** | **73.6** | **+1.12** | **+1.22** | **−1.63** | **+1.12** | **+0.57** | **+0.04** | **+1.05** | **+0.41** | **+0.35** | **−1.06** | **−1.69** |
+| 0.54 | 51 | 47 | 0.922 | 91.6 | 20.1 | 71.5 | +1.10 | +1.18 | −1.51 | +1.10 | +0.53 | +0.11 | +1.03 | +0.37 | +0.43 | −1.08 | −1.72 |
+| 0.60 | 47 | 43 | 0.915 | 81.7 | 20.1 | 61.6 | +0.98 | +1.05 | −0.85 | +0.98 | +0.40 | +0.36 | +0.92 | +0.24 | +0.72 | −1.20 | −1.84 |
+| 0.70 | 39 | 36 | 0.923 | 52.2 | 10.5 | 41.7 | +0.71 | +0.86 | −0.94 | +0.71 | +0.21 | +0.63 | +0.64 | +0.05 | +0.77 | −1.46 | −1.99 |
+| 0.80 | 36 | 33 | 0.917 | 47.5 | 10.5 | 37.0 | +0.64 | +0.80 | −0.80 | +0.64 | +0.15 | +0.66 | +0.58 | +0.00 | +0.74 | −1.48 | −2.03 |
+| 0.90 | 27 | 26 | 0.963 | 26.1 | 1.1 | 25.0 | +0.37 | +0.31 | −0.52 | +0.37 | −0.34 | +0.90 | +0.37 | −0.41 | +1.00 | −1.61 | −2.21 |
+| 0.92 | 26 | 26 | 1.000 | 26.1 | 0.0 | 26.1 | +0.34 | +0.23 | −0.35 | +0.34 | −0.41 | +0.95 | +0.34 | −0.49 | +1.06 | −1.63 | −2.24 |
+| 0.94 | 24 | 24 | 1.000 | 20.2 | 0.0 | 20.2 | +0.28 | +0.11 | +1.62 | +0.28 | −0.54 | +1.01 | +0.28 | −0.61 | +1.12 | −1.69 | −2.31 |
+
+(The full 33-row table is in `outputs/models/max_branch_tau_sweep.json`.)
+
+**τ\* = 0.52**, at E[win] $93.7M − E[coll] $20.1M = **$73.6M**. The amendment's
+diagnosis of the plateau is confirmed: purity runs 0.81 → 0.92 across τ = 0.30 to
+0.52 and then sits flat to 0.88, and the old "smallest τ with purity ≥ 0.90" rule
+landed at 0.49-0.51, the left edge. τ\* = 0.52 is only two steps to the right of
+it, and the amendment's expectation that τ ≈ 0.70 would be chosen does not
+materialise: the objective falls from $73.6M at 0.52 to $41.7M at 0.70, because
+E[win] drops $93.7M → $52.2M (12 true maxes fall out) while E[collateral] only
+drops $20.1M → $10.5M. The rule prefers keeping the maxes.
+
+### 3c. Gate battery at τ\* = 0.52
+
+| | A (no clip) | **B (P_ext ≥ 0.50)** | C (≥ 0.25, diagnostic) | D (unconditional) |
+|---|---|---|---|---|
+| win (zone MAE) | +$1.12M PASS | +$1.12M PASS | +$1.05M PASS | −$1.06M **fail** |
+| counterweight brake | +0.08 PASS | −0.20 PASS | −0.35 PASS | −1.42 PASS |
+| 25%+ band brake | +1.22 **fail** | +0.57 **fail** | +0.41 **fail** | −1.69 PASS |
+| ΔSel (t) | −0.00573 (−1.63) PASS | +0.00032 (+0.04) PASS | +0.00307 (+0.35) PASS | −0.00053 (−0.05) PASS |
+| C2 worst | +0.03 PASS | +0.01 PASS | +0.01 PASS | +0.75 **fail** |
+| B1 drop | +0.0168 **fail** | +0.0137 **fail** | +0.0019 **PASS** | +0.0119 **fail** |
+| A1 / A2 | 0.7849 / 0.8381 | 0.7903 / 0.8490 | 0.7946 / 0.8485 | 0.7796 / 0.8359 |
+| **verdict** | **FAIL** | **FAIL** | **FAIL** | **FAIL** |
+
+**No arm passes at the selected τ.** The sweep is the evidence either way, and it
+says the max branch still fails — but it fails on two gates, not five, and the
+extension clip removes one of the two failure modes.
+
+### 3d. Does the collateral collapse? No — and the blocker is P, not the ceiling
+
+Collateral at τ\* = 0.52 is 4 rows. What each arm does to them:
+
+| row | P(max) | **P(extension)** | pay | champ err | ext ceiling | damage A | damage B | damage C | damage D |
+|---|---|---|---|---|---|---|---|---|---|
+| marcus smart 2022 | 0.658 | **0.268** | $17.46M | +$11.14M | $16.61M | +$11.08M | +$11.08M | **−$2.66M** | **−$10.29M** |
+| lamarcus aldridge 2019 | 0.900 | **0.155** | $26.00M | +$1.79M | $26.82M | +$10.41M | +$10.41M | +$10.41M | **−$0.98M** |
+| jalen brunson 2025 | 0.908 | **0.061** | $34.94M | +$10.22M | $34.94M | +$1.23M | +$1.23M | +$1.23M | **−$10.22M** |
+| jaylen brown 2020 | 0.816 | 0.296 | $23.44M | +$3.85M | $27.29M | $0.00M | $0.00M | $0.00M | $0.00M |
+| **total damage** | | | | | | **+$22.72M** | **+$22.72M** | **+$8.97M** | **−$21.49M** |
+
+**Arm B is bit-identical to arm A on all four rows.** The clip never fires,
+because every one of them has P(extension) below 0.50 — Brunson reads **0.061**
+despite being a textbook veteran extension. The classifier is confident he is a
+max signing (P(max) 0.908), and softprob normalisation leaves nothing for the
+extension class. That is the whole failure: **the ceilings are right and the
+route probability is wrong on exactly the rows that need it.**
+
+The two diagnostic arms bracket the answer:
+
+- **C (P_ext ≥ 0.25)** catches Smart, turning $11.08M of damage into a $2.66M
+  *gain*, and cuts total collateral from $22.72M to $8.97M. It also fixes the B1
+  failure outright (drop +0.0168 → +0.0019, PASS) and posts the best A1 of any
+  arm (0.7946). It still fails the 25%+ band brake at +0.41 against the $0.30M
+  bar, and Aldridge and Brunson still escape.
+- **D (unconditional)** would remove all the collateral damage and then some
+  (−$21.49M), and it is the **mirror failure the QUEUE standing decision
+  predicted**, now measured: win goes **negative** (−$1.06M) because the clip
+  also lands on true max rows, C2 blows out to +$0.75M, and the 25%+ band swings
+  −$1.69M. Clipping every row at the ceiling it *would* face if it extended
+  systematically underprices the players who instead reach free agency.
+
+So the honest summary of the amendment's hypothesis: the extension ceiling would
+indeed catch Smart, Aldridge and Brunson — arm D proves the ceilings are correct
+for all three — but **no ex-ante gate on P(extension) reaches them**, and the
+gate loose enough to catch Smart (0.25) is already loose enough to start
+importing D's mirror failure into the 25%+ band.
 
 **The counterweight-band hypothesis is refuted.** ISSUES #21 argued that the
 band's $4.87M underprediction "is not model error at all" but a population of
@@ -491,6 +635,7 @@ Branch `worker/extension-route` off `master` (47d6da4), in worktree
 | `src/model/route_mixture.py` | **added** `ROUTE6_CLASSES`, `compute_route6_labels`, `train_route6_classifier`; nothing existing changed |
 | `scripts/eval_extension_cap.py` | **new** — Part 1 evidence harness |
 | `scripts/eval_route_mixture_p4.py` | **new** — Part 2 evidence harness |
+| `scripts/eval_max_branch_tau_sweep.py` | **new** — Part 3's τ sweep, selection rule and clip arms |
 | `ISSUES.md` | **added** #22, #23, #24 |
 | `docs/briefs/2026-07-26-extension-route.RESULT.md` | this file |
 
@@ -502,7 +647,12 @@ reproduces bit-identically inside both new harnesses
 `fold_r2_selection`).
 
 Artifacts (gitignored): `outputs/models/extension_cap_eval.json`,
-`extension_cap_oof.csv`, `route_mixture_p4_eval.json`, `route_mixture_p4_oof.csv`.
+`extension_cap_oof.csv`, `route_mixture_p4_eval.json`, `route_mixture_p4_oof.csv`,
+`max_branch_tau_sweep.json`, `max_branch_tau_sweep_oof.csv`.
+
+Branched from 47d6da4 and rebased onto 353f138 after the 2026-07-25 brief
+amendment landed; the amendment is docs-only, so every number above is unchanged
+by the rebase.
 
 ---
 
@@ -527,7 +677,7 @@ champion; lift the provisional marker on phase 3.**
    the ones that catch overfitting — B1 forward **improves** by +0.0135 on all
    three origins and C1 calibration improves. It fails gate 1 at t = 1.48. The
    decomposition says why, and says the failure is not the same as a null result:
-   the ceiling half is real but lumpy (t = 0.90 on 11 rows) and the premium half
+   the ceiling half is real but lumpy (t = 0.90 on 12 rows) and the premium half
    is broad and significant (t = 3.05) but breaks C1 on its own. Neither half is
    adoptable alone; the combination is calibration-clean but noisy. Three honest
    paths, in the order I would take them:
@@ -545,9 +695,26 @@ champion; lift the provisional marker on phase 3.**
    - Do **not** ship `ext_delta_only` on its t = 3.05 alone. It fails C1 at
      +0.0070, and it is the same intercept-bleed that failed the route-delta
      experiment; the ceiling is what makes it safe.
-4. **Lift the provisional marker on the phase-3 closure** (`docs/QUEUE.md`). The
-   counterweight brake is measuring model error on 20 non-extension rows, not a
-   data bug, and the extension cap binds on 6% of the collateral damage.
+4. **Close the phase-3 max branch, and lift the provisional marker**
+   (`docs/QUEUE.md`). Two independent reasons, both new evidence rather than a
+   re-statement:
+   - The τ sweep is now complete. τ\* = 0.52 by the pre-registered rule, and
+     **no arm passes** — the 25%+ band brake fails at +$1.22M unclipped and still
+     +$0.41M at the loosest useful clip, and B1 drops 0.0168 unclipped. The
+     plateau critique in the amendment was correct as a critique of the old rule
+     and does not rescue the branch: the objective peaks two steps from where the
+     old rule landed, not at 0.70.
+   - The counterweight brake is measuring model error on 20 non-extension rows,
+     not a data bug.
+5. **The one live thread out of Part 3 is P(extension), not the ceiling.** Arm D
+   shows the ceilings would fix all three capped collateral rows; arm B shows no
+   pre-registered gate reaches them. If the architect wants to reopen this, the
+   work is a better route classifier for extensions — the signing-date table
+   already knows which players were extension-eligible (final year of contract,
+   service years, prior-salary band), and none of that is in the classifier's
+   feature list today. Adopting arm C's 0.25 threshold instead would require
+   re-registering the threshold after seeing its score, which is the architect's
+   call to make explicitly, not mine to slip in.
 
 ## Proposed commit message
 
@@ -575,7 +742,7 @@ own salary table (ISSUES #22).
 The cap does not enter max_eligible_pct or the Stage-1 censor mask: it binds
 only conditional on choosing to extend.
 
-Honest headroom: the champion prices 11 rows above their corrected ceiling;
+Honest headroom: the champion prices 12 rows above their corrected ceiling;
 snapping exactly those is worth an oracle +0.0065.
 
 Six-route mixture (max/floor/mle/bird/capspace/extension), route values
@@ -585,7 +752,7 @@ slope 0.819). The decomposition localizes the fault to V_max/V_floor, which
 sit far from f(x) on every row; the continuous-delta arm is null. The
 extension route alone passes 4 of 5 (dSel +0.0118, t 1.48; B1 +0.0135, C1 and
 C2 both improving) and is not adopted. Its two ingredients split cleanly:
-the legal ceiling is +0.0048 at t 0.90 (lumpy, 11 rows) and improves
+the legal ceiling is +0.0048 at t 0.90 (lumpy, 12 rows) and improves
 calibration by 0.0086; the route premium is +0.0053 at t 3.05 (all five folds)
 but breaks C1 by +0.0070 on its own. The ceiling is what makes the premium
 safe.
