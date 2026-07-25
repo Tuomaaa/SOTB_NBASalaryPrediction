@@ -526,6 +526,42 @@ def _compute_floor(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _signing_seasons(df: pd.DataFrame) -> np.ndarray:
+    """The signing season of the dated contract covering each row, NaN if none.
+
+    The same instrument `extension_cap` uses — `parse_signing_dates.contract_spans`
+    over the cached Spotrac transaction lists, disambiguated by AAV when several
+    contracts touch one season. It is offline and cache-only, so a player with no
+    cached page contributes NaN and the caller falls back to the paying season,
+    which is the pre-instrument behaviour: a missing date degrades to the stale
+    answer, never to a missing ceiling.
+    """
+    from scripts.parse_signing_dates import contract_spans, covering_contract
+
+    try:
+        spans = contract_spans()
+    except (FileNotFoundError, OSError):
+        return np.full(len(df), np.nan)
+
+    out = np.full(len(df), np.nan)
+    caps = df["season"].astype(int).map(CAP_BY_SEASON).values.astype(float)
+    y = df[TARGET].values if TARGET in df.columns else np.full(len(df), np.nan)
+    for i in range(len(df)):
+        p, s = df["player_name_norm"].iat[i], int(df["season"].iat[i])
+        sal = float(y[i]) * caps[i] if y[i] == y[i] and caps[i] == caps[i] else None
+        cov = covering_contract(spans, p, s, salary=sal)
+        if cov is not None:
+            out[i] = int(cov["signing_season"])
+    return out
+
+
+# The Designated Veteran Player Exception was created by the 2017 CBA, which
+# took effect on 1 July 2017 — signing season 2017 under our July-boundary
+# convention. No contract signed before it can be a Designated Veteran deal,
+# whatever awards its holder had won (see _compute_max_eligible).
+DVE_FIRST_SIGNING_SEASON = 2017
+
+
 def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
     """Compute max_eligible_pct with Rose Rule / Supermax from draft + awards data.
 
@@ -543,6 +579,31 @@ def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
       1.08 x previous-season pay covers both the CBA no-decrease rule and the
       pre-2019 contracts whose first observed season is mislabeled year-1
       (Curry 2019 at 36.9% of a frozen cap).
+
+    **The two award tests are anchored on different seasons, and that is not an
+    inconsistency** (ISSUES #23, #27):
+
+    - *Supermax* eligibility is judged when the deal is SIGNED, so its award
+      test reads the signing season. Marcus Smart's August-2021 extension read
+      Designated-Veteran off a DPOY announced nine months later and carried a
+      $43.28M ceiling in place of $37.10M. `extension_cap._designated_veteran`
+      was moved to the signing anchor on 2026-07-27; this is the same fact in
+      the ceiling path.
+    - *Rose Rule* stays on the PAYING season, because the 30% escalator is a
+      conditional term written INTO a rookie-scale extension: the qualifying
+      award legitimately postdates the signature. Moving it to the signing
+      anchor with the supermax test strips the escalator from thirteen rows
+      that were genuinely paid at it (Trae Young 2022, Haliburton 2024, Edwards
+      2024, Mobley and Cunningham 2025 among them), putting each above its own
+      ceiling.
+
+    The service-year window stays on the paying season and is deliberately NOT
+    re-anchored: what is unreliable there is our debut-based count, not the
+    calendar (Embiid was rostered two seasons before he debuted, so his signing
+    -season count reads 5 where the CBA saw 7). The pre-2017 guard above is what
+    stops that looseness from promoting a plain pre-DVE max — Drummond's 2016
+    re-signing pairs a paying-season count of 7 with a 2016 All-NBA, and without
+    the guard the signing anchor would hand it a 35% ceiling.
     """
     from scripts.build_external_features import norm
 
@@ -571,6 +632,15 @@ def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
     supermax = np.zeros(len(df), dtype=bool)
     early = _load_early_supermax()
     ineligible = _load_designated_ineligible()  # ISSUES #19: team-change/non-DVE
+    sign_seasons = _signing_seasons(df)
+    n_dated = int(np.isfinite(sign_seasons).sum())
+    print(f"  signing season: {n_dated} dated, {len(df) - n_dated} fall back to "
+          f"the paying season")
+
+    def _trigger(p, s):
+        return ((p, s) in elite_set or (p, s - 1) in elite_set
+                or _elite_count(p, [s - 2, s - 1, s]) >= 2)
+
     for i in range(len(df)):
         p, s = pns[i], int(seasons[i])
         if (p, s) in ineligible:
@@ -578,19 +648,24 @@ def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
             # Designated Veteran (new team / veteran-deal acquisition / plain
             # 30% max); leave base at the plain experience tier.
             continue
-        trig = ((p, s) in elite_set or (p, s - 1) in elite_set
-                or _elite_count(p, [s - 2, s - 1, s]) >= 2)
-        if trig and exp[i] <= 6:
+        # Supermax reads the SIGNING season, Rose Rule the paying season — see
+        # the docstring. An undated row falls back to the paying season, which
+        # reproduces the pre-instrument behaviour exactly.
+        ss = int(sign_seasons[i]) if np.isfinite(sign_seasons[i]) else s
+        if _trigger(p, s) and exp[i] <= 6:
             rose[i] = True
-        elif 7 <= exp[i] <= 9 and (trig or (p, s) in early):
+        elif 7 <= exp[i] <= 9 and (
+                (_trigger(p, ss) and ss >= DVE_FIRST_SIGNING_SEASON)
+                or (p, s) in early):
             # A designated-veteran deal can be signed two summers before it
             # starts (Wall: All-NBA 2016-17, signed 2017, effective 2019-20),
             # putting the qualifying award outside any window anchored to the
             # start season. A blanket s-3 lookback was tried and granted 35%
             # ceilings to eleven rows, wrongly un-censoring two genuine 30%
             # max signings (Klay 2019, Fox 2026) — such deals are ~1/year and
-            # high-profile, so they are enumerated in early_supermax.csv
-            # instead. The systematic fix is scraping signing dates.
+            # high-profile, so they stay enumerated in early_supermax.csv even
+            # now that the signing date is available, because the date alone
+            # does not say the deal was Designated.
             supermax[i] = True
 
     base = np.where(supermax, 0.35, base)
