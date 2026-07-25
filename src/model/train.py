@@ -330,6 +330,31 @@ def _load_draft_years() -> dict[str, int]:
     return out
 
 
+def _load_debut_seasons() -> dict[str, int]:
+    """Load {normalized_name: debut_season} from BBRef player index scrape.
+
+    debut_season is the START-year of the player's first NBA season (our
+    convention), derived from BBRef's "From" column (which uses end-year).
+    For duplicate names (46 across NBA history, 2 in our training window),
+    the most recent debut wins — our 2019-2026 window cannot contain a
+    player who last played before ~2000.
+    """
+    from scripts.build_external_features import norm
+    path = PROCESSED_DIR / "debut_seasons.csv"
+    if not path.exists():
+        return {}
+    df = pd.read_csv(path)
+    df["pn"] = df["player_name_bbref"].apply(lambda x: norm(str(x).rstrip("*")))
+    df = df.sort_values("debut_season", ascending=True)
+    out = {}
+    for _, r in df.iterrows():
+        try:
+            out[r["pn"]] = int(r["debut_season"])
+        except (ValueError, TypeError):
+            pass
+    return out
+
+
 def _load_early_supermax() -> set[tuple[str, int]]:
     """(normalized_name, start_season) for supermaxes signed 2+ summers early.
 
@@ -482,17 +507,21 @@ def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
     from scripts.build_external_features import norm
 
     df = df.copy()
-    draft_years = _load_draft_years()
+    debut_seasons = _load_debut_seasons()
     elite_set = _load_elite_set()
 
     def _elite_count(pn, years):
         return sum(1 for y in years if (pn, y) in elite_set)
 
     df["pn_clean"] = df["player_name_norm"].apply(norm)
-    df["_dy"] = df["pn_clean"].map(draft_years)
-    exp_draft = df["season"] - df["_dy"]
+    exp_debut = df["pn_clean"].map(debut_seasons)
+    exp_debut = df["season"] - exp_debut
     exp_age = (df["age"].fillna(25) - 19).clip(lower=0)
-    exp = exp_draft.fillna(exp_age).astype(int).clip(lower=0).values
+    exp = exp_debut.fillna(exp_age).astype(int).clip(lower=0).values
+
+    n_debut = int(exp_debut.notna().sum())
+    n_fallback = int(exp_debut.isna().sum())
+    print(f"  service years: {n_debut} from debut, {n_fallback} age-19 fallback")
 
     base = np.where(exp >= 10, 0.35, np.where(exp >= 7, 0.30, 0.25))
 
@@ -544,7 +573,7 @@ def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
 
     df["max_eligible_pct"] = base
     df["is_max_contract"] = df[TARGET] >= base * 0.90
-    df = df.drop(columns=["pn_clean", "_dy"])
+    df = df.drop(columns=["pn_clean"])
     return df
 
 
