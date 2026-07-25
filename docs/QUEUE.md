@@ -39,7 +39,21 @@ architecture lines below are decided, and what remains is listed under
 
 ## Closed architecture lines (do not reopen without new data)
 
-- **Route-mixture max branch** — closed after three phases. **The phase-3
+- **Route-mixture max branch** — **CLOSURE PROVISIONAL, pending ISSUES #21.**
+  Filed 2026-07-26: veteran-extension raise caps (120% pre-2023 CBA, 140%
+  after) are not implemented, so 21 rows sit at a legal bound we cannot see
+  and 15 carry ceilings up to $29.7M too high. Three of the five collateral
+  rows that fail the brakes — Aldridge 2019 (1.16× prior), Smart 2022
+  (1.26×), Brunson 2025 (**1.400× exactly**) — are extension-capped maxima,
+  not classifier errors, and they carry 82% ($22.7M of $27.8M) of the push
+  damage. The counterweight band the brake is built on may itself be
+  populated by these rows, in which case its $4.87M "underprediction" is a
+  data bug rather than model error. **Re-run the phase-3 harness after #21
+  lands before treating this line as closed.** This would be the THIRD time
+  a ceiling bug masqueraded as a modelling limit (#19 invalidated phase 2,
+  service years invalidated phase 3's brakes).
+
+- Closure rationale as it stood before #21 was found — closed after three phases. **The phase-3
   RESULT's numbers are stale**: that worker was pinned before the
   service-years landing, exactly the trap that invalidated phase 2. The
   architect re-ran its harness unmodified on v7.13x (2026-07-26); use these
