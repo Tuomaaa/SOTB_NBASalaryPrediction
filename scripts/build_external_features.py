@@ -23,6 +23,11 @@ def norm(name):
     nfkd = unicodedata.normalize("NFKD", name)
     out = "".join(c for c in nfkd if not unicodedata.combining(c))
     out = out.replace(".", "").replace("-", " ")
+    # Strip concatenated annotation tokens (e.g. "st1", "covid2") from
+    # awards_full.csv footnotes, then remove any remaining non-name chars
+    # (^, §, †, digits, replacement chars)
+    out = re.sub(r"(?:st|covid)\d+$", "", out)
+    out = re.sub(r"[^a-z .'\-]", "", out)
     out = re.sub(r"\s+", " ", out).strip()
     return out
 
@@ -71,6 +76,8 @@ def build_award_features():
         aw.rename(columns={"year": "Year", "award": "Award"}, inplace=True)
         if "player_name_norm" not in aw.columns:
             aw["player_name_norm"] = aw["player_name"].apply(norm)
+        else:
+            aw["player_name_norm"] = aw["player_name_norm"].apply(norm)
     else:
         aw = pd.read_csv(legacy_path)
         aw["player_name_norm"] = aw["Player"].apply(norm)
