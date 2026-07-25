@@ -7,7 +7,7 @@ Last updated: 2026-07-26, after the five-worker landing (v7.13x).
 
 ## In flight / ready to launch
 
-Three dispatched 2026-07-28, file ownership exclusive so they run in
+Five dispatched 2026-07-28, file ownership exclusive so they run in
 parallel:
 
 - **Wire stage 3** (`2026-07-28-wire-stage3.md`) — adopt push + extension
@@ -25,6 +25,22 @@ parallel:
   still carries pre-correction values while the ceilings use corrected ones).
   Moves the champion. Owns `_compute_max_eligible`, the curated ineligible
   list, and the training table.
+- **Docs, pass 1** (`2026-07-28-docs-v79-v713.md`) — VERSION_HISTORY stops
+  at v7.8x and five landed versions are frozen and cannot move, so they get
+  written now. Owns `VERSION_HISTORY.md` alone; explicitly forbidden from
+  writing v8.0x, touching METHODOLOGY, or describing the three-stage
+  architecture — that is pass 2, after the wiring lands. Told to name
+  problems rather than cite issue numbers, since the numbering is being
+  repaired in parallel.
+- **Offseason-injury probe** (`2026-07-28-offseason-injury-probe.md`) —
+  reconnaissance only. The floor branch's +0.0396 needs a fact dated between
+  the priced season and the signing, and the two injury files we hold cannot
+  supply it: they are game-day availability logs (Jun-Sep records are 1.88%
+  and 0.18% of rows) with holes at Oct-2020→Oct-2021 — which covers Oladipo
+  2021, the largest floor error — and after June 2024. The probe establishes,
+  on nine named rows, whether the event is recorded anywhere public, **counts
+  the ones with no injury at all** (Harrell may just have hit a cold market),
+  and computes the subset oracle before anyone funds a scrape.
 - **ISSUES cleanup** (`2026-07-28-issues-cleanup.md`) — two `#20`s, two
   `#25`s, four fixed-but-undeleted entries, and #21's title now says the
   opposite of the truth. Owns `ISSUES.md` alone; the other two put their
@@ -104,11 +120,14 @@ architecture lines below are decided, and what remains is listed under
    deal, and the Value Board's "given he re-signed with Bird rights" view.
    Needs a brief that defines the two modes in code and reports them
    separately, plus CONTEXT.md vocabulary for the split.
-2. **Team-continuity signal** (ISSUES #6 maintenance debt). A signing-date
-   team-match would replace BOTH curated lists (`early_supermax.csv`,
-   `designated_ineligible.csv`), each of which needs a hand-added row every
-   summer, and is also the missing feature behind δ_bird (the model has no
-   team-history input at all — ISSUES #5). One signal, three payoffs.
+2. **Team-continuity signal — DEMOTED 2026-07-28** to a maintenance item,
+   not an accuracy one (user's call, and the arithmetic agrees). Its three
+   claimed payoffs do not survive costing: retiring the two curated lists is
+   a maintenance win because those 14 rows are already *correct* by hand;
+   δ_bird's entire ceiling under perfect route knowledge is ~+0.008 and its
+   ex-ante form has failed every time; and better P(route) is the thing three
+   separate experiments have shown does not convert. Worth doing so nobody
+   hand-adds a row each summer — not worth doing for the metric.
 3. **Product display** — P(max) on the Value Board ("85% max, $46.4M if
    maxed"). The classifier is strong enough now (AUC 0.9823, median P on a
    true max 0.81) and this needs no gate because it does not enter scoring.
@@ -164,10 +183,13 @@ architecture lines below are decided, and what remains is listed under
   So the real constraint is not "purity and winnable error are the same
   axis" (phase 2/3's framing) but: **too few reachable rows to clear the bar,
   and reaching more always drags in a few catastrophic overshoots.**
-  Reopening still requires a signal ORTHOGONAL to the impact metrics (team
-  continuity, reputation) — and, if anyone does reopen it, a brake that
-  separates correcting-underprediction from over-pushing (band MAE or a
-  touched-rows-only bias), since the signed-bias form fires on both.
+  **SUPERSEDED 2026-07-28.** This closure did not survive: the user asked
+  why the branch was being closed, and the two gates it failed turned out
+  to be (a) a brake the architect had already recorded as mis-specified and
+  (b) a forward drop carried by three extension rows the Stage-3 clip now
+  catches. Push + clip is being wired in (see In flight). Any earlier line
+  in this file calling team continuity 'the only route to reopen the max
+  push' is void — the push was never killed.
 - **Floor branch** — NO-GO by the same structure at the other bound (the
   floor is already left-censored in Stage 1, so high-P(floor) rows are the
   ones the censor already pins).
