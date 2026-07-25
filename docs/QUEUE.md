@@ -7,6 +7,36 @@ Last updated: 2026-07-26, after the five-worker landing (v7.13x).
 
 ## In flight / ready to launch
 
+Three dispatched 2026-07-28, file ownership exclusive so they run in
+parallel:
+
+- **Wire stage 3** (`2026-07-28-wire-stage3.md`) — adopt push + extension
+  clip into the pipeline. Decided with the user: push + clip, not clip alone
+  (clip alone is cleaner on t=1.48 and the band brake but leaves the max
+  zone's $1.12M on the table, which is the problem the line exists for).
+  Measured A1 0.7865 → 0.7988, A2 0.8341 → 0.8517, B1 0.8342 → 0.8355,
+  2026 origin 0.7964 → 0.7989. Adopted at t=1.11 on the same
+  legal-bound-not-fitted-parameter grounds as v7.4x/v7.9x/v7.13x. Owns
+  extension_cap / evaluate_suite / the Stage-2-3 composition / export_web /
+  predict.
+- **Ceiling consistency** (`2026-07-28-ceiling-consistency.md`) — ISSUES #27
+  (Smart 2022 still reads a 35% tier ceiling in `_compute_max_eligible`; the
+  #23 fix only reached `extension_cap`) and #26 (the `prev_cap_pct` FEATURE
+  still carries pre-correction values while the ceilings use corrected ones).
+  Moves the champion. Owns `_compute_max_eligible`, the curated ineligible
+  list, and the training table.
+- **ISSUES cleanup** (`2026-07-28-issues-cleanup.md`) — two `#20`s, two
+  `#25`s, four fixed-but-undeleted entries, and #21's title now says the
+  opposite of the truth. Owns `ISSUES.md` alone; the other two put their
+  entries in their RESULTs and the architect slots them in.
+
+**2026's forward number is two contracts.** Trae Young (−$32.1M) and JJJ
+(−$25.0M) carry 50.5% of the 2026 origin's squared error; excluding them
+takes it from 0.7964 to 0.8792, the best of the three origins. Both are
+widely-panned deals the model correctly declines to endorse, so that part of
+the residual should not be chased — the evaluation metric cannot tell "the
+model is wrong" from "the market was wrong".
+
 - **Told-clip + data fix** — brief dispatched:
   `2026-07-27-told-clip-and-data-fix.md`. Fixes ISSUES #23 (Smart 2022 gets a
   designated-veteran exemption from an award that POSTDATES his signing — he
