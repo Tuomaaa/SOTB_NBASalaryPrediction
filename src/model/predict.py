@@ -1,11 +1,18 @@
 """Generate predictions for upcoming free agents using the champion Grabit stack.
 
 Trains the two-sided censored-normal Grabit model on all seasons before the
-target, applies Stage-2 CBA bounds (max eligible + floor clip), and identifies
-free agents by comparing against the salary roll.
+target, applies the Stage-2 CBA bounds (the max push, then the ceiling and floor
+clip), and identifies free agents by comparing against the salary roll.
+
+Stage 3 — the extension raise cap — is a NO-OP here, and that is correct rather
+than an omission: an unsigned free agent is by definition not extending, so he
+carries no extension flag and no `ext_cap_pct`. The call is made explicitly with
+empty route inputs so the no-op is demonstrated by the code rather than assumed
+by the reader.
 
 This is the same pipeline export_web.py uses to produce the portfolio site's
-valuations — it must stay in sync with that path.
+valuations, and the same `src.model.stages` composition the evaluation suite
+scores — all three must stay in sync.
 """
 
 import sys
@@ -18,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON
+from src.model import stages
 from src.model.train import (
     load_training_data, train_grabit, _compute_max_eligible, _compute_floor,
     _filter_year1, _filter_rookie_scale, _filter_prorated,
@@ -110,15 +118,33 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
 
     max_elig = pred_df["max_eligible_pct"].values
     floor_pct = pred_df["floor_pct"].values
-    capped = np.clip(latent, floor_pct, max_elig)
+
+    # Stage 2's upward half: where the route classifier says P(max) >= tau, push
+    # the latent toward the ceiling before clipping. The classifier is fit on the
+    # same filtered training frame the regression saw, so nothing from the target
+    # season enters it. Stage 3 is passed empty inputs — nobody in this frame has
+    # a realized extension to be told about.
+    p_max = stages.deployed_p_max(stages.training_route_frame(train_df), pred_df,
+                                  medians=medians)
+    no_extension = np.zeros(len(pred_df), bool)
+    no_ext_cap = np.full(len(pred_df), np.nan)
+    capped = stages.compose(latent, lo=floor_pct, hi=max_elig, p_max=p_max,
+                            is_extension=no_extension, ext_cap_pct=no_ext_cap)
+    flags = stages.bound_flags(latent, capped, lo=floor_pct, hi=max_elig,
+                               p_max=p_max, is_extension=no_extension,
+                               ext_cap_pct=no_ext_cap)
+    assert not flags["is_ext_capped"].any(), \
+        "Stage 3 fired on a frame with no extension rows"
 
     cap = CAP_BY_SEASON.get(target_season, 153_000_000)
     pred_df["latent_cap_pct"] = latent
     pred_df["predicted_cap_pct"] = capped
     pred_df["predicted_salary"] = capped * cap
     pred_df["latent_salary"] = latent * cap
-    pred_df["is_capped"] = latent > max_elig + 1e-9
-    pred_df["is_floored"] = latent < floor_pct - 1e-9
+    pred_df["p_max"] = p_max
+    pred_df["is_pushed"] = flags["is_pushed"]
+    pred_df["is_capped"] = flags["is_capped"]
+    pred_df["is_floored"] = flags["is_floored"]
 
     # FA identification + diff
     sal = pd.read_csv(PROCESSED_DIR / "salaries.csv")
@@ -150,7 +176,7 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     out_cols = [
         "player_name", "player_name_norm", "season", "age", "position",
         "predicted_cap_pct", "predicted_salary", "latent_cap_pct", "latent_salary",
-        "is_capped", "is_floored",
+        "p_max", "is_pushed", "is_capped", "is_floored",
         "is_free_agent", "actual_salary", "reference_salary", "diff",
         "darko_dpm", "lebron", "rapm",
         "minutes", "usage_pct", "team_abbreviation",
@@ -171,9 +197,10 @@ if __name__ == "__main__":
     fa.to_csv(pred_dir / "free_agents_2026.csv", index=False)
 
     print(f"\nSaved: {len(out)} total, {len(fa)} FAs")
+    n_pushed = out.get("is_pushed", pd.Series(dtype=bool)).sum()
     n_capped = out.get("is_capped", pd.Series(dtype=bool)).sum()
     n_floored = out.get("is_floored", pd.Series(dtype=bool)).sum()
-    print(f"CBA bounds: {n_capped} capped, {n_floored} floored")
+    print(f"CBA bounds: {n_pushed} pushed, {n_capped} capped, {n_floored} floored")
     print(f"\nTop 20:")
     for _, r in out.head(20).iterrows():
         fa_tag = " [FA]" if r.get("is_free_agent") else ""
