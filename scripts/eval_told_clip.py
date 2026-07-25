@@ -358,12 +358,24 @@ def main():
         for k in keys:
             fwd[k][te] = acc[k] / len(SEEDS)
         print(f"    origin {T} done", flush=True)
-    b1 = {}
+    b1, b1_by_origin = {}, {}
     for k in keys:
         m = ~np.isnan(fwd[k])
         b1[k] = float(r2_score(y[m], fwd[k][m]))
         print(f"    {k:22s} forward R2 {b1[k]:.4f}"
               + ("" if k == "champion" else f"   drop {b1['champion'] - b1[k]:+.4f}"))
+    # Per-origin: a pooled forward R2 hides which season carries a change, and
+    # the 2026 origin is the project's headline holdout.
+    seasons = df["season"].values
+    print("\n    per origin (the 2026 row is the holdout headline):")
+    for T in FORWARD_ORIGINS:
+        o = {}
+        for k in keys:
+            m = (~np.isnan(fwd[k])) & (seasons == T)
+            o[k] = float(r2_score(y[m], fwd[k][m])) if m.sum() > 10 else float("nan")
+        b1_by_origin[int(T)] = o
+        print(f"      {T}  n={int(((seasons == T) & ~np.isnan(fwd['champion'])).sum()):3d}  "
+              + "  ".join(f"{k}: {o[k]:.4f}" for k in keys))
 
     # ---- gate verdicts ----------------------------------------------------
     print("\n" + "=" * 74)
@@ -397,7 +409,8 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     report = {"tau": TAU, "margin": MARGIN, "p_ext_clip": P_EXT_CLIP,
               "n_rows": len(df), "n_extension": int(df["is_extension"].sum()),
-              "arms": rows, "B1": b1, "gates": g, "per_row": per_row,
+              "arms": rows, "B1": b1, "B1_by_origin": b1_by_origin,
+              "gates": g, "per_row": per_row,
               "n_clip_moved": int(len(moved))}
     with open(OUT / "told_clip_eval.json", "w") as fh:
         json.dump(report, fh, indent=2, default=float)
