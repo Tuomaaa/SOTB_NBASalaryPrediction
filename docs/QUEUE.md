@@ -39,15 +39,39 @@ architecture lines below are decided, and what remains is listed under
 
 ## Closed architecture lines (do not reopen without new data)
 
-- **Route-mixture max branch** — closed after three phases. Final state on
-  corrected labels: the classifier is excellent (P(max) AUC 0.9823) but no
-  operating point both wins and stays clean. Zero-collateral thresholds have
-  honest ceilings of $0.15M/$0.43M — below the $0.50M bar before any arm
-  runs — while 90%-purity thresholds clear the win and break both brakes.
-  Spearman(P, |champion error|) = −0.761: the maxes a classifier can be
-  confident about are the ones the champion already prices, because both key
-  off the impact metrics. Reopening requires a signal ORTHOGONAL to the
-  impact metrics (team continuity, reputation), not a better router.
+- **Route-mixture max branch** — closed after three phases. **The phase-3
+  RESULT's numbers are stale**: that worker was pinned before the
+  service-years landing, exactly the trap that invalidated phase 2. The
+  architect re-ran its harness unmodified on v7.13x (2026-07-26); use these
+  numbers, not the RESULT's.
+
+  What the re-run changed: the counterweight brake now PASSES at the
+  90%-purity points (0.62 → 0.19 base, 0.36 → 0.13 enriched) because Reaves
+  and Butler left that band on becoming maxes, and the win survives the
+  confirmation split (enriched τ90 wins $0.88M on decidable rows against the
+  $0.50M bar) — so phase 3's headline argument, that the win was an artifact
+  of the locked rows, no longer holds.
+
+  What did not change — the closure: the two operating points fail for
+  opposite and now fully understood reasons.
+  · **Zero collateral (enriched τ=0.91, 26 maxes)**: every guardrail clean,
+    pooled R² actually +0.0026, band MAE down — but the zone win is $0.36M
+    against the $0.50M bar and ΔSel t = −0.29. Too few rows to win.
+  · **90% purity (enriched τ=0.50, 48 maxes + 5 collateral)**: wins big, and
+    the brake it "fails" is mis-specified — 70% of that band's +$1.26M bias
+    growth is 37 at-ceiling maxes being CORRECTED (Beal 2022 −$9.05M → 0.00,
+    Haliburton 2024 −$5.90M → 0.00), which a signed-bias instrument cannot
+    tell apart from over-pushing. But the config dies anyway on the primary
+    metric: pooled R² 0.7865 → 0.7842, ΔSel t = −1.73, because squared error
+    punishes the few large overshoots (Aldridge 2019 alone +$10.41M).
+
+  So the real constraint is not "purity and winnable error are the same
+  axis" (phase 2/3's framing) but: **too few reachable rows to clear the bar,
+  and reaching more always drags in a few catastrophic overshoots.**
+  Reopening still requires a signal ORTHOGONAL to the impact metrics (team
+  continuity, reputation) — and, if anyone does reopen it, a brake that
+  separates correcting-underprediction from over-pushing (band MAE or a
+  touched-rows-only bias), since the signed-bias form fires on both.
 - **Floor branch** — NO-GO by the same structure at the other bound (the
   floor is already left-censored in Stage 1, so high-P(floor) rows are the
   ones the censor already pins).
