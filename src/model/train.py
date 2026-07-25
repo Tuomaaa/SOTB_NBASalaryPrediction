@@ -411,12 +411,45 @@ def _load_name_aliases() -> dict[str, str]:
     return dict(zip(al["old_name"], al["current_name"]))
 
 
+def _load_salary_corrections() -> pd.DataFrame:
+    """Curated per-row salary corrections (ISSUES #22/#23).
+
+    Two kinds, and they are not interchangeable:
+
+    - ``prior_base`` — the season's CONTRACTUAL base salary, where our table
+      carries a figure the CBA arithmetic proves is not the base a later
+      extension was priced off (a renegotiated season, or a plain scrape
+      defect). Applied in `_load_prev_season_cap_pct` below, so every consumer
+      of prior-season pay sees the same number.
+    - ``pay_above_base`` — money INSIDE the row's observed pay that sits
+      outside the negotiated base salary (a trade bonus, an earned incentive).
+      It is not a correction to the target; it lifts that row's own extension
+      ceiling, because the raise cap governs base salary and this money is
+      legally on top of it. Consumed by `extension_cap.attach_extension_cap`.
+
+    The `confidence` column carries the standard of evidence: `verified` means
+    the value is pinned by an independent anchor (a contract total, an exact
+    escalator sequence), `inferred` means it is the CBA rule inverted through
+    observed pay, and `residual` means the magnitude itself is observed pay
+    minus the legal base. Anything but `verified` is a claim about our data,
+    not about the world — the over-cap count is our most sensitive detector of
+    salary defects, and burying an inferred figure in it would disarm it.
+    """
+    path = RAW_DIR / "raw_external" / "salary_corrections.csv"
+    cols = ["player_name_norm", "season", "kind", "value_usd", "confidence",
+            "source", "note"]
+    if not path.exists():
+        return pd.DataFrame(columns=cols)
+    return pd.read_csv(path)
+
+
 def _load_prev_season_cap_pct() -> dict[tuple[str, int], float]:
     """(player, season) -> that season's cap_pct, over every row in the data.
 
     Read from the unfiltered training table so escalator years are present —
     the ceiling rule below needs a player's actual pay in season-1 even when
-    that row never enters training.
+    that row never enters training. `prior_base` corrections from
+    `salary_corrections.csv` are applied last and win over the table.
     """
     path = PROCESSED_DIR / "training_data_v2.csv"
     if not path.exists():
@@ -436,7 +469,14 @@ def _load_prev_season_cap_pct() -> dict[tuple[str, int], float]:
     pct = t["salary"] / cap
     t = t[cap.notna()]
     pct = pct[cap.notna()]
-    return dict(zip(zip(t["player_name_norm"], t["season"].astype(int)), pct))
+    out = dict(zip(zip(t["player_name_norm"], t["season"].astype(int)), pct))
+
+    corr = _load_salary_corrections()
+    for r in corr[corr["kind"] == "prior_base"].itertuples():
+        s = int(r.season)
+        if s in CAP_BY_SEASON:
+            out[(str(r.player_name_norm), s)] = float(r.value_usd) / CAP_BY_SEASON[s]
+    return out
 
 
 def _compute_floor(df: pd.DataFrame) -> pd.DataFrame:
