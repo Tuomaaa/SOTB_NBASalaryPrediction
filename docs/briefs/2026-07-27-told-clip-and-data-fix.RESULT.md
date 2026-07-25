@@ -233,6 +233,7 @@ a surface shift. I have not picked a side; both numbers are in the table.
 | `src/model/extension_cap.py` | ISSUES #23 award anchor; `pay_above_base` allowance; `ext_addon_usd` column |
 | `src/model/train.py` | `_load_salary_corrections()`; `prior_base` applied in `_load_prev_season_cap_pct` |
 | `data/raw/raw_external/salary_corrections.csv` | **new** — 5 curated entries with derivation, source and confidence |
+| `.gitignore` | whitelist for the above — `data/raw/raw_external/*` is ignored by default and the new table would have been silently dropped, which is the trap that file's own comment describes |
 | `scripts/eval_told_clip.py` | **new** — the evidence harness for this RESULT |
 | `ISSUES.md` | #22 and #23 deleted (fixed here); #25, #26, #27 added |
 | `docs/briefs/2026-07-27-told-clip-and-data-fix.RESULT.md` | this file |
