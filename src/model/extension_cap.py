@@ -92,12 +92,26 @@ def _designated_veteran(pn: str, season: int, sign_season, exp_by_season,
 
     Mirrors _compute_max_eligible's supermax branch — 7-9 years of service plus
     a qualifying award, minus the curated designated_ineligible list, plus the
-    curated early_supermax list — but tests BOTH the signing season and the
-    paying season. The signing anchor catches deals signed two summers early
-    (Wall 2017 -> 2019, Harden 2017 -> 2019); the paying anchor catches players
-    whose service years our debut-based count understates (Embiid, who spent two
-    seasons on the roster before debuting).
+    curated early_supermax list — but the two anchors are used for DIFFERENT
+    tests, and conflating them is ISSUES #23:
+
+    - **The award anchor is the SIGNING season, alone.** Eligibility is judged
+      when the deal is signed, so an award won during the season the extension
+      was signed FOR cannot create it. Marcus Smart's August-2021 extension read
+      Designated-Veteran off the DPOY he won in 2021-22 — nine months later —
+      and that handed him a $43.28M ceiling in place of his real $17.21M raise
+      cap. Since awards land in the spring and the signing season is a league
+      year running July-June, `_elite_trigger(sign_season)` is exactly the set
+      of awards announced before that league year opened.
+    - **The service anchor stays unioned over both seasons.** What is unreliable
+      there is our debut-based service count, not the calendar (Embiid spent two
+      seasons on the roster before debuting), so both anchors still get a look.
+
+    Deals signed two summers early (Wall 2017 -> 2019, Harden 2017 -> 2019) are
+    unaffected: their qualifying award precedes the signing too.
     """
+    award_anchor = (int(sign_season) if sign_season == sign_season
+                    and sign_season is not None else None)
     for s in (sign_season, season):
         if s != s or s is None:
             continue
@@ -107,7 +121,8 @@ def _designated_veteran(pn: str, season: int, sign_season, exp_by_season,
         if (pn, s) in early:
             return True
         exp = exp_by_season(pn, s)
-        if exp is not None and 7 <= exp <= 9 and _elite_trigger(pn, s, elite):
+        if exp is not None and 7 <= exp <= 9 and _elite_trigger(
+                pn, s if award_anchor is None else award_anchor, elite):
             return True
     return False
 
@@ -121,6 +136,7 @@ def attach_extension_cap(df: pd.DataFrame, verbose: bool = True) -> pd.DataFrame
     veteran extension it is
 
         min(tier ceiling, max(mult x prior-season pay, mult x EAS(sign season)))
+            + any recorded pay-above-base (trade bonus / earned incentive)
 
     with the Designated Veteran carve-out replacing the raise cap by the 35%
     supermax ceiling. Rows the extension does not govern keep NaN, so a consumer
@@ -134,7 +150,7 @@ def attach_extension_cap(df: pd.DataFrame, verbose: bool = True) -> pd.DataFrame
     from src.model.train import (
         _load_prev_season_cap_pct, _load_rookie_scale_set, _load_elite_set,
         _load_debut_seasons, _load_early_supermax, _load_designated_ineligible,
-        TARGET,
+        _load_salary_corrections, TARGET,
     )
 
     out = df.copy()
@@ -144,6 +160,13 @@ def attach_extension_cap(df: pd.DataFrame, verbose: bool = True) -> pd.DataFrame
     elite, debut = _load_elite_set(), _load_debut_seasons()
     early, ineligible = _load_early_supermax(), _load_designated_ineligible()
     caps = load_raise_caps().set_index("signing_season")
+
+    # Money inside observed pay that the raise cap does not govern — a trade
+    # bonus, an earned incentive. Recorded per row in salary_corrections.csv
+    # with its evidence; see _load_salary_corrections.
+    corr = _load_salary_corrections()
+    addon = {(str(r.player_name_norm), int(r.season)): float(r.value_usd)
+             for r in corr[corr["kind"] == "pay_above_base"].itertuples()}
 
     def exp_by_season(pn, s):
         d = debut.get(pn)
@@ -155,6 +178,7 @@ def attach_extension_cap(df: pd.DataFrame, verbose: bool = True) -> pd.DataFrame
     sign_season = np.full(n, np.nan)
     ext_cap = np.full(n, np.nan)
     prior_usd = np.full(n, np.nan)
+    addon_usd = np.zeros(n)
     dvp = np.zeros(n, bool)
     missing_seasons = set()
 
@@ -169,6 +193,7 @@ def attach_extension_cap(df: pd.DataFrame, verbose: bool = True) -> pd.DataFrame
         if cov is None or int(cov["is_extension"]) != 1 or int(cov["span_start"]) != s:
             continue
         is_ext[i] = True
+        addon_usd[i] = addon.get((p, s), 0.0)
         ss = int(cov["signing_season"])
         sign_season[i] = ss
 
@@ -196,11 +221,18 @@ def attach_extension_cap(df: pd.DataFrame, verbose: bool = True) -> pd.DataFrame
         legal = max(raise_cap, eas_cap) if prior_usd[i] == prior_usd[i] else eas_cap
         ext_cap[i] = min(tier[i], legal / cap_s)
 
+    # A recorded trade bonus / incentive is legal money on TOP of whichever
+    # ceiling binds, so it is added after the min() with the tier — the raise
+    # cap governs base salary, not total pay.
+    cap_arr = out["season"].astype(int).map(CAP_BY_SEASON).values.astype(float)
+    ext_cap = np.where(np.isnan(ext_cap), ext_cap, ext_cap + addon_usd / cap_arr)
+
     out["is_extension"] = is_ext
     out["ext_kind"] = kind
     out["ext_sign_season"] = sign_season
     out["ext_is_dvp"] = dvp
     out["ext_prior_usd"] = prior_usd
+    out["ext_addon_usd"] = addon_usd
     out["ext_cap_pct"] = ext_cap
 
     if verbose:
@@ -208,6 +240,12 @@ def attach_extension_cap(df: pd.DataFrame, verbose: bool = True) -> pd.DataFrame
         print(f"Extension cap: {int(is_ext.sum())} first-year extension rows "
               f"({nk.get('rookie_scale', 0)} rookie-scale, "
               f"{nk.get('veteran', 0)} veteran, {int(dvp.sum())} designated-veteran)")
+        if (addon_usd > 0).any():
+            who = ", ".join(
+                f"{out['player_name_norm'].iat[i]} {int(seasons[i])} "
+                f"+${addon_usd[i] / 1e6:.2f}M"
+                for i in np.flatnonzero(addon_usd > 0))
+            print(f"  pay-above-base allowances applied: {who}")
         if missing_seasons:
             print(f"  WARNING: no curated raise cap for signing season(s) "
                   f"{sorted(missing_seasons)} — those rows keep the tier ceiling")
@@ -285,7 +323,8 @@ def over_cap_rows(df: pd.DataFrame, tol: float = CAP_TOL) -> pd.DataFrame:
     m = df["ext_cap_pct"].notna() & (df[TARGET] > df["ext_cap_pct"] + tol)
     cols = [c for c in ["player_name_norm", "season", TARGET, "ext_cap_pct",
                         "ext_kind", "ext_sign_season", "ext_is_dvp",
-                        "ext_prior_usd", "tier_ceiling_pct", "max_eligible_pct"]
+                        "ext_prior_usd", "ext_addon_usd", "tier_ceiling_pct",
+                        "max_eligible_pct"]
             if c in df.columns]
     out = df.loc[m, cols].copy()
     cap = out["season"].map(CAP_BY_SEASON)

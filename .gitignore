@@ -14,6 +14,7 @@ data/raw/raw_external/*
 !data/raw/raw_external/designated_ineligible.csv
 !data/raw/raw_external/mle_exception_amounts.csv
 !data/raw/raw_external/extension_raise_caps.csv
+!data/raw/raw_external/salary_corrections.csv
 
 outputs/models/
 __pycache__/

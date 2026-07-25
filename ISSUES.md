@@ -465,87 +465,104 @@ frame stays 944.
 
 ---
 
-## 22. Prior-season pay is stale for renegotiate-and-extend rows, and BBRef pay carries trade bonuses
+## 25. Spotrac's contract totals disagree with our salary schedules on extensions
 
-**Severity**: medium — three rows break an otherwise dollar-exact CBA rule, and
-the same defect silently corrupts `prev_cap_pct`, which IS a feature.
+**Severity**: medium — it is the reason two of the ISSUES #22 repairs are marked
+`inferred` rather than `verified`, and it may be a second, wider salary defect.
 
-The extension raise cap (ISSUES #21, implemented 2026-07-26) reproduces observed
-pay **to the dollar** on 35 of 83 veteran-extension rows. Three do not, and all
-three fail in the same direction — the pay implies a prior salary HIGHER than our
-table carries:
+The #22 repair (landed 2026-07-27) reads a stale prior-season salary off the CBA
+rule: a veteran extension's first paying year is 1.40x the final year of the deal
+being extended, so `observed pay / 1.40` recovers the base our table should have
+carried. That inversion is dollar-exact for both rows. But the SAME two contracts
+reconcile the other way against Spotrac's headline total, and the two readings
+put the missing money in different places:
 
-| row | pay | our prior | prior the pay implies | gap |
+| row | our prior | pay / 1.40 | Spotrac total | total implied by OUR schedule |
 |---|---|---|---|---|
-| dejounte murray 2024 | $29.52M | $18.21M | $21.08M | +$2.87M |
-| ivica zubac 2025 | $18.89M | $11.74M | $13.50M | +$1.75M |
-| aaron gordon 2026 | $33.66M | $22.84M | $24.04M | +$1.20M |
+| ivica zubac 2025 | $11.74M | $13.4957M | 3yr/$58.6M | $61.03M |
+| aaron gordon 2026 | $22.84M | $24.0415M | 3yr/$103.6M | $109.05M |
+| marcus smart 2022 | $14.34M (repaired) | — | 4yr/$76.49M | $78.09M |
 
-Two mechanisms, both visible in the row histories:
+Zubac's $58.6M is *exactly* the schedule 18,102,000 / 19,550,160 / 20,998,320 —
+the 2024 EAS cap with 8% raises, i.e. the ceiling our machinery already computed
+before the repair. Gordon's $103.6M is exactly 1.40 x our UNrepaired $22,841,455
+with 8% raises, to $8,840 out of $103.6M. Under that reading the prior salaries
+were never stale; instead our BBRef-sourced future-year figures are uniformly
+high — by a flat $791,980/yr for Zubac, by a constant 5.253% for Gordon — and the
+same money is pay sitting above the negotiated base.
 
-- **Renegotiate-and-extend** (Zubac, Gordon). A team with cap room may raise the
-  CURRENT season's salary and then extend off the raised figure. Our salary table
-  carries the pre-renegotiation number, so the 140% cap computes off the wrong
-  base. Gordon's history shows the tell: 2024 and 2025 both read $22,841,455,
-  a duplicate, and his 4yr/$86.64M deal only sums if 2025 is $21.84M. Spotrac's
-  transaction text says "renegotiation-and-extend" for Turner 2022 and Sabonis
-  2023 but NOT for these two, so `parse_signing_dates.renegotiated_seasons` does
-  not see them.
-- **Trade bonus** (Murray). His extension is 4yr/$114,238,204, which is exactly
-  25.4996 / 27.540 / 29.580 / 31.620 — a first year at exactly 140% of $18.214M
-  with 8% raises. Our 2024 figure is $29,517,135, $4.02M higher; he was traded to
-  New Orleans that July and a trade bonus is added to the remaining salary. The
-  target for that row is therefore the negotiated price plus a bonus.
+**Why it did not block the repair**: both readings produce the IDENTICAL ceiling
+for these rows (the raise cap plus whatever sits above the base equals observed
+pay either way), so no number in the 2026-07-27 RESULT changes. What differs is
+`prev_cap_pct`, a real feature, and whether the 2026-2028 salary rows themselves
+are right — those are future TARGETS.
 
-**Reproduce**: `OMP_NUM_THREADS=6 python scripts/eval_extension_cap.py`; the
-HARD GATE section prints all three with the implied prior and the full salary
-history.
+**Reproduce**: `data/processed/salaries.csv` for either player; compare the
+year-over-year steps against `contract_signing_dates.csv`'s `total_value`. The
+cached BBRef team pages (`data/raw/html_cache/*contracts_{DEN,IND}.html`) agree
+with our table, so the disagreement is BBRef vs Spotrac, not scrape vs table.
 
-**What to do**: the cheapest instrument is Spotrac's per-season contract detail,
-already cached — a renegotiated season shows a base salary that disagrees with
-its own contract's escalator structure. A structural check (does the covering
-contract's year-over-year ratio sit in the legal 0.92-1.08 band?) would flag both
-Zubac and Gordon without any new fetch. Trade bonuses need the transactions list,
-which `parse_signing_dates` already reads.
+**What to do**: one Spotrac player page per row settles it — their per-season
+breakdown separates base salary from bonuses. Not cached today; three fetches at
+the 3s rate limit. If Spotrac's per-season base matches its own total, flip both
+rows in `salary_corrections.csv` from `prior_base` to `pay_above_base` and fix
+the 2025-2028 salary rows.
 
-**Fixed when**: `scripts/eval_extension_cap.py` reports 0 over-cap rows, and the
-three rows above reconcile against their contract totals.
+**Fixed when**: each row's per-season base is sourced rather than inverted, and
+`salary_corrections.csv` carries `confidence=verified` for both.
 
 ---
 
-## 23. Marcus Smart 2022 gets a designated-veteran ceiling from an award that postdates the signing
+## 26. The stored `prev_cap_pct` still carries the pre-correction values
 
-**Severity**: low — the ceiling is above his pay either way, so nothing is
-corrupted today; it matters because it silences a real CBA constraint.
+**Severity**: low — three rows, but it is a feature, not a diagnostic.
 
-`_compute_max_eligible` grants Smart a 35% ceiling for 2022 because he won DPOY
-in 2021-22 and had 8 years of service — the supermax award path. But his
-extension was **signed in August 2021**, a season before the award, so it is a
-plain veteran extension bound by 120% of prior pay ($16.61M), not a Designated
-Veteran extension ($43.28M). This is the exact mirror of ISSUES #19, whose fix
-was the curated `designated_ineligible.csv`.
+`salary_corrections.csv` is applied inside `_load_prev_season_cap_pct`, which is
+what the ceiling rules and the extension cap read at load time. The `prev_cap_pct`
+FEATURE is not read there: it is baked into `data/processed/training_data_v2.csv`
+by `scripts/phase3.py::build_contract_features`, which called the same loader when
+the table was last built. So Marcus Smart 2022, Ivica Zubac 2025 and Aaron Gordon
+2026 train on the stale prior ($13.84M / $11.74M / $22.84M) while their ceilings
+use the corrected one.
 
-It matters for two reasons. First, Smart 2022 is one of the five collateral rows
-of the phase-3 max branch and carries $6.45M of its $19.09M damage; with the
-raise cap applied he would be capped at $16.61M rather than pushed to $35.17M.
-Second, the extension work has to exempt designated-veteran deals from the raise
-cap, and it currently keys that exemption on the same supermax flag — so this
-over-grant propagates straight into the exemption.
+This was deliberate on 2026-07-27: rebuilding would have moved the champion's
+features in the same commit that re-measured the told clip, and the whole point of
+that measurement was that the champion is unchanged. It should be picked up by the
+next rebuild that happens for another reason.
 
-**Reproduce**: `scripts/eval_extension_cap.py` prints Smart in the
-designated-veteran list; `outputs/models/extension_cap_oof.csv` has
-`ext_is_dvp = True` with `ext_sign_season = 2021`.
+**Reproduce**: `python -c` comparing `training_data_v2.csv`'s `prev_cap_pct` for
+those three rows against `_load_prev_season_cap_pct()`.
 
-**What to do**: add `marcus smart, 2022` to
-`data/raw/raw_external/designated_ineligible.csv` with the note that the
-qualifying award postdates the signing. Note the consequence and decide it
-deliberately: his observed $17.46M then sits $0.85M ABOVE the 120% cap, so the
-row moves from "exempt" to "over-cap" and needs ISSUES #22's prior-salary repair
-(his 2021-22 pay reads $13.84M here against Spotrac's $14.34M) before it lands
-cleanly.
+**Fixed when**: `scripts/rebuild_training_data.py` has been run after a corrections
+change and the three rows agree, with the frame still at 944 rows.
 
-**Fixed when**: Smart 2022 reads a 30% tier ceiling, and either his prior salary
-reconciles or he is listed as a known over-cap row with a reason.
+---
+
+## 27. Marcus Smart 2022 keeps a 35% supermax ceiling in `max_eligible_pct`
+
+**Severity**: low — it cannot make him look overpaid (his $17.46M is far below
+either tier) but it is the same wrong fact ISSUES #23 fixed, in a second place.
+
+ISSUES #23 (a designated-veteran exemption granted by a DPOY that POSTDATES the
+August-2021 signing) was fixed on 2026-07-27 inside
+`extension_cap._designated_veteran`, by anchoring the award test on the SIGNING
+season. `train._compute_max_eligible` has the same supermax branch and no signing
+instrument at all — it sees only the paying season — so Smart 2022 still reads a
+35% tier ceiling, $43.28M, in `max_eligible_pct` and `tier_ceiling_pct`.
+
+It was left alone because `max_eligible_pct` is the Stage-1 censor bound and the
+max-branch push target: changing it moves the champion, which is a version-bump
+change and not what the told-clip brief was measuring. Note the direction — a too-
+high ceiling makes the max-branch push aim $25.8M too high for this row, which is
+exactly the damage the told clip now removes downstream.
+
+**What to do**: either add `marcus smart, 2022` to `designated_ineligible.csv`
+(one line, fixes both paths, moves the champion) or give `_compute_max_eligible`
+the signing-date instrument that `extension_cap` already uses. The second is the
+real fix and would need the same audit across every supermax row.
+
+**Fixed when**: Smart 2022 reads a 30% tier ceiling, and the champion's A1 is
+re-reported at the version that lands it.
 
 ---
 
