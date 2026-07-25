@@ -178,6 +178,68 @@ def compute_route_labels(df: pd.DataFrame, mle_tol: float = 0.02) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# The six-route class set (phase 4)
+# ---------------------------------------------------------------------------
+# The full architecture is
+#
+#   pred = P(max)V_max + P(floor)V_floor + P(mle)V_mle
+#        + P(bird)V_bird + P(capspace)V_cap + P(extension)V_ext
+#
+# The four-class set above collapses the last three into "continuous". The
+# 2026-07-26 route-delta work split continuous into bird / capspace / other and
+# found delta_capspace and delta_other both indistinguishable from zero
+# (+0.00083 +/- 0.00498 and +0.00045 +/- 0.00226), so the two are merged here:
+# `capspace` is every non-Bird continuous row. `extension` is the sixth route,
+# defined by the dated-extension flag rather than by where the salary landed —
+# it is the one route whose CBA constraint is a raise cap on the player's OWN
+# prior salary rather than a league-wide constant (see extension_cap.py).
+#
+# Priority is max > floor > mle > extension > bird > capspace, so the max zone
+# (n=70) and the floor zone are bit-identical to the four-class set and every
+# phase-1..3 zone number stays comparable. A designated-veteran extension paid
+# at the ceiling therefore lands in `max`, where its value function (the tier
+# ceiling) is the same number either way.
+ROUTE6_CLASSES = ["capspace", "max", "mle", "floor", "bird", "extension"]
+R6 = {c: i for i, c in enumerate(ROUTE6_CLASSES)}
+
+BIRD_CATS = {"Bird Rights", "Early Bird", "Non-Bird"}
+
+
+def compute_route6_labels(df: pd.DataFrame, mle_tol: float = 0.02) -> np.ndarray:
+    """Integer six-route label per row.
+
+    Requires is_max_contract / is_at_floor (the train.py filter chain) and
+    is_extension (extension_cap.attach_extension_cap). `signing_cat` supplies the
+    bird/capspace split — the one place a Spotrac label defines a class, because
+    Bird Rights is not observable from where the salary landed. That label is a
+    DIAGNOSTIC in the regression's world and stays one here: it defines the
+    classifier's TARGET, never a regression feature.
+    """
+    n = len(df)
+    labels = np.full(n, R6["capspace"], dtype=int)
+    if "signing_cat" in df.columns:
+        labels[df["signing_cat"].isin(BIRD_CATS).values] = R6["bird"]
+    if "is_extension" in df.columns:
+        labels[df["is_extension"].values.astype(bool)] = R6["extension"]
+
+    four = compute_route_labels(df, mle_tol=mle_tol)
+    labels[four == MLE_IDX] = R6["mle"]
+    labels[four == FLOOR_IDX] = R6["floor"]
+    labels[four == MAX_IDX] = R6["max"]
+    return labels
+
+
+def train_route6_classifier(train: pd.DataFrame, features: list[str], seed: int,
+                            labels: np.ndarray | None = None) -> xgb.Booster:
+    """Six-class softprob booster; same shallow settings as the four-class one."""
+    y = compute_route6_labels(train) if labels is None else labels
+    dtrain = xgb.DMatrix(train[features].values, label=y,
+                         feature_names=list(features))
+    params = {**_CLF_PARAMS, "num_class": len(ROUTE6_CLASSES), "seed": seed}
+    return xgb.train(params, dtrain, num_boost_round=_CLF_ROUNDS)
+
+
+# ---------------------------------------------------------------------------
 # Classifier
 # ---------------------------------------------------------------------------
 
