@@ -94,13 +94,47 @@ and the relative C1 gate (|slope − 1| excess ≤ 0.005 vs the incumbent). Repo
 the ex-post variant separately — it is informative but is NOT the headline,
 because using the realized route to score is outcome information.
 
-## Part 3 — re-run phase 3
+## Part 3 — re-run phase 3, and sweep the threshold this time
 
-With the extension route in place, re-run `scripts/eval_route_mixture_p3.py`
-(unmodified) and report whether the max branch's collateral collapses as
-predicted. The architect's closure of that line is **provisional pending this
-number** — three of its five collateral rows are extension-capped, carrying
-82% of the damage.
+With the extension route in place, re-run the max-branch evaluation and report
+whether the collateral collapses as predicted — three of the five collateral
+rows (Aldridge 2019, Brunson 2025, Smart 2022) are extension-capped and carry
+82% of the damage, so the extension clip should catch them outright. The
+architect's closure of that line is **provisional pending this number**.
+
+**And fix the threshold rule, which was the experiment's real flaw.** Phases 2
+and 3 scored only two operating points per classifier, both at the ends of the
+purity curve, because the pre-registered rule was "the smallest τ with purity
+≥ 0.90". On this data purity sits on a **plateau of ~0.90 from τ=0.50 all the
+way to τ=0.84**, so "smallest" lands at the left edge — the same purity with
+the most collateral available. Nothing between 0.52 and 0.91 was ever run.
+Sorted by P, the five collateral rows are Cousins 0.51, Smart 0.66, Brown
+0.82, Aldridge 0.90, Brunson 0.91: raising τ to ~0.70 alone drops Cousins and
+Smart, removing $16.2M of the $27.8M damage while touched maxes fall only
+48 → ~40.
+
+**Sweep τ across the whole range** (report win, both brakes, ΔSel, collateral
+list and touched-max count at each step of 0.02), and select the operating
+point by this rule, which is fixed BEFORE any arm runs and never reads a
+realized zone metric:
+
+> For each τ, compute from the classifier's P, the champion's OOF predictions
+> and the ceilings alone:
+> **expected win** = Σ over touched true maxes of the champion's current error;
+> **expected collateral** = Σ over touched non-max rows of
+> P × (ceiling − champion prediction).
+> **Choose the τ maximising (expected win − expected collateral).**
+
+This is the honest-ceiling computation the briefs already require, applied to
+both sides instead of one. Report the selected τ, the full sweep table, and
+the gate battery at the selected τ. If the selected τ still fails a gate, say
+so plainly — the sweep is the evidence either way.
+
+**Not in scope, and do not substitute it**: aiming the push by the latent's
+ratio to the ceiling instead of by P. The architect proposed it and withdrew
+it — the rows with the largest errors are exactly the rows whose latent sits
+furthest below their ceiling (Trae 2026 at −$32.7M, JJJ 2026 at −$28.2M), so a
+ratio threshold systematically excludes the players it most needs to reach.
 
 ## Traps
 
