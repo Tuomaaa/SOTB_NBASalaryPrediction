@@ -3,105 +3,62 @@
 Maintained by the architect session. One line per item; briefs under
 `docs/briefs/`, decisions in the RESULT files and tags.
 
-Last updated: 2026-07-25, after the censor-widening landing.
+Last updated: 2026-07-26, after the five-worker landing (v7.13x).
 
 ## In flight / ready to launch
 
-- **Cleanup debt** — brief dispatched: `2026-07-26-cleanup-debt.md`.
-  ISSUES #18 (awards name join drops all 13 ROY winners + star MVP rows;
-  measured, adopt unless t < −2 — the isolated fix scored −0.00422/t−1.67),
-  #17 (Kanter→Freedom alias), #3 (single- vs 10-seed CV under one name),
-  and `predict.py`, which CLAUDE.md documents as production inference while
-  shipping plain XGBoost with no censoring and no Stage-2 clip.
-- **Docs catch-up** — brief dispatched: `2026-07-26-docs-catchup.md`.
-  VERSION_HISTORY stops at v7.8x; four versions to write, plus ISSUES #10
-  (sigma mechanism + relative C1 gate) and #15 (renegotiation convention,
-  span rules, the pure-removal protocol lesson) into METHODOLOGY, plus the
-  standing decision below. Docs lane only, no code or data.
+Nothing. Five workers landed together on 2026-07-26 (v7.13x); the two
+architecture lines below are decided, and what remains is listed under
+"Open work".
 
-- **Per-route δ for the continuous routes** — brief dispatched:
-  `2026-07-26-route-delta.md`. Bird-Rights re-signings and cap-space
-  signings currently share one regression value; C2 has carried Bird at
-  −$2.5M against Cap Space −$0.2M for the whole project. Builds
-  `value_k = f(x) + δ_k` with δ estimated from fold-honest RESIDUALS (never
-  salary means — the 0.180/0.130 extension-vs-re-sign gap is composition,
-  which f(x) already prices). Independent of the max branch and of the
-  classifier's sharpness in the ex-post mode, so it runs in parallel with
-  phase 3. Sequencing note: this was proposed by the user during the
-  architecture discussion and queued behind two max-branch rounds that did
-  not land — promoted 2026-07-26.
+## Open work, in priority order
 
-- **Service years (ISSUES #20)** — brief dispatched:
-  `2026-07-26-service-years.md`. **Run this BEFORE phase 3** (or re-pin
-  phase 3 after it lands): it moves the max zone 68 → 70 and removes
-  Reaves 2026 from the phase-3 collateral list, where he is the #2
-  brake-killer at +$9.71M. Audit that scoped it: of the 53 rows landing
-  exactly on a CBA tier (knife-edge — 10,000× the tolerance adds 4 rows),
-  exactly 2 carry a ceiling above the tier they landed on (Reaves 2026,
-  Butler 2019), both from the `age − 19` service fallback that covers 24%
-  of rows. NOTE the design constraint written into the brief: the ceiling
-  must stay computable BEFORE signing, so the exact-tier hit is a
-  DETECTOR and the fix is a real debut-season source — never
-  `ceiling = the tier the salary landed on`.
+1. **Ex-post δ as a Stage-2 mode** (the one adoptable thing the δ analysis
+   found). δ_bird = +$1.61M is real and fold-stable; ex-post it scores
+   ΔSel +0.00769 (t=2.37) and closes Bird bias −$2.44M → −$1.55M. It must
+   NOT enter the headline CV — the headline is ex-ante, and using the
+   realized route there would be scoring with outcome information. Its
+   legitimate home is the told-parameter mode: Contract Surplus on a signed
+   deal, and the Value Board's "given he re-signed with Bird rights" view.
+   Needs a brief that defines the two modes in code and reports them
+   separately, plus CONTEXT.md vocabulary for the split.
+2. **Team-continuity signal** (ISSUES #6 maintenance debt). A signing-date
+   team-match would replace BOTH curated lists (`early_supermax.csv`,
+   `designated_ineligible.csv`), each of which needs a hand-added row every
+   summer, and is also the missing feature behind δ_bird (the model has no
+   team-history input at all — ISSUES #5). One signal, three payoffs.
+3. **Product display** — P(max) on the Value Board ("85% max, $46.4M if
+   maxed"). The classifier is strong enough now (AUC 0.9823, median P on a
+   true max 0.81) and this needs no gate because it does not enter scoring.
+4. Parking lot / low priority: ISSUES #4 (10% unlabeled mechanisms), #5
+   (team+position missing, cosmetic), #12 (coverage-skew memo), #17's
+   remaining two-way players, wingspan, archetypes, prehistory expansion,
+   playoff minutes share.
+5. **Seasonal**: the 2027 FA class refresh when it arrives (the four-command
+   chain in CLAUDE.md).
 
-- **Route-mixture phase 3** — brief dispatched:
-  `2026-07-26-route-mixture-p3.md`. Phase 2's "structurally unwinnable"
-  verdict was an ISSUES #19 artifact: on corrected labels (v7.12x) the
-  architect's re-run of the worker's own harness gives 90%-purity τ=0.64,
-  36/68 touchable maxes, honest ceiling $0.85M, realized true-max
-  **−$0.83M — the Win gate PASSES**. It now fails the brakes instead
-  (25%+ band +$1.08M, counterweight +$0.36M vs +$0.30M), with only 4
-  collateral rows and the damage concentrated in Aldridge 2019 (+$10.9M)
-  and Reaves 2026 (+$9.7M, P 0.739 — excluded by any τ ≥ 0.80). Phase 3
-  re-registers τ as "smallest τ with purity 1.000" (still probability-space,
-  no zone metric) and runs {base, enriched} × {τ*, τ₉₀}. A passing cell is
-  the v8.0 candidate.
+## Closed architecture lines (do not reopen without new data)
 
-- **Route-mixture phase 2** — brief dispatched:
-  `2026-07-25-route-mixture-p2.md`. Enriched classifier (feature-batch
-  columns as classifier-only inputs) → threshold by calibration purity
-  (≥90% or stop) → gated push-then-clip, same win/brake battery. NOTE: the
-  earlier "tier-max signings mislabeled" reading of the P>0.5 rows was
-  OVERTURNED — a separate agent's row review (in progress) reads them as
-  genuine classifier false positives; class definition unchanged, no
-  tier-aware targets. The worker reports its touched-row collateral list
-  for cross-checking against that review when it lands.
-  **RECONCILED 2026-07-24 (v7.12x, cap-arithmetic verified):** the P>0.5 set
-  is a MIX. (a) Kawhi 2019 / AD 2020 / Kemba 2019 / Kyrie 2019 / Mitchell 2025
-  / Beal 2021 were genuine 30% maxes the is_max LABEL mis-tiered (award path
-  granted 35% without a team-continuity check) — a real bug, NOW FIXED via
-  designated_ineligible.csv; is_max 56→68, they read max, no longer "false
-  positives." (b) Reaves 2026 / Anunoby 2024 ARE genuine false positives (not
-  maxes) — the gate rejects these. Both readings were half-right. **Phase-2
-  worker pinned pre-v7.12x must RE-RUN on the 68-max frame** (labels + zone
-  n=68/MAE 4.44 moved; the mislabeled-max confusion is gone from the smear).
-- **Route mixture, phase 2** — after the feature batch lands: (i) re-run the
-  classifier on the batch winners (22 true maxes still under P=0.3, half
-  Booker-class); (ii) precision-gated push — push only above a P threshold
-  chosen from the CALIBRATION TABLE (probability-space rule, never tuned on
-  zone MAE); pick the threshold on CALIBRATION PURITY, not just P height.
-  The 44 smeared rows split three ways and MUST be hand-classified before
-  phase 2 (2026-07-25 review, twice-corrected): (1) **genuine maxes the label
-  mis-tiers** — Kawhi 2019 / AD 2020 / Kemba 2019 / Butler 2019 / Kyrie 2019
-  signed real 30% maxes but `_compute_max_eligible` grants them a 35% ceiling
-  off All-NBA without the own-team requirement, so is_max misses them
-  (ISSUES #19, a real bug — fix it and the max zone grows, these stop being
-  "false positives"). (2) classifier FALSE POSITIVES — good-but-not-max
-  players the metrics oversold, **Reaves 2026 (signed his largest LEGAL deal,
-  Early Bird, ~25% by coincidence, NOT a max)**, Anunoby 2024 — these are what
-  the gate must reject, and they sit as high as P=0.74, so the [0.7,0.9) bin
-  is only 72% pure. The safe threshold may be high enough the branch only
-  touches ironclad maxes — consistent with the −$0.26M global ceiling. (3)
-  fallen-star leak (Oladipo/Lillard/Drummond at P 0.2-0.3, $20-30M push
-  damage) — killed by any gate, belongs to P(floor). Do NOT build a
-  tier-aware push target that trusts P — it would push the Reaves class to a
-  tier they never signed. Landing ISSUES #19 FIRST is the cleanest sequence:
-  it removes class (1) from the confusion entirely. Then the floor
-  branch (P(floor) AUC 0.8233, pull-down mirror, same brake discipline).
-  MLE branch HOLD: P(mle) AUC 0.7158 — team-cap membership invisible.
-  A gating branch starts the v8.0 line and needs a separate predict.py
-  wiring step (production ships plain XGBoost, no Stage 2 — worker-flagged
-  integration caveat).
+- **Route-mixture max branch** — closed after three phases. Final state on
+  corrected labels: the classifier is excellent (P(max) AUC 0.9823) but no
+  operating point both wins and stays clean. Zero-collateral thresholds have
+  honest ceilings of $0.15M/$0.43M — below the $0.50M bar before any arm
+  runs — while 90%-purity thresholds clear the win and break both brakes.
+  Spearman(P, |champion error|) = −0.761: the maxes a classifier can be
+  confident about are the ones the champion already prices, because both key
+  off the impact metrics. Reopening requires a signal ORTHOGONAL to the
+  impact metrics (team continuity, reputation), not a better router.
+- **Floor branch** — NO-GO by the same structure at the other bound (the
+  floor is already left-censored in Stage 1, so high-P(floor) rows are the
+  ones the censor already pins).
+- **MLE branch** — HOLD. P(mle) AUC 0.71: whether a player is offered an
+  exception depends on the signing team's cap position, which no player
+  feature can see.
+- **Ex-ante per-route δ** — fails gates 1, 4 and C1. Because mean P(bird) is
+  0.29 on every row, P × δ_bird lifts the whole surface (MLE +$0.35M,
+  Non-Bird +$0.29M, slope 0.985 → 0.977). The loss is in P(route), not in δ.
+- **Extension vs re-sign inside Bird** — does not separate (n=31, diff
+  −$1.40M against SE $1.12M). One δ for Bird.
 
 ## Standing decisions (do not re-propose without new evidence)
 
