@@ -16,6 +16,7 @@ Writes to the portfolio site's public/data/nba/ directory:
     valuations.json  — one row per player-season (table data, no SHAP)
     shap.json        — per-row feature attributions in dollars (lazy-loaded)
     meta.json        — CV metrics, feature list, caps, generated timestamp
+    model.json       — stripped Grabit trees for in-browser what-if traversal
     charts/*.png     — diagnostics restyled to the site palette
 
 Usage:
@@ -23,6 +24,7 @@ Usage:
 """
 
 import argparse
+import gzip
 import json
 import sys
 from datetime import datetime, timezone
@@ -33,9 +35,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np
 import pandas as pd
 
-from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR
+from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR, RAW_DIR
 from src.model import stages
-from src.model.extension_cap import attach_extension_cap
+from src.model.extension_cap import attach_extension_cap, attach_extension_value
 from src.model.train import (
     FEATURE_COLS,
     TARGET,
@@ -163,6 +165,209 @@ def _training_medians(df: pd.DataFrame) -> tuple[list[str], pd.Series]:
     return features, X_tr.median()
 
 
+def _zscore_basis(df: pd.DataFrame) -> dict[str, dict[str, dict[str, float]]]:
+    """Raw-impact mean/sd by season over the salary-joined player frame.
+
+    This is the exact population `build_dataset` used to create the three
+    impact z-scores. Using every row in impact_metrics.csv instead would put a
+    browser-entered raw value on a different scale from the fitted model.
+    """
+    metrics = (("darko_dpm", "darko_dpm_z"),
+               ("lebron", "lebron_z"),
+               ("rapm", "rapm_z"))
+    basis: dict[str, dict[str, dict[str, float]]] = {}
+    for season, group in df.groupby("season"):
+        season_out = {}
+        for raw, z_col in metrics:
+            values = group[raw].dropna()
+            mean = float(values.mean())
+            sd = float(values.std())
+            expected = (group[raw] - mean) / sd
+            present = expected.notna() & group[z_col].notna()
+            drift = float(
+                (expected[present] - group.loc[present, z_col]).abs().max()
+            )
+            if drift > 1e-10:
+                raise SystemExit(
+                    f"{raw} {int(season)} z-score basis drifts by {drift:.2e}"
+                )
+            season_out[raw] = {"mean": mean, "sd": sd}
+        basis[str(int(season))] = season_out
+    return basis
+
+
+def _mle_by_season() -> dict[str, dict[str, float]]:
+    """First-year exception amounts as cap percentages, by season."""
+    mle = pd.read_csv(RAW_DIR / "raw_external" / "mle_exception_amounts.csv")
+    required = {"non_taxpayer_mle", "taxpayer_mle", "room_mle", "bae"}
+    observed = set(mle["exception_type"].unique())
+    if observed != required:
+        raise SystemExit(
+            f"MLE table kinds changed: expected {sorted(required)}, "
+            f"got {sorted(observed)}"
+        )
+
+    out: dict[str, dict[str, float]] = {}
+    for season, group in mle.groupby("season"):
+        season = int(season)
+        if season not in CAP_BY_SEASON:
+            raise SystemExit(f"No salary cap for MLE season {season}")
+        if len(group) != len(required):
+            raise SystemExit(f"MLE season {season} does not contain all four amounts")
+        cap = float(CAP_BY_SEASON[season])
+        out[str(season)] = {
+            str(r.exception_type): float(r.amount_usd) / cap
+            for r in group.itertuples(index=False)
+        }
+    return out
+
+
+def _experience_years(df: pd.DataFrame) -> pd.Series:
+    """The same draft-year/age-fallback experience instrument as the model."""
+    from scripts.build_external_features import norm
+    from src.model.train import _load_draft_years
+
+    clean = df["player_name_norm"].apply(norm)
+    return (df["season"] - clean.map(_load_draft_years())).fillna(
+        (df["age"].fillna(25) - 19).clip(lower=0)
+    ).astype(int).clip(lower=0)
+
+
+def _display_floor_table(df: pd.DataFrame) -> dict[str, dict[str, float]]:
+    """Display-only floor lookup measured once on the salary training frame.
+
+    `_compute_floor` is frame-relative: calling it on a what-if or free-agent
+    prediction frame makes the target-derived at-floor population circular and
+    can produce a negative floor. Do not use this table in model training or
+    mutate `_compute_floor`; it exists only for browser route displays.
+    """
+    measured = _compute_floor(df.copy())
+    experience = _experience_years(measured)
+    measured["experience_bucket"] = pd.cut(
+        experience, [-1, 2, 5, 9, 99], labels=["0-2", "3-5", "6-9", "10+"]
+    )
+    at_floor = measured[measured["is_at_floor"]]
+    grouped = at_floor.groupby(
+        ["season", "experience_bucket"], observed=True
+    )[TARGET].median()
+    fallback = {
+        int(season): float(value)
+        for season, value in at_floor.groupby("season")[TARGET].min().items()
+    }
+    overall = float(at_floor[TARGET].min())
+    buckets = ("0-2", "3-5", "6-9", "10+")
+    seasons = sorted(int(season) for season in measured["season"].unique())
+    return {
+        str(season): {
+            bucket: float(grouped.get(
+                (season, bucket), fallback.get(season, overall)
+            ))
+            for bucket in buckets
+        }
+        for season in seasons
+    }
+
+
+_TREE_ARRAYS = (
+    "left_children", "right_children", "split_indices", "split_conditions",
+    "default_left", "base_weights",
+)
+
+
+def _compact_split_condition(value: float) -> float:
+    """Shortest decimal in (previous float32, value] for an exact JS split."""
+    exact = float(np.float32(value))
+    previous = float(np.nextafter(
+        np.float32(exact), np.float32(-np.inf), dtype=np.float32
+    ))
+    if exact == 0:
+        return 0.0
+    exponent = int(np.floor(np.log10(abs(exact))))
+    for significant in range(1, 10):
+        candidate = float(f"{exact:.{significant}g}")
+        if candidate > exact:
+            step = 10.0 ** (exponent - significant + 1)
+            candidate = float(f"{candidate - step:.{significant}g}")
+        if previous < candidate <= exact:
+            return candidate
+    return exact
+
+
+def _strip_model(model, features: list[str], medians: pd.Series,
+                 zscore_basis: dict, dest: Path) -> dict:
+    """Save m_final, then retain only the arrays required by JS traversal."""
+    full_path = dest / ".grabit-full.tmp.json"
+    try:
+        model.save_model(full_path)
+        raw = json.loads(full_path.read_text(encoding="utf-8"))
+    finally:
+        full_path.unlink(missing_ok=True)
+
+    learner = raw["learner"]
+    feature_names = learner["feature_names"]
+    if feature_names != features:
+        raise SystemExit(
+            f"serialized feature order drifted: {feature_names} != {features}"
+        )
+    raw_trees = learner["gradient_booster"]["model"]["trees"]
+    trees = []
+    for tree in raw_trees:
+        stripped = {key: tree[key] for key in _TREE_ARRAYS}
+        # XGBoost compares float32 features to float32 thresholds internally.
+        # Its 3.3 JSON text can parse just beyond that boundary in JS, so make
+        # the threshold's training-time precision explicit once at export.
+        # The browser traversal can then use the brief's exact rule:
+        # Math.fround(feature) < split_conditions[node].
+        stripped["split_conditions"] = [
+            (_compact_split_condition(value)
+             if stripped["left_children"][i] != -1 else value)
+            for i, value in enumerate(stripped["split_conditions"])
+        ]
+        trees.append(stripped)
+    return {
+        # Keep the XGBoost representation intact. In current JSON it is a
+        # string containing a JSON array; the browser parses it and takes [0].
+        "base_score": learner["learner_model_param"]["base_score"],
+        "feature_names": feature_names,
+        "training_medians": {
+            feature: float(medians[feature]) for feature in features
+        },
+        "zscore_basis": zscore_basis,
+        "trees": trees,
+    }
+
+
+def _assert_model_parity(stripped: dict, out: pd.DataFrame,
+                         tolerance: float = 1e-6) -> float:
+    """Reproduce browser traversal with float32 split inputs for every row."""
+    base = float(json.loads(stripped["base_score"])[0])
+    predictions = np.empty(len(out), dtype=float)
+    for i, values in enumerate(out["model_x"]):
+        total = base
+        for tree in stripped["trees"]:
+            node = 0
+            while tree["left_children"][node] != -1:
+                value = float(np.float32(values[tree["split_indices"][node]]))
+                if np.isnan(value):
+                    node = (tree["left_children"][node]
+                            if tree["default_left"][node]
+                            else tree["right_children"][node])
+                elif value < tree["split_conditions"][node]:
+                    node = tree["left_children"][node]
+                else:
+                    node = tree["right_children"][node]
+            total += tree["base_weights"][node]
+        predictions[i] = total
+
+    drift = float(np.max(np.abs(predictions - out["latent_cap_pct"].values)))
+    if drift > tolerance:
+        raise SystemExit(
+            f"stripped-model float32 traversal drifts by {drift:.2e} "
+            f"(limit {tolerance:.1e})"
+        )
+    return drift
+
+
 def build_frame(df: pd.DataFrame, model, features: list[str],
                 medians: pd.Series, train_df: pd.DataFrame
                 ) -> tuple[pd.DataFrame, np.ndarray]:
@@ -187,6 +392,7 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     # its season, so escalator years and rookie-scale years come back False and
     # Stage 3 is inert on them.
     full = attach_extension_cap(full)
+    full = attach_extension_value(full)
 
     X = full.reindex(columns=features).copy()
     X = X.fillna(medians).fillna(0)
@@ -233,13 +439,16 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
         "team": full["team_abbreviation"],
         "position": full["position"],
         "age": full["age"],
+        "experience": _experience_years(full).values,
         "year_in_contract": full["year_in_contract"],
         "contract_years": full["contract_years"],
         "actual_cap_pct": full[TARGET],
         "latent_cap_pct": latent,
         "pred_cap_pct": capped,
+        "tier_ceiling_pct": full["tier_ceiling_pct"].values,
         "max_eligible_pct": max_elig,
         "ext_cap_pct": ext_cap,
+        "ext_value_pct": full["ext_value_pct"].values,
         "floor_pct": floor_pct,
         "p_max": p_max,
         "cap": cap,
@@ -281,6 +490,10 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
 
     out["base_salary"] = expected * out["cap"]
     out["is_fa"] = False
+    # Full-precision, median-filled inputs in serialized feature order. The
+    # browser joins these to model.json.feature_names rather than assuming a
+    # hard-coded index, so `_prepare_Xy` may still drop a near-constant column.
+    out["model_x"] = list(X.to_numpy(dtype=float))
     return out, shap_vals, expected
 
 
@@ -359,6 +572,7 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
     probe = fa.copy()
     probe[TARGET] = latent
     probe = _compute_max_eligible(probe)
+    probe = attach_extension_value(probe)
     max_elig = probe["max_eligible_pct"].values
     p_max = stages.deployed_p_max(stages.training_route_frame(train_df), probe,
                                   medians=medians)
@@ -381,6 +595,7 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         "team": np.nan,
         "position": fa["position"].values,
         "age": fa["age"].values,
+        "experience": _experience_years(probe).values,
         "year_in_contract": np.nan,
         "contract_years": np.nan,
         "actual_cap_pct": np.nan,
@@ -389,8 +604,10 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         # a max-worthy unsigned FA is the case it exists for), the ceiling caps
         # the pushed value, and the floor still does not apply.
         "pred_cap_pct": value,
+        "tier_ceiling_pct": probe["tier_ceiling_pct"].values,
         "max_eligible_pct": max_elig,
         "ext_cap_pct": np.nan,
+        "ext_value_pct": probe["ext_value_pct"].values,
         "floor_pct": np.nan,
         "p_max": p_max,
         "cap": cap,
@@ -417,6 +634,7 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         "signing_type": np.nan,
         "base_salary": expected * cap,
         "is_fa": True,
+        "model_x": list(X.to_numpy(dtype=float)),
     })
 
     print(f"  Free agents added: {len(fa_out)} "
@@ -432,7 +650,14 @@ def _round(x, nd=2):
     return round(float(x), nd)
 
 
+def _json_number(x):
+    """A full-precision JSON number, or null for NaN/inf."""
+    value = float(x)
+    return value if np.isfinite(value) else None
+
+
 def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
+               medians: pd.Series, source_df: pd.DataFrame, model,
                results: dict, fwd_metrics: dict, dest: Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
     M = 1e6
@@ -446,12 +671,25 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
             "p": None if pd.isna(r.position) else r.position,
             "s": int(r.season),
             "a": _round(r.age, 0),
+            "experience": int(r.experience),
             "yc": None if pd.isna(r.year_in_contract) else int(r.year_in_contract),
             "cy": None if pd.isna(r.contract_years) else int(r.contract_years),
             "act": _round(r.actual_salary / M),
             "pred": _round(r.pred_salary / M),
             "lat": _round(r.latent_salary / M),
+            # Exact cap-percentage value and exact model inputs are retained
+            # for parity tests and the browser what-if. Display dollars above
+            # stay rounded independently.
+            "latent_cap_pct": _json_number(r.latent_cap_pct),
+            "feature_values": {
+                feature: _json_number(value)
+                for feature, value in zip(features, r.model_x)
+            },
             "sur": _round(r.surplus / M),
+            "tier_ceiling_pct": _json_number(r.tier_ceiling_pct),
+            "max_eligible_pct": _json_number(r.max_eligible_pct),
+            "ext_value_pct": _json_number(r.ext_value_pct),
+            "floor_pct": _json_number(r.floor_pct),
             "cap": bool(r.is_capped),
             # Stage 3: the prediction sits at this row's own extension raise
             # cap, a legal ceiling that is not the max tier. Separate key from
@@ -539,6 +777,8 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
         "nExtCapped": int(out["is_ext_capped"].sum()),
         "features": [{"key": f, "label": FEATURE_LABELS.get(f, f)}
                      for f in features],
+        "mleBySeason": _mle_by_season(),
+        "floorBySeasonExperience": _display_floor_table(source_df),
         "capBySeason": {str(k): v for k, v in CAP_BY_SEASON.items()},
         "baseSalaryBySeason": {str(k): v for k, v in base_by_season.items()},
         "seasons": sorted(int(s) for s in out["season"].unique()),
@@ -558,9 +798,22 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    for name in ("valuations.json", "shap.json", "meta.json"):
+    stripped = _strip_model(model, features, medians,
+                            _zscore_basis(source_df), dest)
+    drift = _assert_model_parity(stripped, out)
+    model_bytes = json.dumps(
+        stripped, ensure_ascii=True, separators=(",", ":")
+    ).encode("utf-8")
+    (dest / "model.json").write_bytes(model_bytes)
+    print(f"  model parity max |delta| {drift:.2e}")
+
+    for name in ("valuations.json", "shap.json", "meta.json", "model.json"):
         kb = (dest / name).stat().st_size / 1024
-        print(f"  {name:20s} {kb:8.1f} KB")
+        if name == "model.json":
+            gzip_kb = len(gzip.compress(model_bytes, mtime=0)) / 1024
+            print(f"  {name:20s} {kb:8.1f} KB  ({gzip_kb:.1f} KB gzip)")
+        else:
+            print(f"  {name:20s} {kb:8.1f} KB")
 
 
 def _style_axes(ax):
@@ -743,6 +996,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT,
                     help=f"output directory (default: {DEFAULT_OUT})")
+    ap.add_argument("--no-snapshot", action="store_true",
+                    help="do not update outputs/web/valuations_export.csv")
     args = ap.parse_args()
 
     df = load_training_data()
@@ -786,15 +1041,17 @@ def main() -> None:
     _check_forward(fwd_metrics["r2"])
 
     print("\nJSON:")
-    write_json(out, shap_vals, features, results, fwd_metrics, args.out)
+    write_json(out, shap_vals, features, medians, df, model, results,
+               fwd_metrics, args.out)
     print("\nCharts:")
     write_charts(out, shap_vals, features, args.out / "charts")
 
     # Keep a copy in-repo so the export is reproducible without the site.
-    snap = OUTPUTS_DIR / "web"
-    snap.mkdir(parents=True, exist_ok=True)
-    out.to_csv(snap / "valuations_export.csv", index=False, encoding="utf-8")
-    print(f"\nSnapshot: {snap / 'valuations_export.csv'}")
+    if not args.no_snapshot:
+        snap = OUTPUTS_DIR / "web"
+        snap.mkdir(parents=True, exist_ok=True)
+        out.to_csv(snap / "valuations_export.csv", index=False, encoding="utf-8")
+        print(f"\nSnapshot: {snap / 'valuations_export.csv'}")
     print(f"Done -> {args.out}")
 
 

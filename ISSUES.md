@@ -497,3 +497,45 @@ the 2025-2028 salary rows.
 
 **Fixed when**: each row's per-season base is sourced rather than inverted, and
 `salary_corrections.csv` carries `confidence=verified` for both.
+
+---
+
+## 29. Several Floor Zone crash rows carry another player's or fallback features
+
+**Severity**: medium — the affected rows sit in the large-error tail used to
+motivate floor-side model work, so a bad join can create both a false residual
+and a false feature hypothesis.
+
+The 2026-07-25 qualitative review of the 34 Floor Zone rows over-priced by more
+than $5M found five clear identity or fallback failures:
+
+| row | stored symptom | externally obvious contradiction |
+|---|---|---|
+| Montrezl Harrell 2023 | age 26, 21.96 mpg | age 29, about 11.9 mpg in 2022-23 |
+| DeMarcus Cousins 2020 | age 26, 21.96 mpg | age 30, missed the entire prior season |
+| Bol Bol 2023 | age 26 | age 23 |
+| Malik Beasley 2023 | 21.96 mpg | about 26 mpg in 2022-23 |
+| Patrick Beverley 2023 | age 26, zero prior pay | age 35, prior salary about $13M |
+
+The tuple `21.96 mpg / 17.2 usage / 0.67 availability` repeats across several
+of these rows and also appears on unrelated players, indicating median fallback
+after a failed player-season join rather than five independent source errors.
+Harrell 2023 is especially damaging because the row becomes a second apparent
+market crash for a player already represented correctly in 2022.
+
+**Reproduce**: run `python scripts/eval_floor_branch.py`, rebuild the >$5M
+Floor Zone residual table from its evaluation frame, and print `age`, `mpg`,
+`usage_pct`, `availability_3yr` and `prev_cap_pct` for the five player-seasons
+above. The full reviewed table and expected biographical checks are in
+`docs/briefs/2026-07-25-floor-crash-qualitative-review.md`.
+
+**What to do**: trace each row backward through the evaluation-frame merge and
+identify which source lookup failed. A failed player identity join must not
+silently median-fill immutable identity fields such as age. Either repair the
+aliases/player-season keys or remove the row from evaluation until its priced
+season features are available. Audit every row carrying the repeated fallback
+tuple, not only the five manually noticed cases.
+
+**Fixed when**: the five rows have correct ages and priced-season statistics;
+no immutable identity field is median-filled after a failed join; and a scan of
+the evaluation frame finds no unrelated rows sharing the full fallback tuple.
