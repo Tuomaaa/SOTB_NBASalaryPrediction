@@ -396,3 +396,69 @@ the service-year source is deferred, but the systematic fix is preferred —
 Butler 2019 `tier_ceiling_pct == 0.30` and True; the max zone grows 68 → 70;
 no row's ceiling falls below its own pay (`over-tier count == 0`); frame stays
 944.
+
+---
+
+## 21. Veteran-extension raise caps are not implemented — 21 rows sit at a bound we cannot see
+
+**Severity**: high — the third member of the #19/#20 family and the largest
+so far. It overstates ceilings by up to $29.7M, and worse, it hides a whole
+class of CBA-bound observations from the censoring logic.
+
+A veteran extension's first paying year is capped by the CBA at a multiple of
+the final year of the existing contract: **120% under the 2017 CBA, 140% under
+the 2023 CBA**. `_compute_max_eligible` implements only the *fresh-signing*
+tiers (25/30/35% + Rose/supermax + the 1.08 no-decrease floor), so an extension
+row is given a ceiling it could not legally have reached.
+
+**The evidence is knife-edge**, the same signature as the exact-tier audit that
+produced #20. Of 164 dated-extension rows with an observable prior salary, **21
+sit within 5% of their legal raise cap**, and the hits land exactly on the
+multiplier — 1.400 for Brunson 2025, P.J. Washington 2026, Josh Hart 2024,
+Jarrett Allen 2026, Derrick White 2025; 1.200 for Eric Gordon 2020, Aaron
+Gordon 2022, Rozier 2022, Randle 2022, Draymond 2020, Kevin Love 2019.
+**15 of them carry a ceiling more than $3M above the legal cap; the total
+overstatement is $249M.** Worst cases:
+
+| row | pay | prior | ratio | legal cap | our ceiling | gap |
+|---|---|---|---|---|---|---|
+| p.j. washington 2026 | $19.81M | $14.15M | 1.400 | $19.81M | $49.49M | **$29.7M** |
+| josh hart 2024 | $18.14M | $12.96M | 1.400 | $18.14M | $42.18M | $24.0M |
+| jarrett allen 2026 | $28.00M | $20.00M | 1.400 | $28.00M | $49.49M | $21.5M |
+| eric gordon 2020 | $16.87M | $14.06M | 1.200 | $16.87M | $38.20M | $21.3M |
+| jalen brunson 2025 | $34.94M | $24.96M | 1.400 | $34.94M | $46.39M | $11.5M |
+
+**Reproduce**: for each row with a dated `is_extension` transaction in season
+s−1 or s−2, compute `salary / prior-season salary` and compare against 1.20
+(season ≤ 2022) or 1.40 (season ≥ 2023). Scan script pattern is in the #20
+audit; the prior salary comes from `_load_prev_season_cap_pct`.
+
+**Two candidate treatments, and they are not the same change**:
+
+1. **Ceiling correction** (Stage 2). For a row signed as an extension, the
+   ceiling is `min(tier ceiling, multiplier × prior pay)`. Straightforward
+   ex post; ex ante it is entangled with the route question — before signing,
+   we do not know whether the player will extend or reach free agency, and the
+   applicable cap differs. So this is a **told-parameter** correction in the
+   same sense as the per-route δ (see QUEUE), not an unconditional one.
+2. **Censoring** (Stage 1). An at-cap extension row is an observation pinned by
+   a CBA bound: the player's market value may exceed what the rule allowed him
+   to take. That is precisely the Grabit premise, and these 21 rows get none of
+   it today. **Cautionary precedent**: METHODOLOGY records that treating good
+   players on minimums as right-censored failed economically — they could have
+   earned more elsewhere, so their pay was a choice, not a constraint — and the
+   oracle experiment killed it. An extension at the cap is *partly* a choice
+   too (the player could have tested free agency). This must be tested the same
+   way that one was, not assumed.
+
+**Why it matters beyond the ceilings**: the "counterweight band" the
+route-mixture work uses as a brake — non-max rows paid 70-90% of their ceiling,
+underpredicted by $4.87M — is plausibly populated by exactly these rows. If so,
+that band's underprediction is not model error at all, and **the brake that
+closed the route-mixture line is measuring a data bug**. The closure is marked
+provisional in `docs/QUEUE.md` pending this.
+
+**Verify**: no row's pay exceeds its corrected ceiling; the 21 at-cap rows read
+`pay / corrected ceiling ≈ 1.00`; the counterweight band's champion bias moves
+materially toward zero once these rows are either re-ceilinged or censored;
+frame stays 944.
