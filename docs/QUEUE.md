@@ -112,6 +112,29 @@ architecture lines below are decided, and what remains is listed under
 
 ## Standing decisions (do not re-propose without new evidence)
 
+- **How a route earns a place on the EX-ANTE side of the mixture.** Decided
+  2026-07-26, after the user challenged a wrong justification of mine (I had
+  claimed the extension cap is ex-ante computable while the Bird premium is
+  not — false: δ_bird is a population constant, equally computable; what is
+  ex post is only *which route the player took*, and that is true of both).
+  The real criterion is the product of two quantities:
+  **(value gap from f(x)) × (unreliability of P)**. Measured so far:
+  max +$4.37M at AUC 0.982 (earns its place), floor −$2.07M at 0.826,
+  **bird +$1.61M at 0.811 — the worst combination, and the one that actually
+  blew up** (every row got P×$1.61M, the surface lifted, calibration 0.985 →
+  0.977, three gates failed), mle a hard snap at 0.710 (told-side only),
+  capspace +$0.10M at 0.678 (δ≈0 — it does not deserve to be a separate route
+  at all). Extension is UNMEASURED and gets no presumption either way; its
+  operation is a truncation rather than an additive premium, so it cannot
+  drift the whole surface, but it can systematically under-predict young
+  risers who reach free agency instead — the mirror failure. Assign it from
+  its measured headroom and P, not from an argument.
+  **Expected landing shape**: ex ante = P(max)·V_max + P(floor)·V_floor +
+  P(rest)·f(x); told-parameter side = mle snap, bird constant, extension
+  truncation — three DIFFERENT operations, each defined and gated separately.
+  When the extension-route bundle lands, judge each leg by this criterion, not
+  merely by whether the six-route form as a whole gated.
+
 - **The Stage-2 clip never reads the observed salary — in either direction.**
   Clipping DOWN at actual pay is straight target leakage: over-prediction
   becomes impossible, so every bargain vanishes from the Value Board by
