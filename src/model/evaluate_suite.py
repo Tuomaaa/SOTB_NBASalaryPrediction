@@ -27,6 +27,15 @@ Each layer answers a different question and they must not be mixed:
                     a baseline ladder so absolute R2 is not mistaken for skill,
                     and a locked confirmation split held out of selection.
 
+The champion this suite scores is the full stack — Grabit latent, then the
+Stage-2 push and clip, then the Stage-3 extension clip (`src/model/stages.py`).
+Stage 3 reads the realized route, so **A1/A2/B1 here are TOLD-ROUTE numbers**
+under the convention adopted 2026-07-26 and refined 2026-07-27 (docs/QUEUE.md).
+Everything published from v7.1x to v7.13x was computed under the old "ignore the
+route" convention, so the suite prints the ex-ante arm (Stage 3 off) and the
+clip-only arm (the v7.13x champion) beside the headline. Quote the matching
+convention or the series reads as a jump that never happened.
+
 Run directly for the full report on the current champion:
 
     python src/model/evaluate_suite.py
@@ -53,6 +62,12 @@ from src.model.train import (
     _filter_mislabeled_year1, _filter_continuations, _compute_max_eligible,
     _compute_floor, _prepare_Xy, _make_tobit_obj, _XGB_BASE, FEATURE_COLS, TARGET,
 )
+from src.model.extension_cap import attach_extension_cap
+from src.model.route_mixture import (
+    attach_clf_features, grabit_latent, route_proba, train_route_classifier,
+    MAX_IDX,
+)
+from src.model.stages import compose, TAU, MARGIN
 # reuse the canonical label logic so C2 segments match scripts/diagnostics.py
 from scripts.diagnostics import attach_signing_labels
 
@@ -60,6 +75,21 @@ N_SPLITS = 5
 DEFAULT_SEEDS = tuple(range(10))
 FORWARD_ORIGINS = (2024, 2025, 2026)
 CONFIRMATION_PCT = 15  # share of players locked away from model selection
+
+# The three Stage-2/3 arms the suite reports, off ONE fit pass.
+#
+# CHAMPION is the shipped composition and the number every future paired delta
+# diffs against. The two references exist because the reporting convention
+# changed underneath the version series (docs/QUEUE.md, 2026-07-26/27): Stage 3
+# reads the realized route, so the champion is a TOLD-ROUTE number, while
+# v7.1x-v7.13x were all computed under the old "ignore the route" convention.
+# ARM_EXANTE is the same stack with Stage 3 off — the figure that stays
+# comparable to the published series. ARM_CLIP is the v7.13x champion itself,
+# kept so the push and the clip can be attributed separately.
+ARM_CLIP = "Stage 2 clip only (v7.13x, ex ante)"
+ARM_EXANTE = "+ push (ex ante)"
+ARM_CHAMPION = "+ push + Stage 3 extension clip (champion, told route)"
+STAGE_ARMS = (ARM_CLIP, ARM_EXANTE, ARM_CHAMPION)
 
 BASELINE_LADDER = {
     "mpg only": ["mpg"],
@@ -131,21 +161,80 @@ def make_grabit_fitter(sigma: float = 0.02, gate_frac: float = 0.55,
     return fitter
 
 
+def make_stage_arms_fitter(clf_features: list[str], grabit_params: dict | None = None):
+    """One Grabit fit + one route-classifier fit per (fold, seed), three arms out.
+
+    The arms differ only in which post-Stage-1 layers are composed, so they must
+    ride on the SAME fitted models — otherwise the paired delta between them
+    would carry fit noise that does not exist in the change being measured. The
+    fitter therefore returns a dict of named predictions rather than one array;
+    `oof_groupkfold` and `rolling_forward` both understand that form.
+
+    The classifier is fit inside the training slice and P(max) predicted on the
+    test slice, so it is fold-honest. P(max) is an OUTPUT composition weight and
+    never joins `features`, which stays FEATURE_COLS for the regression.
+    """
+    gp = grabit_params or {}
+
+    def fitter(train, test, features, seed):
+        latent, lo, hi = grabit_latent(train, test, features, seed, **gp)
+        clf = train_route_classifier(train, clf_features, seed)
+        p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
+        is_ext = test["is_extension"].values
+        ext_cap = test["ext_cap_pct"].values
+        return {
+            ARM_CLIP: compose(latent, lo=lo, hi=hi),
+            ARM_EXANTE: compose(latent, lo=lo, hi=hi, p_max=p_max),
+            ARM_CHAMPION: compose(latent, lo=lo, hi=hi, p_max=p_max,
+                                  is_extension=is_ext, ext_cap_pct=ext_cap),
+        }
+
+    return fitter
+
+
+def make_champion_fitter(clf_features: list[str], push: bool = True,
+                         stage3: bool = True, grabit_params: dict | None = None):
+    """Single-arm champion fitter — the shipped composition, for one-off use.
+
+    `make_stage_arms_fitter` is what `main()` runs (it amortises the fit across
+    the three arms); this is the same composition behind the ordinary
+    `fitter(train, test, features, seed)` signature, for a harness that wants
+    only the champion.
+    """
+    gp = grabit_params or {}
+
+    def fitter(train, test, features, seed):
+        latent, lo, hi = grabit_latent(train, test, features, seed, **gp)
+        p_max = None
+        if push:
+            clf = train_route_classifier(train, clf_features, seed)
+            p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
+        kw = {}
+        if stage3:
+            kw = {"is_extension": test["is_extension"].values,
+                  "ext_cap_pct": test["ext_cap_pct"].values}
+        return compose(latent, lo=lo, hi=hi, p_max=p_max, **kw)
+
+    return fitter
+
+
 # ---------------------------------------------------------------------------
 # Data
 # ---------------------------------------------------------------------------
 
-def load_evaluation_frame(keep_prorated: bool = False) -> tuple[pd.DataFrame, list[str]]:
+def load_evaluation_frame(keep_prorated: bool = False,
+                          verbose: bool = True) -> tuple[pd.DataFrame, list[str]]:
     """Training rows with features imputed, plus the usable feature list.
 
     Applies the same filter chain as train.py so the suite scores what the model
-    is actually fit on.
+    is actually fit on, and attaches the Stage-3 route facts.
 
     Args:
         keep_prorated: skip the prorated-salary filter, retaining partial-season
             rows. Only for reproducing the pre-v7.2x row set — R2 is not
             comparable across different row sets, so a comparison against the
             filtered frame has to fix the evaluation set (see D1).
+        verbose: print the extension-cap summary line.
     """
     df = _filter_rookie_scale(_filter_year1(load_training_data()))
     if not keep_prorated:
@@ -165,6 +254,13 @@ def load_evaluation_frame(keep_prorated: bool = False) -> tuple[pd.DataFrame, li
     df = attach_signing_labels(df, salary_dollars=df[TARGET] * df["cap"])
     # CBA floor bound (is_at_floor + floor_pct) — mirrors max_eligible above
     df = _compute_floor(df)
+    # Stage-3 inputs (is_extension + ext_cap_pct). Attached here so every
+    # consumer of the evaluation frame gets the same route facts and no harness
+    # has to remember to call it; the columns are inert for a caller that does
+    # not compose Stage 3, and they change no existing quantity — `features` is
+    # already fixed by _prepare_Xy above, and ext_cap_pct deliberately never
+    # enters max_eligible_pct or the Stage-1 censor mask.
+    df = attach_extension_cap(df, verbose=verbose)
     return df, features
 
 
@@ -191,6 +287,12 @@ def oof_groupkfold(df: pd.DataFrame, features: list[str], fitter,
          fold R2 matrix over ALL validation rows        — reporting,
          fold R2 matrix over SELECTION-POOL rows only   — decisions)
 
+    When `fitter` returns a dict of named arms instead of one array — the form
+    `make_stage_arms_fitter` uses to amortise one fit across several Stage-2/3
+    compositions — the return is `{name: (oof, fold_r2, fold_r2_sel)}` instead.
+    Arms scored this way share the fitted models exactly, so a paired delta
+    between two of them carries no fit noise at all.
+
     The second matrix exists because the accept/reject decision must not read
     the confirmation split at all: the formal audit (2026-07-23) found the
     changes adopted between v7.2x and v7.5x helped selection rows while
@@ -205,35 +307,57 @@ def oof_groupkfold(df: pd.DataFrame, features: list[str], fitter,
     sel = ~df["is_confirmation"].values if "is_confirmation" in df.columns \
         else np.ones(len(df), bool)
 
-    acc = np.zeros(len(df))
-    fold_r2 = np.zeros((len(folds), len(seeds)))
-    fold_r2_sel = np.zeros((len(folds), len(seeds)))
+    acc, fold_r2, fold_r2_sel = {}, {}, {}
+    multi = None
     for si, seed in enumerate(seeds):
-        oof = np.full(len(df), np.nan)
         for fi, (tr, va) in enumerate(folds):
-            pred = fitter(df.iloc[tr], df.iloc[va], features, seed)
-            oof[va] = pred
-            fold_r2[fi, si] = r2_score(y[va], pred)
-            vs = sel[va]
-            fold_r2_sel[fi, si] = (r2_score(y[va][vs], pred[vs])
-                                   if vs.sum() > 10 else np.nan)
-        acc += oof
-    return acc / len(seeds), fold_r2, fold_r2_sel
+            out = fitter(df.iloc[tr], df.iloc[va], features, seed)
+            if multi is None:
+                multi = isinstance(out, dict)
+            items = out.items() if multi else [(None, out)]
+            for name, pred in items:
+                if name not in acc:
+                    acc[name] = np.zeros(len(df))
+                    fold_r2[name] = np.zeros((len(folds), len(seeds)))
+                    fold_r2_sel[name] = np.zeros((len(folds), len(seeds)))
+                acc[name][va] += pred
+                fold_r2[name][fi, si] = r2_score(y[va], pred)
+                vs = sel[va]
+                fold_r2_sel[name][fi, si] = (r2_score(y[va][vs], pred[vs])
+                                             if vs.sum() > 10 else np.nan)
+    if not multi:
+        return acc[None] / len(seeds), fold_r2[None], fold_r2_sel[None]
+    return {k: (acc[k] / len(seeds), fold_r2[k], fold_r2_sel[k]) for k in acc}
 
 
 def rolling_forward(df: pd.DataFrame, features: list[str], fitter,
                     seeds=DEFAULT_SEEDS, origins=FORWARD_ORIGINS) -> np.ndarray:
-    """Predictions for each origin season, trained only on strictly earlier ones."""
-    preds = np.full(len(df), np.nan)
+    """Predictions for each origin season, trained only on strictly earlier ones.
+
+    Multi-arm fitters are handled the same way `oof_groupkfold` handles them:
+    the return becomes `{name: predictions}`.
+    """
+    preds = {}
     season = df["season"].values
+    multi = None
     for T in origins:
         test_mask, train_mask = season == T, season < T
         if test_mask.sum() < 10 or train_mask.sum() < 200:
             continue
-        acc = np.zeros(test_mask.sum())
+        acc = {}
         for seed in seeds:
-            acc += fitter(df[train_mask], df[test_mask], features, seed)
-        preds[test_mask] = acc / len(seeds)
+            out = fitter(df[train_mask], df[test_mask], features, seed)
+            if multi is None:
+                multi = isinstance(out, dict)
+            for name, pred in (out.items() if multi else [(None, out)]):
+                if name not in acc:
+                    acc[name] = np.zeros(int(test_mask.sum()))
+                acc[name] += pred
+        for name in acc:
+            preds.setdefault(name, np.full(len(df), np.nan))
+            preds[name][test_mask] = acc[name] / len(seeds)
+    if not multi:
+        return preds[None]
     return preds
 
 
@@ -413,8 +537,12 @@ def floor_zone(df, champion_oof, challenger_oof) -> dict:
     }
 
 
-def layer_d(df, features, pred_oof, seeds=DEFAULT_SEEDS) -> dict:
-    """D2 baseline ladder and D3 the locked confirmation split."""
+def baseline_ladder(df, features, seeds=DEFAULT_SEEDS) -> dict:
+    """The D2 rungs below the full feature set — identical for every arm.
+
+    Scored once and handed to `layer_d`, because the ladder depends only on the
+    frame, not on which Stage-2/3 composition sits on top of it.
+    """
     y = df[TARGET].values
     ladder = {"predict the mean": 0.0}
     for name, cols in BASELINE_LADDER.items():
@@ -422,6 +550,43 @@ def layer_d(df, features, pred_oof, seeds=DEFAULT_SEEDS) -> dict:
         if cols:
             oof, _, _ = oof_groupkfold(df, cols, baseline_fitter, seeds=seeds[:3])
             ladder[name] = float(r2_score(y, oof))
+    return ladder
+
+
+def extension_zone(df, champion_oof, reference_oof) -> dict:
+    """Zone-local scorecard for Stage 3: the first-paying-year extension rows.
+
+    Same discipline as `grabit_zone` at the other bound — Stage 3 touches ~16%
+    of rows and only ever binds on a fraction of those, so a pooled statistic
+    dilutes it. The zone is defined by the ROUTE (is_extension with a computed
+    raise cap), not by which rows the clip happened to move, so the scorecard
+    also charges Stage 3 for any collateral inside its own population.
+    """
+    mask = (df["is_extension"].values.astype(bool)
+            & df["ext_cap_pct"].notna().values)
+    cap_m = df["cap"].values / 1e6
+    err_ch = (champion_oof - df[TARGET].values) * cap_m
+    err_rf = (reference_oof - df[TARGET].values) * cap_m
+    d_abs = np.abs(err_rf[mask]) - np.abs(err_ch[mask])
+    moved = np.abs(champion_oof - reference_oof) > 1e-9
+    return {
+        "n": int(mask.sum()),
+        "n_moved": int((mask & moved).sum()),
+        "mae_champion": float(np.abs(err_ch[mask]).mean()),
+        "mae_reference": float(np.abs(err_rf[mask]).mean()),
+        "delta_mae": float(np.abs(err_ch[mask]).mean() - np.abs(err_rf[mask]).mean()),
+        "bias_champion": float(err_ch[mask].mean()),
+        "bias_reference": float(err_rf[mask].mean()),
+        "rows_better": int((d_abs > 0.005).sum()),
+        "rows_worse": int((d_abs < -0.005).sum()),
+    }
+
+
+def layer_d(df, features, pred_oof, seeds=DEFAULT_SEEDS, ladder=None) -> dict:
+    """D2 baseline ladder and D3 the locked confirmation split."""
+    y = df[TARGET].values
+    ladder = dict(baseline_ladder(df, features, seeds) if ladder is None
+                  else ladder)
     ladder["full feature set"] = float(r2_score(y, pred_oof))
 
     conf = df["is_confirmation"].values
@@ -440,7 +605,7 @@ def layer_d(df, features, pred_oof, seeds=DEFAULT_SEEDS) -> dict:
 # ---------------------------------------------------------------------------
 
 def run_suite(df: pd.DataFrame, features: list[str], fitter, name: str,
-              seeds=DEFAULT_SEEDS) -> SuiteResult:
+              seeds=DEFAULT_SEEDS, ladder=None) -> SuiteResult:
     """Score one variant through all four layers."""
     print(f"\nScoring '{name}' over {len(seeds)} seeds...")
     oof, fold_r2, fold_r2_sel = oof_groupkfold(df, features, fitter, seeds)
@@ -451,8 +616,34 @@ def run_suite(df: pd.DataFrame, features: list[str], fitter, name: str,
     res.metrics.update(layer_a(df, oof, fold_r2))
     res.metrics.update(layer_b(df, fwd))
     res.metrics.update(layer_c(df, oof))
-    res.metrics.update(layer_d(df, features, oof, seeds))
+    res.metrics.update(layer_d(df, features, oof, seeds, ladder=ladder))
     return res
+
+
+def run_suite_arms(df: pd.DataFrame, features: list[str], fitter,
+                   seeds=DEFAULT_SEEDS, ladder=None) -> dict[str, SuiteResult]:
+    """Score every arm of a multi-arm fitter through all four layers.
+
+    One CV pass and one rolling-forward pass total, so the arms are compared on
+    identical fitted models and the D2 ladder is scored once for all of them.
+    """
+    print(f"\nScoring the Stage-2/3 arms over {len(seeds)} seeds "
+          f"(one fit pass)...")
+    oof_arms = oof_groupkfold(df, features, fitter, seeds)
+    fwd_arms = rolling_forward(df, features, fitter, seeds)
+    if ladder is None:
+        ladder = baseline_ladder(df, features, seeds)
+
+    out = {}
+    for name, (oof, fold_r2, fold_r2_sel) in oof_arms.items():
+        res = SuiteResult(name=name, oof=oof, forward=fwd_arms[name],
+                          fold_r2=fold_r2, fold_r2_sel=fold_r2_sel)
+        res.metrics.update(layer_a(df, oof, fold_r2))
+        res.metrics.update(layer_b(df, res.forward))
+        res.metrics.update(layer_c(df, oof))
+        res.metrics.update(layer_d(df, features, oof, seeds, ladder=ladder))
+        out[name] = res
+    return out
 
 
 def print_report(df: pd.DataFrame, res: SuiteResult):
@@ -508,21 +699,120 @@ def print_report(df: pd.DataFrame, res: SuiteResult):
               "  <- open only at a version bump")
 
 
+def print_convention_block(df, arms: dict, deltas: dict):
+    """The three Stage-2/3 arms side by side, told-route beside ex-ante.
+
+    The champion reads the realized route (Stage 3), so its A1/A2/B1 are
+    TOLD-ROUTE numbers under the convention adopted 2026-07-26 and refined
+    2026-07-27. Every published figure from v7.1x to v7.13x was computed under
+    the old "ignore the route" convention, so the ex-ante column is printed
+    beside the headline — comparing the two naively is the mistake this block
+    exists to prevent.
+    """
+    line = "=" * 100
+    print(f"\n{line}\n  STAGE 2/3 ARMS — told route beside ex ante "
+          f"(tau={TAU}, margin={MARGIN}, both pre-registered)\n{line}")
+    print(f"  {'arm':52s} {'A1':>7s} {'A2':>7s} {'B1':>7s} {'MAE':>7s} "
+          f"{'slope':>6s}")
+    for name in STAGE_ARMS:
+        m = arms[name].metrics
+        print(f"  {name:52s} {m['A1_cv_r2']:7.4f} {m['A2_cv_r2_2024_26']:7.4f} "
+              f"{m.get('B1_forward_r2', float('nan')):7.4f} "
+              f"{m['A1_cv_mae_m']:7.2f} {m['C1_calibration_slope']:6.3f}")
+    print("\n  B1 per origin (the 2026 row is the project's holdout headline):")
+    for T in FORWARD_ORIGINS:
+        cells = []
+        for name in STAGE_ARMS:
+            d = arms[name].metrics.get("B1_by_origin", {}).get(int(T))
+            cells.append(f"{d['r2']:.4f}" if d else "  n/a ")
+        n = arms[STAGE_ARMS[0]].metrics.get("B1_by_origin", {}).get(int(T), {})
+        print(f"    {T}  n={n.get('n', 0):3d}   " +
+              "   ".join(f"{c}" for c in cells))
+    print(f"    {'':13s}   " + "   ".join(
+        f"{s.split('(')[0].strip()[:6]:>6s}" for s in STAGE_ARMS))
+
+    print("\n  PAIRED deltas on the selection pool (same folds, same fitted "
+          "models):")
+    for label, d in deltas.items():
+        print(f"    {label:52s} {d['delta']:+.5f}  +/- {d['se']:.5f}  "
+              f"t = {d['t']:+.2f}")
+    print("    per fold, champion vs Stage-2 clip only: "
+          f"{deltas['champion - clip only (the whole change)']['per_fold']}")
+    print("\n  The change is adopted at t = +1.11, below the t > 2 feature bar,")
+    print("  on the same grounds as v7.4x, v7.9x and v7.13x: it enforces a legal")
+    print("  bound rather than fitting a parameter. Predicting $39.68M for")
+    print("  Marcus Smart 2022 was not inaccurate, it was impossible.")
+
+
+def print_stage3_accounting(df, arms: dict):
+    """Which rows the push and the extension clip actually move, and by how much."""
+    champ = arms[ARM_CHAMPION].oof
+    exante = arms[ARM_EXANTE].oof
+    clip = arms[ARM_CLIP].oof
+    cap_m = df["cap"].values / 1e6
+    y = df[TARGET].values
+    conf = df["is_confirmation"].values
+
+    pushed = np.abs(exante - clip) > 1e-9
+    clipped = np.abs(champ - exante) > 1e-9
+    print(f"\n{'=' * 100}\n  STAGE 2/3 ACCOUNTING — the rows each layer moves"
+          f"\n{'=' * 100}")
+    print(f"  push moves      {int(pushed.sum()):3d} rows "
+          f"({int((pushed & conf).sum())} of them confirmation rows)   "
+          f"mean |err| ${np.abs(clip[pushed] - y[pushed]).dot(cap_m[pushed]) / max(pushed.sum(), 1):.2f}M "
+          f"-> ${np.abs(exante[pushed] - y[pushed]).dot(cap_m[pushed]) / max(pushed.sum(), 1):.2f}M")
+    print(f"  Stage 3 moves   {int(clipped.sum()):3d} rows "
+          f"({int((clipped & conf).sum())} of them confirmation rows)   "
+          f"mean |err| ${np.abs(exante[clipped] - y[clipped]).dot(cap_m[clipped]) / max(clipped.sum(), 1):.2f}M "
+          f"-> ${np.abs(champ[clipped] - y[clipped]).dot(cap_m[clipped]) / max(clipped.sum(), 1):.2f}M")
+    print("\n  Rows Stage 3 returns to the raise cap, largest correction first:")
+    order = np.flatnonzero(clipped)
+    order = order[np.argsort(-(exante[order] - champ[order]))]
+    for i in order[:20]:
+        tag = " [CONFIRM]" if conf[i] else ""
+        print(f"    {df['player_name_norm'].iat[i]:24s} {int(df['season'].iat[i])}"
+              f"  pay {y[i] * cap_m[i]:6.2f}  push {exante[i] * cap_m[i]:6.2f}"
+              f"  clip {champ[i] * cap_m[i]:6.2f}"
+              f"  ceiling {df['max_eligible_pct'].iat[i] * cap_m[i]:6.2f}"
+              f"  raise cap {df['ext_cap_pct'].iat[i] * cap_m[i]:6.2f}"
+              f"  |err| {abs(exante[i] - y[i]) * cap_m[i]:6.2f} -> "
+              f"{abs(champ[i] - y[i]) * cap_m[i]:5.2f}{tag}")
+
+
 def main():
     df, features = load_evaluation_frame()
+    df, clf_features = attach_clf_features(df)
     print(f"Loaded {len(df)} rows, {len(features)} features, "
-          f"seasons {df['season'].min()}-{df['season'].max()}")
+          f"{len(clf_features)} classifier features, "
+          f"seasons {df['season'].min()}-{df['season'].max()}, "
+          f"{int(df['is_extension'].sum())} first-year extension rows")
 
-    champion = run_suite(df, features, make_grabit_fitter(), "Grabit v3 (champion)")
+    ladder = baseline_ladder(df, features, DEFAULT_SEEDS)
+    arms = run_suite_arms(df, features, make_stage_arms_fitter(clf_features),
+                          ladder=ladder)
+    champion = arms[ARM_CHAMPION]
     print_report(df, champion)
 
-    challenger = run_suite(df, features, baseline_fitter, "Baseline XGBoost")
+    deltas = {
+        "champion - clip only (the whole change)":
+            paired_delta(arms[ARM_CLIP].fold_r2_sel, champion.fold_r2_sel),
+        "push alone (ex ante - clip only)":
+            paired_delta(arms[ARM_CLIP].fold_r2_sel, arms[ARM_EXANTE].fold_r2_sel),
+        "Stage 3 alone (champion - ex ante)":
+            paired_delta(arms[ARM_EXANTE].fold_r2_sel, champion.fold_r2_sel),
+    }
+    print_convention_block(df, arms, deltas)
+    print_stage3_accounting(df, arms)
+
+    challenger = run_suite(df, features, baseline_fitter, "Baseline XGBoost",
+                           ladder=ladder)
     print_report(df, challenger)
 
     delta = paired_delta(challenger.fold_r2, champion.fold_r2)
     delta_sel = paired_delta(challenger.fold_r2_sel, champion.fold_r2_sel)
     zone = grabit_zone(df, champion.oof, challenger.oof)
     fzone = floor_zone(df, champion.oof, challenger.oof)
+    ezone = extension_zone(df, champion.oof, arms[ARM_EXANTE].oof)
     print(f"\n{'='*74}\n  PAIRED comparison: Grabit v3 minus Baseline XGBoost\n{'='*74}")
     print(f"    DECISION delta (selection pool)  {delta_sel['delta']:+.4f}  "
           f"+/- {delta_sel['se']:.4f} (SE)   t = {delta_sel['t']:+.2f}")
@@ -538,6 +828,12 @@ def main():
           f"({fzone['delta_mae']:+.2f})   rows better/worse "
           f"{fzone['rows_better']}/{fzone['rows_worse']}")
     print(f"      bias ${fzone['bias_baseline']:+.2f}M -> ${fzone['bias_grabit']:+.2f}M")
+    print(f"\n    Extension zone (first-paying-year extensions, n={ezone['n']}, "
+          f"{ezone['n_moved']} moved by Stage 3), champion vs its own ex-ante arm:")
+    print(f"      MAE  ${ezone['mae_reference']:.2f}M -> ${ezone['mae_champion']:.2f}M  "
+          f"({ezone['delta_mae']:+.2f})   rows better/worse "
+          f"{ezone['rows_better']}/{ezone['rows_worse']}")
+    print(f"      bias ${ezone['bias_reference']:+.2f}M -> ${ezone['bias_champion']:+.2f}M")
     print("    Grabit is a targeted intervention on the ~30% of rows at a CBA bound;")
     print("    judging it on the pooled delta mistakes dilution for weakness. Keep")
     print("    each side while its zone MAE delta is negative; drop the side whose")
@@ -571,23 +867,45 @@ def main():
             stem, dot, ext = name.partition(".")
             prev.replace(out_dir / f"{stem}_prev{dot}{ext}")
     payload = {"champion": champion.metrics, "challenger": challenger.metrics,
+               # The champion is a TOLD-ROUTE number (Stage 3 reads the realized
+               # extension flag). These two are the same stack with Stage 3 off
+               # and with both Stage-3 and the push off — the second is the
+               # v7.13x champion, i.e. the convention v7.1x-v7.13x were
+               # published under. Keep both when quoting the series.
+               "champion_exante": arms[ARM_EXANTE].metrics,
+               "champion_clip_only": arms[ARM_CLIP].metrics,
+               "stage_arm_names": {"champion": ARM_CHAMPION,
+                                   "exante": ARM_EXANTE, "clip_only": ARM_CLIP},
+               "stage_constants": {"tau": TAU, "margin": MARGIN},
+               "stage_deltas_selection": deltas,
                "paired_delta": delta, "paired_delta_selection": delta_sel,
                "grabit_zone": zone, "floor_zone": fzone,
+               "extension_zone": ezone,
                # fold x seed R2 matrices — the reference every future paired
                # comparison diffs against (same folds, same seeds, per-fold).
                # *_selection is the decision-grade matrix; pooled is context.
                "fold_r2": {"champion": champion.fold_r2.tolist(),
+                           "champion_exante": arms[ARM_EXANTE].fold_r2.tolist(),
+                           "champion_clip_only": arms[ARM_CLIP].fold_r2.tolist(),
                            "challenger": challenger.fold_r2.tolist()},
-               "fold_r2_selection": {"champion": champion.fold_r2_sel.tolist(),
-                                     "challenger": challenger.fold_r2_sel.tolist()},
+               "fold_r2_selection": {
+                   "champion": champion.fold_r2_sel.tolist(),
+                   "champion_exante": arms[ARM_EXANTE].fold_r2_sel.tolist(),
+                   "champion_clip_only": arms[ARM_CLIP].fold_r2_sel.tolist(),
+                   "challenger": challenger.fold_r2_sel.tolist()},
                "seeds": list(DEFAULT_SEEDS), "n_splits": N_SPLITS}
     with open(out_dir / "evaluation_suite.json", "w") as fh:
         json.dump(payload, fh, indent=2)
 
     ref = df[["player_name_norm", "season", TARGET, "salary_m",
-              "signing_cat", "is_confirmation"]].copy()
+              "signing_cat", "is_confirmation", "is_extension", "ext_cap_pct",
+              "max_eligible_pct"]].copy()
     ref["oof_champion"] = champion.oof
     ref["fwd_champion"] = champion.forward
+    ref["oof_champion_exante"] = arms[ARM_EXANTE].oof
+    ref["fwd_champion_exante"] = arms[ARM_EXANTE].forward
+    ref["oof_champion_clip_only"] = arms[ARM_CLIP].oof
+    ref["fwd_champion_clip_only"] = arms[ARM_CLIP].forward
     ref["oof_challenger"] = challenger.oof
     ref["fwd_challenger"] = challenger.forward
     ref.to_csv(out_dir / "oof_reference.csv", index=False)

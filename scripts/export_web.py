@@ -7,6 +7,11 @@ So this script fits the model once and derives everything from that one fit —
 it never reads the prediction CSVs in outputs/, which were produced by
 different model versions on different days.
 
+The post-Stage-1 chain (push, CBA clip, extension raise cap) is not
+re-implemented here: it is `src.model.stages.compose`, the same function the
+evaluation suite scores and predict.py deploys. Stage 3 reads the realized
+route, so the forward R² written into meta.json is a TOLD-ROUTE number.
+
 Writes to the portfolio site's public/data/nba/ directory:
     valuations.json  — one row per player-season (table data, no SHAP)
     shap.json        — per-row feature attributions in dollars (lazy-loaded)
@@ -29,6 +34,8 @@ import numpy as np
 import pandas as pd
 
 from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR
+from src.model import stages
+from src.model.extension_cap import attach_extension_cap
 from src.model.train import (
     FEATURE_COLS,
     TARGET,
@@ -157,7 +164,8 @@ def _training_medians(df: pd.DataFrame) -> tuple[list[str], pd.Series]:
 
 
 def build_frame(df: pd.DataFrame, model, features: list[str],
-                medians: pd.Series) -> tuple[pd.DataFrame, np.ndarray]:
+                medians: pd.Series, train_df: pd.DataFrame
+                ) -> tuple[pd.DataFrame, np.ndarray]:
     """Predict latent + bounded value for every player-season, with SHAP.
 
     The model is fit on the training seasons only, but it is applied to all
@@ -165,11 +173,20 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     rookie-scale years (labelled Contract Surplus, not Signing Residual), and
     everything in HOLDOUT_SEASON and later, which the model never saw at all —
     those carry a genuine forward prediction and are flagged is_forward.
+
+    The post-Stage-1 chain is `src.model.stages.compose`, the same function the
+    evaluation suite and predict.py call, so the board cannot drift from the
+    scored model. `train_df` is needed because the push's route classifier must
+    be fit on exactly the seasons the regression saw.
     """
     import shap
 
     full = _compute_max_eligible(df.copy())
     full = _compute_floor(full)
+    # Stage-3 inputs. A row is only an extension row when a dated span STARTS on
+    # its season, so escalator years and rookie-scale years come back False and
+    # Stage 3 is inert on them.
+    full = attach_extension_cap(full)
 
     X = full.reindex(columns=features).copy()
     X = X.fillna(medians).fillna(0)
@@ -177,9 +194,19 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     latent = model.predict(X)
     max_elig = full["max_eligible_pct"].values
     floor_pct = full["floor_pct"].values
-    # Stage 2 is two-sided: the ceiling caps a max player below his latent
-    # worth, the floor lifts an at-minimum player up to what the CBA guarantees.
-    capped = np.clip(latent, floor_pct, max_elig)
+    # Stage 2 is two-sided in BOTH directions now: the push lifts a max-worthy
+    # player the model prices below his ceiling, the clip caps one priced above
+    # it, and the floor lifts an at-minimum player to what the CBA guarantees.
+    # Stage 3 then returns an extension row to its own raise cap.
+    p_max = stages.deployed_p_max(stages.training_route_frame(train_df), full,
+                                  medians=medians)
+    is_ext = full["is_extension"].values
+    ext_cap = full["ext_cap_pct"].values
+    capped = stages.compose(latent, lo=floor_pct, hi=max_elig, p_max=p_max,
+                            is_extension=is_ext, ext_cap_pct=ext_cap)
+    flags = stages.bound_flags(latent, capped, lo=floor_pct, hi=max_elig,
+                               p_max=p_max, is_extension=is_ext,
+                               ext_cap_pct=ext_cap)
 
     explainer = shap.TreeExplainer(model)
     shap_vals = explainer.shap_values(X)
@@ -212,7 +239,9 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
         "latent_cap_pct": latent,
         "pred_cap_pct": capped,
         "max_eligible_pct": max_elig,
+        "ext_cap_pct": ext_cap,
         "floor_pct": floor_pct,
+        "p_max": p_max,
         "cap": cap,
     })
     out["is_forward"] = out["season"] >= HOLDOUT_SEASON
@@ -229,9 +258,16 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     out["pred_salary"] = out["pred_cap_pct"] * out["cap"]
     out["latent_salary"] = out["latent_cap_pct"] * out["cap"]
     out["surplus"] = out["pred_salary"] - out["actual_salary"]
-    # Which CBA bound, if any, moved the prediction off its latent value.
-    out["is_capped"] = out["latent_cap_pct"] > out["max_eligible_pct"] + 1e-9
-    out["is_floored"] = out["latent_cap_pct"] < out["floor_pct"] - 1e-9
+    # Which CBA bound, if any, moved the prediction off its latent value. There
+    # are now two ceilings and an upward push, so `is_capped` can no longer be
+    # read off the latent alone: a row the push pinned to the tier ceiling is
+    # capped and the old test would miss it, and a row Stage 3 lowered sits at a
+    # legal ceiling that is NOT the max. Four flags, one question each — see
+    # stages.bound_flags.
+    out["is_pushed"] = flags["is_pushed"]
+    out["is_capped"] = flags["is_capped"]
+    out["is_ext_capped"] = flags["is_ext_capped"]
+    out["is_floored"] = flags["is_floored"]
 
     for col in ("darko_dpm_z", "lebron_z", "rapm_z", "mpg", "usage_pct",
                 "availability_3yr", "ast_pct", "height_inches", "draft_pick",
@@ -250,7 +286,8 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
 
 def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
                      features: list[str], medians: pd.Series, expected: float,
-                     df: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
+                     df: pd.DataFrame, train_df: pd.DataFrame
+                     ) -> tuple[pd.DataFrame, np.ndarray]:
     """Append holdout-season free agents the salary data does not yet cover.
 
     A player can have a full season of impact metrics and no contract row: a
@@ -307,6 +344,35 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
     latent = model.predict(X)
     shap_fa = shap.TreeExplainer(model).shap_values(X)
 
+    # An unsigned free agent has no contract, so Stage 3 is inert (no extension
+    # span) and the DOWNWARD half of Stage 2 stays off as before: the Value
+    # Board's job for these rows is market value, and a fringe player whose
+    # value sits under the minimum is exactly the finding, not an error to
+    # round away. The ceiling is real though, so it is computed and used — both
+    # as the push's target and as a cap on the pushed value, because a push
+    # without its clip can land a player above his legal max.
+    #
+    # `_compute_floor` is deliberately NOT called here: it derives floor_pct
+    # from the frame's OWN at-floor rows, and on a frame whose `cap_pct` is the
+    # model's own latent that lookup is circular (it returns a NEGATIVE floor
+    # for Biyombo 2026). See the RESULT's ISSUES entry.
+    probe = fa.copy()
+    probe[TARGET] = latent
+    probe = _compute_max_eligible(probe)
+    max_elig = probe["max_eligible_pct"].values
+    p_max = stages.deployed_p_max(stages.training_route_frame(train_df), probe,
+                                  medians=medians)
+    no_floor = np.full(len(fa), -np.inf)
+    value = stages.stage2(latent, lo=no_floor, hi=max_elig, p_max=p_max)
+    fa_flags = stages.bound_flags(latent, value, lo=no_floor, hi=max_elig,
+                                  p_max=p_max)
+    n_push = int(fa_flags["is_pushed"].sum())
+    if n_push:
+        who = ", ".join(
+            f"{fa['player_name'].values[i]} P={p_max[i]:.2f}"
+            for i in np.flatnonzero(fa_flags["is_pushed"]))
+        print(f"  Free agents moved by the max push: {n_push} ({who})")
+
     cap = float(CAP_BY_SEASON[HOLDOUT_SEASON])
     fa_out = pd.DataFrame({
         "player_name": fa["player_name"].values,
@@ -319,18 +385,24 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         "contract_years": np.nan,
         "actual_cap_pct": np.nan,
         "latent_cap_pct": latent,
-        # Value Board shows market value; there is no CBA clip without a contract.
-        "pred_cap_pct": latent,
-        "max_eligible_pct": np.nan,
+        # Value Board shows market value: the push applies (it is ex ante, and
+        # a max-worthy unsigned FA is the case it exists for), the ceiling caps
+        # the pushed value, and the floor still does not apply.
+        "pred_cap_pct": value,
+        "max_eligible_pct": max_elig,
+        "ext_cap_pct": np.nan,
         "floor_pct": np.nan,
+        "p_max": p_max,
         "cap": cap,
         "is_forward": True,
         "is_rookie_scale": False,
         "actual_salary": np.nan,
-        "pred_salary": latent * cap,
+        "pred_salary": value * cap,
         "latent_salary": latent * cap,
         "surplus": np.nan,
-        "is_capped": False,
+        "is_pushed": fa_flags["is_pushed"],
+        "is_capped": fa_flags["is_capped"],
+        "is_ext_capped": False,
         "is_floored": False,
         "darko_dpm_z": fa["darko_dpm_z"].values,
         "lebron_z": fa["lebron_z"].values,
@@ -381,6 +453,11 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
             "lat": _round(r.latent_salary / M),
             "sur": _round(r.surplus / M),
             "cap": bool(r.is_capped),
+            # Stage 3: the prediction sits at this row's own extension raise
+            # cap, a legal ceiling that is not the max tier. Separate key from
+            # "cap" so the site can keep saying MAX only where MAX is true.
+            "ec": bool(r.is_ext_capped),
+            "psh": bool(r.is_pushed),
             "flr": bool(r.is_floored),
             "fwd": bool(r.is_forward),
             "rs": bool(r.is_rookie_scale),
@@ -451,6 +528,15 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
         "nFeatures": results["n_features"],
         "nCensored": results.get("n_censored"),
         "nLeftCensored": results.get("n_left_censored"),
+        # Stage 2's push and Stage 3's extension clip. tau and margin are
+        # pre-registered constants, not fitted parameters. forwardR2 above is a
+        # TOLD-ROUTE number (Stage 3 reads the realized extension flag) — the
+        # convention adopted 2026-07-26; v7.1x-v7.13x were ex ante.
+        "tau": stages.TAU,
+        "margin": stages.MARGIN,
+        "route": "told",
+        "nPushed": int(out["is_pushed"].sum()),
+        "nExtCapped": int(out["is_ext_capped"].sum()),
         "features": [{"key": f, "label": FEATURE_LABELS.get(f, f)}
                      for f in features],
         "capBySeason": {str(k): v for k, v in CAP_BY_SEASON.items()},
@@ -516,8 +602,9 @@ def write_charts(out: pd.DataFrame, shap_vals: np.ndarray,
              & ~out["is_rookie_scale"]]
     fig, ax = plt.subplots(figsize=(7, 6.2))
     _style_axes(ax)
-    plain = y1[~y1["is_capped"] & ~y1["is_floored"]]
-    bound = y1[y1["is_capped"] | y1["is_floored"]]
+    at_bound = y1["is_capped"] | y1["is_floored"] | y1["is_ext_capped"]
+    plain = y1[~at_bound]
+    bound = y1[at_bound]
     ax.scatter(plain["actual_salary"] / M, plain["pred_salary"] / M, s=16,
                color=PALETTE["teal"], alpha=0.55, linewidths=0,
                label="Priced by the model")
@@ -673,9 +760,9 @@ def main() -> None:
     if tr_features != features:
         raise SystemExit("feature list drifted between fit and export")
 
-    out, shap_vals, expected = build_frame(df, model, features, medians)
+    out, shap_vals, expected = build_frame(df, model, features, medians, train_df)
     out, shap_vals = _add_free_agents(out, shap_vals, model, features, medians,
-                                      expected, df)
+                                      expected, df, train_df)
 
     # The headline the Signing Board quotes is the forward number: accuracy on
     # the signings the model never saw. Free agents (year_in_contract NaN) carry
@@ -690,7 +777,9 @@ def main() -> None:
     }
     print(f"Scored {len(out)} rows  "
           f"({int((out['year_in_contract'] == 1).sum())} year-1, "
+          f"{int(out['is_pushed'].sum())} pushed, "
           f"{int(out['is_capped'].sum())} capped, "
+          f"{int(out['is_ext_capped'].sum())} at an extension raise cap, "
           f"{int(out['is_floored'].sum())} floored)")
     print(f"Forward {HOLDOUT_SEASON}: R² {fwd_metrics['r2']:.4f}, "
           f"MAE ${fwd_metrics['mae_m']:.2f}M on {fwd_metrics['n']} unseen signings")
