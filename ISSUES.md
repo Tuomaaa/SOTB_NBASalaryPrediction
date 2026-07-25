@@ -187,37 +187,6 @@ lacks a source:
 
 ---
 
-## 10. Record the sigma sweep's mechanism and the relative C1 gate in METHODOLOGY
-
-**Severity**: low — docs only; the decisions are made and the code already
-matches them.
-
-Old entry #7 closed 2026-07-23: a 36-config sweep plus boundary probe held the
-incumbent censoring settings (0.02 / 0.55 / 2.0). Full evidence in
-`docs/briefs/2026-07-23-sigma-gate-retune.RESULT.md` — do not re-run the sweep
-on this row set. Two findings belong in METHODOLOGY (docs lane):
-
-- **Sigma must never be selected on zone MAE.** Both censored sides are one-way
-  valves: every zone row is biased toward its CBA bound and Stage 2's clip
-  makes overshooting free, so zone MAE falls monotonically in sigma out to
-  0.06 with no interior optimum, while the pinned-at-bound share climbs
-  19% → 42% and the bill lands on the calibration slope (0.9883 → 0.9647 at
-  sigma=0.04). Judged this way sigma degenerates into "how many rows to pin".
-  gate_frac is inert on this row set (52-56 of 57 rows gated across
-  0.45-0.65); the binding constraint is `is_max_contract`'s 0.90 threshold.
-- **The C1 calibration gate is RELATIVE**, adjudicated 2026-07-23: a candidate
-  is admissible when |slope − 1| exceeds the incumbent's by no more than
-  0.005 (≈ $0.3M of scale distortion at a $60M max — C2's own materiality
-  yardstick; paired slope-difference noise is far below it). The absolute
-  [0.99, 1.01] window is dead — it excluded the champion's own 0.9883. Now
-  encoded in `evaluate_suite.py`'s printed protocol block.
-
-`_make_tobit_obj` also gained an inert `sigma_left` hook (bit-identical when
-unset); the side-separation control it enabled showed the two censored sides
-are independent and additive.
-
----
-
 ## 12. AAV is unavailable for half the evaluation frame, non-randomly
 
 **Severity**: low — informational, and it bounds what any contract-structure
@@ -266,38 +235,6 @@ materially.
 
 **Verify**: `_load_prev_season_cap_pct()` returns a value for
 `("enes freedom", 2018)`.
-
----
-
-## 15. Record v7.9x and its conventions in VERSION_HISTORY / METHODOLOGY
-
-**Severity**: low — docs lane only; the decisions are made and the code is on
-master.
-
-- **VERSION_HISTORY**: v7.9x = continuation filter v2 + the 10-day parse fix
-  (`spotrac_signing_types.csv` 8,954 → 5,769 rows). Frame 1,172 → 949 (342
-  demoted, 0 contradicted). Common-row paired A1 −0.0009 (t=−0.13) — neutral
-  by construction, since the instrument scores only rows both frames keep and
-  is blind to the benefit of removals; the pre-registered success criterion
-  was the `is2019` control, +0.0035 (t=2.29) → −0.0004 (t=−0.91). C2 max
-  |bias| growth +0.16M. New-frame A1/A2/B1 are in the refreshed
-  `evaluation_suite.json`.
-- **METHODOLOGY**, three items:
-  1. The **renegotiation convention**, adjudicated 2026-07-24: a
-     renegotiation-and-extend re-prices its signing season to market, so that
-     season is FRESH even though an older span covers it. Rules all six pairs
-     the data contains — Turner 2022, Sabonis 2023, Clarkson 2023, Isaac 2024,
-     Markkanen 2024, and JJJ 2025 (whose 2025-26 salary was raised $11.6M on
-     2025-07-13; the one acceptance-list mismatch, resolved this way).
-  2. The **span rules**: Spotrac's `fa_year` on an option-final deal is the
-     option-decision summer, so the span is `[fa_year − years + 1, fa_year]`;
-     an unmatched extension starts paying at `signing_season + 1`; 120 block
-     anchors (6.1%) predate their own signing and are date-resolved. A block
-     anchor alone is never a trustworthy span.
-  3. The **protocol lesson**: a pure-removal change is judged on its
-     pre-registered contamination signal plus guardrails (C2, common-row
-     neutrality), not on common-row A1 improvement — that instrument cannot
-     see removals by construction.
 
 ---
 
