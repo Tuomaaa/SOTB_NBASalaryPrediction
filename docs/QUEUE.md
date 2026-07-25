@@ -24,15 +24,28 @@ Last updated: 2026-07-26, after the five-worker landing (v7.13x).
   a player's floor by route — so the threshold and the selection rule are the
   only guards.
 
-### Convention change, 2026-07-26 (user's decision)
+### Convention, 2026-07-26, refined 2026-07-27 (user's decisions)
 
 The Stage-3 told-route number is reported as the model's accuracy in the SAME
-column as the ex-ante numbers, not on a separate scoreboard: the route is
-available at prediction time for both deployed uses (an unsigned free agent
-is by definition not extending; a signed contract's route is known), and the
-champion has the same information and merely ignores it. **v7.1x–v7.13x were
-computed under the old "ignore the route" convention** — every RESULT and
+column as the ex-ante numbers — the route is information the champion also has
+and merely ignores, so using it is a covariate, not leakage. **v7.1x–v7.13x
+were computed under the old "ignore the route" convention**; every RESULT and
 version entry from here must say so, so the two are not compared naively.
+
+**The refinement, and its test.** The convention applies PER ROUTE, and the
+test is: *after being told the route, does the salary still require a
+non-trivial computation?*
+
+- **Extension — YES, counts.** Told "he extended", you still have to compute
+  1.40 × prior pay (or the average-salary alternative) to land on Brunson's
+  $34.94M. The bound is a real function of data.
+- **Floor — NO, does not count.** Told "he signed at the floor", you are
+  within **$0.13M** of his pay already (the floor-branch RESULT measures
+  `floor_pct` against observed pay: MAE $0.130M). Being told the route IS
+  being told the answer, so the told arm's +0.046 measures recitation, not
+  prediction. It also has no deployed use: for an unsigned free agent
+  "will he take the minimum" is precisely the quantity being predicted,
+  whereas "he is not extending" is true by definition of being a free agent.
 
 - **Extension route (ISSUES #21)** — brief dispatched:
   `2026-07-26-extension-route.md`. Implements the veteran-extension raise cap

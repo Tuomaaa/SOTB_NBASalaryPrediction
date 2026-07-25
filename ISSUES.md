@@ -587,3 +587,65 @@ These are not the same boundary and neither is a bug:
 the next agent does not "align" the two and silently break the extension rule.
 
 **Fixed when**: METHODOLOGY.md states both boundaries and why they differ.
+
+---
+
+## 25. The τ-selection objective's collateral term models only a P-weighted arm
+
+**Severity**: medium — it did not mis-select anything that shipped, because the
+max side's adopted arm happened to be the one the term models. It would
+mis-select for any future unconditional branch, and on the floor side it got the
+sign of the net effect wrong.
+
+The τ rule used by `scripts/eval_max_branch_tau_sweep.py` and
+`scripts/eval_floor_branch.py` is
+
+```
+expected win        = Σ over touched TRUE-class rows of |champion error|
+expected collateral = Σ over touched OTHER rows of P × (bound − champion)
+τ*                  = argmax (win − collateral)
+```
+
+The collateral term is **P-weighted**, so it is the expected damage of a
+P-weighted intervention — `latent + P·(margin·bound − latent)`, the push_clip /
+pull-with-margin form. It is **not** the damage of an unconditional arm
+(`pred = bound` for every row above τ), which pays the full `bound − champion`
+regardless of P. The win term is not P-weighted either, so the two halves of the
+objective are on different footings, and one τ is nevertheless applied to every
+arm in the battery.
+
+Measured on the floor branch at its τ\* = 0.10 (2026-07-27, 944 rows):
+
+| arm | expected win / coll | realized zone reduction | realized damage | realized net |
+|---|---|---:|---:|---:|
+| A (unconditional pull) | 367.9 / 300.3 | $338.1M | **$514.9M** | **−$176.8M** |
+| B (P-weighted pull) | 367.9 / 300.3 | $118.8M | $19.7M | +$99.1M |
+
+The win term is accurate for arm A (367.9 expected vs 338.1 realized, 1.09×)
+while the collateral term understates its damage by **1.7×**, so the objective
+predicted +$67.7M net where arm A delivered −$176.8M. Arm B, the form the term
+does model, is predicted with the right sign. The max branch never surfaced this
+because the arm it selected for (push_clip) is P-weighted.
+
+**Reproduce**: `OMP_NUM_THREADS=6 python scripts/eval_floor_branch.py`, the
+"PART 4 (a) does the pre-registered objective predict what the arms do?" block.
+
+**What to do**: make the collateral term match the arm it is selecting for —
+`Σ (bound − champion)` over touched rows for an unconditional arm, `Σ P × (bound
+− champion)` for a P-weighted one — and select a separate τ per arm; or state in
+the brief that the τ rule is valid only for P-weighted arms and drop
+unconditional arms from τ-swept batteries. Whichever is chosen, print the
+realized-vs-expected table beside the gate battery so a future mismatch is
+visible rather than inferred.
+
+**A second, cheaper guard found alongside it**: when the objective's argmax
+lands on an edge of the τ grid, the grid bound is doing the selecting, not the
+rule. The floor sweep's argmax sat on its lower edge (0.10) with the objective
+still rising below it (+77.7 at τ=0.08, +65.0 at τ=0.00). Any harness using this
+rule should print τ values outside the pre-registered grid as non-selectable
+diagnostics — `eval_floor_branch.py` does, marked `*` — so an edge argmax is
+caught rather than reported as an operating point.
+
+**Fixed when**: a τ-swept battery prints expected-vs-realized win and collateral
+per arm, and either uses an arm-matched collateral term or excludes
+unconditional arms from the sweep.
