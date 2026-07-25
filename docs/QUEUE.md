@@ -7,6 +7,33 @@ Last updated: 2026-07-26, after the five-worker landing (v7.13x).
 
 ## In flight / ready to launch
 
+- **Told-clip + data fix** — brief dispatched:
+  `2026-07-27-told-clip-and-data-fix.md`. Fixes ISSUES #23 (Smart 2022 gets a
+  designated-veteran exemption from an award that POSTDATES his signing — he
+  alone carries +$22.22M of the arm's error) and #22 (three over-cap rows,
+  all defects in our salary table), then re-measures the told-route Stage-3
+  clip at the pre-registered τ = 0.52.
+- **Floor branch** — brief dispatched: `2026-07-27-floor-branch.md`. The
+  largest unclaimed headroom in the project: oracle **+0.0396** (A1 0.7865 →
+  0.8261) because the Stage-2 clip only pushes UP, so 78 of 240 floor rows
+  over-priced by >$2M are untouched. Fat-tailed — the worst 12 rows carry 31%
+  of the zone error and every one is a fallen star on a minimum (Oladipo
+  2021 +$24.9M, Oubre 2023 +$18.1M, Harrell 2022 +$17.2M). Phase 2's NO-GO
+  was an argument, not a measurement, and it is the same argument the max
+  side disproved. **No legal brake exists on this side** — no CBA rule raises
+  a player's floor by route — so the threshold and the selection rule are the
+  only guards.
+
+### Convention change, 2026-07-26 (user's decision)
+
+The Stage-3 told-route number is reported as the model's accuracy in the SAME
+column as the ex-ante numbers, not on a separate scoreboard: the route is
+available at prediction time for both deployed uses (an unsigned free agent
+is by definition not extending; a signed contract's route is known), and the
+champion has the same information and merely ignores it. **v7.1x–v7.13x were
+computed under the old "ignore the route" convention** — every RESULT and
+version entry from here must say so, so the two are not compared naively.
+
 - **Extension route (ISSUES #21)** — brief dispatched:
   `2026-07-26-extension-route.md`. Implements the veteran-extension raise cap
   (120%/140%, greater of prior pay and the league average salary) with the
