@@ -7,7 +7,7 @@ Last updated: 2026-07-26, after the five-worker landing (v7.13x).
 
 ## In flight / ready to launch
 
-Four dispatched 2026-07-28, file ownership exclusive so they run in
+Five dispatched 2026-07-28, file ownership exclusive so they run in
 parallel:
 
 - **Wire stage 3** (`2026-07-28-wire-stage3.md`) — adopt push + extension
@@ -25,6 +25,13 @@ parallel:
   still carries pre-correction values while the ceilings use corrected ones).
   Moves the champion. Owns `_compute_max_eligible`, the curated ineligible
   list, and the training table.
+- **Docs, pass 1** (`2026-07-28-docs-v79-v713.md`) — VERSION_HISTORY stops
+  at v7.8x and five landed versions are frozen and cannot move, so they get
+  written now. Owns `VERSION_HISTORY.md` alone; explicitly forbidden from
+  writing v8.0x, touching METHODOLOGY, or describing the three-stage
+  architecture — that is pass 2, after the wiring lands. Told to name
+  problems rather than cite issue numbers, since the numbering is being
+  repaired in parallel.
 - **Offseason-injury probe** (`2026-07-28-offseason-injury-probe.md`) —
   reconnaissance only. The floor branch's +0.0396 needs a fact dated between
   the priced season and the signing, and the two injury files we hold cannot
