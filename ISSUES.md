@@ -8,7 +8,17 @@ wrong, how to see it for yourself, what to do, and how to know you fixed it.
 leaving it in a chat log. Delete an entry when it is fixed — this file is a
 worklist, not a changelog. `VERSION_HISTORY.md` is where fixes get recorded.
 
-Ordered roughly by how much damage each one does.
+**Numbers are permanent and are never reused.** A new entry takes `max + 1` over
+every number this file has *ever* used, not the first gap — deleting a fixed
+entry retires its number for good. The highest ever used is **28**, so the next
+new entry is **29**. Two parallel workers each taking "the next free number"
+is exactly how the two `#20`s and two `#25`s of 2026-07-27 happened.
+
+Entries are listed in **numeric order**, not by severity — the file is looked up
+by number from ~200 references across `docs/briefs/`, `docs/QUEUE.md` and code
+comments (`grep -rn "ISSUES #"`). Each entry states its own severity in its first
+line. References in dated `*.RESULT.md` files are to the numbering current at
+their date; where that differs from today's the entry says so.
 
 ---
 
@@ -47,27 +57,6 @@ frame 949 → 944.
 **Verify** (state after the prev_cap_pct landing): evaluation frame 944 rows;
 2019 year-1 count 142; the filter prints "dropped 347 rows (335 by dated span,
 12 by three-signal consensus)".
-
----
-
-## 3. Single-seed and 10-seed CV R² are both called "the" CV R²
-
-**Severity**: low — the site now leads with the forward number, not this one.
-
-`src/model/train.py` writes `grabit_results.json` from a **single-seed** run;
-`METHODOLOGY.md`, `PROJECT_BRIEF.md` and `evaluation_suite.json` quote the
-**10-seed** average. Both are defensible numbers, but they are reported under
-the same name. The site's headline is now the forward R² (out-of-sample on the
-holdout season), which `export_web.py` cross-checks against
-`evaluation_suite.json`; but `meta.json` still carries a secondary `cvR2` from a
-single-seed fit on the training seasons, so the two-name ambiguity persists in
-that field.
-
-**Fix**: pick one as canonical — the 10-seed average is the one every document
-uses — and have `train.py` write that into `grabit_results.json` so any consumer
-inherits it. `export_web.py` no longer reads that file (it was rewritten to
-forward-mode and dropped the `canon` guard for a rolling-origin cross-check), so
-this is now only about keeping `train.py`'s own output honest.
 
 ---
 
@@ -214,65 +203,26 @@ gain under 2 points. See #8's source table and the RESULT's target 3.)
 
 ---
 
-## 17. `salaries_prehistory.csv` misses ~6 of the 2019 eval rows
+## 17. Four two-way players have no 2018 prior salary
 
 **Severity**: low — the affected rows carry negligible prior pay, so their
 `prev_cap_pct` slot-fill fallback is nearly right anyway.
 
-After the 2018-19 team-salary scrape (`scripts/scrape_2018_salaries.py`), 2018
-prior coverage of the season-2019 eval rows reached 136/142. The remaining 6 are
-two-way / minimum players whose salary is absent from the BBRef `salaries2` team
-table (Alex Caruso, Shake Milton, Wes Iwundu, Wenyen Gabriel, Amile Jefferson),
-plus one **name rename**: **Enes Kanter → Enes Freedom**. His 2018-19 pay is on
-the page under "Enes Kanter" (`norm` → `enes kanter`), but the training data
-carries `enes freedom`, so the join misses it.
+**The name-alias half is fixed** (2026-07-26 cleanup-debt landing): the rename
+**Enes Kanter → Enes Freedom** and **Wesley Iwundu → Wes Iwundu** are now mapped
+through `data/raw/raw_external/player_name_aliases.csv`, applied in both
+`scrape_2018_salaries.py` and `_load_prev_season_cap_pct`. 2018 prior coverage
+of the season-2019 evaluation rows went 136/142 → **138/142**.
 
-**Fix**: a small name-alias map applied in `scrape_2018_salaries.py` /
-`_load_prev_season_cap_pct` (kanter→freedom, and any other post-2019 renames)
-would recover the vet row; the two-way players need a two-way salary source, not
-the team salary table. Low priority — none of the six moves a model feature
-materially.
+What remains are four two-way / minimum players whose 2018-19 salary is absent
+from the BBRef `salaries2` team table altogether — **Alex Caruso, Shake Milton,
+Wenyen Gabriel, Amile Jefferson**. An alias cannot reach them; they need a
+two-way salary source the repo does not have. Parked in `docs/QUEUE.md` under
+"parking lot / low priority" — none of the four moves a model feature materially.
 
 **Verify**: `_load_prev_season_cap_pct()` returns a value for
-`("enes freedom", 2018)`.
-
----
-
-## 18. `awards_full.csv` name join drops footnote-marked stars from award_score_cum
-
-**Severity**: low — real data defect, but fixing it does NOT help the model
-(measured slightly negative), so it is documentation, not a pending fix.
-
-90 of 943 rows in `data/raw/raw_external/awards_full.csv` carry footnote junk in
-`player_name_norm` — trailing `^` (the dominant marker), `§`, `†`, the Unicode
-replacement char, and concatenated tokens (`bam adebayost1`, `ben simmonscovid2`).
-`scripts/build_external_features.norm` strips accents and lowercases but does
-**not** remove these, so `norm("Kevin Durant^") == "kevin durant^"` and the join
-to the training names misses. The affected rows are exactly the high-value
-players: **all 13 Rookie-of-the-Year winners** (Wiggins, Towns, Luka, Ja, LaMelo,
-Barnes, Banchero, Wembanyama, …) and MVP / All-NBA seasons for Durant, Curry,
-Giannis, Jokić, Harden, Westbrook. So `award_score_cum` and `all_nba_cum`
-silently under-credit the stars whose award history matters most.
-
-**See it:**
-```
-python -c "import pandas as pd; aw=pd.read_csv('data/raw/raw_external/awards_full.csv'); \
-print(aw[aw.player_name_norm.str.contains(r'[^a-z .\'-]', regex=True)].award.value_counts())"
-```
-Every ROY row appears; `norm('Kevin Durant^')` still ends in `^`.
-
-**What to do (if ever):** strip the junk with
-`re.sub(r"[^a-z .'-]", "", name)` inside `norm` (or a dedicated award-name
-cleaner) before the award merge. `scripts/feature_batch._clean_award_name` is a
-working implementation. **But do not expect a model gain:** the 2026-07-25
-feature batch measured the name-cleaned `award_score_cum` (control arm
-`e_cleanonly`) at paired ΔSel −0.0042 (A2 −0.0052) against the incumbent — the
-recovered superstar award mass is redundant with `darko`/`prev_cap_pct` and the
-players are ceiling-pinned, so it adds variance without lift. Fix it for
-correctness and any future award-based diagnostic, not for CV.
-
-**Verify a fix:** `norm("Kevin Durant^") == "kevin durant"` and
-`award_score_cum > 0` for luka doncic / ja morant in their post-rookie seasons.
+`("enes freedom", 2018)` and `("wes iwundu", 2018)`, and exactly those four
+season-2019 names remain without a 2018 key.
 
 ---
 
@@ -282,6 +232,13 @@ correctness and any future award-based diagnostic, not for CV.
 2026-07-26 phase-3 verdict, but the first could hand a future candidate an
 adoption it did not earn. Found building `scripts/eval_route_mixture_p3.py`;
 full numbers in `docs/briefs/2026-07-26-route-mixture-p3.RESULT.md` §8.
+
+**Status 2026-07-28**: still open, but no longer un-implemented anywhere.
+`scripts/eval_floor_branch.py` honours all three (its module docstring names
+them) and is the working reference implementation to copy from. What is missing
+is the systematisation — `evaluate_suite.py`'s `grabit_zone` / `floor_zone`
+scorecards and `scripts/diagnostics.py` still pool the confirmation split, and
+each new harness re-derives the three rules by hand.
 
 **(a) Zone-MAE gates pool the confirmation split.** The route-mixture "Win"
 gate — true-max zone MAE must improve by ≥ $0.50M — is computed over all 68 zone
@@ -346,223 +303,6 @@ literal wording.
 abs(b_champ)` matches the documented intent, and a bias shrinking toward zero
 should not be scored as a regression. *Know it is fixed*: one number, one name,
 and `scripts/diagnostics.py` plus any zone harness use the same helper.
-
-
-
----
-
-## 20. The experience fallback (`age − 19`) over-tiers players with no draft year
-
-**Severity**: moderate — same damage shape as the fixed #19 (a real max wears
-a ceiling one tier too high, so `is_max_contract` misses it and the Stage-2
-clip sits above the truth), on a different code path.
-
-`_compute_max_eligible` derives service years as `season − draft_year`, and
-where the draft table has no entry it falls back to `age − 19`
-([train.py:483](src/model/train.py:483)). That fallback fires on **223 of 944
-evaluation rows (24%)** and systematically overstates service for anyone who
-entered late or undrafted — every extra year pushes toward the 7-9 (30%) and
-10+ (35%) brackets.
-
-Two rows are provably mis-tiered by it, and both signed **exactly at a tier**,
-which is the signature of a max:
-
-| row | pay | true tier | tier granted | real service | fallback said |
-|---|---|---|---|---|---|
-| austin reaves 2026 | **25.000%** of cap | 25% | 30% | 5 (undrafted 2021) | 8 |
-| jimmy butler 2019 | **30.000%** of cap | 30% | 35% | 8 (drafted 2011) | 10 |
-
-Both currently read `is_max_contract = False` at ~83-86% of their inflated
-ceilings. Reaves is also the second-largest collateral row in the route-mixture
-phase-3 re-run (+$9.71M push damage) purely because of this label.
-
-**Reproduce**:
-
-```bash
-python -c "import sys; sys.path.insert(0,'.'); from src.model.evaluate_suite import load_evaluation_frame; d,_=load_evaluation_frame(); m=d[d.player_name_norm.isin(['austin reaves','jimmy butler'])&d.season.isin([2026,2019])]; print(m[['player_name_norm','season','cap_pct','tier_ceiling_pct','is_max_contract']])"
-```
-
-**Fix**: give the ceiling rule a real service-year source instead of the age
-proxy — first NBA season per player, derivable from the cached BBRef player
-pages already used by `scripts/height.py` (or from the earliest season in
-`salaries.csv` + `salaries_prehistory.csv` as an offline approximation, which
-covers 2016+ and is exact for anyone whose debut is inside that window). Keep
-`age − 19` only as a last resort and log how many rows use it. A curated
-two-row patch (mirroring `designated_ineligible.csv`) is the cheap stopgap if
-the service-year source is deferred, but the systematic fix is preferred —
-24% of rows currently rest on the proxy.
-
-**Verify**: Reaves 2026 `tier_ceiling_pct == 0.25` and `is_max_contract` True;
-Butler 2019 `tier_ceiling_pct == 0.30` and True; the max zone grows 68 → 70;
-no row's ceiling falls below its own pay (`over-tier count == 0`); frame stays
-944.
-
----
-
-## 21. Veteran-extension raise caps are not implemented — 21 rows sit at a bound we cannot see
-
-**Severity**: high — the third member of the #19/#20 family and the largest
-so far. It overstates ceilings by up to $29.7M, and worse, it hides a whole
-class of CBA-bound observations from the censoring logic.
-
-A veteran extension's first paying year is capped by the CBA at a multiple of
-the final year of the existing contract: **120% under the 2017 CBA, 140% under
-the 2023 CBA**. `_compute_max_eligible` implements only the *fresh-signing*
-tiers (25/30/35% + Rose/supermax + the 1.08 no-decrease floor), so an extension
-row is given a ceiling it could not legally have reached.
-
-**The evidence is knife-edge**, the same signature as the exact-tier audit that
-produced #20. Of 164 dated-extension rows with an observable prior salary, **21
-sit within 5% of their legal raise cap**, and the hits land exactly on the
-multiplier — 1.400 for Brunson 2025, P.J. Washington 2026, Josh Hart 2024,
-Jarrett Allen 2026, Derrick White 2025; 1.200 for Eric Gordon 2020, Aaron
-Gordon 2022, Rozier 2022, Randle 2022, Draymond 2020, Kevin Love 2019.
-**15 of them carry a ceiling more than $3M above the legal cap; the total
-overstatement is $249M.** Worst cases:
-
-| row | pay | prior | ratio | legal cap | our ceiling | gap |
-|---|---|---|---|---|---|---|
-| p.j. washington 2026 | $19.81M | $14.15M | 1.400 | $19.81M | $49.49M | **$29.7M** |
-| josh hart 2024 | $18.14M | $12.96M | 1.400 | $18.14M | $42.18M | $24.0M |
-| jarrett allen 2026 | $28.00M | $20.00M | 1.400 | $28.00M | $49.49M | $21.5M |
-| eric gordon 2020 | $16.87M | $14.06M | 1.200 | $16.87M | $38.20M | $21.3M |
-| jalen brunson 2025 | $34.94M | $24.96M | 1.400 | $34.94M | $46.39M | $11.5M |
-
-**Reproduce**: for each row with a dated `is_extension` transaction in season
-s−1 or s−2, compute `salary / prior-season salary` and compare against 1.20
-(season ≤ 2022) or 1.40 (season ≥ 2023). Scan script pattern is in the #20
-audit; the prior salary comes from `_load_prev_season_cap_pct`.
-
-**Two candidate treatments, and they are not the same change**:
-
-1. **Ceiling correction** (Stage 2). For a row signed as an extension, the
-   ceiling is `min(tier ceiling, multiplier × prior pay)`. Straightforward
-   ex post; ex ante it is entangled with the route question — before signing,
-   we do not know whether the player will extend or reach free agency, and the
-   applicable cap differs. So this is a **told-parameter** correction in the
-   same sense as the per-route δ (see QUEUE), not an unconditional one.
-2. **Censoring** (Stage 1). An at-cap extension row is an observation pinned by
-   a CBA bound: the player's market value may exceed what the rule allowed him
-   to take. That is precisely the Grabit premise, and these 21 rows get none of
-   it today. **Cautionary precedent**: METHODOLOGY records that treating good
-   players on minimums as right-censored failed economically — they could have
-   earned more elsewhere, so their pay was a choice, not a constraint — and the
-   oracle experiment killed it. An extension at the cap is *partly* a choice
-   too (the player could have tested free agency). This must be tested the same
-   way that one was, not assumed.
-
-**Why it matters beyond the ceilings**: the "counterweight band" the
-route-mixture work uses as a brake — non-max rows paid 70-90% of their ceiling,
-underpredicted by $4.87M — is plausibly populated by exactly these rows. If so,
-that band's underprediction is not model error at all, and **the brake that
-closed the route-mixture line is measuring a data bug**. The closure is marked
-provisional in `docs/QUEUE.md` pending this.
-
-**Verify**: no row's pay exceeds its corrected ceiling; the 21 at-cap rows read
-`pay / corrected ceiling ≈ 1.00`; the counterweight band's champion bias moves
-materially toward zero once these rows are either re-ceilinged or censored;
-frame stays 944.
-
----
-
-## 25. Spotrac's contract totals disagree with our salary schedules on extensions
-
-**Severity**: medium — it is the reason two of the ISSUES #22 repairs are marked
-`inferred` rather than `verified`, and it may be a second, wider salary defect.
-
-The #22 repair (landed 2026-07-27) reads a stale prior-season salary off the CBA
-rule: a veteran extension's first paying year is 1.40x the final year of the deal
-being extended, so `observed pay / 1.40` recovers the base our table should have
-carried. That inversion is dollar-exact for both rows. But the SAME two contracts
-reconcile the other way against Spotrac's headline total, and the two readings
-put the missing money in different places:
-
-| row | our prior | pay / 1.40 | Spotrac total | total implied by OUR schedule |
-|---|---|---|---|---|
-| ivica zubac 2025 | $11.74M | $13.4957M | 3yr/$58.6M | $61.03M |
-| aaron gordon 2026 | $22.84M | $24.0415M | 3yr/$103.6M | $109.05M |
-| marcus smart 2022 | $14.34M (repaired) | — | 4yr/$76.49M | $78.09M |
-
-Zubac's $58.6M is *exactly* the schedule 18,102,000 / 19,550,160 / 20,998,320 —
-the 2024 EAS cap with 8% raises, i.e. the ceiling our machinery already computed
-before the repair. Gordon's $103.6M is exactly 1.40 x our UNrepaired $22,841,455
-with 8% raises, to $8,840 out of $103.6M. Under that reading the prior salaries
-were never stale; instead our BBRef-sourced future-year figures are uniformly
-high — by a flat $791,980/yr for Zubac, by a constant 5.253% for Gordon — and the
-same money is pay sitting above the negotiated base.
-
-**Why it did not block the repair**: both readings produce the IDENTICAL ceiling
-for these rows (the raise cap plus whatever sits above the base equals observed
-pay either way), so no number in the 2026-07-27 RESULT changes. What differs is
-`prev_cap_pct`, a real feature, and whether the 2026-2028 salary rows themselves
-are right — those are future TARGETS.
-
-**Reproduce**: `data/processed/salaries.csv` for either player; compare the
-year-over-year steps against `contract_signing_dates.csv`'s `total_value`. The
-cached BBRef team pages (`data/raw/html_cache/*contracts_{DEN,IND}.html`) agree
-with our table, so the disagreement is BBRef vs Spotrac, not scrape vs table.
-
-**What to do**: one Spotrac player page per row settles it — their per-season
-breakdown separates base salary from bonuses. Not cached today; three fetches at
-the 3s rate limit. If Spotrac's per-season base matches its own total, flip both
-rows in `salary_corrections.csv` from `prior_base` to `pay_above_base` and fix
-the 2025-2028 salary rows.
-
-**Fixed when**: each row's per-season base is sourced rather than inverted, and
-`salary_corrections.csv` carries `confidence=verified` for both.
-
----
-
-## 26. The stored `prev_cap_pct` still carries the pre-correction values
-
-**Severity**: low — three rows, but it is a feature, not a diagnostic.
-
-`salary_corrections.csv` is applied inside `_load_prev_season_cap_pct`, which is
-what the ceiling rules and the extension cap read at load time. The `prev_cap_pct`
-FEATURE is not read there: it is baked into `data/processed/training_data_v2.csv`
-by `scripts/phase3.py::build_contract_features`, which called the same loader when
-the table was last built. So Marcus Smart 2022, Ivica Zubac 2025 and Aaron Gordon
-2026 train on the stale prior ($13.84M / $11.74M / $22.84M) while their ceilings
-use the corrected one.
-
-This was deliberate on 2026-07-27: rebuilding would have moved the champion's
-features in the same commit that re-measured the told clip, and the whole point of
-that measurement was that the champion is unchanged. It should be picked up by the
-next rebuild that happens for another reason.
-
-**Reproduce**: `python -c` comparing `training_data_v2.csv`'s `prev_cap_pct` for
-those three rows against `_load_prev_season_cap_pct()`.
-
-**Fixed when**: `scripts/rebuild_training_data.py` has been run after a corrections
-change and the three rows agree, with the frame still at 944 rows.
-
----
-
-## 27. Marcus Smart 2022 keeps a 35% supermax ceiling in `max_eligible_pct`
-
-**Severity**: low — it cannot make him look overpaid (his $17.46M is far below
-either tier) but it is the same wrong fact ISSUES #23 fixed, in a second place.
-
-ISSUES #23 (a designated-veteran exemption granted by a DPOY that POSTDATES the
-August-2021 signing) was fixed on 2026-07-27 inside
-`extension_cap._designated_veteran`, by anchoring the award test on the SIGNING
-season. `train._compute_max_eligible` has the same supermax branch and no signing
-instrument at all — it sees only the paying season — so Smart 2022 still reads a
-35% tier ceiling, $43.28M, in `max_eligible_pct` and `tier_ceiling_pct`.
-
-It was left alone because `max_eligible_pct` is the Stage-1 censor bound and the
-max-branch push target: changing it moves the champion, which is a version-bump
-change and not what the told-clip brief was measuring. Note the direction — a too-
-high ceiling makes the max-branch push aim $25.8M too high for this row, which is
-exactly the damage the told clip now removes downstream.
-
-**What to do**: either add `marcus smart, 2022` to `designated_ineligible.csv`
-(one line, fixes both paths, moves the champion) or give `_compute_max_eligible`
-the signing-date instrument that `extension_cap` already uses. The second is the
-real fix and would need the same audit across every supermax row.
-
-**Fixed when**: Smart 2022 reads a 30% tier ceiling, and the champion's A1 is
-re-reported at the version that lands it.
 
 ---
 
@@ -649,3 +389,111 @@ caught rather than reported as an operating point.
 **Fixed when**: a τ-swept battery prints expected-vs-realized win and collateral
 per arm, and either uses an arm-matched collateral term or excludes
 unconditional arms from the sweep.
+
+---
+
+## 26. The stored `prev_cap_pct` still carries the pre-correction values
+
+**Severity**: low — three rows, but it is a feature, not a diagnostic.
+
+`salary_corrections.csv` is applied inside `_load_prev_season_cap_pct`, which is
+what the ceiling rules and the extension cap read at load time. The `prev_cap_pct`
+FEATURE is not read there: it is baked into `data/processed/training_data_v2.csv`
+by `scripts/phase3.py::build_contract_features`, which called the same loader when
+the table was last built. So Marcus Smart 2022, Ivica Zubac 2025 and Aaron Gordon
+2026 train on the stale prior ($13.84M / $11.74M / $22.84M) while their ceilings
+use the corrected one.
+
+This was deliberate on 2026-07-27: rebuilding would have moved the champion's
+features in the same commit that re-measured the told clip, and the whole point of
+that measurement was that the champion is unchanged. It should be picked up by the
+next rebuild that happens for another reason.
+
+**Reproduce**: `python -c` comparing `training_data_v2.csv`'s `prev_cap_pct` for
+those three rows against `_load_prev_season_cap_pct()`.
+
+**Fixed when**: `scripts/rebuild_training_data.py` has been run after a corrections
+change and the three rows agree, with the frame still at 944 rows.
+
+---
+
+## 27. Marcus Smart 2022 keeps a 35% supermax ceiling in `max_eligible_pct`
+
+**Severity**: low — it cannot make him look overpaid (his $17.46M is far below
+either tier) but it is the same wrong fact ISSUES #23 fixed, in a second place.
+
+ISSUES #23 (a designated-veteran exemption granted by a DPOY that POSTDATES the
+August-2021 signing) was fixed on 2026-07-27 inside
+`extension_cap._designated_veteran`, by anchoring the award test on the SIGNING
+season. `train._compute_max_eligible` has the same supermax branch and no signing
+instrument at all — it sees only the paying season — so Smart 2022 still reads a
+35% tier ceiling, $43.28M, in `max_eligible_pct` and `tier_ceiling_pct`.
+
+It was left alone because `max_eligible_pct` is the Stage-1 censor bound and the
+max-branch push target: changing it moves the champion, which is a version-bump
+change and not what the told-clip brief was measuring. Note the direction — a too-
+high ceiling makes the max-branch push aim $25.8M too high for this row, which is
+exactly the damage the told clip now removes downstream.
+
+**What to do**: either add `marcus smart, 2022` to `designated_ineligible.csv`
+(one line, fixes both paths, moves the champion) or give `_compute_max_eligible`
+the signing-date instrument that `extension_cap` already uses. The second is the
+real fix and would need the same audit across every supermax row.
+
+**Fixed when**: Smart 2022 reads a 30% tier ceiling, and the champion's A1 is
+re-reported at the version that lands it.
+
+---
+
+## 28. Spotrac's contract totals disagree with our salary schedules on extensions
+
+**Severity**: medium — it is the reason two of the ISSUES #22 repairs are marked
+`inferred` rather than `verified`, and it may be a second, wider salary defect.
+
+**Renumbered 2026-07-28**: filed as `#25` by
+`docs/briefs/2026-07-27-told-clip-and-data-fix.RESULT.md`, which collided with
+the τ-objective entry filed as `#25` three minutes earlier on a parallel branch.
+That entry keeps 25 (it was committed first and carries more references); this
+one moved to 28. The three "ISSUES #25" mentions in the told-clip RESULT mean
+**this** entry.
+
+The #22 repair (landed 2026-07-27) reads a stale prior-season salary off the CBA
+rule: a veteran extension's first paying year is 1.40x the final year of the deal
+being extended, so `observed pay / 1.40` recovers the base our table should have
+carried. That inversion is dollar-exact for both rows. But the SAME two contracts
+reconcile the other way against Spotrac's headline total, and the two readings
+put the missing money in different places:
+
+| row | our prior | pay / 1.40 | Spotrac total | total implied by OUR schedule |
+|---|---|---|---|---|
+| ivica zubac 2025 | $11.74M | $13.4957M | 3yr/$58.6M | $61.03M |
+| aaron gordon 2026 | $22.84M | $24.0415M | 3yr/$103.6M | $109.05M |
+| marcus smart 2022 | $14.34M (repaired) | — | 4yr/$76.49M | $78.09M |
+
+Zubac's $58.6M is *exactly* the schedule 18,102,000 / 19,550,160 / 20,998,320 —
+the 2024 EAS cap with 8% raises, i.e. the ceiling our machinery already computed
+before the repair. Gordon's $103.6M is exactly 1.40 x our UNrepaired $22,841,455
+with 8% raises, to $8,840 out of $103.6M. Under that reading the prior salaries
+were never stale; instead our BBRef-sourced future-year figures are uniformly
+high — by a flat $791,980/yr for Zubac, by a constant 5.253% for Gordon — and the
+same money is pay sitting above the negotiated base.
+
+**Why it did not block the repair**: both readings produce the IDENTICAL ceiling
+for these rows (the raise cap plus whatever sits above the base equals observed
+pay either way), so no number in the 2026-07-27 RESULT changes. What differs is
+`prev_cap_pct`, a real feature, and whether the 2026-2028 salary rows themselves
+are right — those are future TARGETS.
+
+**Reproduce**: `data/processed/salaries.csv` for either player; compare the
+year-over-year steps against `contract_signing_dates.csv`'s `total_value`. The
+cached BBRef team pages (`data/raw/html_cache/*contracts_{DEN,IND}.html`) agree
+with our table, so the disagreement is BBRef vs Spotrac, not scrape vs table.
+
+**What to do**: one Spotrac player page per row settles it — their per-season
+breakdown separates base salary from bonuses. Not cached today; three fetches at
+the 3s rate limit. If Spotrac's per-season base matches its own total, flip both
+rows in `salary_corrections.csv` from `prior_base` to `pay_above_base` and fix
+the 2025-2028 salary rows.
+
+**Fixed when**: each row's per-season base is sourced rather than inverted, and
+`salary_corrections.csv` carries `confidence=verified` for both.
