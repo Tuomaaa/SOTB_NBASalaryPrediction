@@ -106,7 +106,8 @@ Signing type breakdown (OOF, $M):
 | 7.9x | XGBoost (Grabit v4) | 0.7631 | 0.8191 | 949 | 14 | Continuation filter v2 — dated-span demotion. Frame 1,172 → 949 (342 demoted, 0 contradicted) |
 | 7.10x | XGBoost (Grabit v4) | 0.7849 | 0.8276 | 944 | 14 | `prev_cap_pct` repair + 2026 cap correction. Paired ΔSel +0.0135 (t 7.6). Frame 949 → 944 |
 | 7.11x | XGBoost (Grabit v4) | 0.7856 | 0.8298 | 944 | 14 | `prev_cap_pct` = previous-season pay (feature-batch Arm C, boundary call). ΔSel +0.00178 (t 1.96) |
-| **7.12x** | **XGBoost (Grabit v4)** | **0.7878** | **0.8303** | **944** | **14** | **Designated-ceiling award-path fix (ISSUES #19). Max zone 56 → 68, zone MAE 6.18 → 4.44** |
+| 7.12x | XGBoost (Grabit v4) | 0.7878 | 0.8303 | 944 | 14 | Designated-ceiling award-path fix. Max zone 56 → 68, zone MAE 6.18 → 4.44 |
+| **7.13x** | **XGBoost (Grabit v4)** | **0.7865** | **0.8342** | **944** | **14** | **Real service years + correctness debt. Max zone 68 → 70; awards name-join repair (83 dirty rows); Kanter alias; canonical 10-seed CV; `predict.py` rewired to champion stack** |
 
 ### Versioning convention
 
@@ -119,8 +120,8 @@ documentation changes do not consume a number.
 
 Tags: `v7.1x` `09dbe4e` · `v7.2x` `cb27319` · `v7.3x` `b31a6fb` · `v7.4x` `ecdf3da` ·
 `v7.5x` `c17880d` · `v7.6x` `d7c72ef` · `v7.7x` `63e290c` · `v7.8x` `c03eb9a` ·
-`v7.9x` `ddf4bae` · `v7.10x` `(see git tag)` · `v7.11x` `(see git tag)` ·
-`v7.12x` `61bdfcd`.
+`v7.9x` `ddf4bae` · `v7.10x` `c56116b` · `v7.11x` `643124f` ·
+`v7.12x` `61bdfcd` · `v7.13x` `981e6dc`.
 
 ### v7.1x: refreshed data and corrected caps
 
@@ -674,7 +675,59 @@ signing-date team-match test. Frame unchanged at 944.
 
 Evidence: the landing commit `61bdfcd`.
 
-Tags: `v7.12x` `61bdfcd`.
+Tags: `v7.12x` `61bdfcd` · `v7.13x` `981e6dc`.
+
+### v7.13x: real service years + the correctness debt
+
+`_compute_max_eligible` derived service years as `season − draft_year`, falling
+back to `age − 19` for the 24% of rows without a draft entry. The fallback
+systematically over-tiered undrafted and late-entry players: Austin Reaves
+(undrafted, debuted 2021) read as 8 years of service when he had 5, landing on
+a 30% ceiling instead of 25%; his 2026 salary sits at exactly 25.000% of the
+cap, making him a max contract the model was missing. The fix scrapes per-player
+debut seasons from BBRef's player index pages — the same source as `height.py` —
+covering 99.5% of training-data players.
+
+119 base-tier ceilings moved (117 down, 2 up), max zone 68 → 70. A second
+provably mis-tiered row became the max it is: Butler 2019 at exactly 30.000% of
+the cap, added to `designated_ineligible.csv` for the same team-change reason as
+Kawhi, Kyrie, and Kemba in v7.12x. Paired ΔSel +0.00001 (t 0.08) — a
+correctness fix, as expected, since the ceiling is not a model feature and
+affects only the censoring mask and the Stage-2 clip.
+
+Landed alongside four other correctness items, all adopted on the same
+principle — a wrong fact is fixed regardless of its metric sign, provided it
+does not actively hurt (the pre-registered threshold was t > −2):
+
+- **Awards name-join repair.** `norm()` in `build_external_features` did not
+  strip footnote marks (`^`, `st1`, `covid2`, etc.) from `awards_full.csv`
+  names. 83 of 943 award rows were dirty, covering every ROY winner from 2015
+  onward plus MVP/All-NBA seasons for Durant, Curry, Giannis, Jokic, and others.
+  148 training rows recovered award mass. Paired ΔSel −0.00076 (t −0.72) — the
+  recovered mass is redundant with DARKO and the affected players are
+  ceiling-pinned, so the correction adds variance without lift.
+- **Kanter alias.** `enes kanter` in `salaries_prehistory.csv` vs `enes freedom`
+  in the training data; the join missed, so Kanter's 2019 `prev_cap_pct` was the
+  rookie-scale fill (7.3%) instead of his true prior pay (18.9%). Added
+  `player_name_aliases.csv` (also catches `wesley iwundu` → `wes iwundu`).
+- **Canonical 10-seed CV figure.** `train.py` now writes the 10-seed average R²
+  into `grabit_results.json`, replacing the single-seed value. No model change.
+- **`predict.py` rewired to the champion stack.** Was using plain XGBoost with
+  no censoring and no Stage-2 clip; now runs the same Grabit + CBA-bound pipeline
+  as `export_web.py`.
+
+| Layer | v7.12x | v7.13x |
+|---|---|---|
+| A1 | 0.7878 | 0.7865 |
+| A2 | 0.8335 | 0.8341 |
+| B1 | 0.8303 | **0.8342** |
+| Grabit zone MAE | $4.44M (n=68) | **$4.30M (n=70)** |
+| Confirmation | 0.8090 | 0.8070 |
+
+B1 0.8342 is the highest forward R² the project has recorded.
+
+Evidence: `docs/briefs/2026-07-26-service-years.RESULT.md`,
+`docs/briefs/2026-07-26-cleanup-debt.RESULT.md`.
 
 ### Corrections to earlier findings
 
@@ -703,8 +756,8 @@ Tags: `v7.12x` `61bdfcd`.
 Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 6    Phase 7
 Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data + protocol
                                                                                      
-0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.788
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.12x
+0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x
                         ↗ 0.87                                                                (current)
                   Leaked features
                   (removed in v4.0)
@@ -713,22 +766,34 @@ Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit
 Phase 7 looks flat through v7.8x and then jumps. The v7.1x–v7.8x plateau was by
 design: six of those eight entries are correctness changes — refreshed data,
 corrected caps, contaminated rows removed, a semantic fill, honest ceilings, four
-rows re-censored — and two of them *lowered* the headline. v7.9x–v7.12x continue
-that pattern (three filter/repair changes and one label fix) but the compounding
-finally shows: the 944-row frame's A1 0.7878 is the highest the project has
-recorded on a clean dataset, and every point came from removing something wrong
+rows re-censored — and two of them *lowered* the headline. v7.9x–v7.13x continue
+that pattern (four filter/repair changes, one label fix, and a cleanup batch)
+but the compounding finally shows: v7.13x's B1 0.8342 is the highest forward R²
+the project has recorded, and every point came from removing something wrong
 rather than adding modelling complexity.
+
+Four of the five versions from v7.9x through v7.13x landed on a **correctness
+argument** rather than a metric win, and three of them did not clear t > 2. That
+is not a weakening of the protocol; it is the protocol distinguishing a wrong
+fact from a suboptimal parameter. A fabricated prior-pay feature, a mis-tiered
+ceiling, a dirty name join — each is provably wrong independent of its effect on
+the loss function, and fixing it is the right thing to do whether or not the
+headline moves. The protocol's role in these cases is to confirm the fix does
+no harm, not to justify it.
 
 The count of known-wrong things is the better progress line: an optimistically
 biased test set, two 9%-wrong season targets, 259 prorated rows, a fill 4.6×
 too high for undrafted players, 13 impossible ceilings, 342 escalator years
 filed as fresh signings, a fabricated prior-pay feature on 28% of a season's
-rows, and 12 mis-tiered max contracts — all closed.
+rows, 12 mis-tiered max contracts, 119 over-tiered service-year ceilings, 83
+dirty award-join rows, and a name alias dropping a $20M prior — all closed.
 
 v7.10x's `prev_cap_pct` repair (+0.0135, t 7.6) is the largest single paired
 gain in the project's recent history — repairing the #2 feature on the largest
 season's rows. v7.12x's max-zone MAE drop (6.18 → 4.44) is the largest zone
 improvement, from relabelling 12 genuine maxes the award path had mis-tiered.
+v7.13x continues that zone improvement (4.44 → 4.30 over a larger zone of 70
+rows) and sets the forward-R² high-water mark.
 
 ## Notes
 
