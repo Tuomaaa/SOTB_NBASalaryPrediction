@@ -131,7 +131,11 @@ def baseline_training_data(repaired: pd.DataFrame) -> pd.DataFrame:
     legacy = legacy_feature_map()
     out = repaired.merge(legacy, on=KEY, how="left", suffixes=("", "_legacy"),
                          validate="one_to_one")
-    for column in ["age", "age_squared", "mpg", "availability_3yr", "usage_pct", "ast_pct"]:
+    legacy_columns = [
+        "age", "age_squared", "mpg", "availability_3yr",
+        "usage_pct", "ast_pct",
+    ]
+    for column in legacy_columns:
         out[column] = out.pop(f"{column}_legacy")
     return out
 
@@ -250,7 +254,10 @@ def main() -> None:
     payload, ref = run(seeds)
     for name, result in payload["metrics"].items():
         old, new = result["old"], result["new"]
-        line = f"{name}: R2 {old['r2']:.4f} -> {new['r2']:.4f}; MAE ${old['mae_m']:.3f}M -> ${new['mae_m']:.3f}M"
+        line = (
+            f"{name}: R2 {old['r2']:.4f} -> {new['r2']:.4f}; "
+            f"MAE ${old['mae_m']:.3f}M -> ${new['mae_m']:.3f}M"
+        )
         if "paired" in result:
             delta = result["paired"]
             line += f"; paired {delta['delta']:+.4f} +/- {delta['se']:.4f}, t={delta['t']:+.2f}"

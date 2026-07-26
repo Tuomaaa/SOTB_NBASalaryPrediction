@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import pandas as pd
 from bs4 import BeautifulSoup
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 from tqdm import tqdm
 
@@ -24,7 +25,6 @@ from config import CACHE_DIR, SCRAPE_DELAY_SECONDS, SEASONS, USER_AGENT
 from src.scraping.utils import _cache_path
 
 BBREF_BASE = "https://www.basketball-reference.com"
-EDGE_PATH = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
 _last_request_time = 0.0
 
 KEEP_COLUMNS = {
@@ -61,7 +61,7 @@ def _parse_float(text: str) -> float | None:
 
 
 def fetch_static_html(url: str) -> str:
-    """Fetch one static BBRef table through installed Edge, with caching."""
+    """Fetch one static BBRef table through Playwright, with caching."""
     path = _cache_path(url)
     if path.exists():
         return path.read_text(encoding="utf-8")
@@ -70,12 +70,19 @@ def fetch_static_html(url: str) -> str:
     wait = SCRAPE_DELAY_SECONDS - (time.time() - _last_request_time)
     if wait > 0:
         time.sleep(wait)
-    if not EDGE_PATH.exists():
-        raise RuntimeError(f"installed Edge not found at {EDGE_PATH}")
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(
-            headless=True, executable_path=str(EDGE_PATH)
-        )
+        try:
+            browser = playwright.chromium.launch(headless=True)
+        except PlaywrightError as chromium_error:
+            try:
+                browser = playwright.chromium.launch(
+                    headless=True, channel="msedge"
+                )
+            except PlaywrightError as edge_error:
+                raise RuntimeError(
+                    "could not launch Playwright Chromium or Microsoft Edge"
+                ) from edge_error
+            print(f"  [warn] Playwright Chromium unavailable: {chromium_error}")
         context = browser.new_context(user_agent=USER_AGENT)
         page = context.new_page()
         page.route(
@@ -192,6 +199,37 @@ def scrape_all_advanced(seasons: list[int] | None = None) -> pd.DataFrame:
     return combined
 
 
+def _merge_refreshed_advanced(
+    existing: pd.DataFrame,
+    refreshed: pd.DataFrame,
+    requested_seasons: list[int],
+) -> tuple[pd.DataFrame, list[int]]:
+    """Replace successful seasons and preserve stale rows for failed ones."""
+    successful = (
+        set(refreshed["season"].astype(int).unique())
+        if not refreshed.empty else set()
+    )
+    requested = set(requested_seasons)
+    missing = sorted(requested - successful)
+    existing_seasons = (
+        set(existing["season"].astype(int).unique())
+        if not existing.empty else set()
+    )
+    unavailable = sorted(set(missing) - existing_seasons)
+    if unavailable:
+        raise RuntimeError(
+            "refresh failed with no stale data for seasons: "
+            + ", ".join(map(str, unavailable))
+        )
+
+    if existing.empty:
+        combined = refreshed.copy()
+    else:
+        stale = existing[~existing["season"].astype(int).isin(successful)]
+        combined = pd.concat([stale, refreshed], ignore_index=True)
+    return combined, missing
+
+
 if __name__ == "__main__":
     from config import PROCESSED_DIR
 
@@ -205,21 +243,27 @@ if __name__ == "__main__":
     args = parser.parse_args()
     seasons = args.season or SEASONS
     refreshed = scrape_all_advanced(seasons)
-    if refreshed.empty:
-        raise SystemExit("no advanced-stat rows refreshed; existing file left unchanged")
     out = PROCESSED_DIR / "advanced_stats.csv"
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
-    if args.season and out.exists():
-        existing = pd.read_csv(out)
-        existing = existing[~existing["season"].isin(seasons)]
-        df = pd.concat([existing, refreshed], ignore_index=True)
-    else:
-        df = refreshed
+    existing = pd.read_csv(out) if out.exists() else pd.DataFrame()
+    try:
+        df, stale_seasons = _merge_refreshed_advanced(
+            existing, refreshed, seasons
+        )
+    except RuntimeError as error:
+        raise SystemExit(f"{error}; existing file left unchanged") from error
+    if stale_seasons:
+        print(
+            "  [warn] Kept stale advanced stats for seasons: "
+            + ", ".join(map(str, stale_seasons))
+        )
     df = df.sort_values(["season", "player"]).reset_index(drop=True)
     df.to_csv(out, index=False)
     print(f"\nSaved {len(df)} rows ({len(refreshed)} refreshed) to {out}")
     print(f"Seasons: {sorted(df['season'].unique())}")
     print(f"Players: {df['player'].nunique()}")
     print(f"\nTop 10 BPM (2024):")
-    top = df[df["season"] == 2024].nlargest(10, "bpm")[["player", "team", "bpm", "vorp", "usg_pct"]]
+    top = df[df["season"] == 2024].nlargest(10, "bpm")[
+        ["player", "team", "bpm", "vorp", "usg_pct"]
+    ]
     print(top.to_string(index=False))

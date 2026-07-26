@@ -31,6 +31,7 @@ FEATURE_COLS = [
     "age", "age_squared",
     "mpg",
     "availability_3yr",
+    "is_waived",
     "usage_pct",
     "height_inches",
     "cba_era",

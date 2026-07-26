@@ -13,6 +13,7 @@ from src.features.impact_identity import (
     fill_age_from_player_history,
     fill_impact_from_bbref,
 )
+from src.scraping.stats import _merge_refreshed_advanced
 
 
 class ImpactIdentityTests(unittest.TestCase):
@@ -148,6 +149,41 @@ class MissingnessInvariantTests(unittest.TestCase):
 
         self.assertEqual(set(frame["season"]), set(range(2019, 2027)))
         self.assertFalse(frame.duplicated(["player_url", "season"]).any())
+
+
+class AdvancedRefreshTests(unittest.TestCase):
+    def test_failed_season_keeps_stale_rows(self):
+        existing = pd.DataFrame({
+            "season": [2023, 2024],
+            "player": ["old 2023", "old 2024"],
+        })
+        refreshed = pd.DataFrame({
+            "season": [2024],
+            "player": ["new 2024"],
+        })
+
+        result, stale = _merge_refreshed_advanced(
+            existing, refreshed, [2023, 2024]
+        )
+
+        self.assertEqual(stale, [2023])
+        self.assertEqual(
+            set(map(tuple, result[["season", "player"]].to_numpy())),
+            {(2023, "old 2023"), (2024, "new 2024")},
+        )
+
+    def test_failed_uncached_season_refuses_partial_output(self):
+        existing = pd.DataFrame({
+            "season": [2024],
+            "player": ["old 2024"],
+        })
+        refreshed = pd.DataFrame({
+            "season": [2024],
+            "player": ["new 2024"],
+        })
+
+        with self.assertRaisesRegex(RuntimeError, "2023"):
+            _merge_refreshed_advanced(existing, refreshed, [2023, 2024])
 
 
 if __name__ == "__main__":

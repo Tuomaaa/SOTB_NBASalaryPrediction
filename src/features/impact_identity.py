@@ -161,7 +161,10 @@ def fill_impact_from_bbref(
     keys = list(key_columns)
     if stats.duplicated(keys).any():
         dup = stats.loc[stats.duplicated(keys, keep=False), keys].drop_duplicates()
-        raise ValueError(f"BBRef advanced stats have duplicate keys: {dup.head().to_dict('records')}")
+        raise ValueError(
+            "BBRef advanced stats have duplicate keys: "
+            f"{dup.head().to_dict('records')}"
+        )
 
     available = {src: dst for src, dst in BBREF_FALLBACK_COLUMNS.items()
                  if src in stats.columns}
