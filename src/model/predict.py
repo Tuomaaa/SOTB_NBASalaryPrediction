@@ -75,11 +75,20 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     from src.features.age_curve import add_age_features
     from src.features.availability import compute_availability
     from src.features.cba_constraints import add_cba_features
+    from src.features.waiver_history import (
+        attach_waiver_status_as_of, transaction_data_as_of,
+    )
+
 
     pred_df = add_base_rating(pred_df)
     pred_df = add_age_features(pred_df)
     pred_df = compute_availability(pred_df)
     pred_df = add_cba_features(pred_df)
+    waiver_as_of = transaction_data_as_of()
+    pred_df = attach_waiver_status_as_of(pred_df, waiver_as_of)
+    print(f"Waiver feature as of {waiver_as_of.date()}: "
+          f"{int(pred_df['is_waived'].fillna(0).sum())} positives")
+
 
     if "minutes" in pred_df.columns and "games" in pred_df.columns:
         pred_df["mpg"] = pred_df["minutes"] / pred_df["games"].replace(0, np.nan)
@@ -174,6 +183,7 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     pred_df["diff"] = pred_df["predicted_salary"] - pred_df["reference_salary"]
 
     out_cols = [
+        "is_waived", "is_waived_known",
         "player_name", "player_name_norm", "season", "age", "position",
         "predicted_cap_pct", "predicted_salary", "latent_cap_pct", "latent_salary",
         "p_max", "is_pushed", "is_capped", "is_floored",

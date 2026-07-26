@@ -163,7 +163,7 @@ continuation, but its 2025-26 salary was raised $11.6M by the renegotiation on
 2025-07-13 — structurally identical to Markkanen 2024 and Turner 2022. Resolved
 as fresh.
 
-## Feature Set (14 features)
+## Feature Set (15 features)
 
 ### Performance Metrics (z-scored within season)
 | Feature | Description |
@@ -198,6 +198,7 @@ as fresh.
 |---------|-------------|
 | `cba_era` | Binary: 0 = pre-2023 CBA, 1 = post-2023 CBA |
 | `prev_cap_pct` | Year-1 cap_pct of the player's previous contract. Captures anchoring effect — prior contract value predicts next contract. First contracts are filled from the rookie scale by draft slot; see below. |
+| `is_waived` | 1 when Spotrac records a waiver or buyout in the fixed 365 days before the signing that prices this row. Events after signing are excluded. Unknown source/signing coverage remains auditable through `is_waived_known`, which is not a model feature. |
 
 #### Filling `prev_cap_pct` for first contracts (v7.3x)
 

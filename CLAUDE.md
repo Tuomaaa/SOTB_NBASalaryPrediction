@@ -125,7 +125,7 @@ about a team's books even though it is not a Signing Residual.
 
 ## Feature Set
 
-14 features, listed with definitions in METHODOLOGY.md. Over 20 further
+15 features, listed with definitions in METHODOLOGY.md. Over 20 further
 candidates were tested and rejected, each with its ΔCV R² recorded in the same
 file — consult that table before proposing a feature, since several obvious
 ideas (team cap space, playoff performance, agent portfolio) are already there.

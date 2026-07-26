@@ -1,0 +1,26 @@
+player_name_norm,season,age,games,minutes,mpg,source,note
+montrezl harrell,2023,29,57,,11.9,ESPN 2022-23 regular-season player stats,nbarapm LAKER_history omits the regular-season row but retains a 2-game playoff row
+demarcus cousins,2020,29,0,0,0.0,Basketball Reference 2019-20 player record,missed the entire priced season; zero games and zero minutes are observed rather than a median player
+bol bol,2023,23,70,,21.5,ESPN 2022-23 regular-season player stats,nbarapm LAKER_history omits the regular-season row
+malik beasley,2023,26,81,,25.8,ESPN 2022-23 regular-season player stats,nbarapm LAKER_history omits the regular-season row
+patrick beverley,2023,34,67,,27.1,ESPN 2022-23 regular-season player stats,nbarapm LAKER_history omits the regular-season row; age follows the model's priced-season convention
+a.j. green,2023,23,35,,9.9,ESPN 2022-23 regular-season player stats,nbarapm sources split A.J. Green and AJ Green while LAKER_history supplies neither core row
+a.j. green,2026,26,78,,29.1,ESPN 2025-26 regular-season player stats,nbarapm sources split A.J. Green and AJ Green while LAKER_history supplies neither core row
+dean wade,2023,26,44,,20.3,ESPN 2022-23 regular-season player stats,nbarapm LAKER_history omits this regular-season row
+gary trent jr.,2021,22,58,,31.1,ESPN 2020-21 regular-season player stats,nbarapm LAKER_history name lookup rejects the Jr. spelling used by the other sources
+gary trent jr.,2024,25,71,,28.1,ESPN 2023-24 regular-season player stats,nbarapm LAKER_history name lookup rejects the Jr. spelling used by the other sources
+gary trent jr.,2025,26,74,,25.6,ESPN 2024-25 regular-season player stats,nbarapm LAKER_history name lookup rejects the Jr. spelling used by the other sources
+jaren jackson jr.,2022,22,78,,27.3,ESPN 2021-22 regular-season player stats,nbarapm LAKER_history name lookup rejects the Jr. spelling used by the other sources
+jaren jackson jr.,2025,25,74,,29.8,ESPN 2024-25 regular-season player stats,nbarapm LAKER_history name lookup rejects the Jr. spelling used by the other sources
+jaren jackson jr.,2026,26,48,,30.3,ESPN 2025-26 regular-season player stats,nbarapm LAKER_history name lookup rejects the Jr. spelling used by the other sources
+shake milton,2023,26,76,,20.6,ESPN 2022-23 regular-season player stats,nbarapm LAKER_history omits this regular-season row
+tyrell terry,2021,20,11,,5.1,ESPN 2020-21 regular-season player stats,nbarapm LAKER_history contains no core row for his short NBA season
+wenyen gabriel,2019,21,0,0,0.0,Basketball Reference 2018-19 player record,did not appear in an NBA regular-season game during the priced season
+jontay porter,2020,20,0,0,0.0,Basketball Reference 2019-20 player record,did not appear in an NBA regular-season game during the priced season
+jonathan isaac,2021,23,0,0,0.0,Basketball Reference 2020-21 player record,missed the entire priced season after his ACL injury
+omer yurtseven,2021,22,0,0,0.0,Basketball Reference 2020-21 player record,did not appear in an NBA regular-season game during the priced season
+zach collins,2021,23,0,0,0.0,Basketball Reference 2020-21 player record,missed the entire priced season with ankle injuries
+jason preston,2022,22,0,0,0.0,Basketball Reference 2021-22 player record,missed the entire priced season after foot surgery
+t.j. warren,2022,28,0,0,0.0,Basketball Reference 2021-22 player record,missed the entire priced season with a foot injury
+e.j. liddell,2023,22,0,0,0.0,Basketball Reference 2022-23 player record,missed the entire priced season after an ACL injury
+tristan thompson,2023,31,0,0,0.0,Basketball Reference 2022-23 player record,played only in the postseason and logged zero regular-season games

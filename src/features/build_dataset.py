@@ -20,17 +20,53 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import numpy as np
 import pandas as pd
-from config import PROCESSED_DIR
+from config import PROCESSED_DIR, SEASONS
 from src.features.base_rating import add_base_rating
 from src.features.age_curve import add_age_features
 from src.features.availability import compute_availability
 from src.features.cba_constraints import add_cba_features
+from src.features.impact_identity import (
+    apply_impact_corrections,
+    apply_player_identity_corrections,
+    coalesce_impact_rows,
+    fill_age_from_player_history,
+    fill_impact_from_bbref,
+)
+from src.features.waiver_history import attach_waiver_history
 
 
 def _normalize_name(name: str) -> str:
     name = str(name).strip().lower()
     nfkd = unicodedata.normalize("NFKD", name)
     return "".join(c for c in nfkd if not unicodedata.combining(c))
+
+
+def _resolve_merged_age(df: pd.DataFrame) -> pd.Series:
+    """Prefer season-specific impact age, then one latest salary-page anchor.
+
+    BBRef team contract pages repeat the player's current age on every future
+    salary row. Treating all of those values as season-specific creates
+    conflicting age-season offsets. For players whose impact history has no
+    age at all, the latest joined salary season is the current-age anchor; the
+    player-history pass below infers the remaining seasons from that one fact.
+    """
+    impact_age = df.get("age_imp", pd.Series(np.nan, index=df.index))
+    salary_age = df.get("age_sal", pd.Series(np.nan, index=df.index))
+    has_impact_age = impact_age.notna().groupby(
+        df["player_name_norm"]
+    ).transform("any")
+    eligible_salary_season = df["season"].where(
+        salary_age.notna() & ~has_impact_age
+    )
+    latest_salary_season = eligible_salary_season.groupby(
+        df["player_name_norm"]
+    ).transform("max")
+    use_salary_anchor = (
+        ~has_impact_age
+        & salary_age.notna()
+        & df["season"].eq(latest_salary_season)
+    )
+    return impact_age.where(~use_salary_anchor, salary_age)
 
 
 def build_dataset() -> pd.DataFrame:
@@ -43,6 +79,18 @@ def build_dataset() -> pd.DataFrame:
     print(f"Impact:   {len(impact)} rows, {impact['player_name_norm'].nunique()} players")
 
     salaries["player_name_norm"] = salaries["player"].apply(_normalize_name)
+    salary_keys = set(zip(salaries["player_name_norm"], salaries["season"].astype(int)))
+    before = len(impact)
+    impact = coalesce_impact_rows(impact, salary_keys=salary_keys)
+    bbref_path = PROCESSED_DIR / "advanced_stats.csv"
+    if bbref_path.exists():
+        bbref = pd.read_csv(bbref_path)
+        bbref["player_name_norm"] = bbref["player"].apply(_normalize_name)
+        impact = fill_impact_from_bbref(impact, bbref)
+        print(f"BBRef advanced fallback: {len(bbref)} priced-season rows")
+    impact = apply_impact_corrections(impact)
+    impact = fill_age_from_player_history(impact)
+    print(f"Impact identity: coalesced {before - len(impact)} split source rows")
 
     # --- Merge on normalized name + season ---
     df = salaries.merge(
@@ -53,6 +101,11 @@ def build_dataset() -> pd.DataFrame:
     )
     print(f"Merged:   {len(df)} rows, {df['player_name_norm'].nunique()} players")
 
+    if bbref_path.exists() and "player_url" in df.columns:
+        df = fill_impact_from_bbref(
+            df, bbref, key_columns=("player_url", "season")
+        )
+
     if "player" in df.columns:
         df = df.rename(columns={"player": "player_name"})
     elif "player_name_sal" in df.columns:
@@ -60,7 +113,7 @@ def build_dataset() -> pd.DataFrame:
 
     # Resolve age/games before dropping suffixed columns
     if "age_imp" in df.columns:
-        df["age"] = df["age_imp"].fillna(df.get("age_sal", pd.Series(dtype=float)))
+        df["age"] = _resolve_merged_age(df)
     elif "age_sal" in df.columns:
         df["age"] = df["age_sal"]
 
@@ -73,7 +126,6 @@ def build_dataset() -> pd.DataFrame:
 
     drop_cols = [c for c in df.columns if c.endswith("_sal") or c.endswith("_imp")]
     df = df.drop(columns=drop_cols, errors="ignore")
-
     # --- Merge height data ---
     height_path = PROCESSED_DIR / "heights.csv"
     if height_path.exists():
@@ -84,6 +136,34 @@ def build_dataset() -> pd.DataFrame:
             heights["player_name_norm"] = heights["player_name_bbref"].apply(_normalize_name)
             df = df.merge(heights[["player_name_norm", "height_inches"]], on="player_name_norm", how="left")
         print(f"Heights: matched {df['height_inches'].notna().sum()}/{len(df)} rows")
+
+    df = apply_player_identity_corrections(df)
+    # Salary pages or corrections sometimes carry the only observed age for a
+    # player. Infer every other season from that player-specific anchor.
+    df = fill_age_from_player_history(df)
+
+    if bbref_path.exists():
+        covered_seasons = set(bbref["season"].astype(int))
+        missing_seasons = set(SEASONS) - covered_seasons
+        if missing_seasons:
+            raise ValueError(
+                f"BBRef advanced fallback is missing seasons: {sorted(missing_seasons)}"
+            )
+        absent_from_bbref = ~pd.MultiIndex.from_frame(
+            df[["player_url", "season"]]
+        ).isin(pd.MultiIndex.from_frame(bbref[["player_url", "season"]]))
+        did_not_play = df["games"].isna() & absent_from_bbref & df["player_url"].notna()
+        df.loc[did_not_play, ["games", "minutes", "mpg"]] = 0.0
+    else:
+        did_not_play = pd.Series(False, index=df.index)
+
+    used_bbref = df.get("_bbref_fallback_used", pd.Series(False, index=df.index))
+    df["workload_source_status"] = np.select(
+        [df["games"].eq(0), used_bbref, df["games"].notna()],
+        ["did_not_play", "bbref_fallback", "nbarapm"],
+        default="unresolved",
+    )
+    df = df.drop(columns=["_bbref_fallback_used"], errors="ignore")
 
     # --- Merge agent data ---
     agent_path = PROCESSED_DIR / "agent_data.csv"
@@ -127,6 +207,12 @@ def build_dataset() -> pd.DataFrame:
     else:
         print("WARNING: contract_structure_v2.csv not found, year_in_contract unavailable")
 
+    df = attach_waiver_history(df)
+    known = int(df["is_waived_known"].sum())
+    positives = int(df["is_waived"].fillna(0).sum())
+    print(f"Waiver history: known {known}/{len(df)}, positives {positives}")
+
+
     # --- Feature engineering ---
     df = add_base_rating(df)
     df = add_age_features(df)
@@ -135,7 +221,11 @@ def build_dataset() -> pd.DataFrame:
 
     # --- Derived workload features ---
     if "minutes" in df.columns and "games" in df.columns:
-        df["mpg"] = df["minutes"] / df["games"].replace(0, np.nan)
+        computed_mpg = df["minutes"] / df["games"].replace(0, np.nan)
+        if "mpg" in df.columns:
+            df["mpg"] = computed_mpg.fillna(df["mpg"])
+        else:
+            df["mpg"] = computed_mpg
 
     # --- Select final columns ---
     feature_cols = [
@@ -147,12 +237,18 @@ def build_dataset() -> pd.DataFrame:
         # Age
         "age", "age_squared",
         # Workload & availability
-        "minutes", "games", "mpg", "availability_3yr", "usage_pct",
+        "minutes", "games", "mpg", "availability_3yr",
+        "availability_3yr_coverage", "usage_pct",
+        "workload_source_status",
         # Physical
         "height_inches",
         # CBA
         "cba_era",
         # Box score
+        # Previous-contract termination context and source audit
+        "is_waived", "is_waived_known",
+        "prior_waiver_date", "prior_waiver_text",
+
         "ast_pct",
         # Agent (for agent_avg_cap computation in train.py)
         "agent",

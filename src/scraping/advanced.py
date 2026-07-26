@@ -22,6 +22,7 @@ from playwright.sync_api import sync_playwright
 from tqdm import tqdm
 
 from config import CACHE_DIR, PROCESSED_DIR, SEASONS
+from src.features.impact_identity import coalesce_impact_rows
 
 
 def _normalize_name(name: str) -> str:
@@ -124,7 +125,10 @@ def scrape_player_impact(player_names: list[str], batch_size: int = 50) -> dict[
     return {"darko": darko_df, "lebron": lebron_df, "rapm": rapm_df}
 
 
-def build_impact_dataset(player_names: list[str]) -> pd.DataFrame:
+def build_impact_dataset(
+    player_names: list[str],
+    salary_keys: set[tuple[str, int]] | None = None,
+) -> pd.DataFrame:
     """Scrape and merge impact metrics into a single per-player-season DataFrame.
 
     Returns columns: player_name, season, darko_dpm, lebron, rapm, plus offense/defense splits.
@@ -213,6 +217,8 @@ def build_impact_dataset(player_names: list[str]) -> pd.DataFrame:
     rest = [c for c in combined.columns if c not in front]
     combined = combined[front + rest]
 
+    combined = coalesce_impact_rows(combined, salary_keys=salary_keys)
+
     return combined
 
 
@@ -224,12 +230,17 @@ if __name__ == "__main__":
     if salary_path.exists():
         salaries = pd.read_csv(salary_path)
         player_names = sorted(salaries["player"].dropna().unique().tolist())
+        salary_keys = set(zip(
+            salaries["player"].map(_normalize_name),
+            salaries["season"].astype(int),
+        ))
         print(f"Found {len(player_names)} players from salary data")
     else:
         print("No salary data found — using test players")
         player_names = ["Nikola Jokic", "Jayson Tatum", "Luka Doncic", "Shai Gilgeous-Alexander"]
+        salary_keys = None
 
-    df = build_impact_dataset(player_names)
+    df = build_impact_dataset(player_names, salary_keys=salary_keys)
     out = PROCESSED_DIR / "impact_metrics.csv"
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)

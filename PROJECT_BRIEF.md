@@ -49,14 +49,14 @@ runs as an assertion over every season.
 
 ## Methodology
 
-### Feature Engineering (14 features)
+### Feature Engineering (15 features)
 
 | Category | Features | Rationale |
 |----------|----------|-----------|
 | Performance | DARKO DPM, LEBRON, RAPM (all z-scored within season) | Three independent impact metrics capture value from different angles |
 | Workload | minutes/game, usage rate, 3-year weighted availability | Playing time and durability signal |
 | Demographics | age, age², height, draft pick | Age curve is nonlinear; draft pedigree carries a reputation premium |
-| Context | cumulative award score, assist%, CBA era flag, previous contract value | Reputation, role, regime change, and anchoring effects |
+| Context | cumulative award score, assist%, CBA era flag, previous contract value, recent prior waiver | Reputation, role, regime change, anchoring, and previous-contract termination context |
 
 Over 20 additional candidate features were tested and rejected via ablation (each evaluated by ΔCV R² with 10-seed averaging). Rejected features include team-level variables (win%, cap space), playoff performance (too sparse), and agent portfolio effects (data leakage when computed naively).
 

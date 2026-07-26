@@ -500,42 +500,70 @@ the 2025-2028 salary rows.
 
 ---
 
-## 29. Several Floor Zone crash rows carry another player's or fallback features
+## 30. LAKER source gaps and availability propagation affect 11% of evaluation rows
 
-**Severity**: medium — the affected rows sit in the large-error tail used to
-motivate floor-side model work, so a bad join can create both a false residual
-and a false feature hypothesis.
+**Severity**: high — 104/936 evaluation rows have at least one missing core
+feature before median fill. The 56-row LAKER-gap group has OOF MAE $4.75M and
+bias -$1.20M versus $2.69M / +$0.06M on complete rows. This is association, not
+causal proof, but the missingness is systematic: 2023 alone is missing
+RAPM/usage/AST on 24% of evaluation rows.
 
-The 2026-07-25 qualitative review of the 34 Floor Zone rows over-priced by more
-than $5M found five clear identity or fallback failures:
+Two defects overlap. Forty evaluation rows lack current mpg plus the
+RAPM/usage/AST block. Separately, `compute_availability` lets one missing
+`gp_pct` poison later three-year windows, so 50 rows with known current workload
+still lose availability. The full scoring table also has 19 missing ages and
+two missing heights; these do not reach evaluation but do reach public Contract
+Surplus scoring, including six Tim Hardaway Jr. seasons.
 
-| row | stored symptom | externally obvious contradiction |
-|---|---|---|
-| Montrezl Harrell 2023 | age 26, 21.96 mpg | age 29, about 11.9 mpg in 2022-23 |
-| DeMarcus Cousins 2020 | age 26, 21.96 mpg | age 30, missed the entire prior season |
-| Bol Bol 2023 | age 26 | age 23 |
-| Malik Beasley 2023 | 21.96 mpg | about 26 mpg in 2022-23 |
-| Patrick Beverley 2023 | age 26, zero prior pay | age 35, prior salary about $13M |
+**Reproduce**: follow the pre-imputation scan in
+`docs/briefs/2026-07-25-player-row-missingness-repair.md`. On the current build
+it must print 3,113 full rows, 936 evaluation rows, 90 evaluation availability
+gaps, 56 RAPM/usage/AST gaps and 40 mpg gaps.
 
-The tuple `21.96 mpg / 17.2 usage / 0.67 availability` repeats across several
-of these rows and also appears on unrelated players, indicating median fallback
-after a failed player-season join rather than five independent source errors.
-Harrell 2023 is especially damaging because the row becomes a second apparent
-market crash for a player already represented correctly in 2022.
+**What to do**: implement the four-phase plan in that brief: add a durable
+missingness audit; distinguish observed zero games from unknown source rows;
+renormalize availability only over observed seasons; repair the systematic
+2023 LAKER coverage failure by NBA id and season; then fill all-row age after
+the salary merge. Judge number-moving changes on a fixed 936-row, player-folded
+paired harness and run the season-dummy control for any imputation change.
 
-**Reproduce**: run `python scripts/eval_floor_branch.py`, rebuild the >$5M
-Floor Zone residual table from its evaluation frame, and print `age`, `mpg`,
-`usage_pct`, `availability_3yr` and `prev_cap_pct` for the five player-seasons
-above. The full reviewed table and expected biographical checks are in
-`docs/briefs/2026-07-25-floor-crash-qualitative-review.md`.
+**Fixed when**: no immutable or observed-workload field reaches median fill
+without a reason; the 50 propagated availability NaNs are gone; played-season
+2023 LAKER rows are recovered; zero-game seasons carry zero workload; full and
+evaluation frames have zero age/height gaps; and remaining undefined rate
+statistics carry explicit source status.
 
-**What to do**: trace each row backward through the evaluation-frame merge and
-identify which source lookup failed. A failed player identity join must not
-silently median-fill immutable identity fields such as age. Either repair the
-aliases/player-season keys or remove the row from evaluation until its priced
-season features are available. Audit every row carrying the repeated fallback
-tuple, not only the five manually noticed cases.
+---
 
-**Fixed when**: the five rows have correct ages and priced-season statistics;
-no immutable identity field is median-filled after a failed join; and a scan of
-the evaluation frame finds no unrelated rows sharing the full fallback tuple.
+## 31. Kendrick Nunn 2020 is a continuation mislabeled as Year-1
+
+**Severity**: medium — one known stale price remains in evaluation, and the
+failure mode can affect other transactions whose text omits years and money.
+
+Kendrick Nunn's 2020 row is the third season of a three-year minimum contract
+signed with Miami on 2019-04-10, before his breakout rookie season. Spotrac's
+contract block is explicit: `contract_start=2018`, `contract_years=3`, covering
+2018-2020. The dated transaction text says only `Signed a Rest-of-Season
+contract with Miami`, so `contract_signing_dates.csv` carries no years or total
+value and marks it `unmatchable`. `contract_spans()` drops transactions without
+years, while frozen `contract_structure_v2.csv` incorrectly marks 2018, 2019
+and 2020 as three separate one-year contracts. The three-signal fallback also
+misses because the minimum-scale increase is larger than its 8% escalator band.
+
+This is not an `invalid price` class and has nothing to do with buyout income.
+It is a continuation-detection defect. Economically it shares the timing issue
+of an early extension, but contract-event semantics differ: Nunn 2020 is a later
+year of an old deal, while an extension's first paying year is the first year of
+a newly negotiated contract. Both need signing-time features if performance
+after signing would otherwise enter the row.
+
+**Reproduce**: print Nunn from `training_data_v2.csv`,
+`contract_structure_v2.csv`, `contract_signing_dates.csv` and
+`spotrac_signing_types.csv`. The first says `year_in_contract=1` for 2020; the
+last says the same row belongs to the 2018-starting three-year block.
+
+**What to do**: repair the generic link between terms-free dated transactions
+and contract blocks only where independent fields make the match unique, or add
+a sourced contract-structure correction layer that is audited for every
+multi-year Spotrac block fragmented into repeated Year-1 rows. Do not add an
+ad hoc invalid-observation filter, and do not weaken the FA-list veto.

@@ -37,6 +37,7 @@ TRAINING = PROCESSED_DIR / "training_data_v2.csv"
 STABLE_FEATURES = [
     "darko_dpm_z", "lebron_z", "rapm_z", "age", "age_squared", "mpg",
     "availability_3yr", "usage_pct", "height_inches", "cba_era", "ast_pct",
+    "is_waived", "is_waived_known",
     "award_score_cum", "draft_pick", "year_in_contract", "contract_years",
 ]
 

@@ -38,6 +38,10 @@ import pandas as pd
 from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR, RAW_DIR
 from src.model import stages
 from src.model.extension_cap import attach_extension_cap, attach_extension_value
+from src.features.waiver_history import (
+    attach_waiver_status_as_of,
+    transaction_data_as_of,
+)
 from src.model.train import (
     FEATURE_COLS,
     TARGET,
@@ -93,6 +97,7 @@ FEATURE_LABELS = {
     "ast_pct": "Assist %",
     "award_score_cum": "Awards",
     "draft_pick": "Draft pick",
+    "is_waived": "Recently waived",
     "prev_cap_pct": "Previous contract",
 }
 
@@ -552,6 +557,11 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         else:
             fa[col] = borrowed
     fa["age_squared"] = fa["age"] ** 2
+    waiver_as_of = transaction_data_as_of()
+    fa = attach_waiver_status_as_of(fa, waiver_as_of)
+    print(f"  Waiver feature as of {waiver_as_of.date()}: "
+          f"{int(fa['is_waived'].fillna(0).sum())} free-agent positives")
+
 
     X = fa.reindex(columns=features).fillna(medians).fillna(0)
     latent = model.predict(X)

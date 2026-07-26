@@ -60,10 +60,13 @@ def search_spotrac_player(name):
         )
         if resp.status_code == 200:
             soup = BeautifulSoup(resp.text, "html.parser")
-            # Look for first player link
-            for a in soup.find_all("a"):
+            wanted = norm(name)
+            for a in soup.find_all("a", href=True):
                 href = a.get("href", "")
-                if "/nba/player/" in href:
+                label = re.sub(r"\s*\([^)]*\).*$", "", a.get_text(" ", strip=True))
+                if "/redirect/player/" in href and norm(label) == wanted:
+                    return href
+                if "/nba/player/" in href and norm(label) == wanted:
                     return href
     except Exception:
         pass
