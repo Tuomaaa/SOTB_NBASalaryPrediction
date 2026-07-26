@@ -9,10 +9,18 @@ pass covers both populations that matter:
 
 - all **3,113** rows in `training_data_v2.csv`, including continuation and
   rookie-scale rows used for public Contract Surplus scoring;
-- the final **936** Year-1 market-price rows used by the evaluation suite.
+- the final **944** Year-1 market-price rows used by the evaluation suite.
 
 This is a data-integrity plan. It does not propose adding a predictive feature
 until source recovery and missingness semantics are correct.
+
+The first diagnostic pass used a transient 936-row branch that treated eight
+waiver/buyout rows as invalid prices. That interpretation was later rejected:
+the new team's contract is the observed market price. The implementation and
+paired evaluation therefore use the current 944-row production frame. Counts
+below have been updated to the legacy missingness semantics on those 944 keys;
+the OOF residual slices in the following paragraph remain the original
+diagnostic evidence from the 936-row pass.
 
 ## Severity: high
 
@@ -21,11 +29,11 @@ position or CBA-era values. The remaining problem is nevertheless systematic:
 
 | population / field | missing | rate |
 |---|---:|---:|
-| Evaluation rows with any core missing value | 104 / 936 | 11.1% |
-| Evaluation `availability_3yr` | 90 / 936 | 9.6% |
-| Evaluation RAPM / usage / AST block | 56 / 936 | 6.0% |
-| Evaluation `mpg` | 40 / 936 | 4.3% |
-| Evaluation LEBRON | 16 / 936 | 1.7% |
+| Evaluation rows with any core missing value | 105 / 944 | 11.1% |
+| Evaluation `availability_3yr` | 91 / 944 | 9.6% |
+| Evaluation RAPM / usage / AST block | 56 / 944 | 5.9% |
+| Evaluation `mpg` | 40 / 944 | 4.2% |
+| Evaluation LEBRON | 16 / 944 | 1.7% |
 | Full-table `availability_3yr` | 315 / 3,113 | 10.1% |
 | Full-table RAPM / usage / AST block | 165 / 3,113 | 5.3% |
 | Full-table `mpg` | 149 / 3,113 | 4.8% |
@@ -168,12 +176,42 @@ After source recovery, audit the remaining LEBRON/RAPM/usage/AST gaps:
   season-aligned, so any apparent gain must beat the project's season-dummy
   guard.
 
+## Post-repair residual plan (2026-07-26)
+
+The production audit now finds no high-severity missing identity or workload
+facts. Age, height, mpg and availability are complete in all 3,113 rows. The
+remaining missing values split into three classes:
+
+| Class | Full | Evaluation | Severity | Decision |
+|---|---:|---:|---|---|
+| usage / AST on explicit zero-game seasons | 46 | 11 | low | retain NaN; the rates are undefined |
+| RAPM source coverage | 165 | 56 | medium | audit played seasons; never synthesize RAPM |
+| LEBRON source coverage | 63 | 16 | medium-low | audit played seasons and source identity |
+| unknown `is_waived` source/signing coverage | 819 | 152 | low | retain NaN plus known-status audit field |
+
+Follow-up work is deliberately narrower than the completed repair:
+
+1. Keep `did_not_play` rows out of repair queues for rate statistics and assert
+   that their workload remains an explicit zero.
+2. Split RAPM and LEBRON gaps into zero-game versus played-season rows, then
+   inspect 2023 first because RAPM remains concentrated there. Recover only
+   values present in the original public source under a stable identity key.
+3. If played-season source gaps remain irreducible, compare current median fill
+   with native NaN on the fixed 944 keys, using identical player folds and the
+   season-dummy control. This is a separate number-moving version; do not fold
+   it into a scraper refresh.
+4. Keep waiver unknowns distinct from zero. Extend source coverage during the
+   normal Spotrac refresh, and rerun the existing coverage-only control before
+   changing imputation semantics.
+5. Run `scripts/audit_feature_missingness.py` after every rebuild and fail any
+   regression that reintroduces unresolved age, height, mpg or availability.
+
 ## Evaluation protocol
 
 This work changes values and may change no rows, but it still moves model
 numbers. Use the same version discipline as the floor-crash repair:
 
-1. Freeze the current 936 evaluation keys and player-grouped folds.
+1. Freeze the current 944 evaluation keys and player-grouped folds.
 2. Fit old and repaired data states on the same validation players over 10
    seeds; report A1 selection/pooled, A2 and MAE with per-fold paired deltas.
 3. Report 2023 separately because it contains the source outage.
@@ -201,16 +239,19 @@ numbers. Use the same version discipline as the floor-crash repair:
 
 Run the production filter chain without calling `_prepare_Xy`, then count NaN
 over `FEATURE_COLS`. Merge `outputs/models/oof_reference.csv` by
-`(player_name_norm, season)` for the residual slices above. The baseline counts
-that the implementation must reproduce before changing anything are:
+`(player_name_norm, season)` for the residual slices above. The paired harness
+reproduces the old feature semantics on the current production keys before
+applying the repair:
 
 ```text
 full rows: 3113
-evaluation rows: 936
-evaluation any core missing: 104
-evaluation availability missing: 90
+evaluation rows: 944
+evaluation any core missing: 105
+evaluation availability missing: 91
 evaluation RAPM/usage/AST missing: 56
 evaluation mpg missing: 40
-full age missing: 19
-full height missing: 2
 ```
+
+The original all-row audit separately found 19 missing ages and two missing
+heights; those identity defects are acceptance targets, not part of the
+fixed-row treatment reconstruction.

@@ -10,8 +10,8 @@ worklist, not a changelog. `VERSION_HISTORY.md` is where fixes get recorded.
 
 **Numbers are permanent and are never reused.** A new entry takes `max + 1` over
 every number this file has *ever* used, not the first gap — deleting a fixed
-entry retires its number for good. The highest ever used is **28**, so the next
-new entry is **29**. Two parallel workers each taking "the next free number"
+entry retires its number for good. The highest ever used is **31**, so the next
+new entry is **32**. Two parallel workers each taking "the next free number"
 is exactly how the two `#20`s and two `#25`s of 2026-07-27 happened.
 
 Entries are listed in **numeric order**, not by severity — the file is looked up
@@ -497,41 +497,6 @@ the 2025-2028 salary rows.
 
 **Fixed when**: each row's per-season base is sourced rather than inverted, and
 `salary_corrections.csv` carries `confidence=verified` for both.
-
----
-
-## 30. LAKER source gaps and availability propagation affect 11% of evaluation rows
-
-**Severity**: high — 104/936 evaluation rows have at least one missing core
-feature before median fill. The 56-row LAKER-gap group has OOF MAE $4.75M and
-bias -$1.20M versus $2.69M / +$0.06M on complete rows. This is association, not
-causal proof, but the missingness is systematic: 2023 alone is missing
-RAPM/usage/AST on 24% of evaluation rows.
-
-Two defects overlap. Forty evaluation rows lack current mpg plus the
-RAPM/usage/AST block. Separately, `compute_availability` lets one missing
-`gp_pct` poison later three-year windows, so 50 rows with known current workload
-still lose availability. The full scoring table also has 19 missing ages and
-two missing heights; these do not reach evaluation but do reach public Contract
-Surplus scoring, including six Tim Hardaway Jr. seasons.
-
-**Reproduce**: follow the pre-imputation scan in
-`docs/briefs/2026-07-25-player-row-missingness-repair.md`. On the current build
-it must print 3,113 full rows, 936 evaluation rows, 90 evaluation availability
-gaps, 56 RAPM/usage/AST gaps and 40 mpg gaps.
-
-**What to do**: implement the four-phase plan in that brief: add a durable
-missingness audit; distinguish observed zero games from unknown source rows;
-renormalize availability only over observed seasons; repair the systematic
-2023 LAKER coverage failure by NBA id and season; then fill all-row age after
-the salary merge. Judge number-moving changes on a fixed 936-row, player-folded
-paired harness and run the season-dummy control for any imputation change.
-
-**Fixed when**: no immutable or observed-workload field reaches median fill
-without a reason; the 50 propagated availability NaNs are gone; played-season
-2023 LAKER rows are recovered; zero-game seasons carry zero workload; full and
-evaluation frames have zero age/height gaps; and remaining undefined rate
-statistics carry explicit source status.
 
 ---
 
