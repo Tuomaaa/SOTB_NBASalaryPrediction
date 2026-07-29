@@ -227,6 +227,36 @@ architecture lines below are decided, and what remains is listed under
   When the extension-route bundle lands, judge each leg by this criterion, not
   merely by whether the six-route form as a whole gated.
 
+- **An empirical regularity does not get to be a Stage-2 bound.** Decided
+  2026-07-29, after the architect proposed one and the user rejected it. The
+  proposal: waived players never sign above the mid-level (0 of 122 rows exceed
+  15% of cap; the observed max is 12.5%), so clip them there. An in-sample clip
+  on the champion's own OOF column reads **+0.0078** at the 15% line and
+  +0.0111 at 8%. Rejected anyway. Stage 2's contract is *deterministic CBA
+  bounds on the player himself* — the max tier and the league minimum — and it
+  earns its exemption from the gates precisely because those are written down
+  and cannot be wrong. A waiver ceiling is none of that: no CBA provision caps
+  a waived player's next contract (the nearest real rule, that a team over the
+  first apron cannot sign a player whose pre-waiver salary exceeded the
+  non-taxpayer MLE, restricts the buyer list and not the amount); it is a
+  one-way ratchet that would permanently forbid pricing a bought-out star
+  correctly; and the 15% line is fitted to the sample maximum of 122 rows,
+  the least stable statistic available. **The +0.0078 is not a bound's payoff —
+  it is a measurement of Stage 1 failing to learn something it has the
+  information to learn.** Clipping hides that failure; the correct response is
+  the feature route (`2026-07-29-waiver-interaction.md`). General form of the
+  rule: if it is not in the CBA, it belongs in Stage 1 and runs the gates.
+- **The mechanism behind the waiver discount is the fact, not the money still
+  owed.** Same date, same conversation. The architect proposed `dead_money_pct`
+  (a bought-out player collects the old contract regardless, so the new deal is
+  incremental income and he optimises for role over dollars); the user said it
+  is being waived itself. The data sides with the user **on the sign**: the
+  dead-money story predicts the landing spot FALLS as more money is already
+  banked, and the fitted waived line has slope **+0.140** — positive, just
+  heavily flattened from the non-waived +0.750. What a waiver does is erase
+  ~81% of the price history, which is a public negative signal from the party
+  with the most information, not a budget effect.
+
 - **The Stage-2 clip never reads the observed salary — in either direction.**
   Clipping DOWN at actual pay is straight target leakage: over-prediction
   becomes impossible, so every bargain vanishes from the Value Board by
