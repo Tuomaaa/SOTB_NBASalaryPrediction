@@ -59,6 +59,7 @@ from xgboost import XGBRegressor
 from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR
 from src.model.train import (
     load_training_data, _filter_year1, _filter_rookie_scale, _filter_prorated,
+    _filter_rookie_contracts,
     _filter_mislabeled_year1, _filter_continuations, _compute_max_eligible,
     _compute_floor, _prepare_Xy, _make_tobit_obj, _XGB_BASE, FEATURE_COLS, TARGET,
 )
@@ -241,7 +242,11 @@ def load_evaluation_frame(keep_prorated: bool = False,
         df = _filter_prorated(df)
     df = _compute_max_eligible(df)
     df = _filter_mislabeled_year1(df)
-    df = _filter_continuations(df).reset_index(drop=True)
+    df = _filter_continuations(df)
+    # Rookie contracts (a player's first two NBA seasons) leave last, so its
+    # printed drop count is the net frame effect and it clears the _compute_floor
+    # pool below — a first contract informs neither the model nor the floor scale.
+    df = _filter_rookie_contracts(df).reset_index(drop=True)
     df["cap"] = df["season"].map(CAP_BY_SEASON)
     df["salary_m"] = df[TARGET] * df["cap"] / 1e6
 

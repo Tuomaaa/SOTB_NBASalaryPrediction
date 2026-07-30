@@ -28,7 +28,7 @@ from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON
 from src.model import stages
 from src.model.train import (
     load_training_data, train_grabit, _compute_max_eligible, _compute_floor,
-    _filter_year1, _filter_rookie_scale, _filter_prorated,
+    _filter_year1, _filter_rookie_scale, _filter_rookie_contracts, _filter_prorated,
     _filter_mislabeled_year1, _filter_continuations,
     _prepare_Xy, FEATURE_COLS, TARGET,
 )
@@ -42,8 +42,9 @@ def _normalize_name(name: str) -> str:
 
 def _training_medians(df: pd.DataFrame) -> tuple[list[str], pd.Series]:
     """Feature list and fill values from the filtered training set."""
-    tr = _filter_continuations(_filter_mislabeled_year1(_compute_max_eligible(
-        _filter_prorated(_filter_rookie_scale(_filter_year1(df))))))
+    tr = _filter_rookie_contracts(_filter_continuations(_filter_mislabeled_year1(
+        _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
+            _filter_year1(df)))))))
     X_tr, _, _, features = _prepare_Xy(tr)
     return features, X_tr.median()
 

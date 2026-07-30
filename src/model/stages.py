@@ -203,12 +203,13 @@ def training_route_frame(df: pd.DataFrame) -> pd.DataFrame:
     `_compute_floor` is included because the route labels read `is_at_floor`.
     """
     from src.model.train import (
-        _filter_year1, _filter_rookie_scale, _filter_prorated,
-        _compute_max_eligible, _filter_mislabeled_year1, _filter_continuations,
-        _compute_floor,
+        _filter_year1, _filter_rookie_scale, _filter_rookie_contracts,
+        _filter_prorated, _compute_max_eligible, _filter_mislabeled_year1,
+        _filter_continuations, _compute_floor,
     )
-    tr = _filter_continuations(_filter_mislabeled_year1(_compute_max_eligible(
-        _filter_prorated(_filter_rookie_scale(_filter_year1(df))))))
+    tr = _filter_rookie_contracts(_filter_continuations(_filter_mislabeled_year1(
+        _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
+            _filter_year1(df)))))))
     return _compute_floor(tr).reset_index(drop=True)
 
 

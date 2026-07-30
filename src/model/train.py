@@ -296,6 +296,57 @@ def _filter_continuations(df: pd.DataFrame, aav_tol: float = 0.25) -> pd.DataFra
     return filtered
 
 
+def _filter_rookie_contracts(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop a player's first NBA contract — his first two seasons of pay.
+
+    A first contract carries no market information: it is set by the draft slot
+    (rookie scale), the second-round exception, or the two-way/minimum scale,
+    not negotiated against the player's value. `_filter_rookie_scale` removes
+    only FIRST-round rookie-scale deals (via draft slot); second-round and
+    undrafted first contracts sign no rookie-scale deal, so they slip through it
+    and reach training, where the model prices them near-exactly because they
+    are all the same convention number — 4.2% of the frame's variance for 1.0%
+    of its squared error (see the 2026-07-29 membership brief).
+
+    Predicate: `exp <= 1`, where `exp = season - debut_season` under the same
+    debut join `_compute_max_eligible` uses (`player_name_norm` through
+    `pn_clean = norm(...)`, NOT the raw norm — skipping the clean produced 76
+    spurious NaNs and dropped Towns/JJJ/SGA in the architect's scratch measure).
+
+    **Why these rows sit at exp==1, not 0** (checked, not assumed): the salary
+    table begins a season AFTER debut — 70 of 71 removed exp==1 rows have no raw
+    row at their debut season, their first appearance is at debut+1 (the same
+    stats-salary lag that drops rookie-scale year 1, see `_load_rookie_scale_set`).
+    All 71 carry `year_in_contract == 1`: they are genuine first contracts, not
+    year-2 escalators wearing a year-1 label. So `exp <= 1` catches the first
+    OBSERVED contract, and no narrowing to a strict "first contract" is needed.
+    exp==0 catches only the 5 players whose debut-season pay is also on record.
+
+    Unknown-debut rows are KEPT by default: `NaN <= 1` is False, so a player
+    with no debut on record (age-19 fallback territory) survives — the safe
+    direction, since these are established veterans the debut index missed, not
+    rookies. The count is printed so the default is explicit, never silent.
+    """
+    from scripts.build_external_features import norm
+    debut = _load_debut_seasons()
+    if not debut:
+        print("WARNING: debut_seasons.csv not found, skipping rookie-contract filter")
+        return df
+    pn_clean = df["player_name_norm"].apply(norm)
+    exp = df["season"] - pn_clean.map(debut)
+    n_unknown = int(exp.isna().sum())
+    mask = (exp <= 1).fillna(False)  # NaN debut -> kept
+    filtered = df[~mask].copy()
+    if mask.any():
+        by_season = df.loc[mask].groupby("season").size()
+        detail = ", ".join(f"{int(s)}: {n}" for s, n in by_season.items())
+        n0 = int((exp[mask] == 0).sum())
+        print(f"Rookie-contract filter (exp<=1): dropped {int(mask.sum())} first-"
+              f"contract rows ({n0} at exp==0, {int(mask.sum()) - n0} at exp==1) "
+              f"({detail}); kept {n_unknown} unknown-debut rows ({len(filtered)} remain)")
+    return filtered
+
+
 def _prepare_Xy(df: pd.DataFrame, features: list[str] | None = None):
     """Return X, y, groups arrays with NaN features filled."""
     if features is None:
@@ -760,6 +811,7 @@ def train_ridge(df: pd.DataFrame, alpha: float = 1.0) -> tuple[dict, object]:
     df = _filter_prorated(df)
     df = _filter_mislabeled_year1(df)
     df = _filter_continuations(df)
+    df = _filter_rookie_contracts(df)
     X, y, groups, features = _prepare_Xy(df)
     print(f"Training Ridge (alpha={alpha}) on {len(X)} samples, {len(features)} features")
 
@@ -807,6 +859,7 @@ def train_xgboost(df: pd.DataFrame) -> tuple[dict, object, list[str]]:
     df = _filter_prorated(df)
     df = _filter_mislabeled_year1(df)
     df = _filter_continuations(df)
+    df = _filter_rookie_contracts(df)
     X, y, groups, features = _prepare_Xy(df)
     seasons = df["season"].values
     print(f"Training XGBoost on {len(X)} samples, {len(features)} features")
@@ -899,6 +952,7 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     df = _compute_max_eligible(df)
     df = _filter_mislabeled_year1(df)
     df = _filter_continuations(df)
+    df = _filter_rookie_contracts(df)
     df = _compute_floor(df)
 
     X, y, groups, features = _prepare_Xy(df)
@@ -1017,8 +1071,9 @@ def _multiseed_grabit_cv(df: pd.DataFrame, seeds: list[int] | None = None,
     if seeds is None:
         seeds = list(range(10))
 
-    filt = _filter_continuations(_filter_mislabeled_year1(_compute_max_eligible(
-        _filter_prorated(_filter_rookie_scale(_filter_year1(df.copy()))))))
+    filt = _filter_rookie_contracts(_filter_continuations(_filter_mislabeled_year1(
+        _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
+            _filter_year1(df.copy())))))))
     filt = _compute_floor(filt)
     X, y, groups, features = _prepare_Xy(filt)
     seasons = filt["season"].values

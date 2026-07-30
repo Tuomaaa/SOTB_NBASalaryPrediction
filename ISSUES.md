@@ -10,8 +10,8 @@ worklist, not a changelog. `VERSION_HISTORY.md` is where fixes get recorded.
 
 **Numbers are permanent and are never reused.** A new entry takes `max + 1` over
 every number this file has *ever* used, not the first gap — deleting a fixed
-entry retires its number for good. The highest ever used is **34**, so the next
-new entry is **35**. Two parallel workers each taking "the next free number"
+entry retires its number for good. The highest ever used is **35**, so the next
+new entry is **36**. Two parallel workers each taking "the next free number"
 is exactly how the two `#20`s and two `#25`s of 2026-07-27 happened.
 
 Entries are listed in **numeric order**, not by severity — the file is looked up
@@ -533,81 +533,6 @@ a sourced contract-structure correction layer that is audited for every
 multi-year Spotrac block fragmented into repeated Year-1 rows. Do not add an
 ad hoc invalid-observation filter, and do not weaken the FA-list veto.
 
-## 32. The Signing Board admits rows on two conditions where training uses five
-
-**Severity**: high — it inflates the accuracy number the site advertises, and it
-puts non-signings at the top of the public bargain list.
-
-`scripts/export_web.py:757` decides board membership with
-
-```python
-signing = (out["year_in_contract"] == 1) & ~out["is_rookie_scale"]
-```
-
-and `export_web.py:1035` scores the advertised forward accuracy on the same
-rule. Training decides membership with the five-filter chain in `train.py`:
-year-1, rookie-scale, prorated (<1.2% of cap), mislabeled-year-1, continuation.
-The two disagree on **612 of 1,556** board rows across 2019-2026.
-
-For the 2026 holdout the difference lands directly on the headline:
-
-| row set | n | R² | MAE | bias |
-|---|---:|---:|---:|---:|
-| board's rule (what the site quotes) | 124 | **0.8146** | $2.96M | −$0.64M |
-| the same rows, filter chain applied | 95 | **0.7987** | $3.42M | −$1.24M |
-| the 29 the chain rejects, alone | 29 | −0.5584 | $1.49M | +$1.35M |
-
-The 29 extra rows *raise* the pooled R² by **+0.016** despite scoring −0.56 among
-themselves: they are near-minimum contracts far below the mean, so they add a
-large share of the denominator and almost no error. Twenty are second-round
-rookies (Jaylen Wells, Maxime Raynaud, Oso Ighodaro, Adem Bona, Bronny James…),
-whose pay is set by the second-round exception rather than negotiated. A
-second-round contract is not rookie-scale, so `~is_rookie_scale` cannot see it.
-
-Across all seasons the display problem is worse than the second-round one. The
-top of the board's surplus list is dominated by **prorated mid-season signings**
-that `_filter_prorated` removes from training: Spencer Dinwiddie 2023 paid
-$1.55M and shown at $23.79M for a $22.24M "surplus", LaMarcus Aldridge 2020
-($555K, +$17.79M), Will Barton 2022 ($433K, +$14.42M), Patrick Beverley 2022
-($507K, +$13.29M), Andre Roberson 2020 ($275K, +$10.79M). Each is a partial
-season's pay compared against a full season's prediction — an arithmetic
-artifact presented as the model's biggest find.
-
-**Reproduce**: load `outputs/web/valuations_export.csv`, rebuild the board mask
-above, and set-difference it against `load_evaluation_frame()`'s
-`(player_name_norm, season)` keys. Then score `r2_score` on both sets.
-
-**What to do**: have `export_web.py` reuse the training filter chain for board
-membership and for `fwd_metrics`, rather than re-deriving a looser rule. Rows the
-chain rejects can still appear on the Value Board (a second-round pick on the
-minimum genuinely is a surplus asset) but must not enter a *pricing accuracy*
-statement, and prorated rows should be excluded from surplus display entirely or
-annualised first. Decide explicitly which board each class belongs on and write
-it into the module docstring next to the existing `is_fa` note.
-
-**Fixed when**: the board's `n` for 2026 matches the filter chain's, the quoted
-forward R² reproduces `evaluate_suite`'s 2026 origin, and no row paid under 1.2%
-of the cap appears in the surplus ranking.
-
-## 33. `outputs/web/valuations_export.csv` is two model versions stale
-
-**Severity**: medium — the public site shows v8.0x predictions.
-
-The export is dated 2026-07-25 and reproduces the v8.0x champion (its 2026
-chain-only R² is 0.7987, matching that tag's 0.7992 origin). v8.1x (impact-source
-join) and v8.2x (`is_waived` + the missingness repair) have landed since, and
-they moved the 2026 origin to **0.8499**. `export_web.py` itself was last touched
-at 29b6383 (v8.1x), so the code moved and the artifact did not.
-
-**Reproduce**: `ls -l outputs/web/valuations_export.csv` against `git tag -n99
-v8.1x v8.2x`.
-
-**What to do**: re-run `scripts/export_web.py` after ISSUES #32 is fixed, so the
-regenerated artifact does not bake the membership defect in again.
-
-**Fixed when**: the export's 2026 forward number reproduces the current suite's
-2026 origin on the same row set.
-
 ## 34. Seven 2026 rows are flagged Year-1 immediately after a multi-year Year-1
 
 **Severity**: low-medium — 7 rows, but they miss by 48% more than the frame does.
@@ -645,3 +570,38 @@ continuation filter, not to a new ad hoc rule.
 
 **Fixed when**: every remaining member of the set has a dated transaction
 showing a genuinely new contract, or has been demoted by the continuation filter.
+
+## 35. Common-row deltas across a row-count change are contaminated by fold reshuffle
+
+**Severity**: low — a measurement trap, not a model defect, but it can make a
+denominator change read as a regression (or hide one).
+
+When a change alters the training row count, the standard "did the model move?"
+check is a common-row delta: score the old-frame champion and the new-frame
+champion on the rows both frames share, expecting ≈ 0. But
+`evaluate_suite.oof_groupkfold` uses `GroupKFold`, which **rebalances folds by
+group size**. Drop N rows and the remaining players get reassigned to different
+folds, so each shared row's OOF prediction shifts because its fold's *training
+data* changed — noise unrelated to the change under test.
+
+Measured on the 2026-07-29 rookie-contract removal (944 → 868): the raw
+GroupKFold common-row delta was **−0.0044** with a $0.71M mean per-row prediction
+move (679/868 rows moved > $0.05M) — which looks like the model degrading.
+Holding every player to a fixed hash-assigned fold in **both** frames collapses
+it to **−0.00026** (mean move $0.20M), i.e. zero. The −0.0044 was entirely fold
+reshuffle.
+
+**Reproduce**: build both frames (the new one, and the old one via an identity
+patch of the added filter), run the champion OOF once with the suite's
+`GroupKFold` and once with folds keyed on `int(md5(player_name_norm)[:8],16) % 5`
+(same map for both frames), and compare the common-row R² deltas. Numbers in
+`docs/briefs/2026-07-29-membership-one-definition.RESULT.md` §2.
+
+**What to do**: any common-row delta computed across a row-count change must hold
+folds fixed across the two frames (deterministic player→fold map), or state that
+the raw number carries fold-reshuffle noise on the order of ±0.005. The
+season-split origins (B1) are naturally immune — their train/test split is by
+season, not by fold.
+
+**Fixed when**: `evaluate_suite` (or a shared helper) exposes a fixed-fold
+common-row comparison, and the bridge recipe in `worker-brief.md` points to it.

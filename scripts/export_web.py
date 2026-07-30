@@ -12,6 +12,27 @@ re-implemented here: it is `src.model.stages.compose`, the same function the
 evaluation suite scores and predict.py deploys. Stage 3 reads the realized
 route, so the forward R² written into meta.json is a TOLD-ROUTE number.
 
+Two boards, two membership rules — decided here so the site never re-derives a
+looser one (ISSUES #32):
+
+  * The **Signing Board** reports a *pricing-accuracy* number (forward R², MAE,
+    the signing-mechanism residuals). A row belongs only if the model was asked
+    to price it — i.e. only if it survives the training filter chain itself
+    (`_signing_membership`, the `is_signing` / `sg` flag). This drops the same
+    classes training drops: rookie-scale years, a player's first two seasons
+    (second-round and undrafted first contracts, priced by convention not by the
+    market), prorated partial seasons, tier mislabels, and pre-2019
+    continuations. The old rule `(year_in_contract == 1) & ~is_rookie_scale`
+    admitted 612 such rows and lifted the advertised forward R² by +0.016.
+  * The **Value Board** answers "is this contract a bargain?" and may keep rows
+    the Signing Board rejects: a second-round pick on the minimum genuinely IS a
+    surplus asset (kept, with a real surplus), and a free agent with no contract
+    on file (`is_fa`, null surplus) belongs here too. The one class barred from
+    its surplus *ranking* is the prorated mid-season signing (`is_prorated` /
+    `pr`): its partial-season pay against a full-season prediction is an
+    arithmetic artifact ($1.55M paid, shown at $23.79M "surplus"), so it carries
+    a null surplus exactly as a free agent does and cannot top the bargain list.
+
 Writes to the portfolio site's public/data/nba/ directory:
     valuations.json  — one row per player-season (table data, no SHAP)
     shap.json        — per-row feature attributions in dollars (lazy-loaded)
@@ -44,12 +65,14 @@ from src.features.waiver_history import (
 )
 from src.model.train import (
     FEATURE_COLS,
+    PRORATED_FLOOR,
     TARGET,
     _compute_floor,
     _compute_max_eligible,
     _filter_continuations,
     _filter_mislabeled_year1,
     _filter_prorated,
+    _filter_rookie_contracts,
     _filter_rookie_scale,
     _filter_year1,
     _load_rookie_scale_set,
@@ -164,10 +187,31 @@ def _training_medians(df: pd.DataFrame) -> tuple[list[str], pd.Series]:
     the same season-restricted df that was handed to train_grabit — the medians
     must reflect only the seasons the model actually saw.
     """
-    tr = _filter_continuations(_filter_mislabeled_year1(_compute_max_eligible(
-        _filter_prorated(_filter_rookie_scale(_filter_year1(df))))))
+    tr = _filter_rookie_contracts(_filter_continuations(_filter_mislabeled_year1(
+        _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
+            _filter_year1(df)))))))
     X_tr, _, _, features = _prepare_Xy(tr)
     return features, X_tr.median()
+
+
+def _signing_membership(df: pd.DataFrame) -> set[tuple[str, int]]:
+    """Signing-Board membership = the training filter chain, byte-for-byte.
+
+    The Signing Board reports a *pricing-accuracy* number, so a row belongs on it
+    only if the model was actually asked to price it — i.e. only if it survives
+    the exact five-plus-one filter chain `evaluate_suite.load_evaluation_frame`
+    and `train_grabit` apply. The board must not re-derive a looser rule of its
+    own; that is ISSUES #32, where `(year_in_contract == 1) & ~is_rookie_scale`
+    admitted 612 rows the chain rejects — second-round rookies the rookie-scale
+    filter cannot see, prorated mid-season signings, and pre-2019 continuations —
+    which lifted the advertised forward R² by +0.016 on rows the model never
+    trained on. Run over every season (the holdout included) so 2026 members are
+    decided by the same rule as 2019's.
+    """
+    chain = _filter_rookie_contracts(_filter_continuations(_filter_mislabeled_year1(
+        _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
+            _filter_year1(df.copy())))))))
+    return set(zip(chain["player_name_norm"], chain["season"].astype(int)))
 
 
 def _zscore_basis(df: pd.DataFrame) -> dict[str, dict[str, dict[str, float]]]:
@@ -467,11 +511,26 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     out["is_rookie_scale"] = [
         (n, s) in rookie for n, s in zip(out["player_name_norm"], out["season"])
     ]
+    # Signing-Board membership IS the training filter chain — not a looser rule
+    # re-derived here (ISSUES #32). A row carries a pricing-accuracy number only
+    # if the model was asked to price it.
+    members = _signing_membership(df)
+    out["is_signing"] = [
+        (n, s) in members for n, s in zip(out["player_name_norm"], out["season"])
+    ]
+    # Prorated partial-season pay (< 1.2% of the cap): a fraction of a year's
+    # salary against a full-season prediction. Already outside is_signing (the
+    # chain drops it); flagged here so the Value Board can also keep it out of the
+    # surplus ranking, where its inflated "surplus" is an arithmetic artifact.
+    out["is_prorated"] = out["actual_cap_pct"] < PRORATED_FLOOR
 
     out["actual_salary"] = out["actual_cap_pct"] * out["cap"]
     out["pred_salary"] = out["pred_cap_pct"] * out["cap"]
     out["latent_salary"] = out["latent_cap_pct"] * out["cap"]
     out["surplus"] = out["pred_salary"] - out["actual_salary"]
+    # Prorated rows get no surplus number at all — the same null a free agent
+    # carries — so a partial-season deal cannot top the bargain list (ISSUES #32).
+    out.loc[out["is_prorated"], "surplus"] = np.nan
     # Which CBA bound, if any, moved the prediction off its latent value. There
     # are now two ceilings and an upward push, so `is_capped` can no longer be
     # read off the latent alone: a row the push pinned to the tier ceiling is
@@ -623,6 +682,10 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         "cap": cap,
         "is_forward": True,
         "is_rookie_scale": False,
+        # Free agents have no contract on file: not a signing (no pricing-accuracy
+        # claim), not prorated, and already null-surplus (Value Board only).
+        "is_signing": False,
+        "is_prorated": False,
         "actual_salary": np.nan,
         "pred_salary": value * cap,
         "latent_salary": latent * cap,
@@ -709,6 +772,11 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
             "flr": bool(r.is_floored),
             "fwd": bool(r.is_forward),
             "rs": bool(r.is_rookie_scale),
+            # sg: on the Signing Board (survives the training filter chain, so it
+            #     carries a pricing-accuracy number). pr: prorated partial season,
+            #     excluded from the surplus ranking. See ISSUES #32.
+            "sg": bool(r.is_signing),
+            "pr": bool(r.is_prorated),
             "fa": bool(r.is_fa),
             "st": None if pd.isna(r.signing_type) else r.signing_type,
             "dk": _round(r.darko_dpm_z),
@@ -754,7 +822,7 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
         out.groupby("season")["base_salary"].first() / M
     ).round(2).to_dict()
 
-    signing = (out["year_in_contract"] == 1) & ~out["is_rookie_scale"]
+    signing = out["is_signing"]
 
     meta = {
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -861,8 +929,7 @@ def write_charts(out: pd.DataFrame, shap_vals: np.ndarray,
     # 1. Predicted vs actual on the holdout season's signings — forward,
     #    out-of-sample, so the scatter shows real predictive accuracy rather
     #    than the model recalling its own training rows.
-    y1 = out[out["is_forward"] & (out["year_in_contract"] == 1)
-             & ~out["is_rookie_scale"]]
+    y1 = out[out["is_forward"] & out["is_signing"]]
     fig, ax = plt.subplots(figsize=(7, 6.2))
     _style_axes(ax)
     at_bound = y1["is_capped"] | y1["is_floored"] | y1["is_ext_capped"]
@@ -908,7 +975,7 @@ def write_charts(out: pd.DataFrame, shap_vals: np.ndarray,
     #    not just the forward slice, so each mechanism has enough rows for the
     #    bias to be stable — this chart shows the shape of the pattern, and the
     #    project page carries the precise out-of-fold figures alongside it.
-    st_rows = out[(out["year_in_contract"] == 1) & ~out["is_rookie_scale"]]
+    st_rows = out[out["is_signing"]]
     st = st_rows.dropna(subset=["signing_type"])
     if len(st):
         agg = (st.groupby("signing_type")
@@ -1030,10 +1097,10 @@ def main() -> None:
                                       expected, df, train_df)
 
     # The headline the Signing Board quotes is the forward number: accuracy on
-    # the signings the model never saw. Free agents (year_in_contract NaN) carry
-    # no actual salary and are excluded here by the year-1 condition.
-    fwd = out[out["is_forward"] & (out["year_in_contract"] == 1)
-              & ~out["is_rookie_scale"]]
+    # the signings the model never saw. Membership is the training filter chain
+    # (is_signing), not a looser re-derivation — free agents, second-round
+    # rookies, prorated and continuation rows are all outside it (ISSUES #32).
+    fwd = out[out["is_forward"] & out["is_signing"]]
     fwd_metrics = {
         "r2": float(r2_score(fwd["actual_cap_pct"], fwd["pred_cap_pct"])),
         "mae_m": float(mean_absolute_error(fwd["actual_salary"],
