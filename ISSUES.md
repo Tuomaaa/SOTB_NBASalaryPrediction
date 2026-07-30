@@ -10,8 +10,8 @@ worklist, not a changelog. `VERSION_HISTORY.md` is where fixes get recorded.
 
 **Numbers are permanent and are never reused.** A new entry takes `max + 1` over
 every number this file has *ever* used, not the first gap — deleting a fixed
-entry retires its number for good. The highest ever used is **35**, so the next
-new entry is **36**. Two parallel workers each taking "the next free number"
+entry retires its number for good. The highest ever used is **36**, so the next
+new entry is **37**. Two parallel workers each taking "the next free number"
 is exactly how the two `#20`s and two `#25`s of 2026-07-27 happened.
 
 Entries are listed in **numeric order**, not by severity — the file is looked up
@@ -605,3 +605,33 @@ season, not by fold.
 
 **Fixed when**: `evaluate_suite` (or a shared helper) exposes a fixed-fold
 common-row comparison, and the bridge recipe in `worker-brief.md` points to it.
+
+## 36. Three training rows carry a waiving team's stretched dead money as salary
+
+**Severity**: medium — fabricated observations of the TARGET on waived players.
+
+When a team waives a player under the stretch provision, the remaining guaranteed
+money is spread over `2 * remaining years + 1` seasons on the WAIVING team's
+books. Basketball Reference reports that obligation on the player's row, so the
+salary chain ingests it as if the player had signed it — while the contract he
+actually signed with another team is ignored.
+
+| row | our `salary` | what it actually is | what he signed |
+|---|---:|---|---|
+| bradley beal 2025 | $19,383,010 | PHX stretch: 5 x $19.38M | LAC 2yr/$10.98M (AAV $5.49M) |
+| joakim noah 2020 | $6,431,667 | NYK stretch: 3 x $6.43M | LAC minimum 2yr/$2.98M |
+| nicolas batum 2020 | $8,856,969 | CHA dead money, repeats 2020-21 | LAC 1yr/$2.56M |
+
+Beal's five identical $19,383,010 entries from 2025-2029 (no CBA raises = stretch
+annuity) and Noah's attribution to NYK for a season he played on the Clippers
+establish the mechanism unambiguously.
+
+**Reproduce**: `python scripts/audit_stretched_salaries.py`
+
+**What to do**: source the actual signed salary from Spotrac and replace the
+stretched obligation. `contract_structure_v2.csv` also needs correction — Beal's
+flat five-year stretch schedule was read as a new five-year contract, which is why
+the row reaches the evaluation frame at all.
+
+**Fixed when**: `audit_stretched_salaries.py` exits 0 (no stretch-class rows),
+and the three rows carry the salary the player actually signed for.

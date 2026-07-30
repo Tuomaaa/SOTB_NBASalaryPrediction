@@ -201,6 +201,15 @@ architecture lines below are decided, and what remains is listed under
   Non-Bird +$0.29M, slope 0.985 → 0.977). The loss is in P(route), not in δ.
 - **Extension vs re-sign inside Bird** — does not separate (n=31, diff
   −$1.40M against SE $1.12M). One δ for Bird.
+- **Waiver interaction** — `prev_cap_pct × is_waived` (+0.00334, t=1.43) and
+  `mpg × is_waived` (+0.00539, t=1.96) both fail gate 1 (need t>2). Oracle
+  ceiling on the 11 top-band waived rows is +0.00546 at t=1.09 — **permanently
+  closed**: no feature can pass the gate on this segment. Three fabricated
+  salary rows found (Beal 2025, Noah 2020, Batum 2020 — ISSUES #36).
+- **Two features (role mismatch, size for position)** — all four arms fail on
+  both the original pin (v8.0x) and current master (v8.2x): role_mismatch
+  +0.00065 t=+0.72, size_for_position +0.00044 t=+0.53. The interaction does
+  not beat the already-rejected main effect.
 
 ## Standing decisions (do not re-propose without new evidence)
 

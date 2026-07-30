@@ -85,6 +85,19 @@ def fetch_missing(players: list[str], limit: int | None = None) -> None:
 def build() -> pd.DataFrame:
     """Parse cached pages and write the transaction and feature audit tables."""
     events = build_transaction_events(PLAYER_CACHE)
+    # A missing or partial HTML cache must degrade to STALE, never to missing.
+    # Without this the parse of an absent cache writes an empty table over a
+    # good one — which is how a fresh worktree (the cache is gitignored) can
+    # silently delete 6,849 dated transactions and zero out is_waived.
+    if TRANSACTIONS.exists():
+        existing = pd.read_csv(TRANSACTIONS)
+        if len(events) < len(existing):
+            raise SystemExit(
+                f"parsed {len(events)} events from {PLAYER_CACHE} but "
+                f"{TRANSACTIONS.name} already holds {len(existing)} — refusing "
+                "to shrink it. Populate the HTML cache, or delete the "
+                "existing file if you genuinely intend to rebuild from fewer."
+            )
     TRANSACTIONS.parent.mkdir(parents=True, exist_ok=True)
     events.to_csv(TRANSACTIONS, index=False)
     print(
