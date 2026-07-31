@@ -104,11 +104,51 @@ statistic averages a targeted effect over rows it never touches.
 _Avoid_: censored set (that is the gated subset, which is smaller)
 
 **Default Parameters / Told Parameters**:
-The split between the two stages. Stage 1 prices a player under *default
-parameters* — signing context averaged over the training distribution. Stage 2
-adjusts for *told parameters*, the constraints this contract actually faced;
-today exactly two are told, the ceiling and the floor. Everything still averaged
-inside Stage 1 shows up as mechanism bias in the C2 diagnostic.
+The split between what Stage 1 knows and what later stages know. Stage 1 prices
+a player under *default parameters* — signing context averaged over the training
+distribution. Stages 2 and 3 adjust for *told parameters*, the constraints this
+contract actually faced. Everything still averaged inside Stage 1 shows up as
+mechanism bias in the C2 diagnostic.
+
+### Pipeline stages
+
+**Stage**:
+One of the three composable steps that turn a raw model output into a prediction.
+Stage 1 emits a Latent Value; Stage 2 applies the CBA bounds that depend only on
+the player (push + clip); Stage 3 applies the bound that depends on the signing
+route (the extension raise cap). Composition lives in `src/model/stages.py`.
+
+**Push**:
+The upward half of Stage 2. Where the route classifier says P(max) >= TAU (0.52),
+the latent is moved a P-weighted fraction of the way to MARGIN (1.05) times the
+tier ceiling, and the clip then lands it on the ceiling itself. The push exists
+because the clip alone is one-directional — it can cap a prediction from above but
+cannot reach a max-worthy player the model prices below his ceiling.
+_Avoid_: boost, adjust upward
+
+**Clip**:
+The downward half of Stage 2 (and, separately, the extension clip in Stage 3).
+Caps a prediction at the player's Max-Eligible Percentage from above and lifts it
+to the Floor Percentage from below. The Stage-2 clip is deterministic; the
+Stage-3 clip additionally requires knowing the signing route.
+_Avoid_: clamp, bound, cap (ambiguous with salary cap)
+
+### Signing route
+
+**Route** (or **Signing Route**):
+How a contract was signed — Bird Rights, Early Bird, Non-Bird, Mid-Level
+Exception, Cap Space, Minimum, Sign & Trade, or Extension. Unlike Signing
+Mechanism (a label attached after the fact), "route" emphasises the path the
+transaction took and the constraints it faced.
+_Avoid_: mechanism (when speaking of the path rather than the label)
+
+**Told-Route Convention**:
+From v8.0x onward, headline numbers are computed with the model told the signing
+route (Stage 3 active), and the ex-ante number (Stage 3 off) is reported beside
+it wherever the time series must stay readable. The convention's test is per-route:
+being told the route must still leave a non-trivial computation. Extensions pass
+(you still compute 1.40 x prior pay); the floor does not (told the route is told
+the answer).
 
 ### Inputs
 

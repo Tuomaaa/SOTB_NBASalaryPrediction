@@ -219,6 +219,24 @@ Paired gain **+0.0034 ± 0.0007 (t = +4.91)**, positive in all five folds — th
 times the Grabit effect, and the largest single paired improvement since the
 two-stage pipeline.
 
+### Missingness semantics (v8.2x)
+
+A player who did not play has an **undefined** usage rate, not a missing one.
+46 full-table rows now carry `games = minutes = 0` and a `did_not_play` status
+instead of a league-median fill. Availability uses the exact s/s-1/s-2 window
+and **skips unknown seasons with weight renormalisation** rather than scoring
+them as zero; 2020-21 counts 72 games.
+
+A Basketball Reference advanced-stat fallback fills absent workload and box
+rates over eight seasons, matched on name-season then on the stable
+`player_url`, filling only gaps and never synthesising RAPM. After the repair,
+age, height, mpg and availability have zero missing values in the 944 frame.
+
+The impact-source join itself was repaired in v8.1x: the three sources
+(DARKO, LEBRON, LAKER/RAPM) sometimes spelled the same player differently, and
+the old name-season merge left those rows split. Joining on `(nba_id, season)`
+closes the gap.
+
 ### Features Tested and Rejected
 
 | Feature | ΔCV R² | Reason Rejected |
@@ -272,21 +290,37 @@ that is **not** a function of the current features: market supply and demand at
 the position that summer, how the previous contract terminated, league-wide cap
 room. Modelling the mechanism itself is a dead end for point accuracy.
 
-## Model — Two-Stage Pipeline
+## Model — Three-Stage Pipeline
 
-The two stages answer different questions, and the split is the model's main
-structural claim:
+The model is now explicitly three stages. Composition lives in
+`src/model/stages.py` and all three consumers (the evaluation suite, the web
+export, and `predict.py`) call it:
+
+```
+latent  ->  push  ->  clip(lo, hi)  ->  stage 3
+          \________  stage 2  _______/
+```
 
 - **Stage 1** estimates value under *default parameters* — what the market pays
   a player with these characteristics, with signing context averaged over the
   training distribution rather than fixed at any particular value.
-- **Stage 2** adjusts for *told parameters* — the constraints this particular
-  contract faced. Today exactly two are told: the legal ceiling and the legal
-  floor. Everything else (mechanism, market conditions, negotiating posture)
-  stays averaged inside Stage 1, which is precisely what the C2 mechanism-bias
-  table measures. **Promoting a parameter from "averaged" to "told" should
-  shrink its C2 bias** — that is the natural acceptance test for any future
-  Stage-2 extension.
+- **Stage 2** adjusts for *told parameters* — the CBA bounds that apply to the
+  player himself: his max tier and the league minimum. The push lives here
+  because it is the upward half of the same bound: the clip alone can only cap
+  from above and cannot reach a max-worthy player the model prices below his
+  ceiling. The push moves the latent toward the ceiling where the route
+  classifier says P(max) >= 0.52, and the clip then caps the result into
+  `[floor_pct, max_eligible_pct]`. Deterministic, needs no route.
+- **Stage 3** adjusts for what only applies once the **signing route** is
+  known: an extension is capped at its legal raise limit. Stage 3 only ever
+  lowers, is a no-op where `is_extension` is false or `ext_cap_pct` is NaN,
+  and never reads the target.
+
+Everything else (mechanism, market conditions, negotiating posture) stays
+averaged inside Stage 1, which is precisely what the C2 mechanism-bias table
+measures. **Promoting a parameter from "averaged" to "told" should shrink its
+C2 bias** — that is the natural acceptance test for any future extension of the
+pipeline.
 
 ### Stage 1: Grabit (Nonlinear Tobit via XGBoost)
 
@@ -351,11 +385,18 @@ The v7.8x population is the opposite one: players whose unconstrained price sits
 genuine constraint, mathematically identical to the max ceiling with the sign
 flipped, and it was worth $0.42M per row on 297 rows.
 
-### Stage 2: CBA bounds
+### Stage 2: CBA bounds (push + clip)
 
 ```
-final_prediction = clip(latent_value, floor_pct, max_eligible_pct)
+pushed = latent + P(max) * (MARGIN * ceiling - latent)   where P(max) >= TAU
+final  = clip(pushed, floor_pct, max_eligible_pct)
 ```
+
+TAU = 0.52 and MARGIN = 1.05 are pre-registered constants in `stages.py`. TAU
+was chosen from the expected-win-minus-expected-collateral rule before any score
+on the arm was seen; MARGIN was frozen since route-mixture phase 1 and must not
+be tuned on zone MAE (the clip makes censored sides one-way valves, so zone MAE
+is monotone in the margin).
 
 CBA rules cap maximum salary by experience:
 - **0–6 years**: 25% of cap (or 30% with Rose Rule)
@@ -437,6 +478,57 @@ The `is_at_floor` label reads the observed outcome and is therefore a
 **training-time** device, exactly as `is_max_contract` is on the other side. At
 inference the floor clip needs only season and experience, both knowable before
 the market opens.
+
+### Stage 3: the extension raise cap (v8.0x)
+
+A first-paying-year extension additionally faces its own raise cap: 120% of
+the player's prior-year salary under the 2017 CBA, 140% under the 2023 CBA,
+**or the same multiple of the league's published Estimated Average Player
+Salary, whichever is greater**. That number is usually far below the tier
+ceiling, so the push can send an extension row to a ceiling it could not
+legally reach. Stage 3 returns it to the law.
+
+Three distinctions carry the whole result, and each was a way an earlier
+measurement failed:
+
+1. **The cap governs only the first paying year.** A renegotiated season
+   covered by an older extension span is excluded (`span_start == season`).
+2. **Rookie-scale extensions are capped by the tier instead**, classified by
+   whether the previous season was a rookie-scale season and never by a text
+   keyword.
+3. **Designated Veteran extensions are exempt.** Eligibility is tested at both
+   the signing and paying season because each catches cases the other misses.
+
+The multiplier keys on the **signing** season: seven rows sit on exactly 1.200
+and were all signed by 2022, six sit on exactly 1.400 and were all signed from
+2023, with zero crossings. This differs from `cba_era`'s boundary and both
+are correct -- `cba_era` governs which CBA a season is *played under*; the
+raise-cap multiple governs which CBA the *deal was signed under*.
+
+`ext_cap_pct` never enters `max_eligible_pct` or the Stage-1 censor mask: the
+raise cap binds only conditional on choosing to extend, which is the same
+"choice, not constraint" distinction that killed right-censoring good players
+on minimums.
+
+Evidence: `docs/briefs/2026-07-26-extension-route.RESULT.md`,
+`docs/briefs/2026-07-27-told-clip-and-data-fix.RESULT.md`.
+
+#### The told-route convention
+
+Adopted 2026-07-26 and refined 2026-07-27. Stage 3 reads the realized signing
+route, so numbers computed with it are **told-route numbers**. They go in the
+**same column** as ex-ante numbers: the route is information the champion also
+had and merely ignored. **v7.1x-v7.13x predate the convention** and every entry
+from v8.0x says so.
+
+The refinement is a per-route test that keeps it honest: *after being told the
+route, does the salary still require a non-trivial computation?*
+
+- **Extension -- counts.** Told "he extended", you still compute 1.40 x prior
+  pay (or the average-salary alternative) to land on Brunson's $34.94M.
+- **Floor -- does not count.** `floor_pct` sits within $0.13M of observed pay,
+  so being told the route is being told the answer. The floor branch's told
+  arm scored +0.046 and it measures recitation.
 
 ### Hyperparameters
 
@@ -639,6 +731,15 @@ delta is negative, drop the side whose zone turns positive. Applying the pooled
 rule to a 5% intervention would have removed the max side at v7.4x on a
 t-statistic of −0.07.
 
+**The correctness-versus-metric thread.** Six of the last nine versions landed
+on a correctness argument rather than a metric win, and several did not clear
+t > 2: v7.9x (common-row A1 -0.0009), v7.13x (t = 0.08), v8.0x (t = 1.11),
+v8.1x, and the missingness repair inside v8.2x (t = 1.10, failing the
+calibration guard by 0.0017). The standing rule these encode: **a wrong fact is
+repaired on correctness; a suboptimal parameter must clear the gate.** The
+protocol's role in a correctness case is to confirm the fix does no harm, not
+to justify it.
+
 **Rule 3 is unreliable for level corrections.** The guard compares |bias|, so a
 change that shifts every segment by the same amount necessarily trips it wherever
 a segment was already overpredicted — v7.2x breached it while improving four
@@ -814,6 +915,54 @@ and award history, the floor needs season and experience. The `is_at_floor` and
 
 10. **The contract-structure script was never committed.** Only `contract_structure_v2.csv` survives. Reconstructing the detection from CBA escalator ratios reaches at best 88% agreement on the year-1 flag and 74% on contract length across a 30-point parameter sweep — far too low to regenerate history without invalidating every published version number. `scripts/extend_contract_structure.py` therefore extends the table incrementally: rows whose salary is unchanged keep their assignment byte-for-byte, only new or changed rows are assigned, and it hard-fails if an unchanged row would move. Any future change needing a full recompute will still hit this wall.
 11. **`prev_cap_pct` is produced by an experiment script.** The regeneration chain is `src/features/build_dataset.py` → `scripts/build_external_features.py` → `scripts/phase3.py::build_contract_features`, and that last stage lives in `phase3.py` for historical reasons. `scripts/rebuild_training_data.py` now chains all three behind one command and validates that the fifteen cap-independent columns reproduce exactly on shared rows, but the stage itself has not been moved to a home of its own.
+
+## Routes Tested and Rejected
+
+Five route-mixture architectures were measured and all five are closed. Each
+tested whether a signing-route probability function applied to the Grabit
+latent at **output** time (not as an input feature) could recover error the
+censored model leaves on the table. The answer is no for every route except
+the extension, which was adopted in v8.0x as Stage 3 -- and Stage 3 works
+only because it applies a legal ceiling, not because a classifier learned
+where the error is.
+
+**Route mixture, full six-route form (ex ante).** dSel -0.0479, t = -2.50,
+calibration slope 0.819. All five gates fail. The structural routes (max,
+floor) produce route values `V_max` and `V_floor` that sit far from `f(x)` on
+every row, and composing them with an imperfect P redistributes error across
+the ~93% of rows that are not candidates.
+
+**Floor branch (ex ante).** Oracle headroom is +0.0396 (six times the max
+side's) and unreachable. P(floor) is anti-ranked against the error: Spearman
+= -0.611 inside the zone. The classifier's most confident quarter of the zone
+captures 2.5% of the over-prediction where an error-ordered selector would
+capture 78.7%. The twelve worst floor rows score **above the average non-floor
+row** on minutes, all three impact metrics, usage, prior pay and awards -- the
+same features that make the model overprice them make them invisible to any
+classifier fed those features. At the pre-registered operating point (tau =
+0.10), both ex-ante arms fail: arm A (unconditional pull) dSel -0.084 at
+t = -2.48, arm B (P-weighted pull with margin) dSel +0.003 at t = +0.54,
+best t anywhere on the grid +1.75.
+
+**Offseason-injury signal.** 1 of 9 fat-tail floor rows has a dated
+offseason injury. The rest are age/decline, playstyle devaluation, buyout
+dynamics and cold markets. A perfect injury flag is worth +0.0097, a quarter
+of the floor headroom. No-go on the scrape.
+
+**MLE branch.** P(mle) AUC 0.71: whether a player is offered an exception
+depends on the signing team's cap position, which no player feature sees.
+
+**Ex-ante per-route delta.** The fold-honest intercept correction delta_k is
+composed as pred = f(x) + Sigma P(k) * delta_k. It fails on surface lift:
+mean P(bird) is 0.29 on every row, so P * delta_bird moves the whole price
+surface rather than landing on bird-rights rows alone.
+
+Evidence for these closures lives in the RESULT bundles under `docs/briefs/`:
+`route-mixture.RESULT.md` (phase 1, max branch + classifier),
+`route-mixture-p2.RESULT.md` (purity-gated max, enriched classifier),
+`route-mixture-p3.RESULT.md` (corrected labels, four-cell battery),
+`floor-branch.RESULT.md`, `extension-route.RESULT.md`, and
+`route-delta.RESULT.md`.
 
 ## Reproducibility
 

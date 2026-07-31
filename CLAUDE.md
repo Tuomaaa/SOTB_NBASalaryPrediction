@@ -14,7 +14,7 @@ nba-valuation/
 ├── AGENTS.md                # pointer to this file for agents that look for it
 ├── CONTEXT.md               # domain glossary — the vocabulary code and docs share
 ├── METHODOLOGY.md           # feature definitions, model math, ablations, limits
-├── VERSION_HISTORY.md       # v1.0 → v7.1x, CV R² at each step
+├── VERSION_HISTORY.md       # v1.0 → v8.4x, CV R² at each step
 ├── PROJECT_BRIEF.md         # outward-facing summary
 ├── docs/adr/                # architecture decisions and rejected alternatives
 ├── config.py                # seasons, cap values, CBA params  ← caps are load-bearing
@@ -34,6 +34,7 @@ nba-valuation/
 │   │   └── build_dataset.py # stage 1 of the training-data rebuild
 │   └── model/
 │       ├── train.py         # Ridge / XGBoost / two-sided Grabit + the filter chain
+│       ├── stages.py        # Stage 2 (push + clip) and Stage 3 (extension raise cap)
 │       ├── evaluate_suite.py  # the four-layer evaluation protocol (see below)
 │       ├── evaluate.py      # residual plots
 │       └── predict.py       # inference on upcoming free agents
@@ -142,9 +143,11 @@ Two rules the ablation table encodes:
 
 ## Modeling Strategy
 
-Current model is the two-stage Grabit pipeline described in METHODOLOGY.md.
+Current model is the three-stage Grabit pipeline described in METHODOLOGY.md.
 Stage 1 prices under *default parameters* with a two-sided censored loss; Stage 2
-adjusts for *told parameters*, today the two CBA bounds. Ridge remains in
+applies the CBA bounds (push toward the ceiling where P(max) >= 0.52, then clip
+into the player's [floor, max] band); Stage 3 clips extension rows at their
+legal raise cap. Composition lives in `src/model/stages.py`. Ridge remains in
 `train.py` as a reference point.
 
 Escalating model complexity requires a paired CV improvement, not a hunch. The

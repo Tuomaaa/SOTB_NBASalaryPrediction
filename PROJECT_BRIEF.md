@@ -60,7 +60,7 @@ runs as an assertion over every season.
 
 Over 20 additional candidate features were tested and rejected via ablation (each evaluated by ΔCV R² with 10-seed averaging). Rejected features include team-level variables (win%, cap space), playoff performance (too sparse), and agent portfolio effects (data leakage when computed naively).
 
-### Model: Two-Stage Grabit Pipeline
+### Model: Three-Stage Grabit Pipeline
 
 **The core problem**: The CBA caps maximum salary at 25–35% of the cap depending on experience. A player worth 40% of the cap is paid 35% — their observed salary is a **right-censored** observation, not their true market value. Standard regression learns to predict the ceiling, permanently underpredicting elite players.
 
@@ -79,13 +79,19 @@ This produces a **latent value** — the player's unconstrained market worth.
 
 **Gated censoring**: Not all max contracts represent ceiling-constrained players. "Albatross contracts" (e.g., A player who is extremely overpaid) are max-paid despite declining performance. We gate censoring by requiring the baseline XGBoost prediction to exceed 55% of the max-eligible salary, filtering ~5 such cases per training run.
 
-**Stage 2 — CBA Cap**
+**Stage 2 — CBA bounds (push + clip)**
 
-```
-predicted_salary = min(latent_value, max_eligible_pct)
-```
+Where a route classifier says P(max) >= 0.52, the latent is pushed a P-weighted
+fraction of the way toward 1.05 times the tier ceiling. The clip then caps the
+prediction at the player's Max-Eligible Percentage from above and lifts it to the
+Floor Percentage from below. Composition lives in `src/model/stages.py`.
 
-Max-eligible percentage differ from player to player and is calculated with respect to the actual CBA rule.
+**Stage 3 — Extension raise cap**
+
+A first-paying-year extension is additionally clipped at its legal raise cap:
+120% (2017 CBA) or 140% (2023 CBA) of the player's prior salary, or the same
+multiple of the league's Estimated Average Player Salary, whichever is greater.
+Stage 3 requires knowing the signing route and is the only told-route component.
 
 ### Evaluation
 
