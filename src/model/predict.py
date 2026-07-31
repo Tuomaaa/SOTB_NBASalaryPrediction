@@ -77,7 +77,8 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     from src.features.availability import compute_availability
     from src.features.cba_constraints import add_cba_features
     from src.features.waiver_history import (
-        attach_waiver_status_as_of, transaction_data_as_of,
+        attach_waiver_status_as_of, attach_waiver_interactions,
+        transaction_data_as_of,
     )
 
 
@@ -115,6 +116,9 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
                 pred_df[col] = borrowed
     if "draft_pick" in pred_df.columns:
         pred_df["draft_pick"] = pred_df["draft_pick"].fillna(75)
+
+    # Waiver interaction — must come after both is_waived and prev_cap_pct exist
+    pred_df = attach_waiver_interactions(pred_df)
 
     # Predict: latent value from Grabit, then Stage-2 CBA clip
     X_pred = pred_df.reindex(columns=features).fillna(medians).fillna(0)

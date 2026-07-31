@@ -25,6 +25,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
 from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON, RAW_DIR
+from src.features.waiver_history import attach_waiver_interactions
 
 FEATURE_COLS = [
     "darko_dpm_z", "lebron_z", "rapm_z",
@@ -39,6 +40,7 @@ FEATURE_COLS = [
     "award_score_cum",
     "draft_pick",
     "prev_cap_pct",
+    "mpg_x_waived",
 ]
 
 TARGET = "cap_pct"
@@ -71,6 +73,7 @@ def load_training_data() -> pd.DataFrame:
         df[TARGET] = df["salary"] / cap
 
     df = df.dropna(subset=[TARGET])
+    df = attach_waiver_interactions(df)
     return df
 
 

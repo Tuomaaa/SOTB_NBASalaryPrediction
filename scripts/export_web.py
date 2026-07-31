@@ -60,6 +60,7 @@ from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR, RAW_DIR
 from src.model import stages
 from src.model.extension_cap import attach_extension_cap, attach_extension_value
 from src.features.waiver_history import (
+    attach_waiver_interactions,
     attach_waiver_status_as_of,
     transaction_data_as_of,
 )
@@ -122,6 +123,7 @@ FEATURE_LABELS = {
     "draft_pick": "Draft pick",
     "is_waived": "Recently waived",
     "prev_cap_pct": "Previous contract",
+    "mpg_x_waived": "Minutes x waived",
 }
 
 
@@ -620,6 +622,7 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
     fa = attach_waiver_status_as_of(fa, waiver_as_of)
     print(f"  Waiver feature as of {waiver_as_of.date()}: "
           f"{int(fa['is_waived'].fillna(0).sum())} free-agent positives")
+    fa = attach_waiver_interactions(fa)
 
 
     X = fa.reindex(columns=features).fillna(medians).fillna(0)

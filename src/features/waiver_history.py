@@ -162,6 +162,26 @@ def attach_waiver_history(
             out.at[i, "prior_waiver_text"] = hit["tx_text"]
     return out
 
+def attach_waiver_interactions(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute waiver interaction features from existing columns.
+
+    prev_cap_pct_x_waived = prev_cap_pct * is_waived
+    mpg_x_waived          = mpg * is_waived
+
+    NaN semantics: if is_waived is NaN (unknown coverage), the product is NaN
+    too (not 0). NaN * x = NaN in pandas handles this natively, but both
+    columns are coerced to numeric first so a stray string cannot silently
+    zero out the product.
+    """
+    out = df.copy()
+    waived = pd.to_numeric(out.get("is_waived"), errors="coerce")
+    prev = pd.to_numeric(out.get("prev_cap_pct"), errors="coerce")
+    mpg = pd.to_numeric(out.get("mpg"), errors="coerce")
+    out["prev_cap_pct_x_waived"] = prev * waived
+    out["mpg_x_waived"] = mpg * waived
+    return out
+
+
 def attach_waiver_status_as_of(
     df: pd.DataFrame,
     as_of_date,
