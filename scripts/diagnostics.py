@@ -20,7 +20,9 @@ from pathlib import Path
 
 from config import CAP_BY_SEASON, OUTPUTS_DIR, CACHE_DIR
 from src.model.train import (
-    load_training_data, _filter_year1, _filter_rookie_scale, FEATURE_COLS, TARGET,
+    load_training_data, _filter_year1, _filter_rookie_scale, _filter_prorated,
+    _filter_mislabeled_year1, _filter_continuations, _filter_rookie_contracts,
+    FEATURE_COLS, TARGET,
 )
 
 DIAG_DIR = OUTPUTS_DIR / "diagnostics"
@@ -36,9 +38,15 @@ CAP_2026 = CAP_BY_SEASON.get(2026, 153_000_000)
 
 
 def prepare_data():
+    # The full train.py membership chain — a partial chain here once put rows
+    # the model never trains on onto the error board (Hayward 2019, Graham 2020).
     df = load_training_data()
     df = _filter_year1(df)
     df = _filter_rookie_scale(df)
+    df = _filter_prorated(df)
+    df = _filter_mislabeled_year1(df)
+    df = _filter_continuations(df)
+    df = _filter_rookie_contracts(df)
     train = df[df["season"] < 2026].copy()
     test = df[df["season"] == 2026].copy()
     X_tr = train[FEATURES].copy()
@@ -366,6 +374,10 @@ def main():
     df_full = load_training_data()
     df_full = _filter_year1(df_full)
     df_full = _filter_rookie_scale(df_full)
+    df_full = _filter_prorated(df_full)
+    df_full = _filter_mislabeled_year1(df_full)
+    df_full = _filter_continuations(df_full)
+    df_full = _filter_rookie_contracts(df_full)
     df_full = _load_signing_type_labels(df_full)
     avail = [f for f in FEATURES if f in df_full.columns]
     X_full = df_full[avail].fillna(df_full[avail].median()).fillna(0)

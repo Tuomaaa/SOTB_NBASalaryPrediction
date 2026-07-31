@@ -888,6 +888,37 @@ Adopted Arm B.
 | B1 | 0.8395 | 0.8403 (+0.0008) |
 | 2026 origin | 0.8417 | 0.8452 (+0.0035) |
 
+### v8.5x: Wall contract-structure repair + error-board universe fix
+
+Data repair, no model change. John Wall's 4-year supermax (signed 2017,
+effective 2019) was split by the mid-contract trade to Houston into two fake
+year-1 rows in `contract_structure_v2.csv`. Hand-verified fix: 2019 → yr 2/4,
+2020 → yr 3/4, 2021 → yr 4/4. Net −1 training row on the v8.4x frame (Wall
+2019; Wall 2020 was already caught by the tier-ceiling mislabel filter).
+
+The error board investigation that surfaced Wall also surfaced its own bug:
+`diagnostics.py` built its OOF universe with a partial filter chain (year-1 +
+rookie-scale only), so rows the model never trains on appeared as model errors
+— 7 of the board's 40 entries were such phantoms (Hayward 2019/2023, Graham
+2020, Millsap 2019, Love 2022, Camara 2025, Wall 2020), all left-censored
+pre-2019 contracts or rookie deals the chain drops. Both partial chains in
+`diagnostics.py` now apply the full train.py membership chain, and the new
+`scripts/make_error_board.py` builds the board from `oof_reference.csv`
+(champion OOF, told route) — the previous board scored Stage-1 raw predictions,
+overstating errors the deployed pipeline does not make (Zubac 2025 $19.3M →
+$0.0M under the Stage-3 raise cap; Beal 2022 and Jaylen Brown 2024 vanish under
+the Stage-2 max push). Review state persists in `error_board_kicked.csv`.
+
+| Layer | v8.4x (n=868) | v8.5x (n=867) |
+|---|---|---|
+| A1 | 0.8099 | 0.8147 |
+| A2 | 0.8617 | 0.8627 |
+| B1 | 0.8403 | 0.8446 |
+| 2026 origin | 0.8452 | 0.8429 |
+
+Row set changed by the repair itself, so the columns are not a paired
+comparison — recorded for continuity, not as a gain claim.
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v7.0x was a statistical

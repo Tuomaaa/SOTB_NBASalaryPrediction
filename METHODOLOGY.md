@@ -261,6 +261,8 @@ closes the gap.
 | `P(Minimum \| x)`, `P(Bird \| x)` | **-0.0073** | Fold-honest classifier probabilities. See "Why signing mechanism cannot be a feature" |
 | Post-hoc recalibration (linear) | -0.0013 | Nested, fold-honest. The model is already calibrated (slope 0.9999) |
 | Post-hoc recalibration (isotonic) | -0.0052 | As above, and more prone to overfitting the fold |
+| `height_x_age` | +0.0004 (t = 0.47) | Noise, and it *hurts* the segment it targets: only 36 tall+old rows in training, split between minimum ring-chasers and productive bigs on real contracts. The interaction can only push one direction ("old+tall = cheaper"); the impact metrics already separate declining bigs from productive ones per player |
+| `weight_x_age` | N/A | No weight column in the training set — the height scraper reads only the height field of the BBRef index pages. Would inherit the same counter-effect problem as `height_x_age`: heavy+old contains both ends of the price range |
 
 ### Training-set choices tested and rejected
 
