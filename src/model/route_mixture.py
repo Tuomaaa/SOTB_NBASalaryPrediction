@@ -97,6 +97,45 @@ CLF_EXTRA_MISC = [
 ]
 CLF_EXTRA_COLS = CLF_EXTRA_TREND + CLF_EXTRA_SIGNDELTA + CLF_EXTRA_MISC
 
+# The classifier's OWN base list — stated here, NOT inherited from FEATURE_COLS
+# (v8.6x; see VERSION_HISTORY). These sixteen are the regression features as of
+# v8.5x and are FROZEN: growing FEATURE_COLS no longer grows the classifier.
+#
+# Why the coupling had to go. P(max) feeds a knife-edge gate (Stage 2 pushes only
+# where p_max >= TAU = 0.52). A column with no route content still perturbs the
+# classifier's trees through colsample_bytree=0.8, so rows sitting near tau flip
+# in and out of the push at random. Measured with playoff_mpg_diff force-fed
+# (5 folds x 10 seeds): the classifier does not get WORSE — max-class AUC
+# 0.9828 -> 0.9830, multiclass log-loss 0.7604 -> 0.7539 — yet 26 (row, seed)
+# gate decisions flip on 10 borderline rows, two of which flip even on the seed
+# average (Chet Holmgren 2026 gains a push, Jimmy Butler 2023 loses one), and
+# Jamal Murray 2025 — a true max paid AT his ceiling — loses his in 1 seed of 10.
+# The regression's paired delta pays for it: -0.00215 (t -1.25), enough to drop
+# the feature's gate from t 2.71 to t 1.51 at the suite's seeds.
+#
+# Nothing argues that a good cap_pct regressor is a good route-classifier input;
+# CLF_EXTRA_COLS was curated for route-discriminating signal specifically, and
+# this list is now curated the same way.
+#
+# To give the classifier a new column, add it HERE deliberately and re-measure
+# P(max); that is a change to a shared contract (deployed_p_max, predict.py,
+# export_web.py and the suite all route through it) and wants its own version.
+CLF_BASE_COLS = [
+    "darko_dpm_z", "lebron_z", "rapm_z",
+    "age", "age_squared",
+    "mpg",
+    "availability_3yr",
+    "is_waived",
+    "usage_pct",
+    "height_inches",
+    "cba_era",
+    "ast_pct",
+    "award_score_cum",
+    "draft_pick",
+    "prev_cap_pct",
+    "mpg_x_waived",
+]
+
 _FEATURE_BATCH_PATH = "data/processed/feature_batch_columns.csv"
 
 
@@ -104,16 +143,18 @@ def attach_clf_features(df: pd.DataFrame, extra_cols: list[str] | None = None
                         ) -> tuple[pd.DataFrame, list[str]]:
     """Merge the classifier-only enrichment columns onto `df` by (player, season).
 
-    Returns (df_with_extra, clf_features) where clf_features = FEATURE_COLS +
-    the enrichment columns. The regression keeps FEATURE_COLS; only the
-    classifier ever sees the wider list. Native NaN is preserved (no fill) — the
-    tree classifier learns a default direction, which is the tested ship form.
+    Returns (df_with_extra, clf_features) where clf_features = CLF_BASE_COLS +
+    the enrichment columns. The regression keeps FEATURE_COLS, which is a
+    SEPARATE list: only the classifier sees this one, and a feature added to the
+    regression does not appear here. Native NaN is preserved (no fill) — the tree
+    classifier learns a default direction, which is the tested ship form.
 
     Idempotent: re-attaching does not duplicate columns.
     """
-    from src.model.train import FEATURE_COLS
-
     cols = list(CLF_EXTRA_COLS if extra_cols is None else extra_cols)
+    absent = [c for c in CLF_BASE_COLS if c not in df.columns]
+    if absent:
+        raise KeyError(f"frame is missing classifier base columns {absent}")
     root = Path(__file__).resolve().parent.parent.parent
     fb = pd.read_csv(root / _FEATURE_BATCH_PATH)
     keep = ["player_name_norm", "season"] + [c for c in cols if c in fb.columns]
@@ -131,7 +172,7 @@ def attach_clf_features(df: pd.DataFrame, extra_cols: list[str] | None = None
     n0 = len(out)
     out = out.merge(fb[keep], on=["player_name_norm", "season"], how="left")
     assert len(out) == n0, "attach_clf_features changed row count"
-    clf_features = list(FEATURE_COLS) + cols
+    clf_features = list(CLF_BASE_COLS) + cols
     return out, clf_features
 
 

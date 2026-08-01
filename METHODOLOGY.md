@@ -163,7 +163,7 @@ continuation, but its 2025-26 salary was raised $11.6M by the renegotiation on
 2025-07-13 — structurally identical to Markkanen 2024 and Turner 2022. Resolved
 as fresh.
 
-## Feature Set (15 features)
+## Feature Set (17 features)
 
 ### Performance Metrics (z-scored within season)
 | Feature | Description |
@@ -180,6 +180,35 @@ as fresh.
 | `mpg` | Minutes per game (minutes / games) |
 | `usage_pct` | Usage rate (offensive load) |
 | `availability_3yr` | Weighted GP% over past 3 seasons (0.5/0.3/0.2) |
+| `playoff_mpg_diff` | Playoff minutes per game minus regular-season `mpg`, **0.0** where the player did not appear in that season's playoffs. See below. |
+
+#### `playoff_mpg_diff` (v8.6x)
+
+A playoff rotation is a public, dated judgement of a player, made by the party
+with the most information, on the games that matter most, and made *before* the
+contract this row prices. The market reads it; the regular-season box score does
+not contain it. On the 867-row frame 480 rows played (55.4%) and 158 sit in the
+benched zone (`diff < -5`), where the champion's MAE falls **$2.470M → $2.237M**
+on selection rows. The 387 non-playoff rows, which carry the 0.0 fill, move
+$3.158M → $3.156M — the zone rule does the work and nothing leaks onto the rest
+of the frame.
+
+Zero, not NaN, is the right fill: "his team missed the playoffs" is a fact about
+the team, not a gap in the player's record, and a zero difference is the neutral
+reading. Minutes are read from BBRef's playoff per-game tables via
+`scripts/scrape_playoff_mpg.py` and attached at load time by
+`src/features/playoff_minutes.py`.
+
+**Only the difference ships.** A two-column variant adding `po_games` scored
+better (+0.00594, t 2.61 against +0.00485, t 2.12 on the plain-XGB frame) and
+was rejected as a **team-success proxy**, the family already rejected at +0.0004
+(`win_pct`, `made_playoffs`): permuting `po_games` within (season, playoff team)
+— preserving each team's run length exactly and destroying only the player's own
+deviation — retains its entire edge (+0.00117 permuted against +0.00109 real),
+the player-specific half alone scores −0.00045 (t −1.58), and `po_games` adds
++0.00007 (t +0.36) over a pure team-level column. `playoff_mpg_diff` survives
+the same falsification: the within-team permutation retains 6% of its gain
+(+0.00028, t +0.72) and a team-mean control retains 10%.
 
 ### Physical & Draft
 | Feature | Description |
@@ -199,6 +228,7 @@ as fresh.
 | `cba_era` | Binary: 0 = pre-2023 CBA, 1 = post-2023 CBA |
 | `prev_cap_pct` | Year-1 cap_pct of the player's previous contract. Captures anchoring effect — prior contract value predicts next contract. First contracts are filled from the rookie scale by draft slot; see below. |
 | `is_waived` | 1 when Spotrac records a waiver or buyout in the fixed 365 days before the signing that prices this row. Events after signing are excluded. Unknown source/signing coverage remains auditable through `is_waived_known`, which is not a model feature. |
+| `mpg_x_waived` | `mpg × is_waived` (v8.4x). A waiver erases most of a player's price history — the OLS slope of pay on prior pay drops 0.750 → 0.140 across it — so the market re-prices him off current workload instead. NaN where `is_waived` is unknown, never 0. |
 
 #### Filling `prev_cap_pct` for first contracts (v7.3x)
 
@@ -245,7 +275,8 @@ closes the gap.
 | `ast_tov_ratio` | +0.0001 | Redundant with ast_pct |
 | `experience_years` | -0.0004 | Collinear with age |
 | `win_pct`, `made_playoffs` | +0.0004 | Team context already in player metrics |
-| `playoff_bpm_diff_adj`, `playoff_rapm_diff_adj` | +0.0003 | Sparse (35% coverage), noisy |
+| `playoff_bpm_diff_adj`, `playoff_rapm_diff_adj` | +0.0003 | Sparse (35% coverage), noisy. **Superseded 2026-08-01, but only for minutes**: `playoff_mpg_diff` (adopted v8.6x, +0.00576 paired, t 3.41) shows the playoff signal is in the ROTATION, not in playoff box-score rates. A benched player's per-possession metrics stay respectable on a small sample; the minutes themselves are what the market prices. These two rows stand as measured — do not re-test them expecting the v8.6x result. |
+| `po_games` (alongside `playoff_mpg_diff`) | +0.00109 paired, t 4.89 | Rejected 2026-08-01 as a **team-success proxy** despite clearing the bar: permuting it within (season, playoff team) retains the entire edge. Same family as `win_pct` / `made_playoffs` below. See the `playoff_mpg_diff` section above. |
 | `max_eligible_pct` | +0.0008 | Collinear with age/experience |
 | `is_vet_min`, `is_mle_range` | N/A | Derived from target variable (leakage) |
 | `is_rookie_scale` | N/A | Handled by rookie scale filter instead |
@@ -399,6 +430,35 @@ was chosen from the expected-win-minus-expected-collateral rule before any score
 on the arm was seen; MARGIN was frozen since route-mixture phase 1 and must not
 be tuned on zone MAE (the clip makes censored sides one-way valves, so zone MAE
 is monotone in the margin).
+
+#### The route classifier's inputs are curated, not inherited (v8.6x)
+
+The classifier that produces P(max) reads
+`route_mixture.CLF_BASE_COLS + CLF_EXTRA_COLS` — 36 columns, **stated
+explicitly and frozen**. Until v8.6x the base half was `list(FEATURE_COLS)`, so
+every regression feature was force-fed to the classifier as well. That coupling
+is not neutral, because P(max) feeds a knife-edge gate: a column carrying no
+route information still perturbs the classifier's trees through
+`colsample_bytree=0.8`, and rows near TAU flip in and out of the push at random.
+
+Measured with the 17th regression feature force-fed (5 folds × 10 seeds), the
+classifier does not get *worse* — max-class AUC 0.9828 → 0.9830, multiclass
+log-loss 0.7604 → 0.7539, mean |ΔP| 0.003 — which is precisely the trap: the
+damage is not in classification quality but in **26 (row, seed) gate decisions
+flipping on 10 borderline rows** (max |ΔP| 0.154), two of them flipping even on
+the seed average. Chet Holmgren 2026 gains a push, Jimmy Butler 2023 loses one,
+Jamal Murray 2025 — a true max paid *at* his ceiling — loses his in one seed of
+ten, and Sabonis 2020, paid $19.80M against a $27.29M ceiling, gains one in two.
+The regression's paired selection delta pays −0.00215 (t −1.25) for it,
+concentrated in a single fold, which was enough to drop `playoff_mpg_diff`'s
+gate from t 2.71 to t 1.51.
+
+`CLF_EXTRA_COLS` was curated for route-discriminating signal (the
+failed-regression batch) and the base list is now curated the same way. A new
+column joins the classifier only by a deliberate edit to `CLF_BASE_COLS`, which
+is a change to a shared contract — `deployed_p_max`, `predict.py`,
+`export_web.py` and the suite all route through it — and wants its own version
+number and a bit-identity check.
 
 CBA rules cap maximum salary by experience:
 - **0–6 years**: 25% of cap (or 30% with Rose Rule)

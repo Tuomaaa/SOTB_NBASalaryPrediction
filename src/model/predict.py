@@ -76,6 +76,7 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     from src.features.age_curve import add_age_features
     from src.features.availability import compute_availability
     from src.features.cba_constraints import add_cba_features
+    from src.features.playoff_minutes import attach_playoff_mpg
     from src.features.waiver_history import (
         attach_waiver_status_as_of, attach_waiver_interactions,
         transaction_data_as_of,
@@ -119,6 +120,13 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
 
     # Waiver interaction — must come after both is_waived and prev_cap_pct exist
     pred_df = attach_waiver_interactions(pred_df)
+
+    # Playoff minutes for the season being priced — must come after `mpg`. The
+    # postseason is complete before free agency opens, so this is an observation
+    # rather than a forecast; a player whose team missed it keeps the neutral 0.
+    pred_df = attach_playoff_mpg(pred_df)
+    print(f"Playoff minutes: {int(pred_df['po_mpg'].notna().sum())} of "
+          f"{len(pred_df)} rows played in the {target_season} playoffs")
 
     # Predict: latent value from Grabit, then Stage-2 CBA clip
     X_pred = pred_df.reindex(columns=features).fillna(medians).fillna(0)

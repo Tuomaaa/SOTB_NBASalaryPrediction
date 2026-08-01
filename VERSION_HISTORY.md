@@ -919,6 +919,99 @@ the Stage-2 max push). Review state persists in `error_board_kicked.csv`.
 Row set changed by the repair itself, so the columns are not a paired
 comparison — recorded for continuity, not as a gain claim.
 
+### v8.6x: `playoff_mpg_diff` (17th feature), on a decoupled route classifier
+
+Two changes ship together because the first was blocking the second.
+
+**The feature.** `playoff_mpg_diff` = playoff minutes per game minus
+regular-season `mpg`, **0.0** where the player did not appear in that season's
+playoffs. A playoff rotation is a dated, public judgement made by the party with
+the most information, on the games that matter most, and made before the
+contract this row prices — the market reads it and the regular-season box score
+does not contain it. 480 of 867 rows played; the work lands where the mechanism
+says it should. Benched zone (`diff < -5`), champion stack, **selection rows
+only** (n=139, per ISSUES #20a): MAE **$2.470M → $2.237M**, 70 rows better
+against 38 worse; pooled (n=158, reporting) $2.511M → $2.275M. The deep bench
+(`diff < -10`, n=68) moves $2.280M → $1.838M. The 387 untouched no-playoff rows
+move $3.158M → $3.156M, so nothing leaks onto the rest of the frame. Minutes are
+scraped from BBRef's playoff per-game pages by `scripts/scrape_playoff_mpg.py`
+into `data/processed/playoff_mpg.csv` and attached at load time by
+`src/features/playoff_minutes.py`, the same light-touch pattern as the waiver
+interactions — no training-data rebuild, so no unrelated column moves under the
+measurement.
+
+**One column, not two: the `po_games` adjudication.** A two-column variant
+adding `po_games` scored *better* (+0.00594, t 2.61 against +0.00485, t 2.12 on
+the plain-XGB frame; C−A paired +0.00109, t 4.89) and was rejected anyway, as a
+team-success proxy — the family METHODOLOGY already rejects at +0.0004 (`win_pct`,
+`made_playoffs`). Three falsifications agree: permuting `po_games` **within
+(season, playoff team)**, which preserves each team's run length exactly and
+destroys only the player's own deviation, retains the entire edge (+0.00117
+permuted against +0.00109 real); the player-specific half alone
+(`po_games − team_max_po_games`) scores −0.00045 (t −1.58); and `po_games` adds
++0.00007 (t +0.36) over a pure team-level column. corr(`po_games`, team playoff
+depth) is +0.78, and 57% of matched rows played every game of their team's run.
+`playoff_mpg_diff` survives the same test — the within-team permutation retains
+6% of its gain (+0.00028, t +0.72), a team-mean control retains 10% — which is
+why one column ships and the other does not. **Do not re-open this.**
+
+**The blocker (ISSUES #44).** `route_mixture.attach_clf_features` built the
+Stage-2 route classifier's input list as `list(FEATURE_COLS) + CLF_EXTRA_COLS`,
+so a 17th regression feature silently became a 37th *classifier* feature. That
+coupling is not neutral: P(max) feeds a knife-edge gate (push only where
+P ≥ TAU = 0.52), and a column with no route content still perturbs the
+classifier's trees through `colsample_bytree=0.8`. Measured with the column
+force-fed (5 folds × 10 seeds), the classifier does not get *worse* — max-class
+AUC 0.9828 → 0.9830, multiclass log-loss 0.7604 → 0.7539, mean |ΔP| 0.003 — which
+is exactly why this was invisible. The damage is **26 (row, seed) gate decisions
+flipping on 10 borderline rows** (max |ΔP| 0.154), two flipping even on the seed
+average, and they land where a push is worth millions: Chet Holmgren 2026 gains
+one, Jimmy Butler 2023 loses one, Jamal Murray 2025 — a true max paid *at* his
+ceiling — loses his in one seed of ten, Sabonis 2020 ($19.80M against a $27.29M
+ceiling) gains one in two. Net −0.00215 paired (t −1.25), concentrated in one
+fold: a coin flip on expensive rows, not a signal. It cost the feature its gate —
+t 1.51 with the column in the classifier against t 2.71 without, at the suite's
+seeds.
+
+The fix states the classifier's list explicitly: `CLF_BASE_COLS`, today's
+sixteen, frozen, plus the curated `CLF_EXTRA_COLS`. Adding a regression feature
+now leaves OOF P(max) **bit-identical** (verified per (row, seed): max |ΔP| =
+0.000e+00, zero gate flips) and the suite still prints 36 classifier features.
+A column joins the classifier only by a deliberate edit to `CLF_BASE_COLS`.
+
+**Gates** (867-row frame, told-route champion, GroupKFold(5) by player, seeds
+42-51, both arms in one process on identical folds; the classifier decoupled so
+the two arms differ only in the regression list):
+
+| gate | limit | measured | |
+|---|---|---|---|
+| 1 paired selection t | > 2 | **+0.00576, t +3.41** (5/5 folds positive) | PASS |
+| 2 A2 same direction | > 0 | +0.00442 | PASS |
+| 3 C1 relative calibration | ≤ +0.005 | −0.00360 (`\|slope−1\|` shrinks) | PASS |
+| 4 C2 worst mechanism segment | ≤ +$0.30M | +0.091 pooled / +0.105 selection (Sign & Trade, n=13) | PASS |
+| 5 B1 (large drop vetoes) | — | 0.8418 → 0.8431 | PASS |
+
+| Layer | v8.5x | v8.6x |
+|---|---|---|
+| A1 | 0.8147 | **0.8209** (+0.0062) |
+| A2 | 0.8630 | 0.8674 (+0.0044) |
+| B1 | 0.8416 | 0.8427 (+0.0011) |
+| 2024 / 2025 / 2026 origin | 0.8634 / 0.8176 / 0.8430 | 0.8647 / 0.8193 / 0.8432 |
+| MAE | $2.93M | $2.87M |
+| D3 locked confirmation | 0.8070 (selection 0.8157) | 0.8200 (selection 0.8208) |
+
+The locked confirmation split gains more than the selection pool (+0.0130
+against +0.0051), so the canary is ahead of the rows the decision watched — the
+opposite of the pattern the 2026-07-23 adoption audit caught.
+
+Both columns are suite runs at the suite's own seeds 0-9; the v8.5x column is
+the incumbent re-measured on this tree (`evaluation_suite_prev.json`), not the
+figures published in the v8.5x entry, which read A2 0.8627 / B1 0.8446 from an
+earlier run of identical code. Two runs of the same code recording B1 0.8446 and
+0.8416 is the scale of run-to-run noise at n=305 forward rows — which is exactly
+why the decision above is a **paired, same-process** comparison rather than a
+difference of two published numbers.
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v7.0x was a statistical
@@ -979,8 +1072,8 @@ every row, so P x delta_bird moves the whole price surface. Evidence:
 Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 6    Phase 7        Phase 8
 Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data + protocol  3-stage + route
                                                                                      
-0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.810
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.4x
+0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.821
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.6x
                         ↗ 0.87                                                                                 (current)
                   Leaked features                                                                told-route numbers
                   (removed in v4.0)                                                              from v8.0x onward

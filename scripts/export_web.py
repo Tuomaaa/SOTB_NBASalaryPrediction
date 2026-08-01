@@ -59,6 +59,7 @@ import pandas as pd
 from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR, RAW_DIR
 from src.model import stages
 from src.model.extension_cap import attach_extension_cap, attach_extension_value
+from src.features.playoff_minutes import attach_playoff_mpg
 from src.features.waiver_history import (
     attach_waiver_interactions,
     attach_waiver_status_as_of,
@@ -124,6 +125,7 @@ FEATURE_LABELS = {
     "is_waived": "Recently waived",
     "prev_cap_pct": "Previous contract",
     "mpg_x_waived": "Minutes x waived",
+    "playoff_mpg_diff": "Playoff minutes swing",
 }
 
 
@@ -623,7 +625,12 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
     print(f"  Waiver feature as of {waiver_as_of.date()}: "
           f"{int(fa['is_waived'].fillna(0).sum())} free-agent positives")
     fa = attach_waiver_interactions(fa)
-
+    # The holdout season's playoffs are over by the time this board is built, so
+    # a free agent's playoff minutes are observed, not forecast. A player whose
+    # team missed the playoffs keeps the neutral 0.0 difference.
+    fa = attach_playoff_mpg(fa)
+    print(f"  Playoff minutes attached: "
+          f"{int(fa['po_mpg'].notna().sum())} of {len(fa)} free agents played")
 
     X = fa.reindex(columns=features).fillna(medians).fillna(0)
     latent = model.predict(X)

@@ -223,19 +223,23 @@ def deployed_p_max(train: pd.DataFrame, test: pd.DataFrame,
     seasons the regression saw. P(max) is an OUTPUT composition weight and never
     joins the regression's feature list.
 
-    `medians` fills FEATURE_COLS the way the fitted regression saw them; the
-    classifier-only enrichment columns keep NATIVE NaN, which is their tested
-    ship form (XGBoost hist learns a default split direction).
+    `medians` fills the classifier's base columns the way the fitted regression
+    saw them; the classifier-only enrichment columns keep NATIVE NaN, which is
+    their tested ship form (XGBoost hist learns a default split direction).
+
+    The fill list is CLF_BASE_COLS, not FEATURE_COLS: since v8.6x the two are
+    separate lists, and a regression-only feature is dropped by the reindex
+    below, so filling it here would raise a KeyError on the test frame.
     """
     from src.model.route_mixture import (
         attach_clf_features, train_route_classifier, route_proba, MAX_IDX,
+        CLF_BASE_COLS,
     )
-    from src.model.train import FEATURE_COLS
 
     train_x, clf_features = attach_clf_features(train)
     test_x, _ = attach_clf_features(test)
 
-    fill = [c for c in FEATURE_COLS if c in train_x.columns]
+    fill = [c for c in CLF_BASE_COLS if c in train_x.columns]
     if medians is not None:
         train_x[fill] = train_x[fill].fillna(medians).fillna(0)
     else:
