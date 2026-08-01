@@ -10,8 +10,8 @@ worklist, not a changelog. `VERSION_HISTORY.md` is where fixes get recorded.
 
 **Numbers are permanent and are never reused.** A new entry takes `max + 1` over
 every number this file has *ever* used, not the first gap — deleting a fixed
-entry retires its number for good. The highest ever used is **36**, so the next
-new entry is **37**. Two parallel workers each taking "the next free number"
+entry retires its number for good. The highest ever used is **45**, so the next
+new entry is **46**. Two parallel workers each taking "the next free number"
 is exactly how the two `#20`s and two `#25`s of 2026-07-27 happened.
 
 Entries are listed in **numeric order**, not by severity — the file is looked up
@@ -635,3 +635,217 @@ the row reaches the evaluation frame at all.
 
 **Fixed when**: `audit_stretched_salaries.py` exits 0 (no stretch-class rows),
 and the three rows carry the salary the player actually signed for.
+
+## 37. A prorated partial-season row sits just above the 1.2% floor and reaches the frame
+
+**Severity**: low — one confirmed row; the class is probably small.
+
+Javonte Green 2024 ($1.73M, 9 GP in the stats season, waived flag set) is on
+the v8.5x error board at +$9.45M OVER. The prior review (old top-30 board)
+identified the salary as prorated hardship pay — CHI 10-day contracts — not an
+annual contract value. The 2024-25 floor is 1.2% x $140.588M = $1.687M, so
+this row clears `_filter_prorated` by ~$43K. The floor catches the median
+prorated row ($0.18-0.69M) but not one that lands within a few percent above
+the line.
+
+**Reproduce**: `python scripts/make_error_board.py` — Green 2024 appears with
+category "data issue"; or filter training_data_v2.csv to
+`season==2024, player_name_norm=="javonte green"`.
+
+**What to do**: verify his actual 2024-25 pay from the BBRef/Spotrac page.
+Then audit the near-miss class: rows within ~10% above the floor whose games
+played or signing dates indicate in-season 10-day/hardship deals. Consider
+whether the dated contract spans (contract_signing_dates.csv) can mark
+in-season partial signings directly instead of relying on the flat floor.
+
+**Fixed when**: Green 2024 either carries a true annual-rate salary or is
+excluded from the frame, and the near-miss audit has run over all seasons.
+
+## 38. Minimum-contract rows mix paid salary and cap-hit conventions
+
+**Severity**: low-medium — affects the minimum-salary population (n~224), off by
+7-34% per row where wrong.
+
+For one-year minimum deals of 3+ service-year vets, the league reimburses the
+team: the player is PAID his service-scale minimum but the team is CHARGED the
+2-year-vet rate. Our `salary` column is inconsistent about which one it stores:
+
+| row | our salary | paid | cap charge |
+|---|---:|---:|---:|
+| emmanuel mudiay 2019 | $1,737,145 | $1,737,145 (4-yr scale) ✓ paid | $1,620,564 |
+| j.j. barea 2019 | $2,564,753 | $2,564,753 (10+-yr scale) ✓ paid | $1,620,564 |
+| malik beasley 2023 | $2,019,706 | $2,709,849 (7-yr scale) | $2,019,706 ✓ charge |
+
+Beasley carries the charge; Mudiay and Barea carry the pay. Whichever
+convention `cap_pct` is supposed to mean (player-market price vs team cost),
+one of these is wrong, and the whole Minimum slice should be audited.
+
+**Reproduce**: compare `salary` for Minimum-cat rows against the per-service
+minimum scale for that season (Hoops Rumors publishes it annually).
+
+**What to do**: decide the convention (player pay is the market-value reading,
+consistent with the model's purpose), then audit every Minimum row against the
+scale tables and correct the rows on the wrong convention.
+
+**Fixed when**: every Minimum row matches one declared convention, and the
+convention is documented in CONTEXT.md / METHODOLOGY.md.
+
+**Amended 2026-08-01** (completeness audit): the mixing is **season-determined,
+not per-row** — a season-aligned defect in the TARGET, materially more serious.
+Measured against sourced per-service scale tables, the decidable population
+(one-year minimums, 3+ years service) splits: **2019 and 2021 are 100% the paid
+convention** (22 and 32 rows); every other season is predominantly cap-charge
+(2022: 13% paid, 2024: 16%, 2026: 14%). The 83 paid-convention rows overstate
+`cap_pct` by mean +0.53 pp of cap (~36% relative; max $1.43M) and are 17.6% of
+the 2019 frame, 26.0% of 2021's. Barea 2019, this entry's third example, is not
+in the Minimum slice at all — no Spotrac page, no signing label (see #41). A
+further 24 rows match neither convention; 15 sit below 95% of the paid scale and
+are probably prorated — that sweep independently re-surfaced Green 2024 (#37),
+Noah 2020 and Batum 2020 (#36). Priority up: fix before any work leaning on
+2019/2021 residuals.
+
+## 39. `rapm_z` missingness is concentrated in one season, on a live feature
+
+**Severity**: medium — 47 frame rows on a live feature, and the missingness is
+season-aligned, which is the class METHODOLOGY warns about.
+
+`rapm_z` is missing on 47 of 867 evaluation rows (5.4%), but the rate is not
+flat across seasons: **2023 is 28/118 = 23.7%, a 4.4x concentration**. Every one
+of those rows is median-filled to 0.0895 — a near-average RAPM — so roughly a
+quarter of the 2023 frame is priced as if it had league-average RAPM regardless
+of its true value. Source-table `rapm` coverage: 2023 = 80.1%, 2026 = 81.7%,
+every other season 89.6-95.2%. `darko_dpm_z` is complete and `lebron_z` misses
+8, so this is a RAPM-source problem specifically. 49 rows are split-impact-source
+rows (one metric present, another missing) — a class earlier treated as
+resolved; 0 rows miss all three. The affected 2023 rows are not marginal:
+Kuzma ($25.6M), Clarkson ($23.5M), Brooks ($22.6M), Hunter ($20.1M), Keldon
+Johnson ($20.0M). Also 5/5 of `2TM` rows miss `rapm_z`.
+
+**Reproduce**: build the frame with the train.py filter chain, stop before the
+median fill in `_prepare_Xy`, cross-tab `rapm_z.isna()` by season; or group
+`impact_metrics.csv` `rapm` non-null count by season.
+
+**What to do**: re-scrape nbarapm.com for 2023 and 2026 — the two low seasons
+are probably an incomplete harvest. If the site genuinely lacks them, add a
+`rapm_known` indicator so the model can tell an imputed average from an observed
+one, and cost any change as an increment over that indicator (the #12
+coverage-indicator rule).
+
+**Fixed when**: no season's `rapm_z` missing rate exceeds 2x the pooled rate, or
+a `rapm_known` indicator is carried alongside and the ablation is re-run.
+
+## 40. 111 rows of unknown waiver status are filled as "not waived", and the known-flag is not a feature
+
+**Severity**: medium — 111 rows (12.8% of the frame) on two live features.
+
+`is_waived` is NaN on 111 of 867 rows. `_prepare_Xy` median-fills it, and the
+median of a 0/1 column that is 84% zero is **0.0** — so every unknown-status row
+is handed to the model as a positive assertion that the player was *not* waived.
+`mpg_x_waived` (16th feature, v8.4x) inherits the same 111 NaNs and fills 0.0.
+
+The frame already carries the missing information: `is_waived_known` is exactly
+0 on those 111 rows (111 unknown / 639 known-not-waived / 117 known-waived) but
+is **not in FEATURE_COLS**, so the model cannot separate "known not waived" from
+"unknown". The unknown rows are season-tilted (2019: 18.4%, 2026: 8.7%),
+team-tilted (HOU 34.5%, BRK 34.4%, ORL 27.8% vs 12.8% base) and strongly
+salary-tilted (20% of sub-$3M rows vs 1% of >$25M rows).
+
+**Reproduce**: build the frame pre-imputation, cross-tab `is_waived` against
+`is_waived_known`; check `"is_waived_known" in FEATURE_COLS`.
+
+**What to do**: either add `is_waived_known` as a feature so the fill is
+distinguishable, or fill `is_waived` with something other than the median.
+Judged the usual way (paired CV, selection pool); the arm must move
+`mpg_x_waived` together with `is_waived`.
+
+**Fixed when**: unknown-waiver rows are distinguishable from known-not-waived
+in the feature matrix, and the change carries a paired A1 delta.
+
+## 41. Sixteen frame players have no Spotrac page at all, and they are name-join misses
+
+**Severity**: medium — 34 frame rows, and it degrades the continuation filter
+and the ceiling rules, which read the same cache.
+
+465 distinct players appear in the 867-row frame; **16 have no row in either
+`contract_signing_dates.csv` or `spotrac_transactions.csv`** — no cached Spotrac
+page at all — covering 34 frame rows (3.9%):
+
+    bones hyland, bruce brown, cam christie, cam thomas, herbert jones,
+    ish smith, ish wainright, j.j. barea, josh gray, kj martin, lou williams,
+    marcus morris, mo bamba, nic claxton, svi mykhailiuk, wes iwundu
+
+Established rotation players do not go uncached by accident; the pattern is the
+slug/name join, not the fetcher: `j.j. barea` is "Jose Juan Barea" on Spotrac,
+`kj martin` is "Kenyon Martin Jr.", `marcus morris` is "Marcus Morris Sr.". The
+player-URL directory holds 510 rows against 511 cached pages — the directory is
+what is short. `_signing_seasons` and `_filter_continuations` read this cache;
+a player with no page falls back to the paying season — safe, but silently
+weaker for these 16.
+
+**Reproduce**: frame's distinct `player_name_norm` minus the union of
+`contract_signing_dates.player_name_norm` and
+`spotrac_transactions.player_name_norm`.
+
+**What to do**: extend `data/raw/raw_external/player_name_aliases.csv` with the
+Spotrac spellings for these 16, then re-run
+`scripts/scrape_spotrac_players.py`. Do NOT widen the normalizer to strip
+suffixes generally — "Sr."/"Jr." carry real identity here (Gary Trent Jr. and
+Kenyon Martin Jr. both appear).
+
+**Fixed when**: every frame player resolves to a cached Spotrac page, or the
+remainder is listed here with a reason each cannot.
+
+## 42. `prev_cap_pct`'s minimum slot-fill is invisible to every missingness check
+
+**Severity**: low-medium — 66 rows (7.6%) on a live feature, and no NaN audit
+will ever find them.
+
+`prev_cap_pct` reports 0 NaN and 0 zeros, which reads as perfect coverage. It is
+not: 66 rows carry the identical value **0.014848** across all eight seasons
+(2021: 17, 2026: 14, 2023: 11). A single cap_pct cannot be real pay across eight
+different caps — unless it is a fixed share of the cap, which it is:
+`2yr_minimum / CAP_BY_SEASON[s] = 0.014848` for every season 2019-2026. It is
+the slot-fill fallback meaning "prior pay unknown, assume veteran minimum"
+(the mechanism #17 calls the slot-fill fallback). Defensible — but
+indistinguishable from an observed value, so 66 imputed priors are treated as
+observed and survive every completeness check.
+
+**Reproduce**: value-count `prev_cap_pct` rounded to 6 places in
+`training_data_v2.csv`; top value 0.014848, n=66. Compare
+`min_2yr[season] / CAP_BY_SEASON[season]`.
+
+**What to do**: carry a `prev_cap_pct_known` indicator out of
+`_load_prev_season_cap_pct` rather than encoding unknown as a magic constant.
+Even if not adopted as a feature, write it to the frame so diagnostics can
+slice on it.
+
+**Fixed when**: imputed and observed `prev_cap_pct` are distinguishable in the
+frame, and the 66 rows are reported as imputed by any coverage audit.
+
+## 43. Several ISSUES "Verify" blocks quote a frame size two filters out of date
+
+**Severity**: low — documentation drift, but the verify blocks are what the next
+agent runs to decide whether something is broken.
+
+Measured 2026-08-01 on commit 4bf433f, the chain prints: prorated 259 dropped
+(1295 remain), continuation **346 (334 dated, 12 consensus)**, rookie-contract
+76 dropped (**867 remain**). Against that:
+
+- **#2** quotes frame 944 / 2019 count 142 / "347 (335 by dated span, 12 by
+  consensus)". Measured 867 / 125 / 346 (334, 12). The 944→867 is the later
+  rookie-contract filter; **347/335 → 346/334 is a one-row drift inside the
+  continuation filter no entry accounts for** — most likely the v8.5x Wall
+  repair; confirm and record.
+- **#35** says "944 → 868"; measured 943 → 867 — same one-row offset.
+- **#17** says four season-2019 names remain without a 2018 key; only Caruso is
+  still in the frame — the other three are removed by the rookie-contract
+  filter first. Data gap unchanged; verify text stale.
+- **#12** quotes "604 of 1,172" — denominator two filters stale.
+
+**Reproduce**: `load_evaluation_frame(verbose=True)`, read the printed counts.
+
+**What to do**: re-state the verify blocks of #2, #17, #35 against the 867-row
+frame; re-measure or mark historical the #12 figure; identify the one-row
+continuation drift and record its cause.
+
+**Fixed when**: every verify block in ISSUES.md reproduces on the current tree.

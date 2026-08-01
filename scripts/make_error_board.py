@@ -51,12 +51,19 @@ def main() -> None:
         k = pd.read_csv(KICKED_PATH)
         kicked = set(_key(k))
 
+    # Annotation sources, oldest first — the current board wins on conflict.
+    # Legacy category names map to the current taxonomy ("model wrong" and
+    # "not modelable" are retired; TBD is the conservative translation).
+    legacy = {"model wrong": "TBD", "not modelable": "TBD"}
     prior = {}
-    if BOARD_PATH.exists():
-        old = pd.read_csv(BOARD_PATH)
-        prior = {key: (row["category"], row["comment"])
-                 for key, (_, row) in zip(_key(old), old.iterrows())
-                 if isinstance(row["category"], str) and row["category"]}
+    for src in (DIAG_DIR / "v84_top30_annotated.csv", BOARD_PATH):
+        if not src.exists():
+            continue
+        old = pd.read_csv(src)
+        for key, (_, row) in zip(_key(old), old.iterrows()):
+            if isinstance(row["category"], str) and row["category"] not in ("", "new"):
+                comment = row["comment"] if isinstance(row["comment"], str) else ""
+                prior[key] = (legacy.get(row["category"], row["category"]), comment)
 
     ref["_key"] = _key(ref)
     pool = ref[~ref["_key"].isin(kicked)].copy()
