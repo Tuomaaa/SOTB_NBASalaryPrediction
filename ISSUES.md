@@ -763,18 +763,28 @@ Hit 2026 | Spotrac".
 no parseable page falls back to the paying season — safe, but silently weaker
 for these 16. Also affects #40 (84 of the unknown-waiver rows have no page).
 
-**Reproduce**: `python -c "open('data/raw/html_cache/spotrac_players/bones-hyland.html').read()[:200]"` —
-title is "NBA | Spotrac.com", not player-specific.
+**Re-scrape 2026-08-04**: 16 junk files deleted, 15 re-fetched with correct
+URLs (upcoming-FA page URLs + legal-name slug construction). Josh Gray has no
+Spotrac player page (likely retired/unlisted). Cam Thomas has a cached page
+but no signing_types rows (parser finds no contracts). 14/16 players now have
+signing_types data. Spotrac CSVs rebuilt from all 510 cached pages.
 
-**What to do**: delete the 16 junk cached files and re-run
-`python scripts/build_waiver_features.py --fetch` — the fetcher will see them
-as missing and re-scrape. Alternatively, `scripts/scrape_spotrac_players.py`
-with explicit URLs. Do NOT just add name aliases — the slug mapping already
-works; the cached HTML is what is broken.
+**Critical side-effect**: the 16 junk redirect pages contained generic
+Spotrac.com homepage content. The signing_types parser extracted contract data
+for **173 unrelated players** from this content — 1064 phantom rows total.
+These phantom rows contaminated `_filter_continuations` in both directions:
+64 genuine Year-1 signings were incorrectly dropped (including LeBron James
+2019, Paul George 2019) and 35 actual continuations were incorrectly kept
+(P.J. Tucker 2019/2020, Allen Crabbe 2019, Lou Williams 2019/2020). After
+cleanup, frame 867 → **896** (+29 net).
+
+New baseline on the corrected 896-row frame: A1 = 0.8014, MAE = 3.03M.
+Old champion was A1 = 0.8201 on 867 rows — not comparable because R²'s
+denominator moved with the frame (see #35).
 
 **Fixed when**: every frame player resolves to a cached Spotrac page with the
 player's name in the title, or the remainder is listed here with a reason each
-cannot.
+cannot. Josh Gray is the sole remaining miss (no Spotrac player page).
 
 ## 42. `prev_cap_pct`'s minimum slot-fill is invisible to every missingness check
 
@@ -823,9 +833,14 @@ Measured 2026-08-01 on commit 4bf433f, the chain prints: prorated 259 dropped
   filter first. Data gap unchanged; verify text stale.
 - **#12** quotes "604 of 1,172" — denominator two filters stale.
 
+**Updated 2026-08-04**: the #41 Spotrac re-scrape changed the frame from 867
+to **896** rows. Continuation filter now drops 306 (292 dated, 14 consensus),
+rookie-contract 86 dropped. All verify blocks above and in #2/#35 are now
+doubly stale — they reference the 867 frame, which itself was stale from 944.
+
 **Reproduce**: `load_evaluation_frame(verbose=True)`, read the printed counts.
 
-**What to do**: re-state the verify blocks of #2, #17, #35 against the 867-row
+**What to do**: re-state the verify blocks of #2, #17, #35 against the 896-row
 frame; re-measure or mark historical the #12 figure; identify the one-row
 continuation drift and record its cause.
 
