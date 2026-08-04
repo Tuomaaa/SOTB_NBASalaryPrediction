@@ -1012,6 +1012,47 @@ earlier run of identical code. Two runs of the same code recording B1 0.8446 and
 why the decision above is a **paired, same-process** comparison rather than a
 difference of two published numbers.
 
+### v8.7x: Spotrac phantom-data cleanup + waiver recovery rebuild
+
+**Data correction, not a model change — frame definition moved.**
+
+Two fixes landed in one commit pair (8071745, 0c2acaf):
+
+1. **ISSUES #41 re-scrape**: the 16 junk Spotrac redirect pages (generic
+   homepage content cached as player pages) had injected 1064 phantom
+   signing_types rows for 173 unrelated players. The continuation filter used
+   this phantom data both ways — incorrectly dropping 64 genuine Year-1
+   signings (LeBron 2019, Paul George 2019, Robert Covington 2019-2023) and
+   incorrectly keeping 35 actual continuations (P.J. Tucker, Allen Crabbe,
+   Lou Williams). 15/16 pages re-fetched with correct URLs; Josh Gray has no
+   Spotrac page. Spotrac CSVs rebuilt from all 510 cached pages.
+2. **ISSUES #40 waiver recovery**: `_resolve_waiver_no_signing()` baked into
+   training_data_v2.csv via `rebuild_training_data.py`. 65 rows resolved via
+   conservative date windows. Waiver coverage on the evaluation frame:
+   827/896 known (was 756/867).
+3. **ISSUES #36/#38/#31 data repairs** (committed in 8071745): salary
+   corrections, contract-structure overrides, min_cap_charge — baked into the
+   rebuild.
+
+Frame: 867 → **896** (+29 net: +64 gained, −35 lost). R² not comparable
+across frame sizes (#35).
+
+| Layer | v8.6x (n=867) | v8.7x (n=896) |
+|---|---|---|
+| A1 | 0.8209 | 0.8021 |
+| A2 | 0.8674 | 0.8569 |
+| B1 | 0.8427 | 0.8479 |
+| 2024 / 2025 / 2026 origin | 0.8647 / 0.8193 / 0.8432 | 0.8561 / 0.8430 / 0.8412 |
+| MAE | $2.87M | $3.02M |
+| D3 locked confirmation | 0.8200 (sel 0.8208) | 0.7895 (sel 0.8036) |
+
+A1 and A2 drop mechanically — the 29 new rows include several low-salary
+players (Bronny James, Adem Bona, Dalen Terry at ~1.4% cap) that add variance
+to the denominator. B1 improves because the forward-test frame (2024-2026)
+gained from the cleanup: n=305 → 318 (+13 rows), and the model now trains on
+correctly classified training data. MAE growth ($2.87→$3.02M) reflects the
+larger frame mixing in harder-to-price rows.
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v7.0x was a statistical
