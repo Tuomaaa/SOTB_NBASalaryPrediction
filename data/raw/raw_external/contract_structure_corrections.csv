@@ -1,0 +1,2 @@
+player_name_norm,season,year_in_contract,contract_years,source,note
+kendrick nunn,2020,3,3,spotrac_block,"3yr/$3.09M minimum (2018-2020); Spotrac contract block: contract_start=2018 contract_years=3 aav=$1028483; frozen contract_structure_v2.csv fragmented into three 1-year rows; ISSUES #31"

@@ -533,44 +533,6 @@ a sourced contract-structure correction layer that is audited for every
 multi-year Spotrac block fragmented into repeated Year-1 rows. Do not add an
 ad hoc invalid-observation filter, and do not weaken the FA-list veto.
 
-## 34. Seven 2026 rows are flagged Year-1 immediately after a multi-year Year-1
-
-**Severity**: low-medium — 7 rows, but they miss by 48% more than the frame does.
-
-Filtering the raw table for rows where the previous season was year 1 of a
-contract with `contract_years >= 2` **and** this season is also `year_in_contract
-== 1` yields 8 raw rows, 7 of which survive into the 944-row evaluation frame.
-All seven are 2026. Their MAE is **$4.06M against the frame's $2.74M**, bias
-−$1.93M:
-
-| player | season | prior contract_years | actual | predicted | error |
-|---|---:|---:|---:|---:|---:|
-| Marcus Smart | 2026 | 2 | $6.06M | $10.91M | +$4.84M |
-| Josh Minott | 2026 | 2 | $4.50M | $6.11M | +$1.61M |
-| Day'Ron Sharpe | 2026 | 2 | $10.00M | $11.03M | +$1.03M |
-| Sandro Mamukelashvili | 2026 | 2 | $13.00M | $11.70M | −$1.30M |
-| Al Horford | 2026 | 2 | $6.82M | $3.31M | −$3.52M |
-| Jonathan Isaac | 2026 | 4 | $10.45M | $4.32M | −$6.13M |
-| Gary Trent Jr. | 2026 | 2 | $15.20M | $5.19M | −$10.01M |
-
-**This is not automatically a defect** and must be checked case by case: a 1+1
-deal whose player option is declined legitimately produces two consecutive
-year-1 rows. But `contract_years >= 2` on the earlier row means the source
-recorded a multi-year deal, so at least some of these are year 2 wearing a
-year-1 label — the same class as #31, and the concentration in a single season
-plus the error size argue against coincidence.
-
-**Reproduce**: sort `training_data_v2.csv` by (player, season), shift
-`year_in_contract` and `contract_years` by one, and select
-`yic == 1 & prev_yic == 1 & season - prev_season == 1 & prev_cy >= 2`.
-
-**What to do**: check each of the seven against its Spotrac contract block and
-dated transactions. Where the source shows one multi-year deal, it belongs to the
-continuation filter, not to a new ad hoc rule.
-
-**Fixed when**: every remaining member of the set has a dated transaction
-showing a genuinely new contract, or has been demoted by the continuation filter.
-
 ## 35. Common-row deltas across a row-count change are contaminated by fold reshuffle
 
 **Severity**: low — a measurement trap, not a model defect, but it can make a
@@ -731,8 +693,14 @@ are probably an incomplete harvest. If the site genuinely lacks them, add a
 one, and cost any change as an increment over that indicator (the #12
 coverage-indicator rule).
 
-**Fixed when**: no season's `rapm_z` missing rate exceeds 2x the pooled rate, or
-a `rapm_known` indicator is carried alongside and the ablation is re-run.
+**Amended 2026-08-04**: `rapm_known` indicator coded in `_prepare_Xy` and all
+inference paths (evaluate_suite, predict, export_web). Paired CV on the 867-row
+corrected frame: delta sel = −0.0001, t = −0.04 — does not pass the selection
+gate. Left out of FEATURE_COLS; code remains guarded so re-testing after a
+re-scrape is one line.
+
+**Fixed when**: the 2023/2026 RAPM data is re-scraped from nbarapm.com, or
+`rapm_known` passes the paired gate after a re-scrape.
 
 ## 40. 111 rows of unknown waiver status are filled as "not waived", and the known-flag is not a feature
 
@@ -750,50 +718,63 @@ is **not in FEATURE_COLS**, so the model cannot separate "known not waived" from
 team-tilted (HOU 34.5%, BRK 34.4%, ORL 27.8% vs 12.8% base) and strongly
 salary-tilted (20% of sub-$3M rows vs 1% of >$25M rows).
 
+**Amended 2026-08-04**: data recovery in `waiver_history.py` —
+`_resolve_waiver_no_signing()` uses conservative season-based date windows to
+resolve waiver status when a player has a Spotrac transaction page but no
+signing date. Three paths: (a) no waiver events → not waived; (b) all waivers
+outside widest window → not waived; (c) waiver inside tightest window → waived.
+Recovers 71 eval-frame rows (unknown 111 → ~94 after rebuild); two rows flipped
+to waived (Toscano-Anderson 2022, MCW 2020). Takes effect on next
+`scripts/rebuild_training_data.py`.
+
+`is_waived_known` as a feature: paired CV delta sel = −0.0001 (t = −0.04),
+does not pass the selection gate. Left out of FEATURE_COLS.
+
 **Reproduce**: build the frame pre-imputation, cross-tab `is_waived` against
 `is_waived_known`; check `"is_waived_known" in FEATURE_COLS`.
 
-**What to do**: either add `is_waived_known` as a feature so the fill is
-distinguishable, or fill `is_waived` with something other than the median.
-Judged the usual way (paired CV, selection pool); the arm must move
-`mpg_x_waived` together with `is_waived`.
+**Fixed when**: `rebuild_training_data.py` has been run so the recovered rows
+bake in, and unknown count drops to ~94.
 
-**Fixed when**: unknown-waiver rows are distinguishable from known-not-waived
-in the feature matrix, and the change carries a paired A1 delta.
-
-## 41. Sixteen frame players have no Spotrac page at all, and they are name-join misses
+## 41. Sixteen frame players have no Spotrac page at all — bad cached HTML
 
 **Severity**: medium — 34 frame rows, and it degrades the continuation filter
 and the ceiling rules, which read the same cache.
 
 465 distinct players appear in the 867-row frame; **16 have no row in either
-`contract_signing_dates.csv` or `spotrac_transactions.csv`** — no cached Spotrac
-page at all — covering 34 frame rows (3.9%):
+`contract_signing_dates.csv` or `spotrac_transactions.csv`** — covering 34
+frame rows (3.9%):
 
     bones hyland, bruce brown, cam christie, cam thomas, herbert jones,
     ish smith, ish wainright, j.j. barea, josh gray, kj martin, lou williams,
     marcus morris, mo bamba, nic claxton, svi mykhailiuk, wes iwundu
 
-Established rotation players do not go uncached by accident; the pattern is the
-slug/name join, not the fetcher: `j.j. barea` is "Jose Juan Barea" on Spotrac,
-`kj martin` is "Kenyon Martin Jr.", `marcus morris` is "Marcus Morris Sr.". The
-player-URL directory holds 510 rows against 511 cached pages — the directory is
-what is short. `_signing_seasons` and `_filter_continuations` read this cache;
-a player with no page falls back to the paying season — safe, but silently
-weaker for these 16.
+**Amended 2026-08-04**: the root cause is NOT a name-join mismatch. All 16
+have cached HTML in `data/raw/html_cache/spotrac_players/` (e.g.
+`bones-hyland.html`), and `slug_to_training_name()` correctly maps every slug
+back to the frame name. But all 16 cached files are **generic Spotrac redirect
+pages** — 530KB, title "NBA | Spotrac.com", no player-specific content at all.
+The redirect URLs in `spotrac_player_urls.csv` resolved to a Spotrac landing
+page instead of the player's contract page. A working page like
+`aaron-gordon.html` is 781KB with title "Aaron Gordon Contract, Salary & Cap
+Hit 2026 | Spotrac".
 
-**Reproduce**: frame's distinct `player_name_norm` minus the union of
-`contract_signing_dates.player_name_norm` and
-`spotrac_transactions.player_name_norm`.
+`_signing_seasons` and `_filter_continuations` read this cache; a player with
+no parseable page falls back to the paying season — safe, but silently weaker
+for these 16. Also affects #40 (84 of the unknown-waiver rows have no page).
 
-**What to do**: extend `data/raw/raw_external/player_name_aliases.csv` with the
-Spotrac spellings for these 16, then re-run
-`scripts/scrape_spotrac_players.py`. Do NOT widen the normalizer to strip
-suffixes generally — "Sr."/"Jr." carry real identity here (Gary Trent Jr. and
-Kenyon Martin Jr. both appear).
+**Reproduce**: `python -c "open('data/raw/html_cache/spotrac_players/bones-hyland.html').read()[:200]"` —
+title is "NBA | Spotrac.com", not player-specific.
 
-**Fixed when**: every frame player resolves to a cached Spotrac page, or the
-remainder is listed here with a reason each cannot.
+**What to do**: delete the 16 junk cached files and re-run
+`python scripts/build_waiver_features.py --fetch` — the fetcher will see them
+as missing and re-scrape. Alternatively, `scripts/scrape_spotrac_players.py`
+with explicit URLs. Do NOT just add name aliases — the slug mapping already
+works; the cached HTML is what is broken.
+
+**Fixed when**: every frame player resolves to a cached Spotrac page with the
+player's name in the title, or the remainder is listed here with a reason each
+cannot.
 
 ## 42. `prev_cap_pct`'s minimum slot-fill is invisible to every missingness check
 

@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import numpy as np
 import pandas as pd
-from config import PROCESSED_DIR, SEASONS
+from config import CAP_BY_SEASON, PROCESSED_DIR, RAW_DIR, SEASONS
 from src.features.base_rating import add_base_rating
 from src.features.age_curve import add_age_features
 from src.features.availability import compute_availability
@@ -33,6 +33,43 @@ from src.features.impact_identity import (
     fill_impact_from_bbref,
 )
 from src.features.waiver_history import attach_waiver_history
+
+
+def _apply_min_cap_charge_corrections(salaries: pd.DataFrame) -> pd.DataFrame:
+    """Replace paid-convention minimum salaries with the cap-charge amount.
+
+    Reads 'min_cap_charge' entries from salary_corrections.csv and overwrites
+    the salary (and recomputes cap_pct) for matching (player_name_norm, season)
+    rows.  See ISSUES #38 and scripts/fix_minimum_convention.py.
+    """
+    corr_path = RAW_DIR / "raw_external" / "salary_corrections.csv"
+    if not corr_path.exists():
+        return salaries
+
+    corr = pd.read_csv(corr_path)
+    mc = corr[corr["kind"] == "min_cap_charge"]
+    if mc.empty:
+        return salaries
+
+    lookup = {
+        (row["player_name_norm"], int(row["season"])): float(row["value_usd"])
+        for _, row in mc.iterrows()
+    }
+
+    applied = 0
+    for idx, row in salaries.iterrows():
+        key = (row["player_name_norm"], int(row["season"]))
+        if key in lookup:
+            cap_charge = lookup[key]
+            salaries.at[idx, "salary"] = cap_charge
+            cap = CAP_BY_SEASON.get(int(row["season"]))
+            if cap:
+                salaries.at[idx, "cap_pct"] = cap_charge / cap
+            applied += 1
+
+    print(f"Min cap-charge corrections: {applied} rows "
+          f"(of {len(lookup)} in file)")
+    return salaries
 
 
 def _normalize_name(name: str) -> str:
@@ -79,6 +116,7 @@ def build_dataset() -> pd.DataFrame:
     print(f"Impact:   {len(impact)} rows, {impact['player_name_norm'].nunique()} players")
 
     salaries["player_name_norm"] = salaries["player"].apply(_normalize_name)
+    salaries = _apply_min_cap_charge_corrections(salaries)
     salary_keys = set(zip(salaries["player_name_norm"], salaries["season"].astype(int)))
     before = len(impact)
     impact = coalesce_impact_rows(impact, salary_keys=salary_keys)

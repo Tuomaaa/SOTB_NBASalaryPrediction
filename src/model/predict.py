@@ -84,6 +84,9 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
 
 
     pred_df = add_base_rating(pred_df)
+    # Missingness indicator before any fill (ISSUES #39).
+    if "rapm_z" in pred_df.columns:
+        pred_df["rapm_known"] = pred_df["rapm_z"].notna().astype(int)
     pred_df = add_age_features(pred_df)
     pred_df = compute_availability(pred_df)
     pred_df = add_cba_features(pred_df)

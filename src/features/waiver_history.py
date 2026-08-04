@@ -77,6 +77,63 @@ def _choose_fallback_signing(
     return None if dated.empty else dated.sort_values("signing_date").iloc[-1]
 
 
+def _resolve_waiver_no_signing(
+    player_tx: pd.DataFrame,
+    season: int,
+    lookback_days: int = WAIVER_LOOKBACK_DAYS,
+) -> tuple[float, pd.Timestamp | None, str | None] | None:
+    """Try to resolve waiver status when signing date is unknown.
+
+    Uses conservative season-based date windows.  For season X the signing
+    happened roughly July–October of year X-1, so the 365-day lookback
+    spans roughly July of year X-2 to October of year X-1.
+
+    Three outcomes:
+    - No waiver events at all → (0.0, None, None)   (definitively not waived)
+    - All waivers outside the widest possible window → (0.0, None, None)
+    - A waiver clearly inside the tightest window    → (1.0, date, text)
+    - Ambiguous (waiver between tight and wide)      → None  (leave unknown)
+
+    The wide window brackets the earliest-possible lookback start (signing
+    on July 1, lookback starts July 1 of the prior year) through the latest
+    plausible signing date (Oct 25).  The tight window is the intersection of
+    every possible 365-day lookback: Oct 25 of year X-2 through July 1 of
+    year X-1.  A waiver in the tight window is inside any possible lookback;
+    one outside the wide window is outside every possible lookback; one in
+    between depends on the exact signing date we don't have.
+    """
+    waivers = player_tx[
+        player_tx["event_type"].eq("waived")
+        & player_tx["transaction_date"].notna()
+    ]
+    if waivers.empty:
+        return (0.0, None, None)
+
+    # Wide window: earliest possible lookback start → latest possible signing
+    wide_start = pd.Timestamp(f"{season - 2}-07-01")
+    wide_end = pd.Timestamp(f"{season - 1}-10-25")
+    in_wide = waivers[
+        (waivers["transaction_date"] >= wide_start)
+        & (waivers["transaction_date"] <= wide_end)
+    ]
+    if in_wide.empty:
+        return (0.0, None, None)
+
+    # Tight window: inside every possible 365-day lookback
+    tight_start = pd.Timestamp(f"{season - 2}-10-25")
+    tight_end = pd.Timestamp(f"{season - 1}-07-01")
+    in_tight = waivers[
+        (waivers["transaction_date"] >= tight_start)
+        & (waivers["transaction_date"] <= tight_end)
+    ]
+    if not in_tight.empty:
+        hit = in_tight.sort_values("transaction_date").iloc[-1]
+        return (1.0, hit["transaction_date"], hit["tx_text"])
+
+    # Waiver is in the wide window but not the tight window — ambiguous.
+    return None
+
+
 def attach_waiver_history(
     df: pd.DataFrame,
     transactions: pd.DataFrame | None = None,
@@ -89,6 +146,11 @@ def attach_waiver_history(
     signing date that prices the row are observed. It stays NaN otherwise.
     is_waived_known makes that source coverage explicit and is kept for the
     required coverage-control evaluation.
+
+    When a player has a transaction page but no signing date can be matched,
+    the function attempts conservative resolution: if no waiver events exist
+    or all waivers fall clearly outside any possible lookback window for the
+    season, the row is marked known.  See _resolve_waiver_no_signing.
     """
     out = df.copy()
     tx = (
@@ -105,15 +167,25 @@ def attach_waiver_history(
     out["is_waived_known"] = 0.0
     out["prior_waiver_date"] = pd.NaT
     out["prior_waiver_text"] = pd.NA
-    if tx is None or sd is None or tx.empty or sd.empty:
+    if tx is None or tx.empty:
         return out
 
     tx = tx.copy()
     tx["transaction_date"] = pd.to_datetime(
         tx["transaction_date"], errors="coerce"
     )
-    sd = sd.copy()
-    sd["signing_date"] = pd.to_datetime(sd["signing_date"], errors="coerce")
+    # sd may be None or empty — the signing-date lookup simply finds nothing,
+    # and conservative resolution (_resolve_waiver_no_signing) fills what it can.
+    if sd is not None and not sd.empty:
+        sd = sd.copy()
+        sd["signing_date"] = pd.to_datetime(sd["signing_date"], errors="coerce")
+    else:
+        sd = pd.DataFrame(columns=[
+            "player_name_norm", "signing_date", "signing_season",
+            "contract_years", "total_value", "is_extension",
+            "contract_class", "team", "fa_year_matched",
+            "match_confidence", "tx_text",
+        ])
     tx_by_player = {p: g for p, g in tx.groupby("player_name_norm")}
     sd_by_player = {p: g for p, g in sd.groupby("player_name_norm")}
     page_coverage = set(tx_by_player)
@@ -121,6 +193,7 @@ def attach_waiver_history(
     from scripts.parse_signing_dates import contract_spans, covering_contract
 
     spans = contract_spans(sd)
+    n_resolved = 0
     for i, row in out.iterrows():
         player = str(row["player_name_norm"])
         season = int(row["season"])
@@ -140,7 +213,23 @@ def attach_waiver_history(
                 if fallback is not None:
                     signing = fallback["signing_date"]
 
-        if player not in page_coverage or signing is None or pd.isna(signing):
+        if player not in page_coverage:
+            continue
+
+        if signing is None or pd.isna(signing):
+            # Player has a transaction page but no signing date for this
+            # season.  Try conservative window-based resolution.
+            resolved = _resolve_waiver_no_signing(
+                tx_by_player[player], season, lookback_days
+            )
+            if resolved is not None:
+                is_w, w_date, w_text = resolved
+                out.at[i, "is_waived_known"] = 1.0
+                out.at[i, "is_waived"] = is_w
+                if w_date is not None:
+                    out.at[i, "prior_waiver_date"] = w_date
+                    out.at[i, "prior_waiver_text"] = w_text
+                n_resolved += 1
             continue
 
         signing = pd.Timestamp(signing)
@@ -160,6 +249,9 @@ def attach_waiver_history(
             hit = prior.sort_values("transaction_date").iloc[-1]
             out.at[i, "prior_waiver_date"] = hit["transaction_date"]
             out.at[i, "prior_waiver_text"] = hit["tx_text"]
+    if n_resolved:
+        print(f"  waiver history: resolved {n_resolved} rows via conservative "
+              f"window (no signing date)")
     return out
 
 def attach_waiver_interactions(df: pd.DataFrame) -> pd.DataFrame:

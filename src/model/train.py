@@ -62,6 +62,26 @@ def load_training_data() -> pd.DataFrame:
     path = v2 if v2.exists() else PROCESSED_DIR / "training_data.csv"
     df = pd.read_csv(path)
 
+    # Apply salary corrections BEFORE cap_pct recomputation:
+    # - salary_override: stretched dead money → actual contract (ISSUES #36)
+    # - min_cap_charge: paid-convention minimum → cap charge (ISSUES #38)
+    # Both are also applied at build time (build_dataset.py), so after a
+    # rebuild the CSV already has the right values and this is a no-op.
+    corr = _load_salary_corrections()
+    sal_fix = corr[corr["kind"].isin(["salary_override", "min_cap_charge"])]
+    if len(sal_fix):
+        fix_map = {
+            (str(r.player_name_norm), int(r.season)): float(r.value_usd)
+            for r in sal_fix.itertuples()
+        }
+        keys = list(zip(df["player_name_norm"], df["season"].astype(int)))
+        new_sal = pd.Series(
+            [fix_map.get(k) for k in keys], index=df.index
+        )
+        mask = new_sal.notna()
+        if mask.any():
+            df.loc[mask, "salary"] = new_sal[mask]
+
     # cap_pct is recomputed here rather than trusted from the CSV. The scraper
     # divides by CAP_BY_SEASON at scrape time and bakes the result in, so a cap
     # corrected in config.py afterwards would leave a stale target sitting in
@@ -75,6 +95,25 @@ def load_training_data() -> pd.DataFrame:
         df[TARGET] = df["salary"] / cap
 
     df = df.dropna(subset=[TARGET])
+
+    # Contract-structure corrections: override year_in_contract and
+    # contract_years where contract_structure_v2.csv is provably wrong but
+    # cannot be recomputed (CLAUDE.md). Applied at load time so every consumer
+    # sees the corrected value. See ISSUES #31.
+    cs_corr = _load_contract_structure_corrections()
+    if not cs_corr.empty and "year_in_contract" in df.columns:
+        n_applied = 0
+        for _, r in cs_corr.iterrows():
+            mask = ((df["player_name_norm"] == r["player_name_norm"])
+                    & (df["season"] == r["season"]))
+            if mask.any():
+                df.loc[mask, "year_in_contract"] = int(r["year_in_contract"])
+                if pd.notna(r.get("contract_years")):
+                    df.loc[mask, "contract_years"] = int(r["contract_years"])
+                n_applied += mask.sum()
+        if n_applied:
+            print(f"Contract structure corrections: applied {n_applied} overrides")
+
     df = attach_waiver_interactions(df)
     # Derived at load time rather than baked into training_data_v2.csv: both are
     # pure functions of columns already in the table (plus, for the playoff
@@ -361,6 +400,12 @@ def _prepare_Xy(df: pd.DataFrame, features: list[str] | None = None):
     """Return X, y, groups arrays with NaN features filled."""
     if features is None:
         features = FEATURE_COLS
+
+    # Missingness indicators before median fill (ISSUES #39).
+    if "rapm_known" in features and "rapm_z" in df.columns:
+        df = df.copy()
+        df["rapm_known"] = df["rapm_z"].notna().astype(int)
+
     avail = [f for f in features if f in df.columns]
     X = df[avail].copy()
 
@@ -474,9 +519,9 @@ def _load_name_aliases() -> dict[str, str]:
 
 
 def _load_salary_corrections() -> pd.DataFrame:
-    """Curated per-row salary corrections (ISSUES #22/#23).
+    """Curated per-row salary corrections (ISSUES #22/#23/#36/#38).
 
-    Two kinds, and they are not interchangeable:
+    Four kinds, and they are not interchangeable:
 
     - ``prior_base`` — the season's CONTRACTUAL base salary, where our table
       carries a figure the CBA arithmetic proves is not the base a later
@@ -488,6 +533,14 @@ def _load_salary_corrections() -> pd.DataFrame:
       It is not a correction to the target; it lifts that row's own extension
       ceiling, because the raise cap governs base salary and this money is
       legally on top of it. Consumed by `extension_cap.attach_extension_cap`.
+    - ``salary_override`` — replaces the row's ``salary`` column outright,
+      because the scraped value is not the player's actual signed contract
+      (e.g. a waiving team's stretched dead money reported as the player's
+      salary). Applied in `load_training_data` before the ``cap_pct``
+      recomputation so the target is corrected at every load. See ISSUES #36.
+    - ``min_cap_charge`` — replaces paid-convention minimum salary with the
+      2-year-vet cap charge. Applied in `build_dataset.py` at rebuild time.
+      See ISSUES #38.
 
     The `confidence` column carries the standard of evidence: `verified` means
     the value is pinned by an independent anchor (a contract total, an exact
@@ -510,8 +563,9 @@ def _load_prev_season_cap_pct() -> dict[tuple[str, int], float]:
 
     Read from the unfiltered training table so escalator years are present —
     the ceiling rule below needs a player's actual pay in season-1 even when
-    that row never enters training. `prior_base` corrections from
-    `salary_corrections.csv` are applied last and win over the table.
+    that row never enters training. `salary_override` corrections are applied
+    first (a corrected salary IS the prior for the next season), then
+    `prior_base` corrections win over both the table and any override.
     """
     path = PROCESSED_DIR / "training_data_v2.csv"
     if not path.exists():
@@ -519,9 +573,6 @@ def _load_prev_season_cap_pct() -> dict[tuple[str, int], float]:
     t = pd.read_csv(path, usecols=["player_name_norm", "season", "salary"])
     pre = PROCESSED_DIR / "salaries_prehistory.csv"
     if pre.exists():
-        # 2016-2018 pay parsed from the cached BBRef player pages
-        # (scripts/backfill_prehistory_salaries.py) so the ceiling rule can
-        # anchor the first data season instead of going blind at the boundary
         t = pd.concat([t, pd.read_csv(pre, usecols=["player_name_norm", "season",
                                                     "salary"])], ignore_index=True)
     aliases = _load_name_aliases()
@@ -534,11 +585,34 @@ def _load_prev_season_cap_pct() -> dict[tuple[str, int], float]:
     out = dict(zip(zip(t["player_name_norm"], t["season"].astype(int)), pct))
 
     corr = _load_salary_corrections()
+    for r in corr[corr["kind"] == "salary_override"].itertuples():
+        s = int(r.season)
+        if s in CAP_BY_SEASON:
+            out[(str(r.player_name_norm), s)] = float(r.value_usd) / CAP_BY_SEASON[s]
     for r in corr[corr["kind"] == "prior_base"].itertuples():
         s = int(r.season)
         if s in CAP_BY_SEASON:
             out[(str(r.player_name_norm), s)] = float(r.value_usd) / CAP_BY_SEASON[s]
     return out
+
+
+def _load_contract_structure_corrections() -> pd.DataFrame:
+    """Sourced overrides for contract_structure_v2.csv entries (ISSUES #31).
+
+    contract_structure_v2.csv is extended, never recomputed (CLAUDE.md). Where
+    the frozen file carries a provably wrong year_in_contract, this table
+    provides the correction. Each row overrides one (player_name_norm, season)
+    key's year_in_contract and contract_years in the loaded training data.
+
+    Applied in ``load_training_data`` so every consumer (the filter chain,
+    ``load_evaluation_frame``, diagnostics) sees the corrected values.
+    """
+    path = RAW_DIR / "raw_external" / "contract_structure_corrections.csv"
+    cols = ["player_name_norm", "season", "year_in_contract", "contract_years",
+            "source", "note"]
+    if not path.exists():
+        return pd.DataFrame(columns=cols)
+    return pd.read_csv(path)
 
 
 def _compute_floor(df: pd.DataFrame) -> pd.DataFrame:

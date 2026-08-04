@@ -106,6 +106,63 @@ class ImpactIdentityTests(unittest.TestCase):
         self.assertAlmostEqual(beverley_prior, 13_000_000, places=0)
 
 
+class ContractStructureCorrectionTests(unittest.TestCase):
+    """Regression tests for contract_structure_corrections.csv (ISSUES #31)."""
+
+    def test_nunn_2020_correction_applied_at_load_time(self):
+        """Kendrick Nunn 2020 reads year_in_contract=3 after corrections."""
+        from src.model.train import load_training_data
+        df = load_training_data()
+        nunn_2020 = df[(df["player_name_norm"] == "kendrick nunn")
+                       & (df["season"] == 2020)]
+        self.assertEqual(len(nunn_2020), 1,
+                         "Nunn 2020 should exist in the unfiltered training data")
+        self.assertEqual(int(nunn_2020.iloc[0]["year_in_contract"]), 3,
+                         "Nunn 2020 should be year 3 of a 3-year minimum contract")
+        self.assertEqual(int(nunn_2020.iloc[0]["contract_years"]), 3,
+                         "Nunn 2020 contract_years should be 3")
+
+    def test_nunn_2020_excluded_from_year1_filter(self):
+        """Kendrick Nunn 2020 is dropped by the year-1 filter."""
+        from src.model.train import load_training_data, _filter_year1
+        df = _filter_year1(load_training_data())
+        nunn_2020 = df[(df["player_name_norm"] == "kendrick nunn")
+                       & (df["season"] == 2020)]
+        self.assertEqual(len(nunn_2020), 0,
+                         "Nunn 2020 (year 3) must not survive the year-1 filter")
+
+    def test_nunn_2020_excluded_from_evaluation_frame(self):
+        """Kendrick Nunn 2020 does not appear in load_evaluation_frame()."""
+        from src.model.evaluate_suite import load_evaluation_frame
+        frame, _ = load_evaluation_frame(verbose=False)
+        nunn_2020 = frame[(frame["player_name_norm"] == "kendrick nunn")
+                          & (frame["season"] == 2020)]
+        self.assertEqual(len(nunn_2020), 0,
+                         "Nunn 2020 must not appear in the evaluation frame")
+
+
+class MinCapChargeTests(unittest.TestCase):
+    """Regression tests for min_cap_charge corrections (ISSUES #38)."""
+
+    def test_dwight_howard_2019_corrected_to_cap_charge(self):
+        """Dwight Howard 2019 should carry the 2-yr vet cap charge, not paid."""
+        from src.model.train import load_training_data
+        df = load_training_data()
+        row = df[(df["player_name_norm"] == "dwight howard")
+                 & (df["season"] == 2019)]
+        self.assertEqual(len(row), 1)
+        self.assertAlmostEqual(float(row.iloc[0]["salary"]), 1_620_564, places=0)
+
+    def test_non_minimum_rows_untouched(self):
+        """A non-minimum player's salary must not change."""
+        from src.model.train import load_training_data
+        df = load_training_data()
+        lillard = df[(df["player_name_norm"] == "damian lillard")
+                     & (df["season"] == 2025)]
+        self.assertEqual(len(lillard), 1)
+        self.assertGreater(float(lillard.iloc[0]["salary"]), 10_000_000)
+
+
 class AvailabilityTests(unittest.TestCase):
     def test_skips_unknown_seasons_but_keeps_observed_zero(self):
         frame = pd.DataFrame({

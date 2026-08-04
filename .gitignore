@@ -17,6 +17,7 @@ data/raw/raw_external/*
 !data/raw/raw_external/salary_corrections.csv
 !data/raw/raw_external/impact_metric_corrections.csv
 !data/raw/raw_external/player_identity_corrections.csv
+!data/raw/raw_external/contract_structure_corrections.csv
 
 outputs/models/
 __pycache__/

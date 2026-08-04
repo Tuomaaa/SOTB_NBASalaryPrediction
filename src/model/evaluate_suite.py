@@ -250,6 +250,10 @@ def load_evaluation_frame(keep_prorated: bool = False,
     df["cap"] = df["season"].map(CAP_BY_SEASON)
     df["salary_m"] = df[TARGET] * df["cap"] / 1e6
 
+    # Missingness indicators before _prepare_Xy (ISSUES #39).
+    if "rapm_z" in df.columns and "rapm_known" not in df.columns:
+        df["rapm_known"] = df["rapm_z"].notna().astype(int)
+
     _, _, _, features = _prepare_Xy(df)
     df[features] = df[features].fillna(df[features].median()).fillna(0)
     df["is_confirmation"] = df["player_name_norm"].map(_in_confirmation_set)

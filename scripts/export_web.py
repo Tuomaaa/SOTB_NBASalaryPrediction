@@ -447,6 +447,10 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     full = attach_extension_cap(full)
     full = attach_extension_value(full)
 
+    # Missingness indicator before fill (ISSUES #39).
+    if "rapm_z" in full.columns and "rapm_known" not in full.columns:
+        full["rapm_known"] = full["rapm_z"].notna().astype(int)
+
     X = full.reindex(columns=features).copy()
     X = X.fillna(medians).fillna(0)
 
@@ -631,6 +635,10 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
     fa = attach_playoff_mpg(fa)
     print(f"  Playoff minutes attached: "
           f"{int(fa['po_mpg'].notna().sum())} of {len(fa)} free agents played")
+
+    # Missingness indicator before fill (ISSUES #39).
+    if "rapm_z" in fa.columns and "rapm_known" not in fa.columns:
+        fa["rapm_known"] = fa["rapm_z"].notna().astype(int)
 
     X = fa.reindex(columns=features).fillna(medians).fillna(0)
     latent = model.predict(X)
