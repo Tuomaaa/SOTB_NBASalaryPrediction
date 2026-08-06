@@ -10,8 +10,8 @@ worklist, not a changelog. `VERSION_HISTORY.md` is where fixes get recorded.
 
 **Numbers are permanent and are never reused.** A new entry takes `max + 1` over
 every number this file has *ever* used, not the first gap — deleting a fixed
-entry retires its number for good. The highest ever used is **45**, so the next
-new entry is **46**. Two parallel workers each taking "the next free number"
+entry retires its number for good. The highest ever used is **48**, so the next
+new entry is **49**. Two parallel workers each taking "the next free number"
 is exactly how the two `#20`s and two `#25`s of 2026-07-27 happened.
 
 Entries are listed in **numeric order**, not by severity — the file is looked up
@@ -832,3 +832,104 @@ frame; re-measure or mark historical the #12 figure; identify the one-row
 continuation drift and record its cause.
 
 **Fixed when**: every verify block in ISSUES.md reproduces on the current tree.
+
+## 46. The web export does not carry the Stage-3 signing offset
+
+**Severity**: low-medium — the site and the suite now describe different models,
+which is the "three consumers re-implementing a clip" failure `stages.py` exists
+to prevent, arriving from the other direction.
+
+v8.8x added the Stage-3 signing-type offset to `src/model/stages.py` and wired
+it into `src/model/evaluate_suite.py`. `scripts/export_web.py` was deliberately
+left out of that round (Vercel deploy is on hold), so `build_frame` still calls
+`stages.compose` without `signing_type` / `signing_offsets` and the site's
+historical Contract Surplus numbers are the v8.7x composition. Nothing is
+*wrong* — the new arguments default to None and the export is bit-identical to
+what it produced before — but the published board no longer matches the
+published A1.
+
+`src/model/predict.py` is a different case and needs no change: an unsigned free
+agent has no signing mechanism, so the offset is 0.0 on every row of the
+free-agent path by construction, and `predict.py` asserts exactly that.
+
+**Reproduce**: `grep -n "stages.compose" scripts/export_web.py` — the call at
+`build_frame` passes `is_extension` / `ext_cap_pct` and no signing arguments.
+
+**What to do**: pass `signing_type=<the row's signing_cat>` and
+`signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED` in `build_frame` only. Two
+traps. First, `_add_free_agents` must NOT get them — an upcoming free agent has
+not signed, and giving him a mechanism label would be inventing one. Second, the
+export's signing labels have to come from the same `attach_signing_labels` merge
+the suite uses, salary-aware, or the row will be corrected as the wrong type.
+Re-export and check the site's headline metrics against
+`outputs/models/evaluation_suite.json`'s `champion` block, not against the
+`champion_ext_clip` block.
+
+**Fixed when**: the web export's historical rows carry the signing offset, and
+the JSON it writes records `signing_k` and the deployed offsets alongside `tau`
+and `margin`.
+
+## 47. `diagnostics.py`'s signing-type residual tables are not the champion's
+
+**Severity**: low — the tables are diagnostics, but they are the tables the
+signing-offset work was motivated from, and they overstate the bias.
+
+`scripts/diagnostics.py::main` computes the OOF predictions behind
+`residual_by_signing_type` with a **plain `XGBRegressor(**PARAMS)`, one seed, no
+Grabit censoring, no Stage-2 push or clip, no Stage 3** (lines ~408-415). The
+champion's per-type biases are materially smaller: Bird Rights reads
+**−$2.16M** in `outputs/diagnostics/residual_by_signing_type_selection.csv`
+against **−$1.86M** on the champion's own 10-seed OOF (selection pool, 896-row
+frame, `outputs/models/stage3_signing_offset_eval.json`). Anyone reading the
+diagnostics table as "the model's bias" is reading the baseline's.
+
+**Reproduce**: `python scripts/diagnostics.py`, then compare its
+`residual_by_signing_type_selection.csv` against the `per_type_before_after`
+section (scope `selection`, `champ_bias_m`) of
+`outputs/diagnostics/stage3_signing_offset_eval.csv`.
+
+**What to do**: score the table off the champion stack instead — the cheapest
+route is `evaluate_suite.oof_groupkfold` with
+`make_champion_fitter(clf_features)` over `load_evaluation_frame()`, or simply
+read `oof_reference.csv`'s `oof_champion` column, which the suite already
+writes with `signing_cat` and `is_confirmation` beside it. Keep the plain-XGB
+row as a labelled baseline column if it is wanted; do not let it stand alone.
+
+**Fixed when**: `residual_by_signing_type*.csv` carries champion-stack biases
+(Bird Rights ≈ −$1.86M selection on the current frame), and says in its header
+which stack produced them.
+
+## 48. The deployed signing offsets are data-dependent and go stale on a rebuild
+
+**Severity**: medium — a stale offset is a silent, systematic mispricing of
+~47% of rows, and nothing in the pipeline can detect it.
+
+`stages.SIGNING_OFFSETS_DEPLOYED` holds four constants that are per-type mean
+OOF residuals **of the 896-row frame as it stood on 2026-08-06**. They are the
+same kind of object as a published R2: a training-data rebuild invalidates them.
+Unlike an R2, nothing re-derives them — they are hard-coded, because
+`outputs/models/` is gitignored and code is the only place a fresh clone can
+find them. If the frame moves and the constants do not, every Bird-Rights row on
+the single-fit paths is corrected by a residual the model no longer has.
+
+The evaluation suite is **not** exposed to this: layers A and B estimate their
+own offsets from the current frame's residuals every run. The exposure is the
+deployed single-fit consumers — today only whichever of `predict.py` /
+`export_web.py` passes them (see #46; `predict.py` passes them but every row's
+label is missing, so it is inert).
+
+**Reproduce**: after any `scripts/rebuild_training_data.py`, run
+`OMP_NUM_THREADS=6 python scripts/eval_stage3_signing.py` and compare its
+`DEPLOYED-FORM OFFSETS (k=20)` block against the dict in `stages.py`.
+
+**What to do**: add the regeneration to the data-refresh sequence — it is now
+step 5 in CLAUDE.md's refresh block. Better, make it mechanical: have the
+harness write the four numbers to a small tracked CSV under
+`data/raw/raw_external/` (whitelisted in `.gitignore`, the same pattern the
+curated CBA tables use) and have `stages.py` load that file with the hard-coded
+dict as the fallback, so a rebuild that forgets the step fails loudly rather
+than quietly.
+
+**Fixed when**: regenerating the offsets is either a checked step of the rebuild
+or unnecessary, and the deployed constants match a harness run on the current
+frame.

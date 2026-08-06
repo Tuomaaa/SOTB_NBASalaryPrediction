@@ -34,7 +34,7 @@ nba-valuation/
 │   │   └── build_dataset.py # stage 1 of the training-data rebuild
 │   └── model/
 │       ├── train.py         # Ridge / XGBoost / two-sided Grabit + the filter chain
-│       ├── stages.py        # Stage 2 (push + clip) and Stage 3 (extension raise cap)
+│       ├── stages.py        # Stage 2 (push + clip) and Stage 3 (raise cap + signing offset)
 │       ├── evaluate_suite.py  # the four-layer evaluation protocol (see below)
 │       ├── evaluate.py      # residual plots
 │       └── predict.py       # inference on upcoming free agents
@@ -69,7 +69,14 @@ scripts/refresh_salaries.py          # re-scrape 30 BBRef team pages, merge
 scripts/extend_contract_structure.py # incremental year_in_contract assignment
 scripts/rebuild_training_data.py     # the three-stage chain below, in one entry
 scripts/refresh_spotrac.py --year N  # FA class + signing-mechanism labels
+scripts/eval_stage3_signing.py       # regenerate the Stage-3 signing offsets
 ```
+
+The fifth is not a scrape but a **recomputation the rebuild invalidates**:
+`stages.SIGNING_OFFSETS_DEPLOYED` holds four per-type mean OOF residuals of a
+particular frame, so a rebuild makes them stale exactly the way it makes a
+published R² stale. Copy `deployed_offsets_k20` from the harness's JSON into
+`src/model/stages.py` — see ISSUES #48.
 
 `rebuild_training_data.py` chains what used to be three unrelated scripts, the
 last of which is an experiment file:
@@ -146,9 +153,18 @@ Two rules the ablation table encodes:
 Current model is the three-stage Grabit pipeline described in METHODOLOGY.md.
 Stage 1 prices under *default parameters* with a two-sided censored loss; Stage 2
 applies the CBA bounds (push toward the ceiling where P(max) >= 0.52, then clip
-into the player's [floor, max] band); Stage 3 clips extension rows at their
-legal raise cap. Composition lives in `src/model/stages.py`. Ridge remains in
-`train.py` as a reference point.
+into the player's [floor, max] band); Stage 3 adjusts for told-route facts —
+it clips extension rows at their legal raise cap, then adds a per-type offset
+to the four eligibility signing mechanisms and re-applies both bounds.
+Composition lives in `src/model/stages.py`. Ridge remains in `train.py` as a
+reference point.
+
+The signing offset is the exception to the rule below, and the reason the rule
+is worded as it is: **a signing label may correct an OUTPUT, never enter the
+feature list.** Only the four eligibility mechanisms (Bird Rights, Cap Space,
+Early Bird, Non-Bird) are corrected; MLE, BAE, Minimum and Sign & Trade are
+determined by the contract value itself, so conditioning on them reads the
+target. That list is pre-registered alongside TAU, MARGIN and SIGNING_K = 20.
 
 Escalating model complexity requires a paired CV improvement, not a hunch. The
 hyperparameters have been grid-searched twice and the model is **not**

@@ -4,11 +4,14 @@ Trains the two-sided censored-normal Grabit model on all seasons before the
 target, applies the Stage-2 CBA bounds (the max push, then the ceiling and floor
 clip), and identifies free agents by comparing against the salary roll.
 
-Stage 3 — the extension raise cap — is a NO-OP here, and that is correct rather
-than an omission: an unsigned free agent is by definition not extending, so he
-carries no extension flag and no `ext_cap_pct`. The call is made explicitly with
-empty route inputs so the no-op is demonstrated by the code rather than assumed
-by the reader.
+Both Stage-3 components are NO-OPs here, and that is correct rather than an
+omission. An unsigned free agent is by definition not extending, so he carries
+no extension flag and no `ext_cap_pct`; and he has not signed anything yet, so
+he has no signing mechanism either — the label exists only once the contract
+does, which is also why conditioning on it would be leakage if it did. Both
+calls are made explicitly with empty inputs, and the result is ASSERTED equal to
+the composition without them, so the no-op is demonstrated by the code rather
+than assumed by the reader.
 
 This is the same pipeline export_web.py uses to produce the portfolio site's
 valuations, and the same `src.model.stages` composition the evaluation suite
@@ -147,17 +150,31 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     # Stage 2's upward half: where the route classifier says P(max) >= tau, push
     # the latent toward the ceiling before clipping. The classifier is fit on the
     # same filtered training frame the regression saw, so nothing from the target
-    # season enters it. Stage 3 is passed empty inputs — nobody in this frame has
-    # a realized extension to be told about.
+    # season enters it. Both Stage-3 components are passed empty inputs — nobody
+    # in this frame has a realized extension to be told about, and nobody has a
+    # signing mechanism, because nobody has signed.
     p_max = stages.deployed_p_max(stages.training_route_frame(train_df), pred_df,
                                   medians=medians)
     no_extension = np.zeros(len(pred_df), bool)
     no_ext_cap = np.full(len(pred_df), np.nan)
+    no_signing_type = np.full(len(pred_df), None, dtype=object)
     capped = stages.compose(latent, lo=floor_pct, hi=max_elig, p_max=p_max,
-                            is_extension=no_extension, ext_cap_pct=no_ext_cap)
+                            is_extension=no_extension, ext_cap_pct=no_ext_cap,
+                            signing_type=no_signing_type,
+                            signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED)
+    # The deployed offsets are passed in, not withheld, and the free-agent path
+    # is still bit-identical to the pre-v8.8x pipeline: every row's signing type
+    # is missing, so every offset is exactly 0.0. Asserted rather than argued.
+    assert np.array_equal(
+        capped,
+        stages.compose(latent, lo=floor_pct, hi=max_elig, p_max=p_max,
+                       is_extension=no_extension, ext_cap_pct=no_ext_cap)), \
+        "the Stage-3 signing offset moved an unsigned free agent"
     flags = stages.bound_flags(latent, capped, lo=floor_pct, hi=max_elig,
                                p_max=p_max, is_extension=no_extension,
-                               ext_cap_pct=no_ext_cap)
+                               ext_cap_pct=no_ext_cap,
+                               signing_type=no_signing_type,
+                               signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED)
     assert not flags["is_ext_capped"].any(), \
         "Stage 3 fired on a frame with no extension rows"
 

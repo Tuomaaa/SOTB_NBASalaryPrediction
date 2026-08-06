@@ -28,13 +28,23 @@ Each layer answers a different question and they must not be mixed:
                     and a locked confirmation split held out of selection.
 
 The champion this suite scores is the full stack — Grabit latent, then the
-Stage-2 push and clip, then the Stage-3 extension clip (`src/model/stages.py`).
-Stage 3 reads the realized route, so **A1/A2/B1 here are TOLD-ROUTE numbers**
-under the convention adopted 2026-07-26 and refined 2026-07-27 (docs/QUEUE.md).
-Everything published from v7.1x to v7.13x was computed under the old "ignore the
-route" convention, so the suite prints the ex-ante arm (Stage 3 off) and the
-clip-only arm (the v7.13x champion) beside the headline. Quote the matching
-convention or the series reads as a jump that never happened.
+Stage-2 push and clip, then the Stage-3 extension clip, then the Stage-3
+signing offset (`src/model/stages.py`). Both Stage-3 components read a realized
+fact about the contract, so **A1/A2/B1 here are TOLD-ROUTE numbers** under the
+convention adopted 2026-07-26 and refined 2026-07-27 (docs/QUEUE.md). Everything
+published from v7.1x to v7.13x was computed under the old "ignore the route"
+convention, so the suite prints the ext-clip arm (the v8.7x champion), the
+ex-ante arm (both Stage-3 components off) and the clip-only arm (the v7.13x
+champion) beside the headline. Quote the matching convention or the series reads
+as a jump that never happened.
+
+The signing offset is the one arm the fitter cannot produce, because its
+parameters are means over the COMPLETED out-of-fold residuals. It is composed
+after the fit pass, fold-honestly, by two functions that exist for that reason
+alone: `oof_groupkfold_signing` (layer A — the offsets correcting fold f come
+from rows outside fold f) and `rolling_forward_signing` (layer B — the offsets
+for season T come from an inner OOF over seasons < T). Never estimate an offset
+on the rows it corrects.
 
 Run directly for the full report on the current champion:
 
@@ -68,7 +78,10 @@ from src.model.route_mixture import (
     attach_clf_features, grabit_latent, route_proba, train_route_classifier,
     MAX_IDX,
 )
-from src.model.stages import compose, TAU, MARGIN
+from src.model.stages import (
+    compose, stage3_signing, signing_offsets, TAU, MARGIN, SIGNING_K,
+    SIGNING_ELIGIBLE_TYPES, SIGNING_OFFSETS_DEPLOYED,
+)
 # reuse the canonical label logic so C2 segments match scripts/diagnostics.py
 from scripts.diagnostics import attach_signing_labels
 
@@ -77,20 +90,26 @@ DEFAULT_SEEDS = tuple(range(10))
 FORWARD_ORIGINS = (2024, 2025, 2026)
 CONFIRMATION_PCT = 15  # share of players locked away from model selection
 
-# The three Stage-2/3 arms the suite reports, off ONE fit pass.
+# The four Stage-2/3 arms the suite reports, off ONE fit pass.
 #
 # CHAMPION is the shipped composition and the number every future paired delta
-# diffs against. The two references exist because the reporting convention
+# diffs against. The three references exist because the reporting convention
 # changed underneath the version series (docs/QUEUE.md, 2026-07-26/27): Stage 3
 # reads the realized route, so the champion is a TOLD-ROUTE number, while
 # v7.1x-v7.13x were all computed under the old "ignore the route" convention.
-# ARM_EXANTE is the same stack with Stage 3 off — the figure that stays
-# comparable to the published series. ARM_CLIP is the v7.13x champion itself,
-# kept so the push and the clip can be attributed separately.
+# ARM_EXANTE is the same stack with both Stage-3 components off — the figure
+# that stays comparable to the published series. ARM_CLIP is the v7.13x champion
+# itself, kept so the push and the clip can be attributed separately. ARM_EXT is
+# the v8.0x-v8.7x champion, the stack before the signing offset.
+#
+# ARM_CHAMPION is the only arm the fitter does NOT produce: its offsets are a
+# function of the completed OOF residuals, so it is composed after the fit pass
+# (`oof_groupkfold_signing` / `rolling_forward_signing`), fold-honestly.
 ARM_CLIP = "Stage 2 clip only (v7.13x, ex ante)"
 ARM_EXANTE = "+ push (ex ante)"
-ARM_CHAMPION = "+ push + Stage 3 extension clip (champion, told route)"
-STAGE_ARMS = (ARM_CLIP, ARM_EXANTE, ARM_CHAMPION)
+ARM_EXT = "+ Stage 3 extension clip (v8.7x champion, told route)"
+ARM_CHAMPION = "+ Stage 3 signing offset (champion, told route)"
+STAGE_ARMS = (ARM_CLIP, ARM_EXANTE, ARM_EXT, ARM_CHAMPION)
 
 BASELINE_LADDER = {
     "mpg only": ["mpg"],
@@ -165,6 +184,12 @@ def make_grabit_fitter(sigma: float = 0.02, gate_frac: float = 0.55,
 def make_stage_arms_fitter(clf_features: list[str], grabit_params: dict | None = None):
     """One Grabit fit + one route-classifier fit per (fold, seed), three arms out.
 
+    The fourth arm — the champion, with the Stage-3 signing offset — is NOT
+    produced here and cannot be: its offsets are per-type means over the
+    completed OOF residuals, which do not exist until this pass finishes. It is
+    composed on top of ARM_EXT afterwards by `oof_groupkfold_signing` (layer A,
+    leave-fold-out) and `rolling_forward_signing` (layer B, seasons < T).
+
     The arms differ only in which post-Stage-1 layers are composed, so they must
     ride on the SAME fitted models — otherwise the paired delta between them
     would carry fit noise that does not exist in the change being measured. The
@@ -186,8 +211,8 @@ def make_stage_arms_fitter(clf_features: list[str], grabit_params: dict | None =
         return {
             ARM_CLIP: compose(latent, lo=lo, hi=hi),
             ARM_EXANTE: compose(latent, lo=lo, hi=hi, p_max=p_max),
-            ARM_CHAMPION: compose(latent, lo=lo, hi=hi, p_max=p_max,
-                                  is_extension=is_ext, ext_cap_pct=ext_cap),
+            ARM_EXT: compose(latent, lo=lo, hi=hi, p_max=p_max,
+                             is_extension=is_ext, ext_cap_pct=ext_cap),
         }
 
     return fitter
@@ -195,12 +220,18 @@ def make_stage_arms_fitter(clf_features: list[str], grabit_params: dict | None =
 
 def make_champion_fitter(clf_features: list[str], push: bool = True,
                          stage3: bool = True, grabit_params: dict | None = None):
-    """Single-arm champion fitter — the shipped composition, for one-off use.
+    """Single-arm champion fitter — the composition through ARM_EXT.
 
     `make_stage_arms_fitter` is what `main()` runs (it amortises the fit across
-    the three arms); this is the same composition behind the ordinary
+    the arms); this is the same composition behind the ordinary
     `fitter(train, test, features, seed)` signature, for a harness that wants
     only the champion.
+
+    It stops at the extension clip and does NOT carry the Stage-3 signing
+    offset, because a fitter sees one fold and the offset is a function of the
+    whole OOF. That is also exactly what layer B needs: `rolling_forward_signing`
+    passes this fitter as the inner-OOF engine, estimates the offsets from its
+    residuals over seasons < T, and applies them outside.
     """
     gp = grabit_params or {}
 
@@ -287,6 +318,53 @@ def _in_confirmation_set(player_name_norm: str) -> bool:
 # Prediction engines
 # ---------------------------------------------------------------------------
 
+def _fold_pass(df: pd.DataFrame, features: list[str], fitter, seeds):
+    """One GroupKFold x seed sweep, KEEPING every (fold, seed) prediction.
+
+    `oof_groupkfold` collapses this to the seed average and the R2 matrices in
+    the same loop; the signing correction needs the individual cells, because it
+    corrects each (fold, seed) prediction BEFORE the seed average and both the
+    offset and the legality clips are non-linear. Split out so there is one
+    fitting loop rather than two that can drift.
+
+    Returns:
+        (store, folds, multi) — `store` is a list of
+        {"fi", "si", "va", "pred": {arm: array}} in fit order.
+    """
+    y = df[TARGET].values
+    folds = list(GroupKFold(n_splits=N_SPLITS).split(df, y, df["player_name_norm"].values))
+    store, multi = [], None
+    for si, seed in enumerate(seeds):
+        for fi, (tr, va) in enumerate(folds):
+            out = fitter(df.iloc[tr], df.iloc[va], features, seed)
+            if multi is None:
+                multi = isinstance(out, dict)
+            store.append({"fi": fi, "si": si, "va": va,
+                          "pred": dict(out) if multi else {None: out}})
+    return store, folds, bool(multi)
+
+
+def _reduce_fold_pass(df: pd.DataFrame, store, folds, seeds) -> dict:
+    """(oof, fold_r2, fold_r2_sel) per arm from a `_fold_pass` store."""
+    y = df[TARGET].values
+    sel = ~df["is_confirmation"].values if "is_confirmation" in df.columns \
+        else np.ones(len(df), bool)
+    acc, fold_r2, fold_r2_sel = {}, {}, {}
+    for rec in store:
+        va = rec["va"]
+        for name, pred in rec["pred"].items():
+            if name not in acc:
+                acc[name] = np.zeros(len(df))
+                fold_r2[name] = np.zeros((len(folds), len(seeds)))
+                fold_r2_sel[name] = np.zeros((len(folds), len(seeds)))
+            acc[name][va] += pred
+            fold_r2[name][rec["fi"], rec["si"]] = r2_score(y[va], pred)
+            vs = sel[va]
+            fold_r2_sel[name][rec["fi"], rec["si"]] = (
+                r2_score(y[va][vs], pred[vs]) if vs.sum() > 10 else np.nan)
+    return {k: (acc[k] / len(seeds), fold_r2[k], fold_r2_sel[k]) for k in acc}
+
+
 def oof_groupkfold(df: pd.DataFrame, features: list[str], fitter,
                    seeds=DEFAULT_SEEDS) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Seed-averaged out-of-fold predictions, plus per-(fold, seed) R2.
@@ -311,32 +389,66 @@ def oof_groupkfold(df: pd.DataFrame, features: list[str], fitter,
     other folds' training data); they are only excluded from the metric that
     decides.
     """
-    y = df[TARGET].values
-    folds = list(GroupKFold(n_splits=N_SPLITS).split(df, y, df["player_name_norm"].values))
-    sel = ~df["is_confirmation"].values if "is_confirmation" in df.columns \
-        else np.ones(len(df), bool)
+    store, folds, multi = _fold_pass(df, features, fitter, seeds)
+    out = _reduce_fold_pass(df, store, folds, seeds)
+    return out if multi else out[None]
 
-    acc, fold_r2, fold_r2_sel = {}, {}, {}
-    multi = None
-    for si, seed in enumerate(seeds):
-        for fi, (tr, va) in enumerate(folds):
-            out = fitter(df.iloc[tr], df.iloc[va], features, seed)
-            if multi is None:
-                multi = isinstance(out, dict)
-            items = out.items() if multi else [(None, out)]
-            for name, pred in items:
-                if name not in acc:
-                    acc[name] = np.zeros(len(df))
-                    fold_r2[name] = np.zeros((len(folds), len(seeds)))
-                    fold_r2_sel[name] = np.zeros((len(folds), len(seeds)))
-                acc[name][va] += pred
-                fold_r2[name][fi, si] = r2_score(y[va], pred)
-                vs = sel[va]
-                fold_r2_sel[name][fi, si] = (r2_score(y[va][vs], pred[vs])
-                                             if vs.sum() > 10 else np.nan)
+
+def oof_groupkfold_signing(df: pd.DataFrame, features: list[str], fitter,
+                           seeds=DEFAULT_SEEDS, source_arm: str = ARM_EXT,
+                           new_arm: str = ARM_CHAMPION,
+                           k: float = SIGNING_K) -> tuple[dict, dict]:
+    """Layer A with the Stage-3 signing offset, applied FOLD-HONESTLY.
+
+    ONE fit pass, shared with every other arm — the correction is pure
+    post-processing of `source_arm`'s own predictions, so champion and candidate
+    share every fold, every seed and every fitted model, and the paired delta
+    between them carries zero fit noise.
+
+    Fold honesty: the offsets that correct fold f are per-type means over the
+    OOF residuals of the rows NOT in fold f. Fold f's own residuals never
+    correct fold f. The correction is applied per (fold, seed) cell BEFORE the
+    seed average, which is where it acts — averaging first and correcting after
+    would clip a different value.
+
+    One residual channel, stated rather than hidden: the leave-fold-out offset
+    for fold f is a mean over OOF residuals of rows in folds g != f, and each of
+    those predictions came from a model that had fold f in ITS training set, so
+    fold f's TARGETS touch the offset through the regression's parameters. That
+    is the ordinary single-level-CV channel every hyperparameter chosen on OOF
+    already pays; a fully nested design would cost 5x the fits for a two-
+    parameter statistic. Layer B is clean of it entirely.
+
+    Offsets are estimated over ALL rows including the confirmation split,
+    because an offset is a fitted parameter and confirmation rows already sit in
+    every training fold the champion sees. They are excluded from the DECIDING
+    metric, which is the selection-pool matrix (ISSUES #20a).
+
+    Returns:
+        ({arm: (oof, fold_r2, fold_r2_sel)}, {fold: {type: detail}})
+    """
+    store, folds, multi = _fold_pass(df, features, fitter, seeds)
     if not multi:
-        return acc[None] / len(seeds), fold_r2[None], fold_r2_sel[None]
-    return {k: (acc[k] / len(seeds), fold_r2[k], fold_r2_sel[k]) for k in acc}
+        raise ValueError("oof_groupkfold_signing needs a multi-arm fitter")
+    src_oof = _reduce_fold_pass(df, store, folds, seeds)[source_arm][0]
+
+    cat = df["signing_cat"].values
+    resid = df[TARGET].values - src_oof          # actual - predicted, cap_pct
+    fold_of = np.empty(len(df), dtype=int)
+    for fi, (_, va) in enumerate(folds):
+        fold_of[va] = fi
+    lfo = {fi: signing_offsets(resid, cat, pool=fold_of != fi, k=k, detail=True)
+           for fi in range(len(folds))}
+
+    lo, hi = df["floor_pct"].values, df["max_eligible_pct"].values
+    is_ext, ext_cap = df["is_extension"].values, df["ext_cap_pct"].values
+    for rec in store:
+        va = rec["va"]
+        rec["pred"][new_arm] = stage3_signing(
+            rec["pred"][source_arm], cat[va], lfo[rec["fi"]],
+            lo=lo[va], hi=hi[va], is_extension=is_ext[va],
+            ext_cap_pct=ext_cap[va])
+    return _reduce_fold_pass(df, store, folds, seeds), lfo
 
 
 def rolling_forward(df: pd.DataFrame, features: list[str], fitter,
@@ -368,6 +480,64 @@ def rolling_forward(df: pd.DataFrame, features: list[str], fitter,
     if not multi:
         return preds[None]
     return preds
+
+
+def rolling_forward_signing(df: pd.DataFrame, features: list[str],
+                            source_fwd: np.ndarray, inner_fitter,
+                            seeds=DEFAULT_SEEDS, origins=FORWARD_ORIGINS,
+                            k: float = SIGNING_K,
+                            verbose: bool = True) -> tuple[np.ndarray, dict]:
+    """Layer B with the signing offset, learned ONLY from seasons < T.
+
+    The only honest way to learn a season-T offset without seeing season T: for
+    each origin, run a GroupKFold OOF INSIDE the training window (seasons < T)
+    with `inner_fitter`, take the shrunk per-type means of those residuals, and
+    apply them to season T. Nothing from season T enters the offset in any
+    capacity, so B1 is free even of the single-level-CV channel layer A pays.
+
+    The correction is applied to the SEED-AVERAGED forward array, matching
+    `rolling_forward`'s own output and the measurement harness. That ordering
+    (average, then correct) differs from layer A's (correct, then average)
+    because layer B has no per-cell OOF to correct — and it is the source of the
+    known B1 float artifact: a mean of ten individually-clipped values can land
+    1-2 ulp above the bound they were each clipped to, and the re-clip snaps it
+    back, so a non-eligible row can differ by ~3e-17. Reproduced with a ZERO
+    offset vector, which is what proves the offset is not the cause; the
+    bit-identity gate is 1e-12, not 0.0, on this path only.
+
+    Args:
+        source_fwd: the uncorrected champion's forward array (ARM_EXT).
+        inner_fitter: single-arm champion fitter, e.g. `make_champion_fitter`.
+
+    Returns:
+        (corrected forward array, {origin: offsets and their n})
+    """
+    out = np.array(source_fwd, dtype=float, copy=True)
+    season = df["season"].values
+    cat = df["signing_cat"].values
+    lo, hi = df["floor_pct"].values, df["max_eligible_pct"].values
+    is_ext, ext_cap = df["is_extension"].values, df["ext_cap_pct"].values
+    detail = {}
+    for T in origins:
+        te, tr = season == T, season < T
+        if te.sum() < 10 or tr.sum() < 200:
+            continue
+        train = df[tr]
+        if verbose:
+            print(f"    B1 origin {T}: inner OOF over {int(tr.sum())} rows "
+                  f"from seasons < {T}", flush=True)
+        inner_oof, _, _ = oof_groupkfold(train, features, inner_fitter, seeds)
+        offs = signing_offsets(train[TARGET].values - inner_oof,
+                               train["signing_cat"].values, k=k, detail=True)
+        out[te] = stage3_signing(out[te], cat[te], offs, lo=lo[te], hi=hi[te],
+                                 is_extension=is_ext[te], ext_cap_pct=ext_cap[te])
+        detail[int(T)] = {t: {"offset": d["offset"], "n": d["n"]}
+                          for t, d in offs.items()}
+        if verbose:
+            print("      offsets: " + "  ".join(
+                f"{t}={offs[t]['offset']:+.5f}(n={offs[t]['n']})"
+                for t in SIGNING_ELIGIBLE_TYPES), flush=True)
+    return out, detail
 
 
 # ---------------------------------------------------------------------------
@@ -444,6 +614,112 @@ def zone_scorecard(df, pred_champ, pred_cand, zone_mask, sel_mask=None):
             "abs_bias_growth": abs_bias_growth(bias_d, bias_c),
         }
     return out
+
+
+SIGNING_ULP_TOL = 1e-12
+
+
+def signing_guards(df: pd.DataFrame, source_oof, champ_oof,
+                   source_fwd=None, champ_fwd=None) -> dict:
+    """Bit-identity and legality of the Stage-3 signing offset.
+
+    Two things the correction must never do, checked where it acts:
+
+      G1 bit-identity  Every row whose signing type is outside
+                       SIGNING_ELIGIBLE_TYPES must come out EXACTLY unchanged —
+                       that is the leakage ruling made testable. Layer A is
+                       gated at 0.0; layer B at SIGNING_ULP_TOL, for the
+                       seed-average rounding documented on
+                       `rolling_forward_signing`.
+      G2 legality      Zero rows below `floor_pct`, above `max_eligible_pct`, or
+                       above a binding `ext_cap_pct`. A corrected row that broke
+                       one of those would be an impossible contract, which is
+                       the failure Stage 3 exists to prevent.
+    """
+    cat = df["signing_cat"].values
+    elig = np.isin(np.asarray(cat, dtype=object).astype(str),
+                   SIGNING_ELIGIBLE_TYPES)
+    lo, hi = df["floor_pct"].values, df["max_eligible_pct"].values
+    ext = np.asarray(pd.Series(df["is_extension"]).fillna(False).values, bool)
+    ext_cap = df["ext_cap_pct"].values
+    binds = ext & ~np.isnan(ext_cap) & (ext_cap >= lo - SIGNING_ULP_TOL)
+    tol = SIGNING_ULP_TOL
+
+    def legality(pred, where):
+        m = ~np.isnan(pred)
+        return {"below_floor": int(((pred < lo - tol) & m).sum()),
+                "above_max": int(((pred > hi + tol) & m).sum()),
+                "above_ext_cap": int(((pred > ext_cap + tol) & binds & m).sum()),
+                "n_scored": int(m.sum()), "scope": where}
+
+    d_oof = np.abs(champ_oof - source_oof)
+    out = {
+        "n_eligible": int(elig.sum()),
+        "n_ineligible": int((~elig).sum()),
+        "A_bit_identity_max_absdiff": float(d_oof[~elig].max()),
+        "A_bit_identity_pass": bool(d_oof[~elig].max() == 0.0),
+        "A_n_moved": int((d_oof > 1e-9).sum()),
+        "A_n_eligible_unmoved": int((elig & (d_oof <= 1e-9)).sum()),
+        "A_legality": legality(champ_oof, "layer A OOF"),
+    }
+    if source_fwd is not None and champ_fwd is not None:
+        scored = ~np.isnan(source_fwd)
+        d_fwd = np.abs(champ_fwd - source_fwd)[~elig & scored]
+        out.update({
+            "B_bit_identity_max_absdiff": float(d_fwd.max()) if d_fwd.size else 0.0,
+            "B_bit_identity_rows_above_tol": int((d_fwd > tol).sum()),
+            "B_bit_identity_pass": bool((d_fwd > tol).sum() == 0),
+            "B_legality": legality(champ_fwd, "layer B forward"),
+        })
+    out["legality_pass"] = all(
+        out[key][f] == 0
+        for key in ("A_legality", "B_legality") if key in out
+        for f in ("below_floor", "above_max", "above_ext_cap"))
+    return out
+
+
+def print_signing_guards(g: dict, lfo: dict | None = None,
+                         b_detail: dict | None = None):
+    """The guard block, printed where a reader will see it fail."""
+    line = "=" * 100
+    print(f"\n{line}\n  STAGE-3 SIGNING OFFSET — guards "
+          f"(k={SIGNING_K:g}, pre-registered; eligible "
+          f"{', '.join(SIGNING_ELIGIBLE_TYPES)})\n{line}")
+    if lfo:
+        print(f"    {'fold':>4s} " + "  ".join(f"{t:>13s}"
+                                               for t in SIGNING_ELIGIBLE_TYPES))
+        for fi in sorted(lfo):
+            print(f"    {fi:4d} " + "  ".join(
+                f"{lfo[fi][t]['offset']:+13.5f}" for t in SIGNING_ELIGIBLE_TYPES))
+        print("    ^ leave-fold-out offsets: fold f is corrected from rows "
+              "OUTSIDE fold f")
+    if b_detail:
+        for T in sorted(b_detail):
+            print(f"    B1 origin {T} (seasons < {T}): " + "  ".join(
+                f"{t}={b_detail[T][t]['offset']:+.5f}(n={b_detail[T][t]['n']})"
+                for t in SIGNING_ELIGIBLE_TYPES))
+    ok1 = g["A_bit_identity_pass"]
+    print(f"\n  G1 bit-identity outside the eligible types, layer A: "
+          f"max|diff| {g['A_bit_identity_max_absdiff']:.3e} over "
+          f"{g['n_ineligible']} rows  [{'PASS' if ok1 else 'FAIL'}]")
+    if "B_bit_identity_pass" in g:
+        ok1b = g["B_bit_identity_pass"]
+        print(f"     layer B: max|diff| {g['B_bit_identity_max_absdiff']:.3e}, "
+              f"rows above {SIGNING_ULP_TOL:.0e} {g['B_bit_identity_rows_above_tol']}"
+              f"  [{'PASS' if ok1b else 'FAIL'}]  (seed-average rounding against "
+              "a legality bound; reproduces with a zero offset)")
+    for key in ("A_legality", "B_legality"):
+        if key in g:
+            d = g[key]
+            print(f"  G2 legality, {d['scope']}: below floor {d['below_floor']}, "
+                  f"above tier ceiling {d['above_max']}, above raise cap "
+                  f"{d['above_ext_cap']} (n={d['n_scored']})")
+    print(f"  G3 rows moved: {g['A_n_moved']} of {g['n_eligible']} eligible; "
+          f"{g['A_n_eligible_unmoved']} eligible rows did not move (legality "
+          f"clipped the offset away)")
+    print(f"  overall: bit-identity "
+          f"{'PASS' if g['A_bit_identity_pass'] and g.get('B_bit_identity_pass', True) else 'FAIL'}"
+          f"   legality {'PASS' if g['legality_pass'] else 'FAIL'}")
 
 
 # ---------------------------------------------------------------------------
@@ -637,6 +913,24 @@ def extension_zone(df, champion_oof, reference_oof) -> dict:
     }
 
 
+def signing_zone(df, champion_oof, reference_oof) -> dict:
+    """Zone-local scorecard for the Stage-3 signing offset.
+
+    Same discipline as `extension_zone`: the offset touches only the four
+    eligible types (~47% of rows), so a pooled statistic dilutes it and a pooled
+    zone MAE is not allowed to decide anything (ISSUES #20a). The scorecard is
+    therefore split by the confirmation lock, and the zone is defined by the
+    LABEL, not by which rows the offset happened to move, so it also charges the
+    correction for the eligible rows legality clipped back.
+    """
+    mask = np.isin(np.asarray(df["signing_cat"].values, dtype=object).astype(str),
+                   SIGNING_ELIGIBLE_TYPES)
+    sel = ~df["is_confirmation"].values
+    out = zone_scorecard(df, reference_oof, champion_oof, mask, sel)
+    out["n_moved"] = int((mask & (np.abs(champion_oof - reference_oof) > 1e-9)).sum())
+    return out
+
+
 def layer_d(df, features, pred_oof, seeds=DEFAULT_SEEDS, ladder=None) -> dict:
     """D2 baseline ladder and D3 the locked confirmation split."""
     y = df[TARGET].values
@@ -676,16 +970,34 @@ def run_suite(df: pd.DataFrame, features: list[str], fitter, name: str,
 
 
 def run_suite_arms(df: pd.DataFrame, features: list[str], fitter,
-                   seeds=DEFAULT_SEEDS, ladder=None) -> dict[str, SuiteResult]:
+                   seeds=DEFAULT_SEEDS, ladder=None,
+                   inner_fitter=None) -> tuple[dict[str, SuiteResult], dict]:
     """Score every arm of a multi-arm fitter through all four layers.
 
     One CV pass and one rolling-forward pass total, so the arms are compared on
     identical fitted models and the D2 ladder is scored once for all of them.
+
+    `inner_fitter` (the single-arm champion fitter) turns on the Stage-3 signing
+    arm: layer A takes leave-fold-out offsets off the same fit pass, layer B
+    takes per-origin offsets from an inner OOF inside each training window.
+    Leaving it None reproduces the pre-v8.8x behaviour exactly, three arms out.
+
+    Returns:
+        ({arm: SuiteResult}, {"layer_a_offsets": ..., "layer_b_offsets": ...})
     """
     print(f"\nScoring the Stage-2/3 arms over {len(seeds)} seeds "
           f"(one fit pass)...")
-    oof_arms = oof_groupkfold(df, features, fitter, seeds)
+    if inner_fitter is None:
+        oof_arms, lfo = oof_groupkfold(df, features, fitter, seeds), None
+    else:
+        oof_arms, lfo = oof_groupkfold_signing(df, features, fitter, seeds)
     fwd_arms = rolling_forward(df, features, fitter, seeds)
+    b_detail = None
+    if inner_fitter is not None:
+        print("\n  Layer B — signing offsets from seasons < T only "
+              "(inner OOF per origin)...")
+        fwd_arms[ARM_CHAMPION], b_detail = rolling_forward_signing(
+            df, features, fwd_arms[ARM_EXT], inner_fitter, seeds)
     if ladder is None:
         ladder = baseline_ladder(df, features, seeds)
 
@@ -698,7 +1010,7 @@ def run_suite_arms(df: pd.DataFrame, features: list[str], fitter,
         res.metrics.update(layer_c(df, oof))
         res.metrics.update(layer_d(df, features, oof, seeds, ladder=ladder))
         out[name] = res
-    return out
+    return out, {"layer_a_offsets": lfo, "layer_b_offsets": b_detail}
 
 
 def print_report(df: pd.DataFrame, res: SuiteResult):
@@ -755,7 +1067,7 @@ def print_report(df: pd.DataFrame, res: SuiteResult):
 
 
 def print_convention_block(df, arms: dict, deltas: dict):
-    """The three Stage-2/3 arms side by side, told-route beside ex-ante.
+    """The four Stage-2/3 arms side by side, told-route beside ex-ante.
 
     The champion reads the realized route (Stage 3), so its A1/A2/B1 are
     TOLD-ROUTE numbers under the convention adopted 2026-07-26 and refined
@@ -765,13 +1077,16 @@ def print_convention_block(df, arms: dict, deltas: dict):
     exists to prevent.
     """
     line = "=" * 100
+    short = {ARM_CLIP: "clip", ARM_EXANTE: "push", ARM_EXT: "ext",
+             ARM_CHAMPION: "sign"}
     print(f"\n{line}\n  STAGE 2/3 ARMS — told route beside ex ante "
-          f"(tau={TAU}, margin={MARGIN}, both pre-registered)\n{line}")
-    print(f"  {'arm':52s} {'A1':>7s} {'A2':>7s} {'B1':>7s} {'MAE':>7s} "
+          f"(tau={TAU}, margin={MARGIN}, k={SIGNING_K:g}, all pre-registered)"
+          f"\n{line}")
+    print(f"  {'arm':56s} {'A1':>7s} {'A2':>7s} {'B1':>7s} {'MAE':>7s} "
           f"{'slope':>6s}")
     for name in STAGE_ARMS:
         m = arms[name].metrics
-        print(f"  {name:52s} {m['A1_cv_r2']:7.4f} {m['A2_cv_r2_2024_26']:7.4f} "
+        print(f"  {name:56s} {m['A1_cv_r2']:7.4f} {m['A2_cv_r2_2024_26']:7.4f} "
               f"{m.get('B1_forward_r2', float('nan')):7.4f} "
               f"{m['A1_cv_mae_m']:7.2f} {m['C1_calibration_slope']:6.3f}")
     print("\n  B1 per origin (the 2026 row is the project's holdout headline):")
@@ -784,7 +1099,7 @@ def print_convention_block(df, arms: dict, deltas: dict):
         print(f"    {T}  n={n.get('n', 0):3d}   " +
               "   ".join(f"{c}" for c in cells))
     print(f"    {'':13s}   " + "   ".join(
-        f"{s.split('(')[0].strip()[:6]:>6s}" for s in STAGE_ARMS))
+        f"{short[s]:>6s}" for s in STAGE_ARMS))
 
     print("\n  PAIRED deltas on the selection pool (same folds, same fitted "
           "models):")
@@ -793,15 +1108,19 @@ def print_convention_block(df, arms: dict, deltas: dict):
               f"t = {d['t']:+.2f}")
     print("    per fold, champion vs Stage-2 clip only: "
           f"{deltas['champion - clip only (the whole change)']['per_fold']}")
-    print("\n  The change is adopted at t = +1.11, below the t > 2 feature bar,")
-    print("  on the same grounds as v7.4x, v7.9x and v7.13x: it enforces a legal")
-    print("  bound rather than fitting a parameter. Predicting $39.68M for")
-    print("  Marcus Smart 2022 was not inaccurate, it was impossible.")
+    print("\n  The extension clip was adopted at t = +1.11, below the t > 2")
+    print("  feature bar, on the same grounds as v7.4x, v7.9x and v7.13x: it")
+    print("  enforces a legal bound rather than fitting a parameter. Predicting")
+    print("  $39.68M for Marcus Smart 2022 was not inaccurate, it was impossible.")
+    print("  The signing offset DOES fit a parameter — four of them — and cleared")
+    print("  the ordinary bar where it acts: MAE on the four eligible types,")
+    print("  selection pool, paired by fold, +$0.20M at t = +2.48 (v8.8x).")
 
 
 def print_stage3_accounting(df, arms: dict):
     """Which rows the push and the extension clip actually move, and by how much."""
     champ = arms[ARM_CHAMPION].oof
+    ext = arms[ARM_EXT].oof
     exante = arms[ARM_EXANTE].oof
     clip = arms[ARM_CLIP].oof
     cap_m = df["cap"].values / 1e6
@@ -809,20 +1128,25 @@ def print_stage3_accounting(df, arms: dict):
     conf = df["is_confirmation"].values
 
     pushed = np.abs(exante - clip) > 1e-9
-    clipped = np.abs(champ - exante) > 1e-9
+    clipped = np.abs(ext - exante) > 1e-9
+    signed = np.abs(champ - ext) > 1e-9
     print(f"\n{'=' * 100}\n  STAGE 2/3 ACCOUNTING — the rows each layer moves"
           f"\n{'=' * 100}")
     print(f"  push moves      {int(pushed.sum()):3d} rows "
           f"({int((pushed & conf).sum())} of them confirmation rows)   "
           f"mean |err| ${np.abs(clip[pushed] - y[pushed]).dot(cap_m[pushed]) / max(pushed.sum(), 1):.2f}M "
           f"-> ${np.abs(exante[pushed] - y[pushed]).dot(cap_m[pushed]) / max(pushed.sum(), 1):.2f}M")
-    print(f"  Stage 3 moves   {int(clipped.sum()):3d} rows "
+    print(f"  ext clip moves  {int(clipped.sum()):3d} rows "
           f"({int((clipped & conf).sum())} of them confirmation rows)   "
           f"mean |err| ${np.abs(exante[clipped] - y[clipped]).dot(cap_m[clipped]) / max(clipped.sum(), 1):.2f}M "
-          f"-> ${np.abs(champ[clipped] - y[clipped]).dot(cap_m[clipped]) / max(clipped.sum(), 1):.2f}M")
-    print("\n  Rows Stage 3 returns to the raise cap, largest correction first:")
+          f"-> ${np.abs(ext[clipped] - y[clipped]).dot(cap_m[clipped]) / max(clipped.sum(), 1):.2f}M")
+    print(f"  signing offset  {int(signed.sum()):3d} rows "
+          f"({int((signed & conf).sum())} of them confirmation rows)   "
+          f"mean |err| ${np.abs(ext[signed] - y[signed]).dot(cap_m[signed]) / max(signed.sum(), 1):.2f}M "
+          f"-> ${np.abs(champ[signed] - y[signed]).dot(cap_m[signed]) / max(signed.sum(), 1):.2f}M")
+    print("\n  Rows the extension clip returns to the raise cap, largest first:")
     order = np.flatnonzero(clipped)
-    order = order[np.argsort(-(exante[order] - champ[order]))]
+    order = order[np.argsort(-(exante[order] - ext[order]))]
     for i in order[:20]:
         tag = " [CONFIRM]" if conf[i] else ""
         print(f"    {df['player_name_norm'].iat[i]:24s} {int(df['season'].iat[i])}"
@@ -843,18 +1167,32 @@ def main():
           f"{int(df['is_extension'].sum())} first-year extension rows")
 
     ladder = baseline_ladder(df, features, DEFAULT_SEEDS)
-    arms = run_suite_arms(df, features, make_stage_arms_fitter(clf_features),
-                          ladder=ladder)
+    arms, signing = run_suite_arms(
+        df, features, make_stage_arms_fitter(clf_features), ladder=ladder,
+        inner_fitter=make_champion_fitter(clf_features))
     champion = arms[ARM_CHAMPION]
     print_report(df, champion)
+
+    guards = signing_guards(df, arms[ARM_EXT].oof, champion.oof,
+                            arms[ARM_EXT].forward, champion.forward)
+    print_signing_guards(guards, signing["layer_a_offsets"],
+                         signing["layer_b_offsets"])
+    if not (guards["A_bit_identity_pass"]
+            and guards.get("B_bit_identity_pass", True)
+            and guards["legality_pass"]):
+        raise SystemExit("Stage-3 signing guards FAILED — see the block above. "
+                         "The suite refuses to write a report on an illegal or "
+                         "leaking composition.")
 
     deltas = {
         "champion - clip only (the whole change)":
             paired_delta(arms[ARM_CLIP].fold_r2_sel, champion.fold_r2_sel),
         "push alone (ex ante - clip only)":
             paired_delta(arms[ARM_CLIP].fold_r2_sel, arms[ARM_EXANTE].fold_r2_sel),
-        "Stage 3 alone (champion - ex ante)":
-            paired_delta(arms[ARM_EXANTE].fold_r2_sel, champion.fold_r2_sel),
+        "extension clip alone (ext - ex ante)":
+            paired_delta(arms[ARM_EXANTE].fold_r2_sel, arms[ARM_EXT].fold_r2_sel),
+        "signing offset alone (champion - ext)":
+            paired_delta(arms[ARM_EXT].fold_r2_sel, champion.fold_r2_sel),
     }
     print_convention_block(df, arms, deltas)
     print_stage3_accounting(df, arms)
@@ -867,7 +1205,11 @@ def main():
     delta_sel = paired_delta(challenger.fold_r2_sel, champion.fold_r2_sel)
     zone = grabit_zone(df, champion.oof, challenger.oof)
     fzone = floor_zone(df, champion.oof, challenger.oof)
-    ezone = extension_zone(df, champion.oof, arms[ARM_EXANTE].oof)
+    # The extension zone attributes the raise-cap clip alone, so it compares the
+    # arm that adds it against the arm below it — not the champion, which now
+    # also carries the signing offset.
+    ezone = extension_zone(df, arms[ARM_EXT].oof, arms[ARM_EXANTE].oof)
+    szone = signing_zone(df, champion.oof, arms[ARM_EXT].oof)
     print(f"\n{'='*74}\n  PAIRED comparison: Grabit v3 minus Baseline XGBoost\n{'='*74}")
     print(f"    DECISION delta (selection pool)  {delta_sel['delta']:+.4f}  "
           f"+/- {delta_sel['se']:.4f} (SE)   t = {delta_sel['t']:+.2f}")
@@ -884,11 +1226,24 @@ def main():
           f"{fzone['rows_better']}/{fzone['rows_worse']}")
     print(f"      bias ${fzone['bias_baseline']:+.2f}M -> ${fzone['bias_grabit']:+.2f}M")
     print(f"\n    Extension zone (first-paying-year extensions, n={ezone['n']}, "
-          f"{ezone['n_moved']} moved by Stage 3), champion vs its own ex-ante arm:")
+          f"{ezone['n_moved']} moved by the raise-cap clip), against its own "
+          "ex-ante arm:")
     print(f"      MAE  ${ezone['mae_reference']:.2f}M -> ${ezone['mae_champion']:.2f}M  "
           f"({ezone['delta_mae']:+.2f})   rows better/worse "
           f"{ezone['rows_better']}/{ezone['rows_worse']}")
     print(f"      bias ${ezone['bias_reference']:+.2f}M -> ${ezone['bias_champion']:+.2f}M")
+    print(f"\n    Signing zone (the four eligible types, "
+          f"{szone['n_moved']} rows moved), champion vs the v8.7x stack, split "
+          "by the confirmation lock (ISSUES #20a):")
+    for tag in ("sel", "all", "conf"):
+        if tag not in szone:
+            continue
+        d = szone[tag]
+        note = {"sel": "  <- the number that decides", "all": "", "conf": "  <- canary"}[tag]
+        print(f"      {tag:4s} n={d['n']:4d}  MAE ${d['champ_mae']:.2f}M -> "
+              f"${d['cand_mae']:.2f}M ({d['win']:+.2f})   bias "
+              f"${d['champ_bias']:+.2f}M -> ${d['cand_bias']:+.2f}M   "
+              f"|bias| growth {d['abs_bias_growth']:+.2f}{note}")
     print("    Grabit is a targeted intervention on the ~30% of rows at a CBA bound;")
     print("    judging it on the pooled delta mistakes dilution for weakness. Keep")
     print("    each side while its zone MAE delta is negative; drop the side whose")
@@ -923,28 +1278,42 @@ def main():
             prev.replace(out_dir / f"{stem}_prev{dot}{ext}")
     payload = {"champion": champion.metrics, "challenger": challenger.metrics,
                # The champion is a TOLD-ROUTE number (Stage 3 reads the realized
-               # extension flag). These two are the same stack with Stage 3 off
-               # and with both Stage-3 and the push off — the second is the
-               # v7.13x champion, i.e. the convention v7.1x-v7.13x were
-               # published under. Keep both when quoting the series.
+               # extension flag and the realized signing mechanism). These three
+               # are the same stack with the signing offset off (the v8.7x
+               # champion), with Stage 3 off, and with both Stage-3 components
+               # and the push off — the last is the v7.13x champion, i.e. the
+               # convention v7.1x-v7.13x were published under. Keep them when
+               # quoting the series.
+               "champion_ext_clip": arms[ARM_EXT].metrics,
                "champion_exante": arms[ARM_EXANTE].metrics,
                "champion_clip_only": arms[ARM_CLIP].metrics,
-               "stage_arm_names": {"champion": ARM_CHAMPION,
+               "stage_arm_names": {"champion": ARM_CHAMPION, "ext_clip": ARM_EXT,
                                    "exante": ARM_EXANTE, "clip_only": ARM_CLIP},
-               "stage_constants": {"tau": TAU, "margin": MARGIN},
+               "stage_constants": {"tau": TAU, "margin": MARGIN,
+                                   "signing_k": SIGNING_K,
+                                   "signing_eligible_types":
+                                       list(SIGNING_ELIGIBLE_TYPES)},
+               "signing_offsets_layer_a_leave_fold_out": {
+                   str(fi): signing["layer_a_offsets"][fi]
+                   for fi in signing["layer_a_offsets"]},
+               "signing_offsets_layer_b_by_origin": signing["layer_b_offsets"],
+               "signing_offsets_deployed": SIGNING_OFFSETS_DEPLOYED,
+               "signing_guards": guards,
                "stage_deltas_selection": deltas,
                "paired_delta": delta, "paired_delta_selection": delta_sel,
                "grabit_zone": zone, "floor_zone": fzone,
-               "extension_zone": ezone,
+               "extension_zone": ezone, "signing_zone": szone,
                # fold x seed R2 matrices — the reference every future paired
                # comparison diffs against (same folds, same seeds, per-fold).
                # *_selection is the decision-grade matrix; pooled is context.
                "fold_r2": {"champion": champion.fold_r2.tolist(),
+                           "champion_ext_clip": arms[ARM_EXT].fold_r2.tolist(),
                            "champion_exante": arms[ARM_EXANTE].fold_r2.tolist(),
                            "champion_clip_only": arms[ARM_CLIP].fold_r2.tolist(),
                            "challenger": challenger.fold_r2.tolist()},
                "fold_r2_selection": {
                    "champion": champion.fold_r2_sel.tolist(),
+                   "champion_ext_clip": arms[ARM_EXT].fold_r2_sel.tolist(),
                    "champion_exante": arms[ARM_EXANTE].fold_r2_sel.tolist(),
                    "champion_clip_only": arms[ARM_CLIP].fold_r2_sel.tolist(),
                    "challenger": challenger.fold_r2_sel.tolist()},
@@ -957,6 +1326,8 @@ def main():
               "max_eligible_pct"]].copy()
     ref["oof_champion"] = champion.oof
     ref["fwd_champion"] = champion.forward
+    ref["oof_champion_ext_clip"] = arms[ARM_EXT].oof
+    ref["fwd_champion_ext_clip"] = arms[ARM_EXT].forward
     ref["oof_champion_exante"] = arms[ARM_EXANTE].oof
     ref["fwd_champion_exante"] = arms[ARM_EXANTE].forward
     ref["oof_champion_clip_only"] = arms[ARM_CLIP].oof

@@ -7,8 +7,8 @@ the web export and `predict.py` cannot drift apart — three consumers
 re-implementing a clip is how the "$39.68M for Marcus Smart" class of bug
 survives a code review.
 
-    latent  ->  push  ->  clip(lo, hi)  ->  stage 3
-              \________  stage 2  _______/
+    latent  ->  push  ->  clip(lo, hi)  ->  stage 3  ->  stage 3 signing
+              \________  stage 2  _______/     \___ told-route components ___/
 
 **Stage 2 — the two-sided CBA bound, both halves.** The clip caps a row at its
 tier ceiling and lifts it to the league floor. That is only the downward half of
@@ -26,13 +26,35 @@ far below the tier ceiling, so the push can send an extension row to a ceiling
 it could not legally reach. Predicting $39.68M for Marcus Smart 2022 was not
 inaccurate, it was impossible; Stage 3 returns him to the law.
 
-Two constants are PRE-REGISTERED and must not be re-tuned:
+**Stage 3, signing component — the told-mechanism per-type offset (v8.8x).**
+The stack carries a systematic residual bias by signing mechanism: Bird Rights
+rows are underpriced by $2M, Non-Bird rows overpriced. The correction is the
+crudest thing that removes it — ONE CONSTANT PER TYPE, added to the composed
+prediction, after which the row goes back through the raise-cap clip and the
+[floor, ceiling] clip, because a correction that pushed a row past its ceiling
+would be pricing an impossible contract.
+
+Only the four ELIGIBILITY mechanisms are corrected: Bird Rights, Cap Space,
+Early Bird, Non-Bird. Every other label — MLE, BAE, Minimum, Sign & Trade,
+Rookie Scale, Other, Unknown — takes a ZERO offset and comes out bit-identical.
+That is a LEAKAGE ruling, not a scoring choice, and it was fixed before any
+score on this arm was seen. An exception mechanism is *determined by the
+contract value itself*: a deal is "the MLE" because of what it pays, so
+conditioning a prediction on that label reads the target. The four eligibility
+mechanisms are determined by the player's prior contract and the team's books,
+both settled before the price is. The four stay in however large the excluded
+types' biases look, and the excluded types stay out however large theirs look.
+
+Three constants are PRE-REGISTERED and must not be re-tuned:
 
   TAU = 0.52     chosen 2026-07-26 from the sweep's expected-win-minus-expected-
                  collateral rule, before any score on this arm was seen.
   MARGIN = 1.05  frozen since route-mixture phase 1. Never tuned on a zone
                  metric — Stage 2's clip makes the censored sides one-way
                  valves, so zone MAE is monotone in the margin.
+  SIGNING_K = 20 the shrinkage denominator of the signing offset, fixed
+                 2026-08-06 before the arm was scored. A k=0 arm was computed
+                 REFERENCE-ONLY and decided nothing. Never sweep it.
 
 **Convention (docs/QUEUE.md, 2026-07-26, refined 2026-07-27).** Stage 3 reads
 the realized route, so numbers computed with it are TOLD-ROUTE numbers. The
@@ -40,13 +62,19 @@ route passes the convention's test — told "he extended", you still have to
 compute 1.40 x prior pay to land on Brunson's $34.94M — so it is reported in the
 same column as the ex-ante numbers. But v7.1x-v7.13x were computed under the old
 "ignore the route" convention, so the ex-ante figure (push only, Stage 3 off) is
-reported beside the headline wherever the series has to stay readable.
+reported beside the headline wherever the series has to stay readable. The
+signing offset is told-MECHANISM and sits under the same convention for the same
+reason: told "he re-signed on Bird Rights", you still have to price him.
 
 Stage 3 never reads the target, and never clamps a ceiling to observed pay
 (standing decision, docs/QUEUE.md). `ext_cap_pct` never enters
 `max_eligible_pct` or the Stage-1 censor mask: the raise cap binds only
 CONDITIONAL on choosing to extend, which is the same "choice, not constraint"
-that killed right-censoring good players on minimums.
+that killed right-censoring good players on minimums. The signing offset is a
+fitted parameter and so does read residuals — but never the residuals of the
+row it corrects: layer A estimates it leave-fold-out, layer B from seasons
+strictly earlier than the one it scores, and the deployed constants below come
+from OOF residuals, never in-sample ones.
 """
 
 import sys
@@ -57,10 +85,42 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import numpy as np
 import pandas as pd
 
-# Pre-registered constants. Re-tuning either after seeing a score is the failure
-# three experiments died on — do not touch them without a new pre-registration.
+# Pre-registered constants. Re-tuning any of them after seeing a score is the
+# failure three experiments died on — do not touch them without a new
+# pre-registration.
 TAU = 0.52
 MARGIN = 1.05
+SIGNING_K = 20.0
+
+# The four ELIGIBILITY mechanisms, and the only labels the signing offset may
+# correct. The exception mechanisms (MLE, BAE, Minimum) and Sign & Trade are
+# excluded as leakage — a deal is "the MLE" because of what it pays, so the
+# label is downstream of the target. See the module docstring.
+SIGNING_ELIGIBLE_TYPES = ("Bird Rights", "Cap Space", "Early Bird", "Non-Bird")
+
+# Deployed-form per-type offsets, in cap_pct, for the single-fit consumers.
+#
+# THESE ARE DATA-DEPENDENT CONSTANTS. They are per-type mean OOF residuals of a
+# particular frame, so a training-data rebuild invalidates them exactly the way
+# it invalidates a published R2. Regenerate them with every rebuild:
+#
+#   date    2026-08-06
+#   source  scripts/eval_stage3_signing.py — the gated measurement harness
+#   frame   the 896-row evaluation frame, ALL OOF rows, seeds 0-9, k = 20
+#   regen   OMP_NUM_THREADS=6 python scripts/eval_stage3_signing.py
+#           then copy `deployed_offsets_k20[*]["offset"]` out of
+#           outputs/models/stage3_signing_offset_eval.json
+#
+# They live in code rather than in a JSON because outputs/models/ is gitignored
+# and a fresh clone would otherwise have no copy at all. Leaving them stale
+# after a rebuild prices every Bird-Rights row off a residual the model no
+# longer has.
+SIGNING_OFFSETS_DEPLOYED = {
+    "Bird Rights": 0.012605403499599384,
+    "Cap Space": 0.0024191191491186466,
+    "Early Bird": 0.007097012039243098,
+    "Non-Bird": -0.006074846881370028,
+}
 
 # Deployed-model seed, matching train._XGB_BASE's random_state so the shipped
 # classifier is as reproducible as the shipped regression.
@@ -128,30 +188,154 @@ def stage3(pred, *, is_extension, ext_cap_pct) -> np.ndarray:
     return out
 
 
+def _as_signing_cat(signing_type) -> np.ndarray:
+    """`signing_cat` as a flat object array. NaN/None simply match no type."""
+    return np.asarray(pd.Series(signing_type).astype(object).values, dtype=object)
+
+
+def signing_offsets(resid, signing_type, pool=None, k: float = SIGNING_K,
+                    detail: bool = False) -> dict:
+    """Shrunk per-type mean residual, for the eligible signing types alone.
+
+    THE one implementation. Both evaluation layers and the measurement harness
+    call it rather than re-deriving `n / (n + k)` — the shrinkage and the
+    eligibility list are pre-registered quantities, and a second copy is how one
+    of them silently becomes two.
+
+    Args:
+        resid: actual - predicted, in cap_pct. NOTE the sign: a positive offset
+            RAISES an underpriced type, which is what a NEGATIVE diagnostics
+            `bias_$M` (bias there is predicted - actual) asks for.
+        signing_type: `signing_cat` per row, aligned with `resid`.
+        pool: bool mask of the rows allowed to inform the estimate — the
+            leave-fold-out pool in layer A, the training window in layer B.
+            None means every row, which is the deployed form.
+        k: shrinkage denominator, offset = n / (n + k) x raw mean. PRE-REGISTERED
+            at SIGNING_K; exposed only so a harness can state it explicitly.
+        detail: return {"n", "raw", "offset"} per type instead of the offset
+            alone, for a report that has to show the shrinkage it applied.
+
+    Returns:
+        {type: offset} over SIGNING_ELIGIBLE_TYPES, or {type: {...}} under
+        `detail`. A type with no rows in the pool gets exactly 0.0, which leaves
+        its rows at the uncorrected prediction.
+    """
+    r = np.asarray(resid, dtype=float)
+    cat = _as_signing_cat(signing_type)
+    mask = np.ones(len(r), bool) if pool is None else np.asarray(pool, dtype=bool)
+    out = {}
+    for t in SIGNING_ELIGIBLE_TYPES:
+        m = (cat == t) & mask
+        n = int(m.sum())
+        raw = float(r[m].mean()) if n else 0.0
+        off = (n / (n + k)) * raw if n else 0.0
+        out[t] = {"n": n, "raw": raw, "offset": off} if detail else off
+    return out
+
+
+def signing_offset_vector(signing_type, offsets) -> np.ndarray:
+    """Per-row offset in cap_pct; exactly 0.0 outside the eligible types.
+
+    `offsets` may be the flat {type: float} form or the {type: {"offset": ...}}
+    detail form — both come out of `signing_offsets`. An ineligible key raises
+    rather than being ignored, so the leakage ruling is enforced by the code and
+    not only by the docstring.
+    """
+    cat = _as_signing_cat(signing_type)
+    v = np.zeros(len(cat), dtype=float)
+    for t, off in offsets.items():
+        if t not in SIGNING_ELIGIBLE_TYPES:
+            raise ValueError(
+                f"{t!r} is not a correctable signing type. Only "
+                f"{SIGNING_ELIGIBLE_TYPES} may carry an offset — the exception "
+                "mechanisms are determined by the contract value itself, so "
+                "conditioning on them reads the target.")
+        v[cat == t] = off["offset"] if isinstance(off, dict) else float(off)
+    return v
+
+
+def stage3_signing(pred, signing_type=None, offsets=None, *, lo=None, hi=None,
+                   is_extension=None, ext_cap_pct=None) -> np.ndarray:
+    """Add the per-type signing offset, then put the row back inside the law.
+
+    The contract, in three clauses, mirroring `stage3`'s:
+
+      1. It ADDS a constant that depends only on the row's signing type, then
+         re-applies legality in the same order `compose` does — the extension
+         raise-cap `minimum`, then the clip into [lo, hi]. Legality is part of
+         this function precisely so a caller cannot forget it; a correction that
+         pushed a row past its ceiling would be pricing an impossible contract.
+         Pass `lo`/`hi` (and the extension pair where it applies) whenever the
+         result is a prediction rather than an intermediate.
+      2. It is a NO-OP where `signing_type` is None, `offsets` is None or empty,
+         or the row's label is missing or outside SIGNING_ELIGIBLE_TYPES — the
+         offset there is exactly 0.0, `x + 0.0` is `x`, and both clips are the
+         identity on a value already inside the bound. An unsigned free agent
+         has no signing type at all, so `predict.py`'s deployed path is
+         bit-identical to the pre-v8.8x pipeline (asserted there).
+      3. It never reads the target of the row it corrects. `offsets` is a mean
+         over OTHER rows' out-of-fold residuals — leave-fold-out in layer A,
+         seasons < T in layer B, and the frame's own OOF for the deployed
+         constants in SIGNING_OFFSETS_DEPLOYED.
+
+    Args:
+        pred: the composed prediction to correct, in cap_pct.
+        signing_type: `signing_cat` per row, or None to disable.
+        offsets: {type: offset} from `signing_offsets`, or None to disable.
+        lo, hi: `floor_pct` and `max_eligible_pct`, for the legality re-clip.
+        is_extension, ext_cap_pct: the Stage-3 route inputs, same producer as
+            `stage3`, for the raise-cap re-clip.
+
+    Returns:
+        The corrected prediction.
+    """
+    out = np.array(pred, dtype=float, copy=True)
+    if signing_type is None or not offsets:
+        return out
+    out = out + signing_offset_vector(signing_type, offsets)
+    if is_extension is not None and ext_cap_pct is not None:
+        out = stage3(out, is_extension=is_extension, ext_cap_pct=ext_cap_pct)
+    if lo is not None and hi is not None:
+        out = np.clip(out, np.asarray(lo, dtype=float),
+                      np.asarray(hi, dtype=float))
+    return out
+
+
 def compose(latent, *, lo, hi, p_max=None, is_extension=None, ext_cap_pct=None,
+            signing_type=None, signing_offsets=None,
             tau: float = TAU, margin: float = MARGIN) -> np.ndarray:
-    """The whole post-Stage-1 chain: latent -> push -> clip(lo, hi) -> stage 3.
+    """The whole post-Stage-1 chain: push -> clip -> stage 3 -> signing offset.
 
-    Passing `p_max=None` drops the push; passing `is_extension=None` drops
-    Stage 3. Both omitted reproduces the v7.13x champion exactly, which is what
-    makes the ex-ante reference arm free to compute.
+    Passing `p_max=None` drops the push; passing `is_extension=None` drops the
+    extension clip; passing `signing_type=None` or `signing_offsets=None` drops
+    the signing offset. Each layer is inert by default, so a consumer that has
+    not opted in is bit-identical to the composition it had before that layer
+    existed — `p_max` and `is_extension` both omitted still reproduces the
+    v7.13x champion exactly, which is what makes the ex-ante reference arm free
+    to compute.
 
-    The final re-clip into [lo, hi] after Stage 3 is a legal, not a statistical,
-    step: a contract cannot pay below the league minimum even if a raise cap
-    computed lower. It is a no-op on the current frame (verified: zero rows have
-    `ext_cap_pct < floor_pct`), and it is the same order the measurement harness
-    used, so the shipped composition is bit-identical to the arm that was gated.
+    The re-clip into [lo, hi] after each Stage-3 component is a legal, not a
+    statistical, step: a contract cannot pay below the league minimum even if a
+    raise cap computed lower. It is a no-op on the current frame (verified: zero
+    rows have `ext_cap_pct < floor_pct`), and it is the same order both
+    measurement harnesses used, so the shipped composition is bit-identical to
+    the arms that were gated.
     """
     pred = stage2(latent, lo=lo, hi=hi, p_max=p_max, tau=tau, margin=margin)
     if is_extension is not None and ext_cap_pct is not None:
         pred = stage3(pred, is_extension=is_extension, ext_cap_pct=ext_cap_pct)
         pred = np.clip(pred, np.asarray(lo, dtype=float),
                        np.asarray(hi, dtype=float))
+    if signing_type is not None and signing_offsets is not None:
+        pred = stage3_signing(pred, signing_type, signing_offsets, lo=lo, hi=hi,
+                              is_extension=is_extension,
+                              ext_cap_pct=ext_cap_pct)
     return pred
 
 
 def bound_flags(latent, pred, *, lo, hi, p_max=None, is_extension=None,
-                ext_cap_pct=None, tau: float = TAU, margin: float = MARGIN,
+                ext_cap_pct=None, signing_type=None, signing_offsets=None,
+                tau: float = TAU, margin: float = MARGIN,
                 tol: float = 1e-9) -> dict[str, np.ndarray]:
     """Which bound, if any, moved each row off its latent value.
 
@@ -165,11 +349,20 @@ def bound_flags(latent, pred, *, lo, hi, p_max=None, is_extension=None,
         is_capped     the prediction sits at the TIER ceiling
         is_ext_capped Stage 3 lowered the prediction (the raise cap bound)
         is_floored    the prediction sits at the CBA floor
+
+    The first, second and fourth read the STAGE-2 bound acting on the latent,
+    which is what the site labels [MAX] / [MIN] mean. `is_ext_capped` compares
+    the final prediction against the same chain with the raise-cap clip removed,
+    so the signing offset has to be passed here too when it was composed —
+    otherwise a negative offset reads as the raise cap binding. With no offset
+    the comparison reduces to `pred < s2` exactly, because `stage2` has already
+    clipped into [lo, hi].
     """
     latent = np.asarray(latent, dtype=float)
     lo = np.asarray(lo, dtype=float)
     hi = np.asarray(hi, dtype=float)
     s2 = stage2(latent, lo=lo, hi=hi, p_max=p_max, tau=tau, margin=margin)
+    no_ext_clip = stage3_signing(s2, signing_type, signing_offsets, lo=lo, hi=hi)
 
     if p_max is None:
         pushed_gate = np.zeros(len(latent), bool)
@@ -182,7 +375,7 @@ def bound_flags(latent, pred, *, lo, hi, p_max=None, is_extension=None,
     return {
         "is_pushed": pushed_gate & (s2 > np.clip(latent, lo, hi) + tol),
         "is_capped": cand > hi + tol,
-        "is_ext_capped": np.asarray(pred, dtype=float) < s2 - tol,
+        "is_ext_capped": np.asarray(pred, dtype=float) < no_ext_clip - tol,
         "is_floored": cand < lo - tol,
     }
 

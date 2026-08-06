@@ -115,8 +115,17 @@ mechanism bias in the C2 diagnostic.
 **Stage**:
 One of the three composable steps that turn a raw model output into a prediction.
 Stage 1 emits a Latent Value; Stage 2 applies the CBA bounds that depend only on
-the player (push + clip); Stage 3 applies the bound that depends on the signing
-route (the extension raise cap). Composition lives in `src/model/stages.py`.
+the player (push + clip); Stage 3 applies what depends on the realized signing
+route — the extension raise cap, then the per-type Signing Offset — re-imposing
+both bounds after each. Composition lives in `src/model/stages.py`.
+
+**Signing Offset**:
+The Stage-3 constant added to a row of a given Signing Mechanism, equal to the
+shrunk mean out-of-fold Signing Residual of that mechanism. Defined only for the
+four eligibility mechanisms (Bird Rights, Cap Space, Early Bird, Non-Bird);
+exactly zero everywhere else, because an exception mechanism is determined by
+the contract value itself and conditioning on it would read the target.
+_Avoid_: mechanism adjustment, signing correction factor
 
 **Push**:
 The upward half of Stage 2. Where the route classifier says P(max) >= TAU (0.52),

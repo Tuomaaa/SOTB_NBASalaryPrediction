@@ -1084,6 +1084,117 @@ Signing-type bias on the 896-row frame (OOF, selection-only):
 The systematic pattern — Bird Rights underpredicted, MLE/Minimum overpredicted
 — is the motivation for Stage 3 signing-type work (in progress).
 
+(That table is a plain-XGBoost OOF, not the champion stack; the champion's own
+biases are smaller. See ISSUES #47 and the v8.8x entry below.)
+
+### v8.8x: the Stage-3 signing-type offset
+
+**A told-parameter correction, not a feature.** The stack carried a systematic
+Signing Residual by mechanism that no feature removes. Rung 1 of the correction
+adds **one constant per signing type** to the composed prediction, then puts the
+row back inside the law:
+
+```
+pred_corrected = clip( minimum( pred + offset(type), ext_cap ), floor, ceiling )
+offset(type)   = n / (n + k) x mean OOF residual of that type,   k = 20
+```
+
+Neither the Grabit regression nor the route classifier is refit — the correction
+is pure post-processing of the champion's own predictions, so champion and
+candidate share every fold, every seed and every fitted model, and the paired
+delta carries zero fit noise.
+
+**Only the four ELIGIBILITY mechanisms are corrected**: Bird Rights, Cap Space,
+Early Bird, Non-Bird. MLE, BAE, Minimum, Sign & Trade, Other and Unknown take a
+zero offset and come out bit-identical (asserted, max |diff| = 0.000e+00 over
+479 rows). That exclusion is a **leakage ruling made before any score on the arm
+was seen**, not a scoring choice: an exception mechanism is determined by the
+contract value itself — a deal is "the MLE" because of what it pays — so
+conditioning on it reads the target. It costs the two largest biases on the
+board: Minimum's +$1.97M and Sign & Trade's −$3.29M stay exactly where they are.
+
+`k = 20` is pre-registered in `stages.SIGNING_K` beside TAU and MARGIN. A k = 0
+arm was computed REFERENCE-ONLY and decided nothing.
+
+**Fold honesty.** Layer A corrects fold *f* from the OOF residuals of rows
+outside fold *f*, per (fold, seed) cell, before the seed average. Layer B learns
+season *T*'s offsets from an inner GroupKFold OOF over seasons < *T* only, so B1
+never sees the season it scores in any capacity. Offsets are estimated over all
+rows including confirmation (an offset is a fitted parameter and confirmation
+rows already sit in every training fold); the deciding metric excludes them
+(ISSUES #20a).
+
+| Layer | v8.7x (n=896) | v8.8x (n=896) |
+|---|---|---|
+| A1 | 0.8015 | **0.8126** (+0.0111) |
+| A2 | 0.8574 | 0.8672 (+0.0098) |
+| B1 | 0.8495 | 0.8578 (+0.0083) |
+| 2024 / 2025 / 2026 origin | 0.8567 / 0.8470 / 0.8410 | 0.8692 / 0.8456 / 0.8568 |
+| MAE | $3.03M | $2.94M |
+| C1 slope | 0.952 | 0.942 |
+| D3 locked confirmation | 0.7897 (sel 0.8029) | 0.7885 (sel 0.8161) |
+
+Paired on the selection pool, by fold, same fitted models: the signing offset
+alone is **+0.01287, se 0.00245, t +5.25**. Where the intervention acts — MAE
+over the four eligible types, selection pool, paired by fold — it is
+**+$0.201M, t +2.48** ($3.673M → $3.472M), with |bias| reduction +$0.771M
+(t +3.07). Per-type bias, pooled:
+
+| Type | n | bias v8.7x | bias v8.8x | MAE v8.7x | MAE v8.8x |
+|---|---|---|---|---|---|
+| Bird Rights | 282 | −$1.74M | −$0.36M | $3.83M | $3.60M |
+| Cap Space | 71 | −$0.49M | −$0.20M | $3.70M | $3.69M |
+| Early Bird | 50 | −$1.25M | −$0.41M | $2.57M | $2.43M |
+| Non-Bird | 14 | +$1.96M | +$1.42M | $2.93M | $2.83M |
+
+368 of the 417 eligible rows move (mean |move| $1.25M); legality clips the
+offset entirely away on the other 49. Zero rows below the floor, above the tier
+ceiling, or above a binding raise cap, in either layer.
+
+**Two caveats, both recorded rather than argued away.**
+
+1. **The confirmation canary (n = 55) does not corroborate the win.** MAE is
+   flat — **+$0.01M, t = +0.07** — while signed bias moves **−$0.07M → +$1.03M**.
+   The correction over-corrects rows where the champion was already unbiased. On
+   the suite's pooled-OOF reading of the same 55 rows it is slightly negative
+   (−$0.05M, bias +$0.18M → +$1.34M). Fifty-five rows decide nothing either way,
+   but the direction is the one that would show up first if the offsets were
+   fitting the frame rather than the market.
+2. **B1's forward all-rows signed bias moves +$0.33M → +$1.03M** while R² and
+   MAE both improve (0.8495 → 0.8578, $3.30M → $3.25M). The offsets are
+   estimated on seasons < T and applied to season T, so any drift in the market's
+   per-mechanism premium shows up as over-correction on the newest season —
+   which is exactly what origin 2025 does (R² 0.8470 → 0.8456, the one origin
+   that goes backwards). Watch this number at the next version bump: a
+   correction whose bias keeps growing while its MAE stops improving has stopped
+   correcting and started shifting.
+
+**Provenance of the deployed constants.** `stages.SIGNING_OFFSETS_DEPLOYED`
+(Bird Rights +0.012605, Cap Space +0.002419, Early Bird +0.007097, Non-Bird
+−0.006075, all cap_pct) is the k=20, all-OOF-rows form measured on this frame by
+`scripts/eval_stage3_signing.py` on 2026-08-06. They are **data-dependent
+constants** — a training-data rebuild invalidates them the way it invalidates a
+published R². Regeneration is now step 5 of CLAUDE.md's refresh block; ISSUES
+#48 tracks making it mechanical. The evaluation suite is not exposed (it
+estimates its own offsets every run); the deployed single-fit consumers are.
+
+`predict.py` is **bit-identical to v8.7x** and correctly so: an unsigned free
+agent has no signing mechanism, so every offset on that path is 0.0. The
+deployed offsets are passed in explicitly and the identity is asserted, so the
+no-op is demonstrated by the code. `scripts/export_web.py` has not been wired
+(ISSUES #46) — the site still shows the v8.7x composition.
+
+Both A1/A2/B1 above are **told-route numbers** under the 2026-07-26/27
+convention, now told-MECHANISM as well: told "he re-signed on Bird Rights", the
+price is still the whole problem, so the offset passes the convention's test the
+same way the extension clip does. The suite prints all four arms — clip only
+(v7.13x), + push, + extension clip (v8.7x), + signing offset (champion).
+
+Evidence: `scripts/eval_stage3_signing.py`,
+`outputs/models/stage3_signing_offset_eval.json`,
+`outputs/models/evaluation_suite.json`. The suite reproduces the gating
+measurement to **0.000e+00** on A1, A2 and B1.
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v7.0x was a statistical
@@ -1144,8 +1255,8 @@ every row, so P x delta_bird moves the whole price surface. Evidence:
 Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 6    Phase 7        Phase 8
 Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data + protocol  3-stage + route
                                                                                      
-0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.802
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.7x
+0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.813
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.8x
                         ↗ 0.87                                                                                 (current)
                   Leaked features                                                                told-route numbers
                   (removed in v4.0)                                                              from v8.0x onward
@@ -1167,6 +1278,8 @@ rather than a metric win, and several did not clear t > 2: v7.9x (common-row A1
 -0.0009), v7.13x (t = 0.08), v8.0x (t = 1.11), v8.1x, and the missingness
 repair inside v8.2x (t = 1.10). The standing rule these encode: **a wrong fact
 is repaired on correctness; a suboptimal parameter must clear the gate.**
+v8.8x is the other kind: four fitted parameters, so it had to clear the gate
+where it acts, and did (+$0.201M eligible-type MAE, t +2.48; A1 paired t +5.25).
 
 The count of known-wrong things is the better progress line: an optimistically
 biased test set, two 9%-wrong season targets, 259 prorated rows, a fill 4.6x

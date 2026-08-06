@@ -323,15 +323,27 @@ that is **not** a function of the current features: market supply and demand at
 the position that summer, how the previous contract terminated, league-wide cap
 room. Modelling the mechanism itself is a dead end for point accuracy.
 
+**This is not contradicted by the v8.8x signing offset**, and the distinction is
+the whole reason that component sits in Stage 3 rather than in the feature list.
+A feature is an *input*: `P(mechanism | x)` is a function of `x`, the trees
+already extract it, and it costs 0.0073. The Stage-3 offset is an *output
+correction* keyed on the REALISED mechanism -- a told parameter, in the same
+class as the extension raise cap -- and it corrects a bias the features
+demonstrably cannot see. It is also restricted to the four mechanisms that are
+not determined by the contract value; see "Stage 3, signing component" below.
+
 ## Model — Three-Stage Pipeline
 
 The model is now explicitly three stages. Composition lives in
 `src/model/stages.py` and all three consumers (the evaluation suite, the web
-export, and `predict.py`) call it:
+export, and `predict.py`) call it. Every layer beyond Stage 2 is opt-in through
+a keyword argument that defaults to off, so a consumer that has not opted in is
+bit-identical to the composition it had before that layer existed — the web
+export has not yet opted into the v8.8x signing offset (ISSUES #46):
 
 ```
-latent  ->  push  ->  clip(lo, hi)  ->  stage 3
-          \________  stage 2  _______/
+latent  ->  push  ->  clip(lo, hi)  ->  stage 3  ->  stage 3 signing
+          \________  stage 2  _______/     \___ told-route components ___/
 ```
 
 - **Stage 1** estimates value under *default parameters* — what the market pays
@@ -345,15 +357,16 @@ latent  ->  push  ->  clip(lo, hi)  ->  stage 3
   classifier says P(max) >= 0.52, and the clip then caps the result into
   `[floor_pct, max_eligible_pct]`. Deterministic, needs no route.
 - **Stage 3** adjusts for what only applies once the **signing route** is
-  known: an extension is capped at its legal raise limit. Stage 3 only ever
-  lowers, is a no-op where `is_extension` is false or `ext_cap_pct` is NaN,
-  and never reads the target.
+  known, in two components. The extension raise cap (v8.0x) only ever lowers,
+  is a no-op where `is_extension` is false or `ext_cap_pct` is NaN, and never
+  reads the target. The signing-type offset (v8.8x) adds one constant per
+  eligibility mechanism and re-applies both legal bounds afterwards.
 
-Everything else (mechanism, market conditions, negotiating posture) stays
-averaged inside Stage 1, which is precisely what the C2 mechanism-bias table
-measures. **Promoting a parameter from "averaged" to "told" should shrink its
-C2 bias** — that is the natural acceptance test for any future extension of the
-pipeline.
+Everything else (market conditions, negotiating posture) stays averaged inside
+Stage 1, which is precisely what the C2 mechanism-bias table measures.
+**Promoting a parameter from "averaged" to "told" should shrink its C2 bias** —
+that is the natural acceptance test for any future extension of the pipeline,
+and it is the test the v8.8x signing offset was written to pass.
 
 ### Stage 1: Grabit (Nonlinear Tobit via XGBoost)
 
@@ -591,6 +604,105 @@ route, does the salary still require a non-trivial computation?*
 - **Floor -- does not count.** `floor_pct` sits within $0.13M of observed pay,
   so being told the route is being told the answer. The floor branch's told
   arm scored +0.046 and it measures recitation.
+- **Signing mechanism -- counts, for the four eligibility mechanisms.** Told
+  "he re-signed on Bird Rights", you know only that his own team held his
+  rights; the price is still the whole problem, and the offset moves the row by
+  $1.25M on average against a $3.7M MAE. It does *not* count for the exception
+  mechanisms, which is the same judgement as the leakage ruling below reached
+  from the other direction: told "he signed the MLE" you have been told the
+  number.
+
+### Stage 3, signing component: the per-type residual offset (v8.8x)
+
+The stack carries a systematic Signing Residual by mechanism that no feature
+removes -- Bird Rights rows underpriced by $1.86M, Non-Bird overpriced by
+$1.22M (selection pool, v8.7x champion OOF). The correction is rung 1 of the
+obvious ladder and deliberately the crudest thing that removes it: **one
+constant per type**, added to the composed prediction.
+
+```
+pred_corrected = clip( minimum( pred + offset(type), ext_cap ), floor, ceiling )
+offset(type)   = n / (n + k) x mean OOF residual of that type,  k = 20
+residual       = actual - predicted, in cap_pct
+```
+
+Legality is re-applied after the offset, in that order, for the same reason
+Stage 3 exists at all: a correction that pushed a row past its ceiling would be
+pricing an impossible contract. On the 896-row frame it clips 49 of the 417
+eligible rows back to where they started.
+
+**Eligible types, and why the list is short.** Only the four ELIGIBILITY
+mechanisms are corrected: **Bird Rights, Cap Space, Early Bird, Non-Bird**.
+Every other label -- MLE, BAE, Minimum, Sign & Trade, Rookie Scale, Other,
+Unknown -- takes a zero offset and comes out bit-identical, which is asserted by
+the suite rather than assumed.
+
+This is a **leakage ruling**, decided before any score on the arm was seen, and
+it is the same rule as "never feed the model anything derived from the target".
+An exception mechanism is *determined by the contract value itself*: a deal is
+"the MLE" because of what it pays, "a minimum" because of what it pays. The
+label is downstream of the target, so conditioning a prediction on it reads the
+target. The four eligibility mechanisms are determined by the player's prior
+contract and the team's books, both settled before the price is. The four stay
+in however large the excluded types' biases look -- and Minimum's +$1.94M and
+Sign & Trade's -$4.75M are the two largest on the board -- and the excluded
+types stay out however large theirs look.
+
+**k = 20 is pre-registered.** It lives in `stages.SIGNING_K` beside TAU and
+MARGIN and is never swept. A k = 0 arm (raw per-type means, no shrinkage) was
+computed REFERENCE-ONLY and decided nothing; it scores slightly better on MAE
+(+$0.219M against +$0.201M) and slightly worse on the confirmation canary, which
+is exactly the pattern shrinkage exists to insure against on an n = 14 type.
+
+**Fold honesty.** An offset is a fitted parameter, so it must never be estimated
+on the rows it corrects:
+
+- **Layer A** corrects fold *f* with offsets estimated from the OOF residuals of
+  rows **outside fold** *f* (leave-fold-out per-type means over the seed-averaged
+  OOF). The correction is applied to each (fold, seed) cell before the seed
+  average, because both the offset and the clips are non-linear.
+- **Layer B** learns the offsets for target season *T* from an **inner
+  GroupKFold OOF inside the training window** -- seasons < *T* only. Nothing
+  from season *T* enters the offset in any capacity.
+- Offsets are estimated over **all** rows including the confirmation split,
+  because confirmation rows already sit in every training fold the champion
+  sees; they are excluded from the deciding metric, not from the estimate
+  (ISSUES #20a).
+
+One residual channel, stated rather than hidden: layer A's leave-fold-out offset
+for fold *f* averages OOF residuals of rows in folds *g != f*, and each of those
+predictions came from a model that had fold *f* in its training set, so fold
+*f*'s targets touch the offset through the regression's parameters. That is the
+ordinary single-level-CV channel every hyperparameter chosen on OOF already
+pays; a fully nested design would cost 5x the fits for a two-parameter
+statistic. Layer B is clean of it entirely, and layer B is where the gain is
+largest.
+
+**Deployed constants are data-dependent.** `stages.SIGNING_OFFSETS_DEPLOYED`
+holds the four numbers as measured on the 896-row frame, for the single-fit
+consumers that have no OOF to estimate from. They are per-type mean residuals of
+a particular frame, so a training-data rebuild invalidates them exactly the way
+it invalidates a published R2. Regenerate with
+`scripts/eval_stage3_signing.py` and copy `deployed_offsets_k20` across.
+
+**`predict.py` is untouched by this.** An unsigned free agent has no signing
+mechanism -- the label exists only once the contract does -- so every offset on
+that path is 0.0 and the free-agent valuations are bit-identical to v8.7x. The
+deployed offsets are passed in explicitly and the identity is asserted, so the
+no-op is demonstrated by the code rather than assumed.
+
+**Rung 2, tested next, not implemented.** The obvious next step is a per-type
+*slope* rather than a per-type constant -- `pred + a_t + b_t x pred`, or
+equivalently a per-type calibration line -- which would let Bird Rights be
+underpriced by a fraction of value rather than by a flat $1.9M. It is not in the
+model. It doubles the fitted parameters on types as small as n = 14, it
+interacts with the clips in a way a constant does not (a slope can move a row
+across its ceiling from below), and rung 1 already removes most of the
+mechanism bias. Measure it against rung 1 on the eligible-type MAE, paired by
+fold, before proposing it.
+
+Evidence: `scripts/eval_stage3_signing.py`,
+`outputs/models/stage3_signing_offset_eval.json`.
 
 ### Hyperparameters
 
