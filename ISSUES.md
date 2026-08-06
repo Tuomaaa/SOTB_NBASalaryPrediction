@@ -477,38 +477,14 @@ the 2025-2028 salary rows.
 
 ---
 
-## 31. Kendrick Nunn 2020 is a continuation mislabeled as Year-1
+## ~~31. Kendrick Nunn 2020 is a continuation mislabeled as Year-1~~ FIXED
 
-**Severity**: medium — one known stale price remains in evaluation, and the
-failure mode can affect other transactions whose text omits years and money.
-
-Kendrick Nunn's 2020 row is the third season of a three-year minimum contract
-signed with Miami on 2019-04-10, before his breakout rookie season. Spotrac's
-contract block is explicit: `contract_start=2018`, `contract_years=3`, covering
-2018-2020. The dated transaction text says only `Signed a Rest-of-Season
-contract with Miami`, so `contract_signing_dates.csv` carries no years or total
-value and marks it `unmatchable`. `contract_spans()` drops transactions without
-years, while frozen `contract_structure_v2.csv` incorrectly marks 2018, 2019
-and 2020 as three separate one-year contracts. The three-signal fallback also
-misses because the minimum-scale increase is larger than its 8% escalator band.
-
-This is not an `invalid price` class and has nothing to do with buyout income.
-It is a continuation-detection defect. Economically it shares the timing issue
-of an early extension, but contract-event semantics differ: Nunn 2020 is a later
-year of an old deal, while an extension's first paying year is the first year of
-a newly negotiated contract. Both need signing-time features if performance
-after signing would otherwise enter the row.
-
-**Reproduce**: print Nunn from `training_data_v2.csv`,
-`contract_structure_v2.csv`, `contract_signing_dates.csv` and
-`spotrac_signing_types.csv`. The first says `year_in_contract=1` for 2020; the
-last says the same row belongs to the 2018-starting three-year block.
-
-**What to do**: repair the generic link between terms-free dated transactions
-and contract blocks only where independent fields make the match unique, or add
-a sourced contract-structure correction layer that is audited for every
-multi-year Spotrac block fragmented into repeated Year-1 rows. Do not add an
-ad hoc invalid-observation filter, and do not weaken the FA-list veto.
+Fixed in commit `8071745`. `contract_structure_corrections.csv` overrides Nunn
+2020 to `year_in_contract=3, contract_years=3` (sourced from Spotrac contract
+block). `train.py::_load_contract_structure_corrections()` applies the override
+at load time, so `_filter_year1()` correctly excludes the row. Similar-case scan
+found OG Anunoby 2021 (defensible — extension is a new negotiated price) and PJ
+Dozier 2020 (near-minimum, negligible impact); neither warrants correction.
 
 ## 35. Common-row deltas across a row-count change are contaminated by fold reshuffle
 
