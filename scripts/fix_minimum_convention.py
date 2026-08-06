@@ -344,13 +344,24 @@ def main():
     corrections = build_corrections(confident)
     existing = _load_existing_corrections()
 
-    # Remove any prior min_cap_charge entries to avoid duplicates on re-run
-    existing = existing[existing["kind"] != "min_cap_charge"]
+    # De-duplicate: keep existing min_cap_charge entries and only append
+    # genuinely new ones.  The old approach (drop all min_cap_charge, re-add
+    # detected) silently lost corrections whose rows were already fixed in
+    # the training data and therefore no longer detected as above cap charge.
+    existing_keys = set(
+        zip(existing["player_name_norm"], existing["season"])
+    )
+    new_only = corrections[
+        ~corrections.apply(
+            lambda r: (r["player_name_norm"], r["season"]) in existing_keys,
+            axis=1,
+        )
+    ]
 
-    combined = pd.concat([existing, corrections], ignore_index=True)
+    combined = pd.concat([existing, new_only], ignore_index=True)
     out_path = RAW_DIR / "raw_external" / "salary_corrections.csv"
     combined.to_csv(out_path, index=False)
-    print(f"\nWrote {len(corrections)} corrections to {out_path}")
+    print(f"\nAppended {len(new_only)} new corrections to {out_path}")
     print(f"  (total entries in file: {len(combined)})")
     print(f"\nThe pipeline applies 'min_cap_charge' corrections in "
           f"build_dataset.py (stage 1 of rebuild).")

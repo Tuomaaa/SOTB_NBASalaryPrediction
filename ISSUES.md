@@ -392,29 +392,6 @@ unconditional arms from the sweep.
 
 ---
 
-## 26. The stored `prev_cap_pct` still carries the pre-correction values
-
-**Severity**: low — three rows, but it is a feature, not a diagnostic.
-
-`salary_corrections.csv` is applied inside `_load_prev_season_cap_pct`, which is
-what the ceiling rules and the extension cap read at load time. The `prev_cap_pct`
-FEATURE is not read there: it is baked into `data/processed/training_data_v2.csv`
-by `scripts/phase3.py::build_contract_features`, which called the same loader when
-the table was last built. So Marcus Smart 2022, Ivica Zubac 2025 and Aaron Gordon
-2026 train on the stale prior ($13.84M / $11.74M / $22.84M) while their ceilings
-use the corrected one.
-
-This was deliberate on 2026-07-27: rebuilding would have moved the champion's
-features in the same commit that re-measured the told clip, and the whole point of
-that measurement was that the champion is unchanged. It should be picked up by the
-next rebuild that happens for another reason.
-
-**Reproduce**: `python -c` comparing `training_data_v2.csv`'s `prev_cap_pct` for
-those three rows against `_load_prev_season_cap_pct()`.
-
-**Fixed when**: `scripts/rebuild_training_data.py` has been run after a corrections
-change and the three rows agree, with the frame still at 944 rows.
-
 ---
 
 ## 27. Marcus Smart 2022 keeps a 35% supermax ceiling in `max_eligible_pct`
@@ -699,8 +676,17 @@ corrected frame: delta sel = −0.0001, t = −0.04 — does not pass the select
 gate. Left out of FEATURE_COLS; code remains guarded so re-testing after a
 re-scrape is one line.
 
-**Fixed when**: the 2023/2026 RAPM data is re-scraped from nbarapm.com, or
-`rapm_known` passes the paired gate after a re-scrape.
+**Re-scrape 2026-08-05**: 175 uncached players fetched from nbarapm.com. 58 rows
+filled — all name mismatches resolved via `nba_id` (Nic Claxton → Nicolas
+Claxton, Bones Hyland → Nah'Shon Hyland, KJ Martin → Kenyon Martin Jr., Alex
+Sarr → Alexandre Sarr, Jimmy Butler → Jimmy Butler III, etc.). Coverage after:
+2023 = 81.8% (+1.7pp), 2026 = 83.5% (+1.8pp). The five high-value 2023 players
+(Kuzma, Clarkson, Brooks, Hunter, Keldon Johnson) are confirmed absent from
+nbarapm.com — Kuzma has RAPM for 2018-2022 and 2024-2026 but not 2023. 88
+players remain missing in 2023, 92 in 2026. Both seasons stay below 85%.
+
+**Fixed when**: `rapm_known` passes the paired gate after the rebuild with the
+58 filled rows, or a future nbarapm.com update fills the remaining gaps.
 
 ## 40. 111 rows of unknown waiver status are filled as "not waived", and the known-flag is not a feature
 
