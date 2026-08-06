@@ -24,6 +24,9 @@ from src.model.train import (
     _filter_mislabeled_year1, _filter_continuations, _filter_rookie_contracts,
     FEATURE_COLS, TARGET,
 )
+# NOTE: evaluate_suite imports attach_signing_labels from this module, so any
+# import from evaluate_suite must be deferred to avoid a circular import.
+# _in_confirmation_set is imported inside main() below.
 
 DIAG_DIR = OUTPUTS_DIR / "diagnostics"
 DIAG_DIR.mkdir(parents=True, exist_ok=True)
@@ -303,8 +306,12 @@ def _load_signing_type_labels(df):
     return attach_signing_labels(df, salary_dollars=sal)
 
 
-def residual_by_signing_type(df, y_true, y_pred):
-    """Slice residuals by Spotrac signing type (diagnostic label, not feature)."""
+def residual_by_signing_type(df, y_true, y_pred, is_confirmation=None):
+    """Slice residuals by Spotrac signing type (diagnostic label, not feature).
+
+    When is_confirmation is provided, prints both pooled (all rows, reporting)
+    and selection-only (decision-grade) readings -- ISSUES #20a.
+    """
     if "signing_cat" not in df.columns:
         print("\nNo signing_cat in data, skipping signing type residuals.")
         return
@@ -318,37 +325,48 @@ def residual_by_signing_type(df, y_true, y_pred):
 
     order = ["Bird Rights", "Sign & Trade", "Cap Space", "Early Bird",
              "MLE", "Non-Bird", "Minimum", "Rookie Scale", "Other", "Unknown"]
-    rows = []
-    for cat in order:
-        sub = df[df["signing_cat"] == cat]
-        if len(sub) < 3:
-            continue
-        bias = sub["residual"].mean()
-        mae = sub["residual"].abs().mean()
-        bias_d = sub["residual_dollar"].mean()
-        mae_d = sub["residual_dollar"].abs().mean()
-        rows.append({
-            "signing_type": cat,
-            "n": len(sub),
-            "mean_cap_pct": round(sub["actual"].mean(), 4),
-            "mean_pred": round(sub["pred"].mean(), 4),
-            "bias_pct": round(bias, 4),
-            "bias_$M": round(bias_d / 1e6, 2),
-            "MAE_pct": round(mae, 4),
-            "MAE_$M": round(mae_d / 1e6, 2),
-        })
 
-    result = pd.DataFrame(rows)
-    path = DIAG_DIR / "residual_by_signing_type.csv"
-    result.to_csv(path, index=False)
+    # ISSUES #20a: report both pooled (all rows) and selection-only readings.
+    # The selection-only numbers are decision-grade; the pooled ones are context.
+    splits = [("all", "reporting", None)]
+    if is_confirmation is not None:
+        sel_mask = ~np.asarray(is_confirmation, dtype=bool)
+        splits.append(("selection", "decision-grade", sel_mask))
 
-    print(f"\n=== Residual by Signing Type (OOF) ===")
-    print(f"{'Type':15s} {'N':>4s} {'Avg%':>7s} {'Pred%':>7s} {'Bias':>7s} {'Bias$M':>7s} {'MAE%':>7s} {'MAE$M':>7s}")
-    print("-" * 70)
-    for _, r in result.iterrows():
-        print(f"{r['signing_type']:15s} {r['n']:4d} {r['mean_cap_pct']:7.4f} {r['mean_pred']:7.4f} "
-              f"{r['bias_pct']:+7.4f} {r['bias_$M']:+7.1f} {r['MAE_pct']:7.4f} {r['MAE_$M']:7.1f}")
-    print(f"\nSaved: {path.name}")
+    for tag, label, mask in splits:
+        sub_df = df[mask] if mask is not None else df
+        rows = []
+        for cat in order:
+            sub = sub_df[sub_df["signing_cat"] == cat]
+            if len(sub) < 3:
+                continue
+            bias = sub["residual"].mean()
+            mae = sub["residual"].abs().mean()
+            bias_d = sub["residual_dollar"].mean()
+            mae_d = sub["residual_dollar"].abs().mean()
+            rows.append({
+                "signing_type": cat,
+                "n": len(sub),
+                "mean_cap_pct": round(sub["actual"].mean(), 4),
+                "mean_pred": round(sub["pred"].mean(), 4),
+                "bias_pct": round(bias, 4),
+                "bias_$M": round(bias_d / 1e6, 2),
+                "MAE_pct": round(mae, 4),
+                "MAE_$M": round(mae_d / 1e6, 2),
+            })
+
+        result = pd.DataFrame(rows)
+        suffix = f"_{tag}" if tag != "all" else ""
+        path = DIAG_DIR / f"residual_by_signing_type{suffix}.csv"
+        result.to_csv(path, index=False)
+
+        print(f"\n=== Residual by Signing Type (OOF) [{label}] ===")
+        print(f"{'Type':15s} {'N':>4s} {'Avg%':>7s} {'Pred%':>7s} {'Bias':>7s} {'Bias$M':>7s} {'MAE%':>7s} {'MAE$M':>7s}")
+        print("-" * 70)
+        for _, r in result.iterrows():
+            print(f"{r['signing_type']:15s} {r['n']:4d} {r['mean_cap_pct']:7.4f} {r['mean_pred']:7.4f} "
+                  f"{r['bias_pct']:+7.4f} {r['bias_$M']:+7.1f} {r['MAE_pct']:7.4f} {r['MAE_$M']:7.1f}")
+        print(f"\nSaved: {path.name}")
     return result
 
 
@@ -378,6 +396,12 @@ def main():
     df_full = _filter_mislabeled_year1(df_full)
     df_full = _filter_continuations(df_full)
     df_full = _filter_rookie_contracts(df_full)
+    # ISSUES #20a: mark the confirmation split so signing-type bias is reported
+    # separately for selection (decision-grade) and confirmation (canary) rows.
+    # Deferred import: evaluate_suite imports attach_signing_labels from this
+    # module, so the import must happen after both modules are fully loaded.
+    from src.model.evaluate_suite import _in_confirmation_set
+    df_full["is_confirmation"] = df_full["player_name_norm"].map(_in_confirmation_set)
     df_full = _load_signing_type_labels(df_full)
     avail = [f for f in FEATURES if f in df_full.columns]
     X_full = df_full[avail].fillna(df_full[avail].median()).fillna(0)
@@ -387,7 +411,8 @@ def main():
         m = XGBRegressor(**PARAMS)
         m.fit(X_full.iloc[tr_i], df_full[TARGET].values[tr_i])
         oof_pred[va_i] = m.predict(X_full.iloc[va_i])
-    residual_by_signing_type(df_full, df_full[TARGET].values, oof_pred)
+    residual_by_signing_type(df_full, df_full[TARGET].values, oof_pred,
+                             is_confirmation=df_full["is_confirmation"].values)
 
     print(f"\nAll diagnostics saved to {DIAG_DIR}")
 

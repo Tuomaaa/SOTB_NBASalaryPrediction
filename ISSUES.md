@@ -545,7 +545,7 @@ season, not by fold.
 **Fixed when**: `evaluate_suite` (or a shared helper) exposes a fixed-fold
 common-row comparison, and the bridge recipe in `worker-brief.md` points to it.
 
-## 36. Three training rows carry a waiving team's stretched dead money as salary
+## 36. Four training rows carry a waiving team's stretched dead money as salary
 
 **Severity**: medium — fabricated observations of the TARGET on waived players.
 
@@ -560,20 +560,42 @@ actually signed with another team is ignored.
 | bradley beal 2025 | $19,383,010 | PHX stretch: 5 x $19.38M | LAC 2yr/$10.98M (AAV $5.49M) |
 | joakim noah 2020 | $6,431,667 | NYK stretch: 3 x $6.43M | LAC minimum 2yr/$2.98M |
 | nicolas batum 2020 | $8,856,969 | CHA dead money, repeats 2020-21 | LAC 1yr/$2.56M |
+| luol deng 2019 | $5,000,000 | LAL stretch: 3 x $5M | MIN 1yr vet minimum |
 
 Beal's five identical $19,383,010 entries from 2025-2029 (no CBA raises = stretch
 annuity) and Noah's attribution to NYK for a season he played on the Clippers
-establish the mechanism unambiguously.
+establish the mechanism unambiguously. Deng's $5M under LAL while he played 22
+games for MIN (confirmed in both advanced_stats.csv and impact_metrics.csv) is
+the same pattern; his row escapes `audit_stretched_salaries.py` because he has
+no Spotrac page (no AAV to trigger the ratio check).
 
-**Reproduce**: `python scripts/audit_stretched_salaries.py`
+All four corrections are in `salary_corrections.csv` as `salary_override` entries.
+Beal and Batum are `verified` (Spotrac-sourced); Noah and Deng are `inferred`
+(10+ year vet minimum for their respective seasons, no Spotrac page).
 
-**What to do**: source the actual signed salary from Spotrac and replace the
-stretched obligation. `contract_structure_v2.csv` also needs correction — Beal's
-flat five-year stretch schedule was read as a new five-year contract, which is why
-the row reaches the evaluation frame at all.
+**Reproduce**: `python scripts/audit_stretched_salaries.py` catches the three
+with Spotrac data. Deng requires the team-mismatch check: his salaries.csv team
+is LAL while his impact_metrics team_abbreviation is MIN.
+
+**What to do**: `salary_override` corrections are written and applied at
+`load_training_data()` time in `train.py`. Two residual items:
+
+1. `build_dataset.py` does NOT apply `salary_override` at build time — only
+   `min_cap_charge`. The `train.py` comment says "Both are also applied at build
+   time" but that is currently incorrect for `salary_override`. The correction
+   works because `load_training_data()` applies it at load time, but the
+   persisted `training_data_v2.csv` still carries the wrong salary until
+   `build_dataset.py` is updated or a rebuild is run after adding the
+   application code there.
+2. `contract_structure_v2.csv` carries incorrect entries for all four players
+   (the stretch annuity read as a contract): Beal shows 5yr, Noah 2yr, Batum
+   2yr, Deng 3yr. These cannot be corrected in-place (the file is never
+   recomputed, only extended), but a correction layer or override mechanism is
+   needed for the `year_in_contract` and `contract_years` fields.
 
 **Fixed when**: `audit_stretched_salaries.py` exits 0 (no stretch-class rows),
-and the three rows carry the salary the player actually signed for.
+all four rows carry the salary the player actually signed for, and the
+`build_dataset.py` gap is closed.
 
 ## 37. A prorated partial-season row sits just above the 1.2% floor and reaches the frame
 

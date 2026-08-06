@@ -85,7 +85,7 @@ from config import OUTPUTS_DIR
 from src.model.train import FEATURE_COLS
 from src.model.evaluate_suite import (
     load_evaluation_frame, paired_delta, _dollars, N_SPLITS, DEFAULT_SEEDS,
-    TARGET, FORWARD_ORIGINS,
+    TARGET, FORWARD_ORIGINS, abs_bias_growth, zone_scorecard,
 )
 from src.model import route_mixture as rm
 from src.model.extension_cap import attach_extension_cap
@@ -220,19 +220,6 @@ def class_diagnostics(p, true, tag):
             "calibration": cal}
 
 
-def zone_scorecard(df, champ, cand, mask, sel):
-    """Floor-zone MAE/bias, split by the confirmation lock (ISSUES #20a)."""
-    out = {}
-    for tag, m in (("all", mask), ("sel", mask & sel), ("conf", mask & ~sel)):
-        if m.sum() == 0:
-            continue
-        mae_c, bias_c = _dollars(df, champ, m)
-        mae_d, bias_d = _dollars(df, cand, m)
-        out[tag] = {"n": int(m.sum()), "champ_mae": mae_c, "cand_mae": mae_d,
-                    "win": mae_c - mae_d, "champ_bias": bias_c, "cand_bias": bias_d}
-    return out
-
-
 def c2_segments(df, champ, cand):
     segs = {}
     for cat, sub in df.groupby("signing_cat"):
@@ -243,7 +230,7 @@ def c2_segments(df, champ, cand):
         _, b_d = _dollars(df, cand, m)
         segs[str(cat)] = {"n": int(m.sum()), "champ": b_c, "cand": b_d,
                           "signed_change": b_d - b_c,
-                          "abs_bias_growth": abs(b_d) - abs(b_c)}
+                          "abs_bias_growth": abs_bias_growth(b_d, b_c)}
     return segs
 
 
@@ -256,7 +243,7 @@ def brakes(df, champ, cand, at_floor):
         mae_d, b_d = _dollars(df, cand, m)
         out[tag] = {"n": int(m.sum()), "champ_bias": b_c, "cand_bias": b_d,
                     "signed_change": b_d - b_c,
-                    "abs_bias_growth": abs(b_d) - abs(b_c),
+                    "abs_bias_growth": abs_bias_growth(b_d, b_c),
                     "mae_change": mae_d - mae_c}
     return out
 

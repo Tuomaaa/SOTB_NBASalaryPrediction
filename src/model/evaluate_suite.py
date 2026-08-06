@@ -400,6 +400,52 @@ def paired_delta(fold_r2_a: np.ndarray, fold_r2_b: np.ndarray) -> dict:
             "per_fold": [round(v, 5) for v in per_fold]}
 
 
+def abs_bias_growth(bias_cand: float, bias_champ: float) -> float:
+    """ISSUES #20c: |bias| growth = |bias_cand| - |bias_champ|.
+
+    A bias moving toward zero is an improvement, not a regression. The signed
+    form (bias_cand - bias_champ) disagrees whenever a segment's bias shrinks
+    -- e.g. Bird Rights going -$2.44M -> -$2.03M reads as +$0.41M signed but
+    only +$0.026M in |bias| growth.
+    """
+    return abs(bias_cand) - abs(bias_champ)
+
+
+def zone_scorecard(df, pred_champ, pred_cand, zone_mask, sel_mask=None):
+    """Zone MAE/bias split by the confirmation lock (ISSUES #20a).
+
+    Returns a dict of up to three readings:
+      all  -- every zone row (reporting)
+      sel  -- selection-pool rows only (the number that decides)
+      conf -- confirmation rows (canary, never decides)
+    When sel_mask is None, returns only 'all'.
+
+    The bias-growth metric uses the ISSUES #20c definition (|bias| growth),
+    so a bias shrinking toward zero is never scored as a regression.
+    """
+    out = {}
+    slices = [("all", zone_mask)]
+    if sel_mask is not None:
+        slices += [("sel", zone_mask & sel_mask),
+                   ("conf", zone_mask & ~sel_mask)]
+    for tag, m in slices:
+        if hasattr(m, "values"):
+            m = m.values
+        if m.sum() == 0:
+            continue
+        mae_c, bias_c = _dollars(df, pred_champ, m)
+        mae_d, bias_d = _dollars(df, pred_cand, m)
+        out[tag] = {
+            "n": int(m.sum()),
+            "champ_mae": mae_c, "cand_mae": mae_d,
+            "win": mae_c - mae_d,
+            "champ_bias": bias_c, "cand_bias": bias_d,
+            "signed_bias_change": bias_d - bias_c,
+            "abs_bias_growth": abs_bias_growth(bias_d, bias_c),
+        }
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Layers
 # ---------------------------------------------------------------------------
