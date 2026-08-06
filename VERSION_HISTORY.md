@@ -1053,6 +1053,37 @@ gained from the cleanup: n=305 → 318 (+13 rows), and the model now trains on
 correctly classified training data. MAE growth ($2.87→$3.02M) reflects the
 larger frame mixing in harder-to-price rows.
 
+### Post-v8.7x: data repairs and evaluation tooling (no version consumed)
+
+Four ISSUES resolved, training data rebuilt. No model or feature change — no
+version number consumed.
+
+| Commit | What | ISSUES |
+|--------|------|--------|
+| `966f176` | RAPM re-scrape: 58 rows filled via `nba_id` matching (name mismatches). Coverage: 2023 81.8%, 2026 83.5%. Remaining gaps confirmed absent from nbarapm.com | #39 amended |
+| `966f176` | min_cap_charge batch 2: 6 corrections (MCW 2019, Gerald Green 2019, Barea 2019, Iwundu 2020, Bates-Diop 2023, Hyland 2026). `fix_minimum_convention.py` dedup logic fixed: append-only, never re-detects existing corrections | #38 amended |
+| `5fa5f4a` | Luol Deng 2019: 4th stretched dead money case ($5M LAL stretch, played for MIN). `salary_override` to vet minimum $2,564,753 | #36 updated (3→4 rows) |
+| `5fa5f4a` | `abs_bias_growth()` and `zone_scorecard()` promoted to `evaluate_suite.py` as shared helpers. `diagnostics.py` signing-type residuals split by confirmation/selection. `eval_floor_branch.py` imports shared versions | #20 partial |
+| `1ec3a48` | Nunn continuation: verified already fixed in commit `8071745`. Similar-case scan: OG Anunoby 2021 defensible, PJ Dozier 2020 negligible | #31 closed |
+
+Training data rebuilt on the corrected 896-row frame. Metrics unchanged from
+v8.7x: A1 = 0.8019, A2 = 0.8573, B1 = 0.8493, MAE = $3.02M.
+
+Signing-type bias on the 896-row frame (OOF, selection-only):
+
+| Type | N | Bias | MAE |
+|------|---|------|-----|
+| Bird Rights | 248 | −$2.2M | $4.5M |
+| Sign & Trade | 10 | −$5.1M | $5.7M |
+| Cap Space | 59 | −$0.7M | $3.4M |
+| Early Bird | 44 | −$1.4M | $2.5M |
+| MLE | 110 | +$1.0M | $2.7M |
+| Non-Bird | 11 | +$1.9M | $2.2M |
+| Minimum | 206 | +$2.5M | $2.5M |
+
+The systematic pattern — Bird Rights underpredicted, MLE/Minimum overpredicted
+— is the motivation for Stage 3 signing-type work (in progress).
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v7.0x was a statistical
@@ -1113,8 +1144,8 @@ every row, so P x delta_bird moves the whole price surface. Evidence:
 Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 6    Phase 7        Phase 8
 Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data + protocol  3-stage + route
                                                                                      
-0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.821
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.6x
+0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.802
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.7x
                         ↗ 0.87                                                                                 (current)
                   Leaked features                                                                told-route numbers
                   (removed in v4.0)                                                              from v8.0x onward
@@ -1144,8 +1175,11 @@ filed as fresh signings, a fabricated prior-pay feature on 28% of a season's
 rows, 12 mis-tiered max contracts, 119 over-tiered service-year ceilings, 83
 dirty award-join rows, a name alias dropping a $20M prior, a signing-season
 award anchor wrong in its second home, split impact-source rows filling league
-medians in place of real data, and 46 did-not-play rows carrying fabricated
-usage rates -- all closed.
+medians in place of real data, 46 did-not-play rows carrying fabricated
+usage rates, 1064 phantom signing-type rows from 16 junk Spotrac redirect
+pages, 4 stretched dead-money salaries filed as signed contracts, and a
+minimum-contract convention mixing paid and cap-charge values across seasons
+-- all closed or under active correction.
 
 v7.10x's `prev_cap_pct` repair (+0.0135, t 7.6) is the largest single paired
 gain in the project's recent history -- repairing the #2 feature on the largest

@@ -233,12 +233,15 @@ season-2019 names remain without a 2018 key.
 adoption it did not earn. Found building `scripts/eval_route_mixture_p3.py`;
 full numbers in `docs/briefs/2026-07-26-route-mixture-p3.RESULT.md` §8.
 
-**Status 2026-07-28**: still open, but no longer un-implemented anywhere.
-`scripts/eval_floor_branch.py` honours all three (its module docstring names
-them) and is the working reference implementation to copy from. What is missing
-is the systematisation — `evaluate_suite.py`'s `grabit_zone` / `floor_zone`
-scorecards and `scripts/diagnostics.py` still pool the confirmation split, and
-each new harness re-derives the three rules by hand.
+**Status 2026-08-06**: (c) is fixed — `abs_bias_growth()` in
+`evaluate_suite.py` implements `|bias_cand| − |bias_champ|`, and
+`eval_floor_branch.py` uses it via import. (a) is partially fixed —
+`zone_scorecard()` in `evaluate_suite.py` splits by confirmation/selection,
+`diagnostics.py` reports signing-type residuals separately for selection-only
+(decision-grade) and pooled (reporting). What remains: `evaluate_suite.py`'s
+`grabit_zone` / `floor_zone` reporting scorecards still pool the confirmation
+split. (b) is documented but not yet systematised — `eval_floor_branch.py`
+honours it, but no shared helper enforces fixed-row comparison.
 
 **(a) Zone-MAE gates pool the confirmation split.** The route-mixture "Win"
 gate — true-max zone MAE must improve by ≥ $0.50M — is computed over all 68 zone
