@@ -621,14 +621,22 @@ obvious ladder and deliberately the crudest thing that removes it: **one
 constant per type**, added to the composed prediction.
 
 ```
-pred_corrected = clip( minimum( pred + offset(type), ext_cap ), floor, ceiling )
+pred_corrected = clip( minimum( minimum( pred + offset(type), mech_cap ),
+                                ext_cap ), floor, ceiling )
 offset(type)   = n / (n + k) x mean OOF residual of that type,  k = 20
 residual       = actual - predicted, in cap_pct
 ```
 
+The full chain order in `compose()`:
+
+```
+latent -> push -> clip[lo,hi] -> signing offset -> mechanism cap clip
+-> extension clip -> re-clip[lo,hi]
+```
+
 Legality is re-applied after the offset, in that order, for the same reason
 Stage 3 exists at all: a correction that pushed a row past its ceiling would be
-pricing an impossible contract. On the 896-row frame it clips 49 of the 417
+pricing an impossible contract. On the 873-row frame it clips 54 of the 438
 eligible rows back to where they started.
 
 **Eligible types, and why the list is short.** Only the four ELIGIBILITY
@@ -679,17 +687,61 @@ statistic. Layer B is clean of it entirely, and layer B is where the gain is
 largest.
 
 **Deployed constants are data-dependent.** `stages.SIGNING_OFFSETS_DEPLOYED`
-holds the four numbers as measured on the 896-row frame, for the single-fit
-consumers that have no OOF to estimate from. They are per-type mean residuals of
-a particular frame, so a training-data rebuild invalidates them exactly the way
-it invalidates a published R2. Regenerate with
-`scripts/eval_stage3_signing.py` and copy `deployed_offsets_k20` across.
+holds the four numbers as measured on the 873-row frame (regenerated 2026-08-07
+from the 896-row values), for the single-fit consumers that have no OOF to
+estimate from. They are per-type mean residuals of a particular frame, so a
+training-data rebuild invalidates them exactly the way it invalidates a
+published R2. Regenerate with `scripts/eval_stage3_signing.py` and copy
+`deployed_offsets_k20` across.
 
 **`predict.py` is untouched by this.** An unsigned free agent has no signing
 mechanism -- the label exists only once the contract does -- so every offset on
 that path is 0.0 and the free-agent valuations are bit-identical to v8.7x. The
 deployed offsets are passed in explicitly and the identity is asserted, so the
 no-op is demonstrated by the code rather than assumed.
+
+### Stage 3, mechanism cap: the CBA ceiling for Early Bird and Non-Bird (v8.9x)
+
+A zero-parameter deterministic clip, the same architecture as the extension
+raise cap: it only ever LOWERS a prediction, reads no fitted parameter, and the
+numbers come from the CBA's published minimum salary scale and the league's
+Estimated Average Player Salary.
+
+```
+Early Bird cap = max(1.75 x prior_salary, 1.05 x EAS)
+Non-Bird cap   = max(1.20 x prior_salary, 1.20 x vet_min_for_experience)
+```
+
+The mechanism cap sits AFTER the signing offset and BEFORE the extension clip in
+the chain, so a positive offset that pushes a row above its mechanism ceiling is
+caught before the extension raise cap, which may be tighter still, governs last.
+For all signing types other than Early Bird and Non-Bird, `mech_cap_pct` is NaN
+and the clip is a no-op.
+
+On the 873-row frame: 65 mechanism caps computed (52 Early Bird, 13 Non-Bird, 1
+excluded for a documented label issue: josh okogie 2023). Zero violations
+against actual salary, which means the CBA scale tables and formulas are
+correctly calibrated to the data.
+
+The mechanism cap is NOT the same quantity as the signing offset. The offset is a
+fitted parameter (per-type mean OOF residual); the mechanism cap is a legal
+ceiling. The offset adjusts the model's systematic bias; the cap enforces the
+law. They are composed, not alternatives.
+
+One exclusion, preserved by design: **josh okogie 2023** carries a Non-Bird
+label inconsistent with the 2017 CBA minimum scale for 5 years of service.
+120% of his vet minimum is $2,319,523 but his actual salary is $2,816,000 -- a
+$497K gap that no experience count closes. Flagged as a wrong label; excluded
+from the mechanism cap computation.
+
+The vet minimum scale is implemented from two sources:
+- **2017 CBA (seasons 2019-2022)**: Exhibit I published figures, the 2019-20
+  base frozen through 2020-21 per the COVID agreement, then 3.0% and 6.1%
+  annual increases.
+- **2023 CBA (seasons 2023+)**: tier ratios derived from the data plus the
+  Non-Bird ceiling rows, with a base percentage of 1.4848% of the cap.
+
+Evidence: `src/model/mechanism_cap.py`, `scripts/eval_stage3_model.py`.
 
 **Rung 2, tested next, not implemented.** The obvious next step is a per-type
 *slope* rather than a per-type constant -- `pred + a_t + b_t x pred`, or

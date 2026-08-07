@@ -733,6 +733,8 @@ Evidence: `docs/briefs/2026-07-26-service-years.RESULT.md`,
 
 | Ver | Model | A1 (told) | A2 (told) | B1 (told) | N | Feat | Change |
 |-----|-------|-----------|-----------|-----------|---|------|--------|
+| **8.9x** | **XGBoost (Grabit v4)** | **0.8301** | **0.8544** | **0.8604** | **873** | **17** | **Mechanism cap clip + offset regen on 873-row frame. A1 +0.0132 vs v8.7x arm** |
+| 8.8x | XGBoost (Grabit v4) | 0.8126 | 0.8672 | 0.8578 | 896 | 17 | Stage-3 signing-type offset. Leakage-aware k=20 shrunk per-type means |
 | 8.0x | XGBoost (Grabit v4) | 0.7989 | 0.8515 | 0.8356 | 944 | 14 | Stage 3 — the signing route enters the model. Push + extension clip in one composition module. Ex-ante A1 0.7865 (clip only) |
 | 8.1x | XGBoost (Grabit v4) | 0.8127 | 0.8588 | 0.8419 | 944 | 14 | Impact-source join repaired on `nba_id`. 2026 forward origin 0.7992 → 0.8311 |
 | **8.2x** | **XGBoost (Grabit v4)** | **0.8210** | **0.8625** | **0.8528** | **944** | **15** | **`is_waived`, the fifteenth feature + missingness-semantics repair** |
@@ -1194,6 +1196,83 @@ Evidence: `scripts/eval_stage3_signing.py`,
 `outputs/models/stage3_signing_offset_eval.json`,
 `outputs/models/evaluation_suite.json`. The suite reproduces the gating
 measurement to **0.000e+00** on A1, A2 and B1.
+
+### v8.9x: mechanism cap clip + deployed offset regeneration (873-row frame)
+
+**Frame change.** The signing-label recovery at v8.8x (commit `3ff437c`) made
+the continuation filter's three-signal consensus fire on 22 more rows, dropping
+the frame from 896 to 873. R2 across different row sets is not comparable
+(ISSUES #35), so v8.9x on 873 rows is compared against the v8.7x arm's own OOF
+on the same 873 rows.
+
+**Deployed offset regeneration.** `stages.SIGNING_OFFSETS_DEPLOYED` updated from
+the 896-row frame values to the 873-row frame values. Bird Rights +0.01250 (was
++0.01261), Cap Space +0.00644 (was +0.00242), Early Bird +0.00723 (was
++0.00710), Non-Bird -0.00515 (was -0.00607). Cap Space moved the most (+0.004)
+because the 23 dropped rows were concentrated in the cap-space-heavy Non-Bird
+and continuation population.
+
+**Mechanism cap clip.** A zero-parameter deterministic clip, the same
+architecture as the extension raise cap: it only ever LOWERS a prediction, reads
+no fitted parameter, and the numbers come from the CBA's published minimum
+salary scale and the league's Estimated Average Player Salary.
+
+```
+  Early Bird cap = max(1.75 x prior_salary, 1.05 x EAS)
+  Non-Bird cap   = max(1.20 x prior_salary, 1.20 x vet_min_for_experience)
+```
+
+Chain order in `compose()`:
+
+```
+  latent -> push -> clip[lo,hi] -> signing offset -> mechanism cap clip
+  -> extension clip -> re-clip[lo,hi]
+```
+
+The mechanism cap sits AFTER the signing offset and BEFORE the extension clip,
+so a positive offset that pushes a row above its Early Bird ceiling is caught,
+while an extension raise cap that is tighter still governs last. 65 mechanism
+caps computed (52 Early Bird, 13 Non-Bird, 1 excluded: Okogie 2023, label
+issue). Zero violations against actual salary. Legality guard checks
+`above_mech_cap` alongside the existing floor, ceiling and raise-cap checks.
+
+`predict.py` is **bit-identical**: unsigned free agents have no signing mechanism
+and no mechanism cap (all NaN), so both are no-ops. Asserted in the code.
+
+| Layer | v8.7x arm (n=873) | v8.9x champion (n=873) |
+|---|---|---|
+| A1 | 0.8169 | **0.8301** (+0.0132) |
+| A2 | 0.8447 | 0.8544 (+0.0097) |
+| B1 | 0.8499 | 0.8604 (+0.0105) |
+| 2024 / 2025 / 2026 origin | 0.8616 / 0.8400 / 0.8443 | 0.8754 / 0.8439 / 0.8593 |
+| MAE | $2.89M | $2.76M |
+| C1 slope | 0.963 | 0.953 |
+| D3 locked confirmation | — (sel 0.8157) | 0.8274 (sel 0.8303) |
+
+Signing offset alone (champion vs v8.7x arm): paired dSel **+0.01604, t +5.74**
+(stronger than v8.8x's +0.01287 at t +5.25 on the larger frame — the 23 dropped
+rows were diluting the signal).
+
+Where the intervention acts — MAE over the four eligible types, selection pool,
+paired by fold: **+$0.30M** ($3.62M -> $3.32M). |bias| reduction +$1.09M.
+Per-type bias, pooled:
+
+| Type | n | bias v8.7x | bias v8.9x | MAE v8.7x | MAE v8.9x |
+|---|---|---|---|---|---|
+| Bird Rights | 292 | -$1.67M | -$0.35M | $3.73M | $3.46M |
+| Cap Space | 80 | -$0.93M | -$0.30M | $3.67M | $3.63M |
+| Early Bird | 52 | -$1.28M | -$0.63M | $2.59M | $2.36M |
+| Non-Bird | 14 | +$0.75M | +$0.17M | $1.95M | $1.64M |
+
+384 of 438 eligible rows move; 54 eligible unmoved (legality clips the offset
+away). Zero rows below floor, above tier ceiling, above raise cap, or above
+mechanism cap, in either layer.
+
+Evidence: `src/model/evaluate_suite.py`,
+`outputs/models/evaluation_suite.json`,
+`outputs/models/oof_reference.csv` (873 rows).
+
+Tags: `v8.9x`.
 
 ### Corrections to earlier findings
 

@@ -74,6 +74,7 @@ from src.model.train import (
     _compute_floor, _prepare_Xy, _make_tobit_obj, _XGB_BASE, FEATURE_COLS, TARGET,
 )
 from src.model.extension_cap import attach_extension_cap
+from src.model.mechanism_cap import attach_mechanism_caps
 from src.model.route_mixture import (
     attach_clf_features, grabit_latent, route_proba, train_route_classifier,
     MAX_IDX,
@@ -301,6 +302,10 @@ def load_evaluation_frame(keep_prorated: bool = False,
     # already fixed by _prepare_Xy above, and ext_cap_pct deliberately never
     # enters max_eligible_pct or the Stage-1 censor mask.
     df = attach_extension_cap(df, verbose=verbose)
+    # Mechanism cap (Early Bird / Non-Bird legal ceiling), same pattern as ext_cap:
+    # attached here so every consumer gets the same values and no harness has to
+    # remember to call it.
+    df = attach_mechanism_caps(df, verbose=verbose)
     return df, features
 
 
@@ -442,11 +447,15 @@ def oof_groupkfold_signing(df: pd.DataFrame, features: list[str], fitter,
 
     lo, hi = df["floor_pct"].values, df["max_eligible_pct"].values
     is_ext, ext_cap = df["is_extension"].values, df["ext_cap_pct"].values
+    mech_cap = (df["mech_cap_pct"].values
+                if "mech_cap_pct" in df.columns else None)
     for rec in store:
         va = rec["va"]
         rec["pred"][new_arm] = stage3_signing(
             rec["pred"][source_arm], cat[va], lfo[rec["fi"]],
-            lo=lo[va], hi=hi[va], is_extension=is_ext[va],
+            lo=lo[va], hi=hi[va],
+            mech_cap_pct=mech_cap[va] if mech_cap is not None else None,
+            is_extension=is_ext[va],
             ext_cap_pct=ext_cap[va])
     return _reduce_fold_pass(df, store, folds, seeds), lfo
 
@@ -517,6 +526,8 @@ def rolling_forward_signing(df: pd.DataFrame, features: list[str],
     cat = df["signing_cat"].values
     lo, hi = df["floor_pct"].values, df["max_eligible_pct"].values
     is_ext, ext_cap = df["is_extension"].values, df["ext_cap_pct"].values
+    mech_cap = (df["mech_cap_pct"].values
+                if "mech_cap_pct" in df.columns else None)
     detail = {}
     for T in origins:
         te, tr = season == T, season < T
@@ -530,6 +541,7 @@ def rolling_forward_signing(df: pd.DataFrame, features: list[str],
         offs = signing_offsets(train[TARGET].values - inner_oof,
                                train["signing_cat"].values, k=k, detail=True)
         out[te] = stage3_signing(out[te], cat[te], offs, lo=lo[te], hi=hi[te],
+                                 mech_cap_pct=mech_cap[te] if mech_cap is not None else None,
                                  is_extension=is_ext[te], ext_cap_pct=ext_cap[te])
         detail[int(T)] = {t: {"offset": d["offset"], "n": d["n"]}
                           for t, d in offs.items()}
@@ -631,10 +643,11 @@ def signing_guards(df: pd.DataFrame, source_oof, champ_oof,
                        gated at 0.0; layer B at SIGNING_ULP_TOL, for the
                        seed-average rounding documented on
                        `rolling_forward_signing`.
-      G2 legality      Zero rows below `floor_pct`, above `max_eligible_pct`, or
-                       above a binding `ext_cap_pct`. A corrected row that broke
-                       one of those would be an impossible contract, which is
-                       the failure Stage 3 exists to prevent.
+      G2 legality      Zero rows below `floor_pct`, above `max_eligible_pct`,
+                       above a binding `ext_cap_pct`, or above a binding
+                       `mech_cap_pct`. A corrected row that broke one of those
+                       would be an impossible contract, which is the failure
+                       Stage 3 exists to prevent.
     """
     cat = df["signing_cat"].values
     elig = np.isin(np.asarray(cat, dtype=object).astype(str),
@@ -643,6 +656,9 @@ def signing_guards(df: pd.DataFrame, source_oof, champ_oof,
     ext = np.asarray(pd.Series(df["is_extension"]).fillna(False).values, bool)
     ext_cap = df["ext_cap_pct"].values
     binds = ext & ~np.isnan(ext_cap) & (ext_cap >= lo - SIGNING_ULP_TOL)
+    mech_cap = (df["mech_cap_pct"].values if "mech_cap_pct" in df.columns
+                else np.full(len(df), np.nan))
+    mech_binds = ~np.isnan(mech_cap)
     tol = SIGNING_ULP_TOL
 
     def legality(pred, where):
@@ -650,6 +666,7 @@ def signing_guards(df: pd.DataFrame, source_oof, champ_oof,
         return {"below_floor": int(((pred < lo - tol) & m).sum()),
                 "above_max": int(((pred > hi + tol) & m).sum()),
                 "above_ext_cap": int(((pred > ext_cap + tol) & binds & m).sum()),
+                "above_mech_cap": int(((pred > mech_cap + tol) & mech_binds & m).sum()),
                 "n_scored": int(m.sum()), "scope": where}
 
     d_oof = np.abs(champ_oof - source_oof)
@@ -674,7 +691,7 @@ def signing_guards(df: pd.DataFrame, source_oof, champ_oof,
     out["legality_pass"] = all(
         out[key][f] == 0
         for key in ("A_legality", "B_legality") if key in out
-        for f in ("below_floor", "above_max", "above_ext_cap"))
+        for f in ("below_floor", "above_max", "above_ext_cap", "above_mech_cap"))
     return out
 
 
@@ -711,9 +728,10 @@ def print_signing_guards(g: dict, lfo: dict | None = None,
     for key in ("A_legality", "B_legality"):
         if key in g:
             d = g[key]
+            mech = f", above mech cap {d['above_mech_cap']}" if "above_mech_cap" in d else ""
             print(f"  G2 legality, {d['scope']}: below floor {d['below_floor']}, "
                   f"above tier ceiling {d['above_max']}, above raise cap "
-                  f"{d['above_ext_cap']} (n={d['n_scored']})")
+                  f"{d['above_ext_cap']}{mech} (n={d['n_scored']})")
     print(f"  G3 rows moved: {g['A_n_moved']} of {g['n_eligible']} eligible; "
           f"{g['A_n_eligible_unmoved']} eligible rows did not move (legality "
           f"clipped the offset away)")

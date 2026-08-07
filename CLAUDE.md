@@ -34,7 +34,9 @@ nba-valuation/
 │   │   └── build_dataset.py # stage 1 of the training-data rebuild
 │   └── model/
 │       ├── train.py         # Ridge / XGBoost / two-sided Grabit + the filter chain
-│       ├── stages.py        # Stage 2 (push + clip) and Stage 3 (raise cap + signing offset)
+│       ├── stages.py        # Stage 2 (push + clip) and Stage 3 (raise cap + signing offset + mechanism cap)
+│       ├── extension_cap.py # extension raise-cap ceiling (120%/140% of prior)
+│       ├── mechanism_cap.py # Early Bird / Non-Bird legal ceiling (CBA vet-min scale + EAS)
 │       ├── evaluate_suite.py  # the four-layer evaluation protocol (see below)
 │       ├── evaluate.py      # residual plots
 │       └── predict.py       # inference on upcoming free agents
@@ -153,9 +155,17 @@ Two rules the ablation table encodes:
 Current model is the three-stage Grabit pipeline described in METHODOLOGY.md.
 Stage 1 prices under *default parameters* with a two-sided censored loss; Stage 2
 applies the CBA bounds (push toward the ceiling where P(max) >= 0.52, then clip
-into the player's [floor, max] band); Stage 3 adjusts for told-route facts —
-it clips extension rows at their legal raise cap, then adds a per-type offset
-to the four eligibility signing mechanisms and re-applies both bounds.
+into the player's [floor, max] band); Stage 3 adjusts for told-route facts:
+
+```
+latent -> push -> clip[lo,hi] -> signing offset -> mechanism cap clip
+-> extension clip -> re-clip[lo,hi]
+```
+
+The signing offset adds a per-type constant to the four eligibility mechanisms;
+the mechanism cap clips Early Bird and Non-Bird rows at their CBA legal ceiling;
+the extension clip clips first-paying-year extensions at their raise cap. Each
+clip only ever LOWERS a prediction and re-applies the [floor, ceiling] bound.
 Composition lives in `src/model/stages.py`. Ridge remains in `train.py` as a
 reference point.
 

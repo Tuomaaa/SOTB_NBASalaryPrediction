@@ -952,12 +952,17 @@ which stack produced them.
 ~47% of rows, and nothing in the pipeline can detect it.
 
 `stages.SIGNING_OFFSETS_DEPLOYED` holds four constants that are per-type mean
-OOF residuals **of the 896-row frame as it stood on 2026-08-06**. They are the
-same kind of object as a published R2: a training-data rebuild invalidates them.
-Unlike an R2, nothing re-derives them — they are hard-coded, because
-`outputs/models/` is gitignored and code is the only place a fresh clone can
-find them. If the frame moves and the constants do not, every Bird-Rights row on
-the single-fit paths is corrected by a residual the model no longer has.
+OOF residuals of the current evaluation frame. They are the same kind of object
+as a published R2: a training-data rebuild invalidates them. Unlike an R2,
+nothing re-derives them — they are hard-coded, because `outputs/models/` is
+gitignored and code is the only place a fresh clone can find them. If the frame
+moves and the constants do not, every Bird-Rights row on the single-fit paths is
+corrected by a residual the model no longer has.
+
+**Updated 2026-08-07**: regenerated on the 873-row frame (was 896-row). Cap
+Space moved the most (+0.004 cap_pct). Regeneration is step 5 of CLAUDE.md's
+refresh block. The mechanical file-based approach (CSV fallback) is still the
+long-term fix.
 
 The evaluation suite is **not** exposed to this: layers A and B estimate their
 own offsets from the current frame's residuals every run. The exposure is the
@@ -969,13 +974,11 @@ label is missing, so it is inert).
 `OMP_NUM_THREADS=6 python scripts/eval_stage3_signing.py` and compare its
 `DEPLOYED-FORM OFFSETS (k=20)` block against the dict in `stages.py`.
 
-**What to do**: add the regeneration to the data-refresh sequence — it is now
-step 5 in CLAUDE.md's refresh block. Better, make it mechanical: have the
-harness write the four numbers to a small tracked CSV under
-`data/raw/raw_external/` (whitelisted in `.gitignore`, the same pattern the
-curated CBA tables use) and have `stages.py` load that file with the hard-coded
-dict as the fallback, so a rebuild that forgets the step fails loudly rather
-than quietly.
+**What to do**: make it mechanical: have the harness write the four numbers to a
+small tracked CSV under `data/raw/raw_external/` (whitelisted in `.gitignore`,
+the same pattern the curated CBA tables use) and have `stages.py` load that file
+with the hard-coded dict as the fallback, so a rebuild that forgets the step
+fails loudly rather than quietly.
 
 **Fixed when**: regenerating the offsets is either a checked step of the rebuild
 or unnecessary, and the deployed constants match a harness run on the current

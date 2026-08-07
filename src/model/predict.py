@@ -158,23 +158,27 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     no_extension = np.zeros(len(pred_df), bool)
     no_ext_cap = np.full(len(pred_df), np.nan)
     no_signing_type = np.full(len(pred_df), None, dtype=object)
+    no_mech_cap = np.full(len(pred_df), np.nan)
     capped = stages.compose(latent, lo=floor_pct, hi=max_elig, p_max=p_max,
                             is_extension=no_extension, ext_cap_pct=no_ext_cap,
                             signing_type=no_signing_type,
-                            signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED)
-    # The deployed offsets are passed in, not withheld, and the free-agent path
-    # is still bit-identical to the pre-v8.8x pipeline: every row's signing type
-    # is missing, so every offset is exactly 0.0. Asserted rather than argued.
+                            signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED,
+                            mech_cap_pct=no_mech_cap)
+    # The deployed offsets and mechanism caps are passed in, not withheld, and
+    # the free-agent path is still bit-identical to the pre-v8.8x pipeline:
+    # every row's signing type is missing (every offset is exactly 0.0), and
+    # every row's mechanism cap is NaN (the clip is a no-op). Asserted, not argued.
     assert np.array_equal(
         capped,
         stages.compose(latent, lo=floor_pct, hi=max_elig, p_max=p_max,
                        is_extension=no_extension, ext_cap_pct=no_ext_cap)), \
-        "the Stage-3 signing offset moved an unsigned free agent"
+        "the Stage-3 signing offset or mechanism cap moved an unsigned free agent"
     flags = stages.bound_flags(latent, capped, lo=floor_pct, hi=max_elig,
                                p_max=p_max, is_extension=no_extension,
                                ext_cap_pct=no_ext_cap,
                                signing_type=no_signing_type,
-                               signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED)
+                               signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED,
+                               mech_cap_pct=no_mech_cap)
     assert not flags["is_ext_capped"].any(), \
         "Stage 3 fired on a frame with no extension rows"
 

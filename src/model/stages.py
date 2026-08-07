@@ -7,8 +7,9 @@ the web export and `predict.py` cannot drift apart — three consumers
 re-implementing a clip is how the "$39.68M for Marcus Smart" class of bug
 survives a code review.
 
-    latent  ->  push  ->  clip(lo, hi)  ->  stage 3  ->  stage 3 signing
-              \________  stage 2  _______/     \___ told-route components ___/
+    latent  ->  push  ->  clip(lo, hi)  ->  signing offset  ->  mechanism cap
+              \________  stage 2  _______/  ->  extension clip  ->  re-clip(lo, hi)
+                                                \___________ told-route components __________/
 
 **Stage 2 — the two-sided CBA bound, both halves.** The clip caps a row at its
 tier ceiling and lifts it to the league floor. That is only the downward half of
@@ -25,6 +26,14 @@ Estimated Average Player Salary, whichever is greater. That number is usually
 far below the tier ceiling, so the push can send an extension row to a ceiling
 it could not legally reach. Predicting $39.68M for Marcus Smart 2022 was not
 inaccurate, it was impossible; Stage 3 returns him to the law.
+
+**Stage 3, mechanism cap clip — the CBA ceiling for Early Bird and Non-Bird
+contracts (v8.9x).** After the signing offset fires, a row signed under Early
+Bird or Non-Bird still faces a legal ceiling: the CBA's 175%/105% EAS rule for
+Early Bird, and the 120%/120% vet-min rule for Non-Bird. The mechanism cap sits
+AFTER the signing offset and BEFORE the extension clip, so a positive offset
+that pushes a row above its mechanism ceiling is caught before the extension
+raise cap, which may be tighter still.
 
 **Stage 3, signing component — the told-mechanism per-type offset (v8.8x).**
 The stack carries a systematic residual bias by signing mechanism: Bird Rights
@@ -104,9 +113,9 @@ SIGNING_ELIGIBLE_TYPES = ("Bird Rights", "Cap Space", "Early Bird", "Non-Bird")
 # particular frame, so a training-data rebuild invalidates them exactly the way
 # it invalidates a published R2. Regenerate them with every rebuild:
 #
-#   date    2026-08-06
+#   date    2026-08-07
 #   source  scripts/eval_stage3_signing.py — the gated measurement harness
-#   frame   the 896-row evaluation frame, ALL OOF rows, seeds 0-9, k = 20
+#   frame   the 873-row evaluation frame, ALL OOF rows, seeds 0-9, k = 20
 #   regen   OMP_NUM_THREADS=6 python scripts/eval_stage3_signing.py
 #           then copy `deployed_offsets_k20[*]["offset"]` out of
 #           outputs/models/stage3_signing_offset_eval.json
@@ -116,10 +125,10 @@ SIGNING_ELIGIBLE_TYPES = ("Bird Rights", "Cap Space", "Early Bird", "Non-Bird")
 # after a rebuild prices every Bird-Rights row off a residual the model no
 # longer has.
 SIGNING_OFFSETS_DEPLOYED = {
-    "Bird Rights": 0.012605403499599384,
-    "Cap Space": 0.0024191191491186466,
-    "Early Bird": 0.007097012039243098,
-    "Non-Bird": -0.006074846881370028,
+    "Bird Rights": 0.012503436801727278,
+    "Cap Space": 0.00644000710113713,
+    "Early Bird": 0.0072273396579863956,
+    "Non-Bird": -0.005151231153261583,
 }
 
 # Deployed-model seed, matching train._XGB_BASE's random_state so the shipped
@@ -255,21 +264,23 @@ def signing_offset_vector(signing_type, offsets) -> np.ndarray:
 
 
 def stage3_signing(pred, signing_type=None, offsets=None, *, lo=None, hi=None,
+                   mech_cap_pct=None,
                    is_extension=None, ext_cap_pct=None) -> np.ndarray:
     """Add the per-type signing offset, then put the row back inside the law.
 
-    The contract, in three clauses, mirroring `stage3`'s:
+    The contract, in four clauses, mirroring `stage3`'s:
 
       1. It ADDS a constant that depends only on the row's signing type, then
-         re-applies legality in the same order `compose` does — the extension
-         raise-cap `minimum`, then the clip into [lo, hi]. Legality is part of
-         this function precisely so a caller cannot forget it; a correction that
-         pushed a row past its ceiling would be pricing an impossible contract.
+         re-applies legality in the chain order `compose` documents:
+         signing offset -> mechanism cap clip -> extension clip -> re-clip
+         into [lo, hi]. Legality is part of this function precisely so a caller
+         cannot forget it; a correction that pushed a row past its ceiling
+         would be pricing an impossible contract.
          Pass `lo`/`hi` (and the extension pair where it applies) whenever the
          result is a prediction rather than an intermediate.
       2. It is a NO-OP where `signing_type` is None, `offsets` is None or empty,
          or the row's label is missing or outside SIGNING_ELIGIBLE_TYPES — the
-         offset there is exactly 0.0, `x + 0.0` is `x`, and both clips are the
+         offset there is exactly 0.0, `x + 0.0` is `x`, and all clips are the
          identity on a value already inside the bound. An unsigned free agent
          has no signing type at all, so `predict.py`'s deployed path is
          bit-identical to the pre-v8.8x pipeline (asserted there).
@@ -277,12 +288,18 @@ def stage3_signing(pred, signing_type=None, offsets=None, *, lo=None, hi=None,
          over OTHER rows' out-of-fold residuals — leave-fold-out in layer A,
          seasons < T in layer B, and the frame's own OOF for the deployed
          constants in SIGNING_OFFSETS_DEPLOYED.
+      4. The mechanism cap clip (`mech_cap_pct`) sits between the signing offset
+         and the extension clip, so a positive offset that pushes a row above
+         its Early Bird or Non-Bird ceiling is caught before the extension raise
+         cap — which may be tighter still — governs last.
 
     Args:
         pred: the composed prediction to correct, in cap_pct.
         signing_type: `signing_cat` per row, or None to disable.
         offsets: {type: offset} from `signing_offsets`, or None to disable.
         lo, hi: `floor_pct` and `max_eligible_pct`, for the legality re-clip.
+        mech_cap_pct: per-row mechanism ceiling in cap_pct, NaN where no cap
+            applies. None (default) means no mechanism cap — no-op.
         is_extension, ext_cap_pct: the Stage-3 route inputs, same producer as
             `stage3`, for the raise-cap re-clip.
 
@@ -293,6 +310,10 @@ def stage3_signing(pred, signing_type=None, offsets=None, *, lo=None, hi=None,
     if signing_type is None or not offsets:
         return out
     out = out + signing_offset_vector(signing_type, offsets)
+    # Mechanism cap clip — sits between signing offset and extension clip
+    if mech_cap_pct is not None:
+        from src.model.mechanism_cap import apply_mechanism_cap
+        out = apply_mechanism_cap(out, mech_cap_pct)
     if is_extension is not None and ext_cap_pct is not None:
         out = stage3(out, is_extension=is_extension, ext_cap_pct=ext_cap_pct)
     if lo is not None and hi is not None:
@@ -302,17 +323,17 @@ def stage3_signing(pred, signing_type=None, offsets=None, *, lo=None, hi=None,
 
 
 def compose(latent, *, lo, hi, p_max=None, is_extension=None, ext_cap_pct=None,
-            signing_type=None, signing_offsets=None,
+            signing_type=None, signing_offsets=None, mech_cap_pct=None,
             tau: float = TAU, margin: float = MARGIN) -> np.ndarray:
-    """The whole post-Stage-1 chain: push -> clip -> stage 3 -> signing offset.
+    """The whole post-Stage-1 chain: push -> clip -> signing -> mech cap -> ext -> re-clip.
 
     Passing `p_max=None` drops the push; passing `is_extension=None` drops the
     extension clip; passing `signing_type=None` or `signing_offsets=None` drops
-    the signing offset. Each layer is inert by default, so a consumer that has
-    not opted in is bit-identical to the composition it had before that layer
-    existed — `p_max` and `is_extension` both omitted still reproduces the
-    v7.13x champion exactly, which is what makes the ex-ante reference arm free
-    to compute.
+    the signing offset; passing `mech_cap_pct=None` drops the mechanism cap
+    clip. Each layer is inert by default, so a consumer that has not opted in is
+    bit-identical to the composition it had before that layer existed — `p_max`
+    and `is_extension` both omitted still reproduces the v7.13x champion
+    exactly, which is what makes the ex-ante reference arm free to compute.
 
     The re-clip into [lo, hi] after each Stage-3 component is a legal, not a
     statistical, step: a contract cannot pay below the league minimum even if a
@@ -328,13 +349,21 @@ def compose(latent, *, lo, hi, p_max=None, is_extension=None, ext_cap_pct=None,
                        np.asarray(hi, dtype=float))
     if signing_type is not None and signing_offsets is not None:
         pred = stage3_signing(pred, signing_type, signing_offsets, lo=lo, hi=hi,
+                              mech_cap_pct=mech_cap_pct,
                               is_extension=is_extension,
                               ext_cap_pct=ext_cap_pct)
+    elif mech_cap_pct is not None:
+        # Mechanism cap without signing offsets — rare but legal
+        from src.model.mechanism_cap import apply_mechanism_cap
+        pred = apply_mechanism_cap(pred, mech_cap_pct)
+        pred = np.clip(pred, np.asarray(lo, dtype=float),
+                       np.asarray(hi, dtype=float))
     return pred
 
 
 def bound_flags(latent, pred, *, lo, hi, p_max=None, is_extension=None,
                 ext_cap_pct=None, signing_type=None, signing_offsets=None,
+                mech_cap_pct=None,
                 tau: float = TAU, margin: float = MARGIN,
                 tol: float = 1e-9) -> dict[str, np.ndarray]:
     """Which bound, if any, moved each row off its latent value.
@@ -362,7 +391,8 @@ def bound_flags(latent, pred, *, lo, hi, p_max=None, is_extension=None,
     lo = np.asarray(lo, dtype=float)
     hi = np.asarray(hi, dtype=float)
     s2 = stage2(latent, lo=lo, hi=hi, p_max=p_max, tau=tau, margin=margin)
-    no_ext_clip = stage3_signing(s2, signing_type, signing_offsets, lo=lo, hi=hi)
+    no_ext_clip = stage3_signing(s2, signing_type, signing_offsets, lo=lo, hi=hi,
+                                 mech_cap_pct=mech_cap_pct)
 
     if p_max is None:
         pushed_gate = np.zeros(len(latent), bool)
