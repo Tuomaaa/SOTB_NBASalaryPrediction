@@ -31,7 +31,7 @@ from bs4 import BeautifulSoup
 
 from config import CACHE_DIR, PROCESSED_DIR, USER_AGENT, CAP_BY_SEASON
 from scripts.scrape_spotrac_players import (
-    PLAYER_CACHE, norm, parse_contracts, slugify,
+    PLAYER_CACHE, norm, page_defect, parse_contracts, slugify,
 )
 
 FA_URL = "https://www.spotrac.com/nba/free-agents/signed/_/year/{year}"
@@ -193,11 +193,21 @@ def fill_missing_pages() -> None:
 
 
 def rebuild_signing_types() -> pd.DataFrame:
-    """Re-parse every cached player page into spotrac_signing_types.csv."""
+    """Re-parse every cached player page into spotrac_signing_types.csv.
+
+    Pages that are not the NBA player page they claim to be are skipped and
+    listed, never parsed — see scrape_spotrac_players.page_defect and
+    ISSUES #41.
+    """
     slug_map = _slug_to_training_name()
     all_rows = []
     pages = sorted(PLAYER_CACHE.glob("*.html"))
+    rejected = []
     for path in pages:
+        defect = page_defect(path)
+        if defect is not None:
+            rejected.append((path.stem, defect))
+            continue
         pname = slug_map.get(path.stem, path.stem.replace("-", " "))
         for c in parse_contracts(path):
             seasons = c.get("seasons", [])
@@ -217,7 +227,12 @@ def rebuild_signing_types() -> pd.DataFrame:
     df = pd.DataFrame(all_rows)
     out = PROCESSED_DIR / "spotrac_signing_types.csv"
     df.to_csv(out, index=False)
-    print(f"re-parsed {len(pages)} player pages -> {out.name} ({len(df)} rows)")
+    print(f"re-parsed {len(pages) - len(rejected)} player pages -> {out.name} "
+          f"({len(df)} rows)")
+    if rejected:
+        print(f"REJECTED {len(rejected)} cached pages — re-fetch these:")
+        for stem, why in rejected:
+            print(f"    {stem}: {why}")
     return df
 
 

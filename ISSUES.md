@@ -60,33 +60,65 @@ frame 949 → 944.
 
 ---
 
-## 4. Signing-mechanism labels: the residual 10%
+## 4. Signing-mechanism labels: the residual 0.3%
 
 **Severity**: low — the labels are diagnostics, never features.
 
 Largely fixed 2026-07-23: `scripts/refresh_spotrac.py` rebuilt
 `spotrac_signing_types.csv` with anchor-based season assignment (each contract
-places itself at `fa_year − n … fa_year − 1` instead of the old backward walk,
+places itself at `fa_year - n ... fa_year - 1` instead of the old backward walk,
 which misaligned whenever a page skipped a deal), salary-aware disambiguation
 for mid-season buyouts (Westbrook 2022 was a $46M supermax row labeled
 "Minimum"), and player pages for extension signees harvested via the
-upcoming-FA URL directory. Year-1 evaluation rows are now 85–91% labeled per
+upcoming-FA URL directory. Year-1 evaluation rows are now 85-91% labeled per
 season (was ~43% overall); Minimum-labeled rows above $6M fell from 30 to 6.
 
-What remains, for whoever next touches the labels:
+**Amended 2026-08-06**: three fixes brought Unknown rows from 79 (8.8% of the
+896-row frame) down to 3 (0.3% of 873):
 
-- ~10% of evaluation rows are still Unknown — mostly two-way conversions and
-  Exhibit-10s whose Spotrac pages carry no "Signed Using" block. Reproduce:
-  `python scripts/refresh_spotrac.py --reparse-only` prints the per-season table.
-- Six >$6M "Minimum" rows persist (Winslow 2019, Fultz 2019/20, Leonard 2020,
-  Batum 2020, Noah 2020) — stretched/waived money colliding with a same-season
-  minimum where the AAV-distance rule picks the wrong side.
-- Extensions land under "Bird Rights" (n jumped 58 → 353), conflating
-  re-signings with extensions. If the C2 mechanism slice is ever used to argue
-  a retention premium, split these into their own category first.
+1. **Parser rewrite** (9 labels recovered, 0 lost): `parse_contracts()` in
+   `scrape_spotrac_players.py` now anchors off contract-wrapper heading spans
+   ("2019-2019 Free Agent") instead of searching for "Signed Using" labels.
+   Typeless blocks (extensions without a Signed-Using field) are kept in the
+   chain so downstream contracts land on the correct seasons. A `page_defect()`
+   guard rejects cached pages that are not NBA player pages (wrong-sport
+   redirects, generic landing pages).
+
+2. **Bulk page fetch** (64 labels recovered): 40 new Spotrac player pages
+   fetched via slug-based URL construction (Spotrac resolves
+   `/nba/player/<slug>` to the canonical `/nba/player/_/id/NNNNN/<slug>` URL).
+   3 pages refetched for updated contract data (josh-hart, kevin-durant,
+   terance-mann). cam-thomas corrected from NFL to NBA page via
+   `cameron-thomas` slug.
+
+3. **Hand-curated entries** (3 labels recovered): extensions not yet on Spotrac
+   pages added to the CSV from publicly reported transactions: Josh Hart
+   4yr/$81M with NYK (Bird Rights), Kevin Durant 1yr extension with PHX (Bird
+   Rights), Terance Mann 3yr/$47M with LAC (Bird Rights).
+
+The 873-row frame (23 fewer than 896 due to the continuation filter now having
+more contract-start dates from the new pages) breaks down: Bird Rights 292,
+Minimum 257, MLE 135, Cap Space 80, Early Bird 52, Other 25, Sign & Trade 15,
+Non-Bird 14, Unknown 3.
+
+Three rows remain Unknown:
+- **josh gray 2020** ($1.62M): no Spotrac player page exists.
+- **abdel nader 2020** ($1.75M): gap year between contracts on Spotrac page
+  (cap-space 2017-2019, Bird Rights 2021-2022).
+- **ryan anderson 2020** ($5.21M): stretched dead money from Houston buyout,
+  not a new signing.
+
+What remains beyond the Unknown rows:
+
+- Two >$6M "Minimum" rows persist (Batum 2020, Noah 2020) — stretched/waived
+  money colliding with a same-season minimum where the AAV-distance rule picks
+  the wrong side.
+- Extensions land under "Bird Rights", conflating re-signings with extensions.
+  If the C2 mechanism slice is ever used to argue a retention premium, split
+  these into their own category first.
 
 Keep the field out of `FEATURE_COLS` — `METHODOLOGY.md` documents that
-modelling it *lowers* CV R² by 0.0073; its value is as an out-of-sample
+modelling it *lowers* CV R2 by 0.0073; its value is as an out-of-sample
 diagnostic.
 
 ---
@@ -756,6 +788,14 @@ Spotrac player page (likely retired/unlisted). Cam Thomas has a cached page
 but no signing_types rows (parser finds no contracts). 14/16 players now have
 signing_types data. Spotrac CSVs rebuilt from all 510 cached pages.
 
+**Bulk fetch 2026-08-06**: 40 additional player pages fetched via slug-based
+URL construction for evaluation-frame players with Unknown signing type. Cam
+Thomas corrected: NFL page (id/76963) replaced with NBA page (id/74134) via
+`cameron-thomas` slug. `page_defect()` guard added to `parse_contracts()` and
+`rebuild_signing_types()` to reject non-NBA pages. 568 pages now parsed; 2
+rejected (cam-thomas NFL backup, vince-williams-jr landing page). Only Josh
+Gray remains without a Spotrac player page.
+
 **Critical side-effect**: the 16 junk redirect pages contained generic
 Spotrac.com homepage content. The signing_types parser extracted contract data
 for **173 unrelated players** from this content — 1064 phantom rows total.
@@ -825,9 +865,16 @@ to **896** rows. Continuation filter now drops 306 (292 dated, 14 consensus),
 rookie-contract 86 dropped. All verify blocks above and in #2/#35 are now
 doubly stale — they reference the 867 frame, which itself was stale from 944.
 
+**Updated 2026-08-06**: the #4 signing-label recovery (40 new Spotrac pages
++ parser rewrite) changed the frame from 896 to **873** rows. The 23-row
+decrease is entirely from the continuation filter: 328 dropped (292 dated, 36
+consensus) vs the previous 306 (292 dated, 14 consensus). The +22 consensus
+rows are newly-labeled players whose contract-start dates now enable the
+three-signal consensus to fire. Rookie-contract filter drops 87 (was 86).
+
 **Reproduce**: `load_evaluation_frame(verbose=True)`, read the printed counts.
 
-**What to do**: re-state the verify blocks of #2, #17, #35 against the 896-row
+**What to do**: re-state the verify blocks of #2, #17, #35 against the 873-row
 frame; re-measure or mark historical the #12 figure; identify the one-row
 continuation drift and record its cause.
 

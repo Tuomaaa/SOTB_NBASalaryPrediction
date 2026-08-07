@@ -95,44 +95,109 @@ def scrape_player(url, slug, retries=3):
     return None
 
 
+SEASON_SPAN_RE = re.compile(r"^\s*(\d{4})\s*[-–]\s*(\d{4})\b")
+NBA_PLAYER_URL_RE = re.compile(r"spotrac\.com/nba/player/", re.I)
+
+
+def page_defect(html_path):
+    """Why a cached player page is not usable, or None if it is fine.
+
+    A fetch that lands somewhere other than the NBA player page it asked for
+    is a FAILED fetch, not data. Two ways it has happened: the generic
+    /nba landing page (ISSUES #41 — sixteen of those, whose homepage markup
+    the parser mined for 1,064 contract rows belonging to 173 unrelated
+    players), and a same-name athlete in another sport, which the page title
+    cannot catch because the title carries the name we asked for. Both are
+    visible in the canonical URL, which names the sport and the player id.
+    """
+    soup = BeautifulSoup(
+        open(html_path, "r", encoding="utf-8").read(), "html.parser"
+    )
+    link = soup.find("link", rel="canonical")
+    url = link.get("href", "") if link else ""
+    if not url:
+        og = soup.find("meta", property="og:url")
+        url = og.get("content", "") if og else ""
+    if not url:
+        return "no canonical URL"
+    if not NBA_PLAYER_URL_RE.search(url):
+        return f"canonical URL is not an NBA player page: {url}"
+    return None
+
+
+def _is_contract_details(cls):
+    return bool(cls) and "contract-details" in cls
+
+
+def _is_contract_wrapper(cls):
+    return bool(cls) and "contract-wrapper" in cls
+
+
+def _wrapper_season_span(wrapper):
+    """The 'YYYY-YYYY' season span Spotrac prints as each contract's heading.
+
+    Spotrac labels every contract block with the seasons it actually covered,
+    in our own start-year convention ("2025-2027" = 2025-26 through 2027-28).
+    That heading is a direct anchor and beats the derived one below wherever
+    the two disagree — see parse_contracts.
+    """
+    m = SEASON_SPAN_RE.match(wrapper.get_text(" ", strip=True))
+    if not m:
+        return None
+    start, end = int(m.group(1)), int(m.group(2))
+    if not (1980 <= start <= 2100 and start <= end <= 2100):
+        return None
+    return start, end
+
+
 # ─── Step 4: Parse signing type from player page ────────────────────
 def parse_contracts(html_path):
     """Extract contract signing types from a player page.
 
-    Season assignment anchors each contract on its own "Free Agent:" year:
-    an n-year deal expiring in fa_year covers start-year seasons
-    [fa_year - n, fa_year - 1]. The previous implementation walked the career
-    earnings table backwards, which assumed the listed contracts tile the
+    Season assignment reads the season span Spotrac prints in each contract
+    block's heading ("2019-2019 Free Agent", "2021-2023 Free Agent"), clamped
+    to the block's own nominal length. The derived anchor it replaced —
+    [fa_year - n, fa_year - 1] from the "Free Agent:" field and the contract
+    length — is kept as the fallback for the ~0.5% of blocks with no heading
+    span, but it is wrong whenever those two fields count different things:
+    "Contract Terms" counts GUARANTEED years while "Free Agent" is the year
+    the player actually reached the market, so an option year or a
+    non-guaranteed tail shifts the whole span late. Bobby Portis's 2019 NYK
+    deal (1 yr guaranteed, team option, "Free Agent: 2021") landed on season
+    2020 under the derived rule and on 2019 — correct — under the heading.
+    143 of 2,528 cached blocks disagree, and every one spot-checked favours
+    the heading.
+
+    Both are better than the original implementation, which walked the career
+    earnings table backwards and so assumed the listed contracts tile the
     career exactly — one missing or superseded deal shifted every assignment
     below it (Hassan Whiteside's $27M 2019 season landed on a minimum deal).
 
     Contracts appear newest-first, so a season already claimed by a more
     recent contract is never reassigned: when a player is waived and re-signs,
     the new deal wins the overlap and the abandoned tail of the old deal is
-    dropped. Contracts without a parseable anchor are chained immediately
-    before the earliest season claimed so far (pre-2015 pages often omit the
-    Free Agent field).
+    dropped. Contracts without any anchor are chained immediately before the
+    earliest season claimed so far (pre-2015 pages often omit the Free Agent
+    field).
+
+    A block whose "Signed Using" value is EMPTY — the normal state of a
+    veteran extension, which uses no exception — yields no label but still
+    takes part in the chain. It used to be discarded before season assignment,
+    which broke the chain for every older contract beneath it: Josh Hart's
+    Bird-Rights deal and Kevin Durant's Brooklyn extension both came back with
+    no seasons at all because the extension above them had been removed.
     """
     soup = BeautifulSoup(
         open(html_path, "r", encoding="utf-8").read(), "html.parser"
     )
 
     contracts = []
-    signed_labels = soup.find_all(
-        "div", class_="label",
-        string=lambda t: t and "Signed Using" in t,
-    )
+    wrappers = [w for w in soup.find_all("div", class_=_is_contract_wrapper)
+                if w.find("div", class_=_is_contract_details)]
 
-    for sl in signed_labels:
-        contract = {}
-        # Walk up to contract container
-        container = sl.parent
-        for _ in range(5):
-            if container.parent and container.parent.name not in ("body", "html", "[document]"):
-                container = container.parent
-                labels = container.find_all("div", class_="label")
-                if len(labels) >= 3:
-                    break
+    for wrapper in wrappers:
+        contract = {"season_span": _wrapper_season_span(wrapper)}
+        container = wrapper.find("div", class_=_is_contract_details)
 
         for label in container.find_all("div", class_="label"):
             val_div = label.find_next_sibling("div", class_="value")
@@ -172,7 +237,7 @@ def parse_contracts(html_path):
         # their phantom spans (Tolliver "starting" in 1980) feed
         # _filter_continuations a spurious "starts earlier" signal.
         yrs = contract.get("contract_years")
-        if contract.get("signing_type") and not (yrs is not None and yrs > 5):
+        if not (yrs is not None and yrs > 5):
             contracts.append(contract)
 
     # Career earnings years — only needed as a last-resort anchor when the
@@ -196,8 +261,29 @@ def parse_contracts(html_path):
     cursor = None  # earliest anchored/assigned start so far, for chaining only
     for c in contracts:
         n = c.get("contract_years", 1)
+        span = c.get("season_span")
         fa = c.get("fa_year")
-        if fa is not None:
+        if span is not None:
+            start, end = span
+            # Never claim more seasons than the block's own nominal length, and
+            # never claim past Spotrac's own span. Kemba Walker's Boston deal
+            # heads "2019-2023" for 4 guaranteed years; the clamp keeps 2022 as
+            # its last season instead of handing 2023 a sign-and-trade label
+            # his rest-of-season minimum actually earned.
+            if n:
+                end = min(end, start + n - 1)
+            # A heading span runs to the contract's last SCHEDULED season, which
+            # includes an option year the player declined; "Free Agent: YYYY"
+            # says when he actually reached the market, so his last paid season
+            # is at most YYYY-1. Harrison Barnes's Dallas maximum heads
+            # "2016-2019" and has "Free Agent: 2019" — he opted out in June
+            # 2019 and re-signed in Sacramento, so its claim on 2019 would
+            # outbid the Sacramento deal on AAV distance and label his SAC
+            # re-signing with Dallas's cap-space mechanism.
+            if fa is not None:
+                end = min(end, fa - 1)
+            c["seasons"] = list(range(start, end + 1))
+        elif fa is not None:
             c["seasons"] = list(range(fa - n, fa))
         elif cursor is not None:
             c["seasons"] = list(range(cursor - n, cursor))
@@ -208,7 +294,9 @@ def parse_contracts(html_path):
         if c["seasons"]:
             cursor = min(c["seasons"]) if cursor is None else min(cursor, min(c["seasons"]))
 
-    return contracts
+    # Typeless blocks exist only to keep the chain honest (see docstring); they
+    # carry no label and must not reach the signing-types table.
+    return [c for c in contracts if c.get("signing_type")]
 
 
 # ─── Main ───────────────────────────────────────────────────────────
