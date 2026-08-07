@@ -157,6 +157,37 @@ SIGNING_LABELS = {
 }
 
 
+def _model_version() -> str | None:
+    """The vN.Mx tag this export was built from, via `git describe`.
+
+    Returns e.g. "v8.10x" on a tagged commit, or "v8.10x+3" three commits past
+    one — the "+N" is deliberate, so a site built from an untagged working
+    state cannot silently claim to be the released version. None if the repo
+    has no tags or git is unavailable, in which case the site falls back to the
+    architecture name.
+    """
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "describe", "--tags"],
+            cwd=Path(__file__).resolve().parent.parent,
+            capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None
+    described = out.stdout.strip()
+    if not described:
+        return None
+    # `v8.10x-3-gabc1234` -> `v8.10x+3`; a clean tag passes through unchanged.
+    parts = described.split("-")
+    if len(parts) >= 3 and parts[-1].startswith("g"):
+        return f"{'-'.join(parts[:-2])}+{parts[-2]}"
+    return described
+
+
 def _row_key(name_norm: str, season: int) -> str:
     return f"{name_norm}|{int(season)}"
 
@@ -845,6 +876,10 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
     meta = {
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "model": results["model"],
+        # The vN.Mx tag of the commit this export was built from. The site used
+        # to hardcode this and it went stale within one version — the model
+        # moves faster than anyone remembers to edit a string in the front end.
+        "modelVersion": _model_version(),
         "holdoutSeason": HOLDOUT_SEASON,
         # Forward accuracy — the model's error on the holdout season's signings,
         # which it never saw. This is the honest headline the Signing Board
