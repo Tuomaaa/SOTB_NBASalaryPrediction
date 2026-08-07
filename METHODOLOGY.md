@@ -163,7 +163,7 @@ continuation, but its 2025-26 salary was raised $11.6M by the renegotiation on
 2025-07-13 — structurally identical to Markkanen 2024 and Turner 2022. Resolved
 as fresh.
 
-## Feature Set (17 features)
+## Feature Set (18 features)
 
 ### Performance Metrics (z-scored within season)
 | Feature | Description |
@@ -171,6 +171,7 @@ as fresh.
 | `darko_dpm_z` | DARKO Daily Plus-Minus, z-scored by season |
 | `lebron_z` | LEBRON metric, z-scored by season |
 | `rapm_z` | Regularized Adjusted Plus-Minus, z-scored by season |
+| `kf_q` | Kalman-filtered player quality estimate. See below. |
 
 ### Age & Workload
 | Feature | Description |
@@ -209,6 +210,46 @@ the player-specific half alone scores −0.00045 (t −1.58), and `po_games` add
 +0.00007 (t +0.36) over a pure team-level column. `playoff_mpg_diff` survives
 the same falsification: the within-team permutation retains 6% of its gain
 (+0.00028, t +0.72) and a team-mean control retains 10%.
+
+#### `kf_q` — Kalman-filtered player quality (v8.10x)
+
+A Kalman filter over the three impact metrics (DARKO DPM, LEBRON, RAPM) that
+produces a single filtered quality estimate per player-season. The filter runs
+causally per player — it sees only seasons up to and including the current one —
+so it is strictly ex ante and carries no look-ahead.
+
+**State model.** A player's latent quality evolves as
+`x_{t+1} = x_t + drift(age) + process_noise`, where `drift(age)` is a piecewise
+constant estimated from mean year-over-year change bucketed by age: +0.21
+(age <= 22), +0.05 (22-25), -0.04 (25-28), -0.19 (28-31), -0.26 (31-34),
+-0.27 (34+). Each season's three z-scored metrics are noisy measurements of the
+same latent state: `[darko_z, lebron_z, rapm_z] = x + measurement_noise`.
+
+**Parameter estimation, from metric data only.** All filter parameters are
+estimated from the metric data, never from the target:
+
+- **R** (measurement noise covariance) from pairwise metric disagreement:
+  DARKO 0.138, LEBRON 0.203, RAPM 0.447. RAPM is downweighted roughly 3x
+  relative to DARKO, which matches its known noisiness (smaller sample of
+  possessions, heavier regularisation).
+- **drift(age)** from the mean year-over-year change in each metric, bucketed
+  by age band and averaged across the three metrics.
+- **Q = 0.1592** (process noise), the residual year-over-year variance after
+  drift removal, minus the measurement noise contribution.
+
+**Why it outperforms raw metrics.** `corr(kf_q, darko_z) = 0.959` — high, but
+the residual carries two things the raw z-scores do not: (1) **optimal
+multi-metric weighting**, where RAPM is downweighted relative to DARKO and
+LEBRON in proportion to its measurement noise, and (2) **age-aware drift
+prediction**, so a 22-year-old's filtered state is pulled upward by the
+expected growth trajectory while a 32-year-old's is pulled down. The
+falsification confirms this: a simple exponential moving average (EMA) over the
+same three metrics, which does the smoothing without the weighting or the drift,
+recovers only half the gain (+0.00263, t = 1.17 against kf_q's +0.00450,
+t = 2.78).
+
+Code: `src/features/kalman_quality.py`, attached at load time in
+`train.py::load_training_data()`.
 
 ### Physical & Draft
 | Feature | Description |
@@ -294,6 +335,8 @@ closes the gap.
 | Post-hoc recalibration (isotonic) | -0.0052 | As above, and more prone to overfitting the fold |
 | `height_x_age` | +0.0004 (t = 0.47) | Noise, and it *hurts* the segment it targets: only 36 tall+old rows in training, split between minimum ring-chasers and productive bigs on real contracts. The interaction can only push one direction ("old+tall = cheaper"); the impact metrics already separate declining bigs from productive ones per player |
 | `weight_x_age` | N/A | No weight column in the training set — the height scraper reads only the height field of the BBRef index pages. Would inherit the same counter-effect problem as `height_x_age`: heavy+old contains both ends of the price range |
+| `kf_innov` (Kalman innovation) | +0.00167 (t = 1.34) | Tested alongside `kf_q` (v8.10x). The filter's innovation (surprise) — actual measurement minus predicted measurement — captures how much a player over- or under-performed expectations. Does not clear t > 2 on its own; the quality estimate already absorbs the signal |
+| `ema_quality` (exponential moving average) | +0.00263 (t = 1.17) | Control for `kf_q` (v8.10x). A simple EMA over the three z-scored impact metrics, which does temporal smoothing without optimal metric weighting or age-aware drift. Recovers only half of `kf_q`'s gain, confirming the Kalman filter's advantage is in the weighting and drift, not mere smoothing |
 
 ### Training-set choices tested and rejected
 
@@ -641,9 +684,9 @@ eligible rows back to where they started.
 
 **Eligible types, and why the list is short.** Only the four ELIGIBILITY
 mechanisms are corrected: **Bird Rights, Cap Space, Early Bird, Non-Bird**.
-Every other label -- MLE, BAE, Minimum, Sign & Trade, Rookie Scale, Other,
-Unknown -- takes a zero offset and comes out bit-identical, which is asserted by
-the suite rather than assumed.
+Every other label -- MLE, BAE, Minimum, Rookie Scale, Other, Unknown -- takes a
+zero offset and comes out bit-identical, which is asserted by the suite rather
+than assumed.
 
 This is a **leakage ruling**, decided before any score on the arm was seen, and
 it is the same rule as "never feed the model anything derived from the target".
@@ -652,9 +695,22 @@ An exception mechanism is *determined by the contract value itself*: a deal is
 label is downstream of the target, so conditioning a prediction on it reads the
 target. The four eligibility mechanisms are determined by the player's prior
 contract and the team's books, both settled before the price is. The four stay
-in however large the excluded types' biases look -- and Minimum's +$1.94M and
-Sign & Trade's -$4.75M are the two largest on the board -- and the excluded
-types stay out however large theirs look.
+in however large the excluded types' biases look -- and Minimum's +$1.94M is
+the largest on the board -- and the excluded types stay out however large
+theirs look.
+
+**Sign & Trade (and Extend & Trade) is reclassified as Bird Rights, not
+excluded as leakage (2026-08-07).** It was originally grouped with the
+exception mechanisms above, but the reasoning that keeps MLE/BAE/Minimum out
+does not hold for it: a sign-and-trade's dollar value is not determined by the
+mechanism itself -- contracts using it range $3.6M-$37.2M in the data -- and
+the CBA requires the ORIGINATING team to hold Bird or Early Bird rights on the
+player for the trade to be permissible at all. That makes the label a fact
+about eligibility settled before the price is, the same as the four types
+above, not a restatement of the price. The raw Spotrac labels
+`sign-and-trade` and `extend-and-trade` now map to the `Bird Rights` category
+at the signing_cat layer (`scripts/diagnostics.py::_categorize_signing`) and
+take the Bird Rights offset like every other row in that bucket.
 
 **k = 20 is pre-registered.** It lives in `stages.SIGNING_K` beside TAU and
 MARGIN and is never swept. A k = 0 arm (raw per-type means, no shrinkage) was
@@ -1073,6 +1129,12 @@ its own player, and the retention premium is invisible to the features. Minimum
 and MLE are overpriced. These patterns survive controlling for predicted value
 but are still not usable as features; see "Why signing mechanism cannot be a
 feature."
+
+*(Historical note, 2026-08-07: this table predates the decision to fold Sign &
+Trade -- and Extend & Trade -- into Bird Rights (see "Stage 3, signing
+component" above). Its 15 Sign & Trade rows are Bird Rights rows under the
+current signing_cat categorization; re-running this diagnostic today would
+show them merged into the Bird Rights row rather than listed separately.)*
 
 **Label coverage was rebuilt on 2026-07-23** and now runs 85–91% of year-1
 evaluation rows per season, against ~43% before. `Unknown` fell from 57% of the

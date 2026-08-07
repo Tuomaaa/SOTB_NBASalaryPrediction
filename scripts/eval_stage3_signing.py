@@ -18,8 +18,13 @@ CONSTANT PER TYPE, added to the champion's own final prediction.
 
 Eligible types      {Bird Rights, Cap Space, Early Bird, Non-Bird} — the four
                     ELIGIBILITY-based mechanisms. Every other label (MLE, BAE,
-                    Minimum, Sign & Trade, Rookie Scale, Other, Unknown) gets
-                    ZERO correction and must come out bit-identical.
+                    Minimum, Rookie Scale, Other, Unknown) gets ZERO correction
+                    and must come out bit-identical. Sign & Trade and Extend &
+                    Trade are NOT in this excluded set: `_categorize_signing`
+                    (scripts/diagnostics.py) maps them onto Bird Rights, so
+                    they are corrected like any other Bird Rights row
+                    (reclassified 2026-08-07; see CLAUDE.md and
+                    METHODOLOGY.md).
 
                     This is a leakage ruling, not a scoring choice. An exception
                     mechanism (MLE, minimum, BAE) is *determined by the contract
@@ -128,7 +133,7 @@ OUT_CSV = DIAG_DIR / "stage3_signing_offset_eval.csv"
 OUT_JSON = OUTPUTS_DIR / "models" / "stage3_signing_offset_eval.json"
 
 REPORT_ORDER = ["Bird Rights", "Cap Space", "Early Bird", "Non-Bird",
-                "MLE", "Minimum", "Sign & Trade", "Other", "Rookie Scale",
+                "MLE", "Minimum", "Other", "Rookie Scale",
                 "Unknown"]
 
 

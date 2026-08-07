@@ -255,8 +255,17 @@ def _categorize_signing(t):
         return "Minimum"
     if "rookie" in t:
         return "Rookie Scale"
-    if "sign-and-trade" in t:
-        return "Sign & Trade"
+    if "sign-and-trade" in t or "extend-and-trade" in t:
+        # Reclassified 2026-08-07 (was its own "Sign & Trade" bucket, excluded
+        # from the Stage-3 signing offset as leakage). Unlike MLE/Minimum/BAE,
+        # a sign-and-trade's dollar amount is NOT determined by the mechanism
+        # itself -- these contracts range $3.6M-$37.2M in the data -- and the
+        # CBA requires the ORIGINATING team to hold Bird or Early Bird rights
+        # on the player for the trade to be allowed at all, so the label is an
+        # eligibility fact settled before the price is, like the four types
+        # already corrected. See CLAUDE.md ("Modeling Strategy") and
+        # METHODOLOGY.md ("Stage 3, signing component").
+        return "Bird Rights"
     return "Other"
 
 
@@ -323,7 +332,7 @@ def residual_by_signing_type(df, y_true, y_pred, is_confirmation=None):
     df["cap"] = df["season"].map(CAP_BY_SEASON).fillna(CAP_2026)
     df["residual_dollar"] = df["residual"] * df["cap"]
 
-    order = ["Bird Rights", "Sign & Trade", "Cap Space", "Early Bird",
+    order = ["Bird Rights", "Cap Space", "Early Bird",
              "MLE", "Non-Bird", "Minimum", "Rookie Scale", "Other", "Unknown"]
 
     # ISSUES #20a: report both pooled (all rows) and selection-only readings.

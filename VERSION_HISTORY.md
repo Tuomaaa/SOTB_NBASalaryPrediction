@@ -733,7 +733,8 @@ Evidence: `docs/briefs/2026-07-26-service-years.RESULT.md`,
 
 | Ver | Model | A1 (told) | A2 (told) | B1 (told) | N | Feat | Change |
 |-----|-------|-----------|-----------|-----------|---|------|--------|
-| **8.9x** | **XGBoost (Grabit v4)** | **0.8301** | **0.8544** | **0.8604** | **873** | **17** | **Mechanism cap clip + offset regen on 873-row frame. A1 +0.0132 vs v8.7x arm** |
+| **8.10x** | **XGBoost (Grabit v4)** | **0.8369** | **0.8581** | **0.8589** | **873** | **18** | **`kf_q` (Kalman-filtered quality), the 18th feature. Paired ΔSel +0.0053 (t 2.78)** |
+| 8.9x | XGBoost (Grabit v4) | 0.8301 | 0.8544 | 0.8604 | 873 | 17 | Mechanism cap clip + offset regen on 873-row frame. A1 +0.0132 vs v8.7x arm |
 | 8.8x | XGBoost (Grabit v4) | 0.8126 | 0.8672 | 0.8578 | 896 | 17 | Stage-3 signing-type offset. Leakage-aware k=20 shrunk per-type means |
 | 8.0x | XGBoost (Grabit v4) | 0.7989 | 0.8515 | 0.8356 | 944 | 14 | Stage 3 — the signing route enters the model. Push + extension clip in one composition module. Ex-ante A1 0.7865 (clip only) |
 | 8.1x | XGBoost (Grabit v4) | 0.8127 | 0.8588 | 0.8419 | 944 | 14 | Impact-source join repaired on `nba_id`. 2026 forward origin 0.7992 → 0.8311 |
@@ -1272,7 +1273,54 @@ Evidence: `src/model/evaluate_suite.py`,
 `outputs/models/evaluation_suite.json`,
 `outputs/models/oof_reference.csv` (873 rows).
 
-Tags: `v8.9x`.
+Tags: `v8.9x` · `v8.10x`.
+
+### v8.10x: `kf_q` — Kalman-filtered player quality (18th feature)
+
+A Kalman filter over the three impact metrics (DARKO DPM, LEBRON, RAPM) that
+produces a single filtered quality estimate per player-season. The filter runs
+causally per player, optimally weighting the three metrics (RAPM downweighted
+~3x relative to DARKO, proportional to measurement noise) and incorporating
+age-aware drift prediction (+0.21 z per year for age <= 22, tapering to -0.27
+for age 34+). All parameters estimated from the metric data, never from the
+target. Code: `src/features/kalman_quality.py`, attached at load time in
+`train.py::load_training_data()`.
+
+`corr(kf_q, darko_z) = 0.959` — high, but the residual carries signal the raw
+z-scores do not. The falsification is the EMA control: a simple exponential
+moving average over the same three metrics, which does the temporal smoothing
+without the optimal weighting or the drift, recovers only half the gain
+(+0.00263, t = 1.17). The Kalman filter's advantage is in the weighting and
+drift, not mere smoothing. A second companion feature, `kf_innov` (the filter's
+innovation/surprise), was tested alongside and did not clear the bar on its own
+(+0.00167, t = 1.34).
+
+All five gates pass:
+
+| gate | limit | measured | |
+|---|---|---|---|
+| 1 paired selection t | > 2 | **+0.0053, t +2.78** | PASS |
+| 2 A2 same direction | > 0 | +0.00376 | PASS |
+| 3 C1 relative calibration | <= +0.005 | OK | PASS |
+| 4 C2 worst mechanism segment | <= +$0.30M | all improved or unchanged | PASS |
+| 5 B1 (large drop vetoes) | — | -0.0014 (within noise) | PASS |
+
+| Layer | v8.9x (n=873) | v8.10x (n=873) |
+|---|---|---|
+| A1 | 0.8324 | **0.8369** (+0.0045) |
+| A2 | 0.8543 | 0.8581 (+0.0038) |
+| B1 | 0.8603 | 0.8589 (-0.0014) |
+| MAE | $2.76M | $2.71M (-$0.05M) |
+| D3 locked confirmation | — | both selection and confirmation improve |
+
+B1 per origin: 2024 +0.0040, 2025 -0.0066, 2026 -0.0020. The small B1 dip is
+concentrated in the 2025 origin and within the run-to-run noise band at n=131
+forward rows. A1 and MAE both improve, confirmation canary moves with the pool,
+and every signing mechanism MAE improved or unchanged.
+
+Max zone MAE: $2.41M -> $2.28M (-$0.13M). The feature improves pricing of
+players at their ceiling, consistent with the filter's ability to separate
+productive bigs from declining ones more precisely than any single metric.
 
 ### Corrections to earlier findings
 
@@ -1334,8 +1382,8 @@ every row, so P x delta_bird moves the whole price surface. Evidence:
 Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 6    Phase 7        Phase 8
 Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data + protocol  3-stage + route
                                                                                      
-0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.813
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.8x
+0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.837
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.10x
                         ↗ 0.87                                                                                 (current)
                   Leaked features                                                                told-route numbers
                   (removed in v4.0)                                                              from v8.0x onward

@@ -25,6 +25,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
 from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON, RAW_DIR
+from src.features.kalman_quality import attach_kalman_quality
 from src.features.playoff_minutes import attach_playoff_mpg
 from src.features.waiver_history import attach_waiver_interactions
 
@@ -43,6 +44,7 @@ FEATURE_COLS = [
     "prev_cap_pct",
     "mpg_x_waived",
     "playoff_mpg_diff",
+    "kf_q",
 ]
 
 TARGET = "cap_pct"
@@ -115,11 +117,8 @@ def load_training_data() -> pd.DataFrame:
             print(f"Contract structure corrections: applied {n_applied} overrides")
 
     df = attach_waiver_interactions(df)
-    # Derived at load time rather than baked into training_data_v2.csv: both are
-    # pure functions of columns already in the table (plus, for the playoff
-    # difference, one external scrape), so a rebuild would move unrelated
-    # columns for nothing. See src/features/playoff_minutes.py.
     df = attach_playoff_mpg(df)
+    df = attach_kalman_quality(df)
     return df
 
 

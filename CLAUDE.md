@@ -135,7 +135,7 @@ about a team's books even though it is not a Signing Residual.
 
 ## Feature Set
 
-17 features, listed with definitions in METHODOLOGY.md. Over 20 further
+18 features, listed with definitions in METHODOLOGY.md. Over 20 further
 candidates were tested and rejected, each with its ΔCV R² recorded in the same
 file — consult that table before proposing a feature, since several obvious
 ideas (team cap space, playoff performance, agent portfolio) are already there.
@@ -172,9 +172,20 @@ reference point.
 The signing offset is the exception to the rule below, and the reason the rule
 is worded as it is: **a signing label may correct an OUTPUT, never enter the
 feature list.** Only the four eligibility mechanisms (Bird Rights, Cap Space,
-Early Bird, Non-Bird) are corrected; MLE, BAE, Minimum and Sign & Trade are
-determined by the contract value itself, so conditioning on them reads the
-target. That list is pre-registered alongside TAU, MARGIN and SIGNING_K = 20.
+Early Bird, Non-Bird) are corrected; MLE, BAE and Minimum are determined by the
+contract value itself, so conditioning on them reads the target. That list is
+pre-registered alongside TAU, MARGIN and SIGNING_K = 20.
+
+**Sign & Trade (and Extend & Trade) is reclassified as Bird Rights**, not
+excluded as leakage. Unlike MLE/BAE/Minimum, the S&T mechanism does not
+determine the contract's dollar amount — contracts signed via sign-and-trade
+range from $3.6M to $37.2M in the data — it reflects the signing route (the
+deal is facilitated by a trade) and the CBA requires the ORIGINATING team to
+hold Bird or Early Bird rights on the player for it to happen at all. The raw
+Spotrac labels `sign-and-trade` and `extend-and-trade` are mapped to the
+`Bird Rights` category at the signing_cat layer
+(`scripts/diagnostics.py::_categorize_signing`), never fed to the model as a
+feature.
 
 Escalating model complexity requires a paired CV improvement, not a hunch. The
 hyperparameters have been grid-searched twice and the model is **not**

@@ -44,14 +44,17 @@ prediction, after which the row goes back through the raise-cap clip and the
 would be pricing an impossible contract.
 
 Only the four ELIGIBILITY mechanisms are corrected: Bird Rights, Cap Space,
-Early Bird, Non-Bird. Every other label — MLE, BAE, Minimum, Sign & Trade,
-Rookie Scale, Other, Unknown — takes a ZERO offset and comes out bit-identical.
-That is a LEAKAGE ruling, not a scoring choice, and it was fixed before any
-score on this arm was seen. An exception mechanism is *determined by the
-contract value itself*: a deal is "the MLE" because of what it pays, so
-conditioning a prediction on that label reads the target. The four eligibility
-mechanisms are determined by the player's prior contract and the team's books,
-both settled before the price is. The four stay in however large the excluded
+Early Bird, Non-Bird. Every other label — MLE, BAE, Minimum, Rookie Scale,
+Other, Unknown — takes a ZERO offset and comes out bit-identical. That is a
+LEAKAGE ruling, not a scoring choice, and it was fixed before any score on
+this arm was seen. An exception mechanism is *determined by the contract value
+itself*: a deal is "the MLE" because of what it pays, so conditioning a
+prediction on that label reads the target. The four eligibility mechanisms are
+determined by the player's prior contract and the team's books, both settled
+before the price is. Sign & Trade is reclassified as Bird Rights (2026-08-07):
+unlike MLE/Minimum/BAE, the S&T mechanism does not determine the dollar amount
+(contracts range $3.6M–$37.2M), and the CBA requires the originating team to
+hold Bird or Early Bird rights. The four stay in however large the excluded
 types' biases look, and the excluded types stay out however large theirs look.
 
 Three constants are PRE-REGISTERED and must not be re-tuned:
@@ -102,9 +105,12 @@ MARGIN = 1.05
 SIGNING_K = 20.0
 
 # The four ELIGIBILITY mechanisms, and the only labels the signing offset may
-# correct. The exception mechanisms (MLE, BAE, Minimum) and Sign & Trade are
-# excluded as leakage — a deal is "the MLE" because of what it pays, so the
-# label is downstream of the target. See the module docstring.
+# correct. The exception mechanisms (MLE, BAE, Minimum) are excluded as
+# leakage — a deal is "the MLE" because of what it pays, so the label is
+# downstream of the target. Sign & Trade is reclassified as Bird Rights
+# (2026-08-07): the mechanism does not determine the dollar amount, and the
+# CBA requires the originating team to hold Bird/Early Bird rights.
+# See the module docstring.
 SIGNING_ELIGIBLE_TYPES = ("Bird Rights", "Cap Space", "Early Bird", "Non-Bird")
 
 # Deployed-form per-type offsets, in cap_pct, for the single-fit consumers.
@@ -115,8 +121,8 @@ SIGNING_ELIGIBLE_TYPES = ("Bird Rights", "Cap Space", "Early Bird", "Non-Bird")
 #
 #   date    2026-08-07
 #   source  scripts/eval_stage3_signing.py — the gated measurement harness
-#   frame   the 873-row evaluation frame, ALL OOF rows, seeds 0-9, k = 20
-#   regen   OMP_NUM_THREADS=6 python scripts/eval_stage3_signing.py
+#   frame   the 873-row evaluation frame (18 features), ALL OOF rows, seeds 0-9, k = 20
+#   regen   python scripts/eval_stage3_signing.py
 #           then copy `deployed_offsets_k20[*]["offset"]` out of
 #           outputs/models/stage3_signing_offset_eval.json
 #
@@ -125,10 +131,10 @@ SIGNING_ELIGIBLE_TYPES = ("Bird Rights", "Cap Space", "Early Bird", "Non-Bird")
 # after a rebuild prices every Bird-Rights row off a residual the model no
 # longer has.
 SIGNING_OFFSETS_DEPLOYED = {
-    "Bird Rights": 0.012503436801727278,
-    "Cap Space": 0.00644000710113713,
-    "Early Bird": 0.0072273396579863956,
-    "Non-Bird": -0.005151231153261583,
+    "Bird Rights": 0.013524496140298447,
+    "Cap Space": 0.006433982124433493,
+    "Early Bird": 0.0071840723138968925,
+    "Non-Bird": -0.004729534476553264,
 }
 
 # Deployed-model seed, matching train._XGB_BASE's random_state so the shipped
