@@ -171,7 +171,7 @@ as fresh.
 | `darko_dpm_z` | DARKO Daily Plus-Minus, z-scored by season |
 | `lebron_z` | LEBRON metric, z-scored by season |
 | `rapm_z` | Regularized Adjusted Plus-Minus, z-scored by season |
-| `kf_q` | Kalman-filtered player quality estimate. See below. |
+| `kalman_filtered_stats` | Kalman-filtered player quality estimate. See below. |
 
 ### Age & Workload
 | Feature | Description |
@@ -211,7 +211,7 @@ the player-specific half alone scores −0.00045 (t −1.58), and `po_games` add
 the same falsification: the within-team permutation retains 6% of its gain
 (+0.00028, t +0.72) and a team-mean control retains 10%.
 
-#### `kf_q` — Kalman-filtered player quality (v8.10x)
+#### `kalman_filtered_stats` — Kalman-filtered player quality (v8.10x)
 
 A Kalman filter over the three impact metrics (DARKO DPM, LEBRON, RAPM) that
 produces a single filtered quality estimate per player-season. The filter runs
@@ -237,7 +237,7 @@ estimated from the metric data, never from the target:
 - **Q = 0.1592** (process noise), the residual year-over-year variance after
   drift removal, minus the measurement noise contribution.
 
-**Why it outperforms raw metrics.** `corr(kf_q, darko_z) = 0.959` — high, but
+**Why it outperforms raw metrics.** `corr(kalman_filtered_stats, darko_z) = 0.959` — high, but
 the residual carries two things the raw z-scores do not: (1) **optimal
 multi-metric weighting**, where RAPM is downweighted relative to DARKO and
 LEBRON in proportion to its measurement noise, and (2) **age-aware drift
@@ -245,7 +245,7 @@ prediction**, so a 22-year-old's filtered state is pulled upward by the
 expected growth trajectory while a 32-year-old's is pulled down. The
 falsification confirms this: a simple exponential moving average (EMA) over the
 same three metrics, which does the smoothing without the weighting or the drift,
-recovers only half the gain (+0.00263, t = 1.17 against kf_q's +0.00450,
+recovers only half the gain (+0.00263, t = 1.17 against kalman_filtered_stats's +0.00450,
 t = 2.78).
 
 Code: `src/features/kalman_quality.py`, attached at load time in
@@ -335,8 +335,8 @@ closes the gap.
 | Post-hoc recalibration (isotonic) | -0.0052 | As above, and more prone to overfitting the fold |
 | `height_x_age` | +0.0004 (t = 0.47) | Noise, and it *hurts* the segment it targets: only 36 tall+old rows in training, split between minimum ring-chasers and productive bigs on real contracts. The interaction can only push one direction ("old+tall = cheaper"); the impact metrics already separate declining bigs from productive ones per player |
 | `weight_x_age` | N/A | No weight column in the training set — the height scraper reads only the height field of the BBRef index pages. Would inherit the same counter-effect problem as `height_x_age`: heavy+old contains both ends of the price range |
-| `kf_innov` (Kalman innovation) | +0.00167 (t = 1.34) | Tested alongside `kf_q` (v8.10x). The filter's innovation (surprise) — actual measurement minus predicted measurement — captures how much a player over- or under-performed expectations. Does not clear t > 2 on its own; the quality estimate already absorbs the signal |
-| `ema_quality` (exponential moving average) | +0.00263 (t = 1.17) | Control for `kf_q` (v8.10x). A simple EMA over the three z-scored impact metrics, which does temporal smoothing without optimal metric weighting or age-aware drift. Recovers only half of `kf_q`'s gain, confirming the Kalman filter's advantage is in the weighting and drift, not mere smoothing |
+| `kf_innov` (Kalman innovation) | +0.00167 (t = 1.34) | Tested alongside `kalman_filtered_stats` (v8.10x). The filter's innovation (surprise) — actual measurement minus predicted measurement — captures how much a player over- or under-performed expectations. Does not clear t > 2 on its own; the quality estimate already absorbs the signal |
+| `ema_quality` (exponential moving average) | +0.00263 (t = 1.17) | Control for `kalman_filtered_stats` (v8.10x). A simple EMA over the three z-scored impact metrics, which does temporal smoothing without optimal metric weighting or age-aware drift. Recovers only half of `kalman_filtered_stats`'s gain, confirming the Kalman filter's advantage is in the weighting and drift, not mere smoothing |
 
 ### Training-set choices tested and rejected
 

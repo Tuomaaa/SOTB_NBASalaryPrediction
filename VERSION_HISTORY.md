@@ -733,7 +733,7 @@ Evidence: `docs/briefs/2026-07-26-service-years.RESULT.md`,
 
 | Ver | Model | A1 (told) | A2 (told) | B1 (told) | N | Feat | Change |
 |-----|-------|-----------|-----------|-----------|---|------|--------|
-| **8.10x** | **XGBoost (Grabit v4)** | **0.8369** | **0.8581** | **0.8589** | **873** | **18** | **`kf_q` (Kalman-filtered quality), the 18th feature. Paired ΔSel +0.0053 (t 2.78)** |
+| **8.10x** | **XGBoost (Grabit v4)** | **0.8369** | **0.8581** | **0.8589** | **873** | **18** | **`kalman_filtered_stats` (Kalman-filtered quality), the 18th feature. Paired ΔSel +0.0053 (t 2.78)** |
 | 8.9x | XGBoost (Grabit v4) | 0.8301 | 0.8544 | 0.8604 | 873 | 17 | Mechanism cap clip + offset regen on 873-row frame. A1 +0.0132 vs v8.7x arm |
 | 8.8x | XGBoost (Grabit v4) | 0.8126 | 0.8672 | 0.8578 | 896 | 17 | Stage-3 signing-type offset. Leakage-aware k=20 shrunk per-type means |
 | 8.0x | XGBoost (Grabit v4) | 0.7989 | 0.8515 | 0.8356 | 944 | 14 | Stage 3 — the signing route enters the model. Push + extension clip in one composition module. Ex-ante A1 0.7865 (clip only) |
@@ -1275,7 +1275,7 @@ Evidence: `src/model/evaluate_suite.py`,
 
 Tags: `v8.9x` · `v8.10x`.
 
-### v8.10x: `kf_q` — Kalman-filtered player quality (18th feature)
+### v8.10x: `kalman_filtered_stats` — Kalman-filtered player quality (18th feature)
 
 A Kalman filter over the three impact metrics (DARKO DPM, LEBRON, RAPM) that
 produces a single filtered quality estimate per player-season. The filter runs
@@ -1286,7 +1286,7 @@ for age 34+). All parameters estimated from the metric data, never from the
 target. Code: `src/features/kalman_quality.py`, attached at load time in
 `train.py::load_training_data()`.
 
-`corr(kf_q, darko_z) = 0.959` — high, but the residual carries signal the raw
+`corr(kalman_filtered_stats, darko_z) = 0.959` — high, but the residual carries signal the raw
 z-scores do not. The falsification is the EMA control: a simple exponential
 moving average over the same three metrics, which does the temporal smoothing
 without the optimal weighting or the drift, recovers only half the gain

@@ -92,7 +92,7 @@ def _run_filter(td: pd.DataFrame, R: np.ndarray,
                     K = P / (P + ri)
                     x = x + K * (zi - x)
                     P = (1 - K) * P
-            out.append({"player_name_norm": player, "season": s, "kf_q": x})
+            out.append({"player_name_norm": player, "season": s, "kalman_filtered_stats": x})
             prev_season = s
     return pd.DataFrame(out)
 
@@ -106,5 +106,6 @@ def attach_kalman_quality(df: pd.DataFrame) -> pd.DataFrame:
     R, drift_map, Q = _estimate_params(td.dropna(subset=["age"]))
     kf = _run_filter(td, R, drift_map, Q)
     df = df.merge(kf, on=["player_name_norm", "season"], how="left")
-    df["kf_q"] = df["kf_q"].fillna(df["kf_q"].median())
+    df["kalman_filtered_stats"] = df["kalman_filtered_stats"].fillna(
+        df["kalman_filtered_stats"].median())
     return df

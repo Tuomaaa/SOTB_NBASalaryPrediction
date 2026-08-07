@@ -44,7 +44,7 @@ FEATURE_COLS = [
     "prev_cap_pct",
     "mpg_x_waived",
     "playoff_mpg_diff",
-    "kf_q",
+    "kalman_filtered_stats",
 ]
 
 TARGET = "cap_pct"
