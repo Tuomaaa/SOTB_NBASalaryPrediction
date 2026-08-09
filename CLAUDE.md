@@ -31,6 +31,7 @@ nba-valuation/
 │   │   ├── age_curve.py     # age, age²
 │   │   ├── availability.py  # 3-year weighted GP%
 │   │   ├── cba_constraints.py  # CBA era flag
+│   │   ├── kf_market_value.py  # Kalman-filtered market trajectory (replaces prev_cap_pct)
 │   │   └── build_dataset.py # stage 1 of the training-data rebuild
 │   └── model/
 │       ├── train.py         # Ridge / XGBoost / two-sided Grabit + the filter chain
@@ -135,10 +136,16 @@ about a team's books even though it is not a Signing Residual.
 
 ## Feature Set
 
-21 features, listed with definitions in METHODOLOGY.md. Over 20 further
-candidates were tested and rejected, each with its ΔCV R² recorded in the same
-file — consult that table before proposing a feature, since several obvious
-ideas (team cap space, playoff performance, agent portfolio) are already there.
+21 features, listed with definitions in METHODOLOGY.md. `kf_market_value`
+(Kalman-filtered market trajectory) replaced `prev_cap_pct` in v8.13x — the
+base model still uses `prev_cap_pct` internally, but the final feature list
+feeds the KF output. Inference is two-pass: base model predicts intermediate
+seasons, KF smooths the trajectory, final model uses `kf_market_value`.
+
+Over 20 further candidates were tested and rejected, each with its ΔCV R²
+recorded in the same file — consult that table before proposing a feature, since
+several obvious ideas (team cap space, playoff performance, agent portfolio) are
+already there.
 
 Two rules the ablation table encodes:
 

@@ -139,6 +139,17 @@ considered and rejected as selection-on-confirmation.)
    either ruling.
 2. Tier-3 collateral: −0.0023 (sel) / −0.0125 (conf), both CIs spanning zero,
    MAE flat — consistent with tree-structure noise, monitored, not proven zero.
+   Composition of the 312 tier-3 rows (by debut season): **236 (76%) are a
+   self-extinguishing window-boundary artifact** — veterans who debuted before
+   2019, whose prior market contracts predate the data window (T distribution
+   2019: 128 → 2020: 55 → 2021: 30 → 2022: 14 → 2023: 6 → 2024-26: 1/yr);
+   75 (24%) are a structural class — second-round/undrafted players whose only
+   prior history is their filtered first contract (10-17 per season, steady).
+   So tier-3 shrinks toward ~75 rows as the window advances and kf coverage
+   rises automatically — consistent with B1's largest gain landing on the 2026
+   origin. A future experiment can anchor the first-contract class the way
+   tier 2 anchors first-rounders (convention pay + P0 = R); it does not block
+   this adoption.
 3. The confirmation split is spent for this cycle.
 4. kf coverage rises with season (2019-20 rows are mostly tier-3). The season
    control passed at 12%, but B1-by-origin should be watched on future

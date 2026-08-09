@@ -35,6 +35,9 @@ from src.model.train import (
     _filter_mislabeled_year1, _filter_continuations, _normalize_vetmin_caphold,
     _prepare_Xy, FEATURE_COLS, TARGET,
 )
+from src.features.kf_market_value import (
+    MEASUREMENT_FEATURES, compute_kf_column, estimate_q,
+)
 
 
 def _normalize_name(name: str) -> str:
@@ -43,14 +46,46 @@ def _normalize_name(name: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
-def _training_medians(df: pd.DataFrame) -> tuple[list[str], pd.Series]:
+def _training_medians(df: pd.DataFrame,
+                      features: list[str] | None = None
+                      ) -> tuple[list[str], pd.Series]:
     """Feature list and fill values from the filtered training set."""
     tr = _normalize_vetmin_caphold(_filter_rookie_contracts(
         _filter_continuations(_filter_mislabeled_year1(
             _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
                 _filter_year1(df))))))))
-    X_tr, _, _, features = _prepare_Xy(tr)
-    return features, X_tr.median()
+    X_tr, _, _, feats = _prepare_Xy(tr, features=features)
+    return feats, X_tr.median()
+
+
+def _eval_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """The training filter chain + floor computation."""
+    return _compute_floor(_normalize_vetmin_caphold(_filter_rookie_contracts(
+        _filter_continuations(_filter_mislabeled_year1(
+            _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
+                _filter_year1(df)))))))))
+
+
+def _attach_kf_to_frame(df_full, eval_df, base_model, base_features, base_medians):
+    """Compute kf_market_value for eval_df rows using the base model."""
+    def predict_fn(subset):
+        X = subset.reindex(columns=base_features).fillna(base_medians).fillna(0)
+        return base_model.predict(X)
+
+    y = eval_df[TARGET].values
+    in_sample = base_model.predict(
+        eval_df.reindex(columns=base_features).fillna(base_medians).fillna(0))
+    r_var = float(np.var(y - in_sample, ddof=1))
+
+    df_full_prep = _compute_max_eligible(df_full.copy())
+    if "floor_pct" not in df_full_prep.columns:
+        season_floor = eval_df.groupby("season")["floor_pct"].median()
+        df_full_prep["floor_pct"] = (df_full_prep["season"].map(season_floor)
+                                     .fillna(float(eval_df["floor_pct"].min())))
+    df_full_prep[base_features] = (df_full_prep[base_features]
+                                   .fillna(base_medians).fillna(0))
+
+    return compute_kf_column(eval_df, df_full_prep, predict_fn, r_var)
 
 
 def predict(target_season: int = 2026) -> pd.DataFrame:
@@ -59,8 +94,32 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     train_df = df[df["season"] < target_season].copy()
     print(f"Training on {len(train_df)} rows (seasons < {target_season})")
 
+    # Pass 1: base model (prev_cap_pct) for KF measurements
+    base_results, base_model, base_features = train_grabit(
+        train_df, sigma=0.02, features=MEASUREMENT_FEATURES)
+    print(f"Base model (measurement) R²: {base_results['cv_r2_mean']:.4f}")
+    base_tr_features, base_medians = _training_medians(
+        train_df, features=MEASUREMENT_FEATURES)
+
+    # Compute kf_market_value for training rows
+    eval_df = _eval_frame(train_df)
+    kf_train = _attach_kf_to_frame(train_df, eval_df, base_model,
+                                    base_features, base_medians)
+    kf_map = {}
+    for i, (p, s) in enumerate(zip(eval_df["player_name_norm"],
+                                   eval_df["season"].astype(int))):
+        kf_map[(p, int(s))] = float(kf_train[i])
+    train_df["kf_market_value"] = [
+        kf_map.get((p, int(s)),
+                   train_df.loc[idx, "prev_cap_pct"] if pd.notna(
+                       train_df.loc[idx, "prev_cap_pct"]) else np.nan)
+        for idx, (p, s) in zip(train_df.index,
+                               zip(train_df["player_name_norm"],
+                                   train_df["season"]))]
+
+    # Pass 2: final model (kf_market_value replaces prev_cap_pct)
     results, model, features = train_grabit(train_df, sigma=0.02)
-    print(f"Grabit CV R²: {results['cv_r2_mean']:.4f}")
+    print(f"Final model R²: {results['cv_r2_mean']:.4f}")
 
     tr_features, medians = _training_medians(train_df)
     if tr_features != features:
@@ -135,6 +194,17 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     pred_df = attach_playoff_mpg(pred_df)
     print(f"Playoff minutes: {int(pred_df['po_mpg'].notna().sum())} of "
           f"{len(pred_df)} rows played in the {target_season} playoffs")
+
+    # kf_market_value for prediction rows: anchor from training history,
+    # intermediate seasons predicted by the base model.
+    pred_df["cap_pct"] = 0.0  # temporary — needed by _compute_max_eligible
+    pred_df["salary"] = 0.0
+    pred_eval = _compute_max_eligible(pred_df.copy())
+    pred_eval = _compute_floor(pred_eval)
+    kf_pred = _attach_kf_to_frame(train_df, pred_eval, base_model,
+                                   base_features, base_medians)
+    pred_df["kf_market_value"] = kf_pred
+    pred_df.drop(columns=["salary"], errors="ignore", inplace=True)
 
     # Predict: latent value from Grabit, then Stage-2 CBA clip
     X_pred = pred_df.reindex(columns=features).fillna(medians).fillna(0)

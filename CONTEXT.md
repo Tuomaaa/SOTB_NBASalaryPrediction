@@ -170,6 +170,15 @@ _Avoid_: rating, advanced stat, base rating
 Share of games played, weighted across the prior three seasons with the most
 recent weighted heaviest. Durability, not health.
 
+**Market Trajectory**:
+A Kalman-filtered estimate of a player's market price (`kf_market_value` in
+code), anchored to his most recent negotiated Year-1 contract and updated
+through model-predicted intermediate seasons. Replaces `prev_cap_pct` in the
+final feature list (v8.13x); the base model still uses `prev_cap_pct` internally
+as a measurement input to the filter.
+_Avoid_: prev_cap_pct (reserved for the raw prior-contract feature the base
+model uses), contract trajectory, filtered salary
+
 **CBA Era**:
 Which collective agreement governed a season. The 2023 agreement changed
 contract structure enough that seasons on either side of it are not directly

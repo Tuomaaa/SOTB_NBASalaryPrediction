@@ -295,7 +295,7 @@ Code: `src/features/kalman_quality.py`, attached at load time in
 | Feature | Description |
 |---------|-------------|
 | `cba_era` | Binary: 0 = pre-2023 CBA, 1 = post-2023 CBA |
-| `prev_cap_pct` | Year-1 cap_pct of the player's previous contract. Captures anchoring effect — prior contract value predicts next contract. First contracts are filled from the rookie scale by draft slot; see below. |
+| `kf_market_value` | Kalman-filtered market trajectory (v8.13x, replaces `prev_cap_pct`). For a player at season T: anchor a random-walk KF at the market's last observed price, update through model-predicted intermediate seasons. Three-tier anchor: (1) most recent Year-1 eval-frame row, (2) earliest rookie-scale season for first-rounders, (3) fallback to `prev_cap_pct`. At inference time, a base model (21 features with `prev_cap_pct`) prices intermediate seasons — no circularity because the measurement model never sees `kf_market_value`. See `src/features/kf_market_value.py`. |
 | `is_waived` | 1 when Spotrac records a waiver or buyout in the fixed 365 days before the signing that prices this row. Events after signing are excluded. Unknown source/signing coverage remains auditable through `is_waived_known`, which is not a model feature. |
 | `mpg_x_waived` | `mpg × is_waived` (v8.4x). A waiver erases most of a player's price history — the OLS slope of pay on prior pay drops 0.750 → 0.140 across it — so the market re-prices him off current workload instead. NaN where `is_waived` is unknown, never 0. |
 

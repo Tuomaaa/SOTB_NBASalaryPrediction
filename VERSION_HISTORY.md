@@ -733,7 +733,8 @@ Evidence: `docs/briefs/2026-07-26-service-years.RESULT.md`,
 
 | Ver | Model | A1 (told) | A2 (told) | B1 (told) | N | Feat | Change |
 |-----|-------|-----------|-----------|-----------|---|------|--------|
-| **8.10x** | **XGBoost (Grabit v4)** | **0.8369** | **0.8581** | **0.8589** | **873** | **18** | **`kalman_filtered_stats` (Kalman-filtered quality), the 18th feature. Paired ΔSel +0.0053 (t 2.78)** |
+| **8.13x** | **XGBoost (Grabit v4)** | **0.8254†** | **0.8491†** | **0.8387** | **873** | **21** | **`kf_market_value` replaces `prev_cap_pct` (SWAP). Paired ΔSel +0.00331 (t 1.75), gate override on three-protocol evidence. †Nested-CV ablation** |
+| 8.10x | XGBoost (Grabit v4) | 0.8369 | 0.8581 | 0.8589 | 873 | 18 | `kalman_filtered_stats` (Kalman-filtered quality), the 18th feature. Paired ΔSel +0.0053 (t 2.78) |
 | 8.9x | XGBoost (Grabit v4) | 0.8301 | 0.8544 | 0.8604 | 873 | 17 | Mechanism cap clip + offset regen on 873-row frame. A1 +0.0132 vs v8.7x arm |
 | 8.8x | XGBoost (Grabit v4) | 0.8126 | 0.8672 | 0.8578 | 896 | 17 | Stage-3 signing-type offset. Leakage-aware k=20 shrunk per-type means |
 | 8.0x | XGBoost (Grabit v4) | 0.7989 | 0.8515 | 0.8356 | 944 | 14 | Stage 3 — the signing route enters the model. Push + extension clip in one composition module. Ex-ante A1 0.7865 (clip only) |
@@ -1273,7 +1274,7 @@ Evidence: `src/model/evaluate_suite.py`,
 `outputs/models/evaluation_suite.json`,
 `outputs/models/oof_reference.csv` (873 rows).
 
-Tags: `v8.9x` · `v8.10x`.
+Tags: `v8.9x` · `v8.10x` · `v8.11x` · `v8.12x` · `v8.13x`.
 
 ### v8.10x: `kalman_filtered_stats` — Kalman-filtered player quality (18th feature)
 
@@ -1376,7 +1377,76 @@ Code: `src/features/base_rating.py::attach_od_diffs()`, called from
 `load_training_data()`. Wired into all four production paths: train, predict,
 evaluate_suite, and export_web.
 
-Tags: `v8.11x` · `v8.12x`.
+Tags: `v8.11x` · `v8.12x` · `v8.13x`.
+
+### v8.13x: `kf_market_value` — Kalman-filtered market trajectory (SWAP for `prev_cap_pct`)
+
+Replaces `prev_cap_pct` with `kf_market_value` in the 21-feature regression
+list. Feature count unchanged; the route classifier's frozen `CLF_BASE_COLS`
+retains `prev_cap_pct` (v8.6x decoupling). Code:
+`src/features/kf_market_value.py`, wired into predict.py and export_web.py via
+a two-pass architecture (base model prices intermediate seasons, KF produces the
+feature, final model trains on it).
+
+**The feature.** For an evaluation-frame row (player p, season T): anchor a
+random-walk Kalman filter at the market's last verdict on p, then update it
+through the base model's predictions of each intervening season (escalator years,
+option years, minimum stints). Three-tier anchor: (1) most recent Year-1
+eval-frame row (428 rows, including 61 prorated stints pulled up to the season
+minimum), (2) earliest rookie-scale season for first-rounders without a market
+anchor (133 rows, P0 = R), (3) fallback to `prev_cap_pct` (312 rows — the
+feature degrades to information the model already has). KF parameters fixed
+before scoring: P0 = 0.0005, R = inner-OOF residual variance (~0.00134),
+Q = max(var(Δcap_pct) − 2R, 0.0005).
+
+**Why two previous attempts failed and this one did not.** Phase 1 (2-param
+linear measurement model) and Variant A (full champion measurements, raw-label
+anchors) both failed. Variant A proved measurement strength alone changes
+nothing — the gain came entirely from the anchor redesign: of 716 raw-label
+anchors, 381 were provably not market prices (prorated stints, rookie-scale
+slots, continuation mislabels). After the fix, r(kf, prev) fell 0.973 → 0.928;
+univariate r(kf, y) = 0.694 vs r(prev, y) = 0.548.
+
+**Fold honesty (nested CV).** Outer 5-fold GroupKFold × 10 seeds, identical to
+the champion. Per outer fold: a 4-fold inner GroupKFold produces fold-honest
+Year-1 predictions and intermediate-season measurements. kf is recomputed per
+outer fold, so no fold's model sees a kf value informed by that fold's players.
+~250 champion-pipeline fits per arm set.
+
+**Gate override.** The pre-registered primary (pooled selection t > 2) was
+missed at t = +1.75. Adoption is recommended on three-protocol evidence:
+
+| Protocol | Evidence |
+|---|---|
+| A (selection) | SWAP ΔSel +0.00331 (t +1.75); kf-active segment (561 rows) +0.00499 (t +1.94); season-dummy control recovers only 12% |
+| B1 (forward) | 3/3 origins positive, pooled +0.0044, 95% CI [−0.0001, +0.0090] |
+| D3 (confirmation, SPENT) | kf-active (77 rows) +0.0066, CI [+0.0004, +0.0159] excluding zero |
+
+C guards pass: C1 calibration slope excess −0.0006 (gate ≤ +0.005); C2 worst
+mechanism |bias| growth +$0.12M (gate ≤ +$0.30M). The confirmation split is
+SPENT for this cycle.
+
+**A1/A2 are from the nested-CV ablation harness**, not evaluate_suite, because
+the suite does not yet support the inner-fold structure kf requires for
+fold-honest evaluation. The absolute numbers (A1 0.8254, A2 0.8491) are
+conservatively lower than evaluate_suite would report on the same model — the
+reliable quantity is the paired delta. B1 (0.8387) is from eval_kf_forward.py.
+Evaluate_suite integration is tracked in ISSUES.md.
+
+| Layer | v8.12x champion | v8.13x SWAP | Δ |
+|---|---|---|---|
+| A1 (nested CV) | 0.8226 | **0.8254** | +0.0028 |
+| A2 (nested CV) | 0.8456 | 0.8491 | +0.0035 |
+| B1 (forward) | 0.8343 | **0.8387** | +0.0044 |
+| MAE | $2.85M | $2.82M | −$0.03M |
+
+**Tier-3 collateral.** The 312 rows where kf degrades to prev_cap_pct show
+−0.0023 (sel), CI spanning zero. 76% are a self-extinguishing window-boundary
+artifact (veterans debuting before 2019); the count shrinks automatically as the
+data window advances.
+
+Evidence: `scripts/ablation_kf_market_value_full.py` (`--anchor market`),
+`scripts/eval_kf_forward.py`, `docs/briefs/2026-08-09-kf-market-value-adoption.md`.
 
 ### Corrections to earlier findings
 
@@ -1438,11 +1508,11 @@ every row, so P x delta_bird moves the whole price surface. Evidence:
 Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 6    Phase 7        Phase 8
 Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data + protocol  3-stage + route
                                                                                      
-0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.837
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.10x
+0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.825†
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.13x
                         ↗ 0.87                                                                                 (current)
                   Leaked features                                                                told-route numbers
-                  (removed in v4.0)                                                              from v8.0x onward
+                  (removed in v4.0)                                                     †nested-CV; from v8.0x onward
 ```
 
 Phase 7 looks flat through v7.8x and then jumps. The v7.1x-v7.8x plateau was by

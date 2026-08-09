@@ -60,6 +60,7 @@ from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR, RAW_DIR
 from src.model import stages
 from src.model.extension_cap import attach_extension_cap, attach_extension_value
 from src.features.base_rating import attach_od_diffs
+from src.features.kf_market_value import MEASUREMENT_FEATURES, compute_kf_column
 from src.features.playoff_minutes import attach_playoff_mpg
 from src.features.waiver_history import (
     attach_waiver_interactions,
@@ -125,7 +126,7 @@ FEATURE_LABELS = {
     "award_score_cum": "Awards",
     "draft_pick": "Draft pick",
     "is_waived": "Recently waived",
-    "prev_cap_pct": "Previous contract",
+    "kf_market_value": "Market trajectory",
     "mpg_x_waived": "Minutes x waived",
     "playoff_mpg_diff": "Playoff minutes swing",
 }
@@ -212,7 +213,9 @@ def _load_signing_types() -> pd.DataFrame:
     return st[["player_name_norm", "season", "signing_type"]]
 
 
-def _training_medians(df: pd.DataFrame) -> tuple[list[str], pd.Series]:
+def _training_medians(df: pd.DataFrame,
+                      features: list[str] | None = None
+                      ) -> tuple[list[str], pd.Series]:
     """Feature list and fill values as seen by the fitted model.
 
     _prepare_Xy drops near-constant columns and fills NaN with the median of
@@ -228,8 +231,8 @@ def _training_medians(df: pd.DataFrame) -> tuple[list[str], pd.Series]:
         _filter_continuations(_filter_mislabeled_year1(
             _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
                 _filter_year1(df))))))))
-    X_tr, _, _, features = _prepare_Xy(tr)
-    return features, X_tr.median()
+    X_tr, _, _, feats = _prepare_Xy(tr, features=features)
+    return feats, X_tr.median()
 
 
 def _signing_membership(df: pd.DataFrame) -> set[tuple[str, int]]:
@@ -251,6 +254,14 @@ def _signing_membership(df: pd.DataFrame) -> set[tuple[str, int]]:
             _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
                 _filter_year1(df.copy()))))))))
     return set(zip(chain["player_name_norm"], chain["season"].astype(int)))
+
+
+def _eval_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """The training filter chain + floor computation."""
+    return _compute_floor(_normalize_vetmin_caphold(_filter_rookie_contracts(
+        _filter_continuations(_filter_mislabeled_year1(
+            _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
+                _filter_year1(df)))))))))
 
 
 def _zscore_basis(df: pd.DataFrame) -> dict[str, dict[str, dict[str, float]]]:
@@ -671,6 +682,11 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         else:
             fa[col] = borrowed
     fa["age_squared"] = fa["age"] ** 2
+    if "kf_market_value" in hist.columns:
+        fa["kf_market_value"] = fa["player_name_norm"].map(hist["kf_market_value"])
+        fa["kf_market_value"] = fa["kf_market_value"].fillna(fa["prev_cap_pct"])
+    else:
+        fa["kf_market_value"] = fa["prev_cap_pct"]
     waiver_as_of = transaction_data_as_of()
     fa = attach_waiver_status_as_of(fa, waiver_as_of)
     print(f"  Waiver feature as of {waiver_as_of.date()}: "
@@ -1149,10 +1165,51 @@ def main() -> None:
     df = load_training_data()
     print(f"Loaded {len(df)} player-seasons")
 
-    # Fit on every season before the holdout, so the holdout's signings are a
-    # true forward prediction. train_grabit filters the frame it is given, so a
-    # season-restricted df is all it takes — no change to train.py.
+    # Two-pass fit: the final model uses kf_market_value (Kalman-filtered
+    # market trajectory) in place of prev_cap_pct. A base model with prev_cap_pct
+    # prices intermediate seasons, those feed the KF, and the final model trains
+    # on the KF output. See src/features/kf_market_value.py.
     train_df = df[df["season"] < HOLDOUT_SEASON].copy()
+
+    # Pass 1: base model (prev_cap_pct) for KF measurements
+    base_results, base_model, base_features = train_grabit(
+        train_df, sigma=0.02, features=MEASUREMENT_FEATURES)
+    base_medians = _training_medians(train_df, features=MEASUREMENT_FEATURES)[1]
+    print(f"Base model (measurement) R²: {base_results['cv_r2_mean']:.4f}")
+
+    # Compute kf_market_value for all eval-frame rows (all seasons)
+    eval_all = _eval_frame(df)
+
+    def _kf_predict_fn(subset):
+        X = subset.reindex(columns=base_features).fillna(base_medians).fillna(0)
+        return base_model.predict(X)
+
+    y_eval = eval_all[TARGET].values
+    in_sample_eval = base_model.predict(
+        eval_all.reindex(columns=base_features).fillna(base_medians).fillna(0))
+    r_var = float(np.var(y_eval - in_sample_eval, ddof=1))
+    df_full_prep = _compute_max_eligible(df.copy())
+    if "floor_pct" not in df_full_prep.columns:
+        season_floor = eval_all.groupby("season")["floor_pct"].median()
+        df_full_prep["floor_pct"] = (df_full_prep["season"].map(season_floor)
+                                     .fillna(float(eval_all["floor_pct"].min())))
+    df_full_prep[base_features] = (df_full_prep[base_features]
+                                   .fillna(base_medians).fillna(0))
+    kf_values = compute_kf_column(eval_all, df_full_prep, _kf_predict_fn, r_var)
+
+    kf_map = {}
+    for i, (p, s) in enumerate(zip(eval_all["player_name_norm"],
+                                   eval_all["season"].astype(int))):
+        kf_map[(p, int(s))] = float(kf_values[i])
+    df["kf_market_value"] = [
+        kf_map.get((p, int(s)),
+                   df.loc[idx, "prev_cap_pct"] if pd.notna(
+                       df.loc[idx, "prev_cap_pct"]) else np.nan)
+        for idx, (p, s) in zip(df.index,
+                               zip(df["player_name_norm"], df["season"]))]
+    train_df = df[df["season"] < HOLDOUT_SEASON].copy()
+
+    # Pass 2: final model (kf_market_value replaces prev_cap_pct)
     results, model, features = train_grabit(train_df, sigma=0.02)
     print(f"\n{results['model']} fit on seasons < {HOLDOUT_SEASON}: "
           f"{results['n_samples']} rows, pooled CV R² {results['cv_r2_mean']:.4f}")

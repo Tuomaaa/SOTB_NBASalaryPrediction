@@ -42,7 +42,7 @@ FEATURE_COLS = [
     "ast_pct",
     "award_score_cum",
     "draft_pick",
-    "prev_cap_pct",
+    "kf_market_value",
     "mpg_x_waived",
     "playoff_mpg_diff",
     "kalman_filtered_stats",
@@ -1046,7 +1046,8 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
                  gate_frac: float = 0.55,
                  floor_gate_k: float = 2.0,
                  sigma_left: float | None = None,
-                 censor_c: float | None = None) -> tuple[dict, object, list[str]]:
+                 censor_c: float | None = None,
+                 features: list[str] | None = None) -> tuple[dict, object, list[str]]:
     """Train Grabit v4: two-sided censored-normal loss + CBA bounds.
 
     Stage 1: right-censor max rows where baseline pred >= gate_frac * ceiling
@@ -1074,7 +1075,7 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     df = _filter_rookie_contracts(df)
     df = _compute_floor(df)
 
-    X, y, groups, features = _prepare_Xy(df)
+    X, y, groups, features = _prepare_Xy(df, features=features)
     seasons = df["season"].values
     max_elig = df["max_eligible_pct"].values
     is_max = df["is_max_contract"].values
