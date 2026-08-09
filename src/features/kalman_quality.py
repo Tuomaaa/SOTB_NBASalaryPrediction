@@ -2,7 +2,7 @@
 
 State model:
     x_{t+1} = x_t + drift(age) + w,   w ~ N(0, Q)
-    z_t     = [darko_z, lebron_z, rapm_z] = x_t + v,   v ~ N(0, diag(R))
+    z_t     = [darko_z, lebron_z, laker_z] = x_t + v,   v ~ N(0, diag(R))
 
 All parameters estimated from metric data only (never the target):
     R from pairwise metric disagreement (3 equations, 3 unknowns)
@@ -29,7 +29,7 @@ import pandas as pd
 
 from config import PROCESSED_DIR
 
-_METRICS = ["darko_dpm_z", "lebron_z", "rapm_z"]
+_METRICS = ["darko_dpm_z", "lebron_z", "laker_z"]
 
 
 def _estimate_params(td: pd.DataFrame) -> tuple[np.ndarray, dict, float]:

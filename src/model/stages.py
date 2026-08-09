@@ -434,11 +434,12 @@ def training_route_frame(df: pd.DataFrame) -> pd.DataFrame:
     from src.model.train import (
         _filter_year1, _filter_rookie_scale, _filter_rookie_contracts,
         _filter_prorated, _compute_max_eligible, _filter_mislabeled_year1,
-        _filter_continuations, _compute_floor,
+        _filter_continuations, _compute_floor, _normalize_vetmin_caphold,
     )
-    tr = _filter_rookie_contracts(_filter_continuations(_filter_mislabeled_year1(
-        _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
-            _filter_year1(df)))))))
+    tr = _normalize_vetmin_caphold(_filter_rookie_contracts(
+        _filter_continuations(_filter_mislabeled_year1(
+            _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
+                _filter_year1(df))))))))
     return _compute_floor(tr).reset_index(drop=True)
 
 

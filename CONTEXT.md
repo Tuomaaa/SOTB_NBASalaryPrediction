@@ -163,7 +163,7 @@ the answer).
 
 **Impact Metric**:
 One of the three independent public estimates of a player's on-court value —
-DARKO DPM, LEBRON, and RAPM — each standardised within its season.
+DARKO DPM, LEBRON, and LAKER — each standardised within its season.
 _Avoid_: rating, advanced stat, base rating
 
 **Availability**:

@@ -25,8 +25,8 @@ import pandas as pd
 
 from config import CAP_BY_SEASON, PROCESSED_DIR, RAW_DIR
 
-IMPACT = ["darko_dpm", "lebron", "rapm"]
-PROD_FEATS = ["darko_dpm_z", "lebron_z", "rapm_z", "mpg", "usage_pct", "ast_pct"]
+IMPACT = ["darko_dpm", "lebron", "laker"]
+PROD_FEATS = ["darko_dpm_z", "lebron_z", "laker_z", "mpg", "usage_pct", "ast_pct"]
 
 
 # ─── shared source tables ────────────────────────────────────────────

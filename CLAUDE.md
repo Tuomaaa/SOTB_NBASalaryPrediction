@@ -22,7 +22,7 @@ nba-valuation/
 │   ├── scraping/
 │   │   ├── contracts.py     # Basketball Reference team + player salary pages
 │   │   ├── stats.py         # BBRef per-season advanced stats
-│   │   ├── advanced.py      # nbarapm.com: DARKO DPM, LEBRON, RAPM
+│   │   ├── advanced.py      # nbarapm.com: DARKO DPM, LEBRON, LAKER
 │   │   ├── height.py        # BBRef player index → height in inches
 │   │   ├── availability.py  # weighted GP% from the games column
 │   │   └── utils.py         # cached, rate-limited fetch via Playwright
@@ -106,7 +106,7 @@ Two rules these scripts encode, both learned the hard way:
 | Source | Data | Format |
 |--------|------|--------|
 | Basketball Reference | salary by season, age, games played, height | HTML scrape (cached) |
-| nbarapm.com | DARKO DPM, LEBRON, RAPM, usage, box-score rates | Playwright + POST |
+| nbarapm.com | DARKO DPM, LEBRON, LAKER, usage, box-score rates | Playwright + POST |
 | Spotrac | signing mechanism, contract years, total value, AAV | HTML scrape (cached) |
 | Manual reference | awards, draft position, team value | hand-curated CSV in `data/raw/raw_external/` |
 | `config.py` | salary cap by season, CBA era boundary | hand-maintained |
@@ -135,7 +135,7 @@ about a team's books even though it is not a Signing Residual.
 
 ## Feature Set
 
-18 features, listed with definitions in METHODOLOGY.md. Over 20 further
+21 features, listed with definitions in METHODOLOGY.md. Over 20 further
 candidates were tested and rejected, each with its ΔCV R² recorded in the same
 file — consult that table before proposing a feature, since several obvious
 ideas (team cap space, playoff performance, agent portfolio) are already there.

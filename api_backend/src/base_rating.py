@@ -1,4 +1,4 @@
-"""Normalize impact metrics (DARKO DPM, LEBRON, RAPM) across seasons.
+"""Normalize impact metrics (DARKO DPM, LEBRON, LAKER) across seasons.
 
 Each metric is z-scored within its season so that cross-era comparisons
 are apples-to-apples. The composite `base_rating` is a weighted average
@@ -11,7 +11,7 @@ import pandas as pd
 METRIC_WEIGHTS = {
     "darko_dpm": 0.35,
     "lebron": 0.35,
-    "rapm": 0.30,
+    "laker": 0.30,
 }
 
 
@@ -24,8 +24,8 @@ def _zscore_by_season(df: pd.DataFrame, col: str) -> pd.Series:
 def add_base_rating(df: pd.DataFrame) -> pd.DataFrame:
     """Add season-normalized z-scores and composite base_rating.
 
-    Input must have columns: season, darko_dpm, lebron, rapm.
-    Adds: darko_z, lebron_z, rapm_z, base_rating.
+    Input must have columns: season, darko_dpm, lebron, laker.
+    Adds: darko_z, lebron_z, laker_z, base_rating.
     """
     df = df.copy()
 

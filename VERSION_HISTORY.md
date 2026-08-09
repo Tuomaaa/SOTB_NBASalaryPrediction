@@ -5,7 +5,7 @@
 | Ver | Model | CV R² | N | Feat | Change |
 |-----|-------|-------|---|------|--------|
 | 1.0 | Ridge | 0.429 | 297 | 4 | First model. Single-season (2025 only), composite `base_rating`, age, availability, usage |
-| 1.1 | Ridge | 0.574 | 297 | 8 | Dropped composite rating → separate z-scored DARKO/LEBRON/RAPM. Added minutes, height |
+| 1.1 | Ridge | 0.574 | 297 | 8 | Dropped composite rating → separate z-scored DARKO/LEBRON/LAKER. Added minutes, height |
 | 1.2 | Ridge | 0.618 | 297 | 9 | Added experience_years, cba_era, max_eligible_pct. Dropped WAR (double-counts rating × minutes) |
 | 2.0 | Ridge | 0.641 | 1222 | 11 | Multi-season training (2019-2025, ~4x data). Historical salary scrape from BBRef |
 | 2.1 | Ridge | 0.635 | 1947 | 12 | Extended to 2019-2026. Added BPM, shooting splits. Diminishing returns from box-score stats |
@@ -783,7 +783,7 @@ Confirmation split read at this bump: 0.8309 against a selection pool of 0.7928
 ### v8.1x: impact-source join repaired on nba_id
 
 Same 944 rows, same 14 features, told-route convention unchanged from v8.0x.
-Pure correctness: three impact sources (DARKO, LEBRON, LAKER/RAPM) spelled the
+Pure correctness: three impact sources (DARKO, LEBRON, LAKER) spelled the
 same player differently and the name-season merge left those rows split, so
 league-median minutes, usage and availability reached the model in place of the
 truth. Joining on `(nba_id, season)` and filling age from the player's own
@@ -829,7 +829,7 @@ league-median fill. Availability uses the exact s/s-1/s-2 window, skips unknown
 seasons with weight renormalisation instead of scoring them as zero, and keeps
 the 2020-21 season at 72 games. A Basketball Reference advanced-stat fallback
 fills absent workload and box rates over eight seasons, matched on name-season
-then on the stable `player_url`, filling only gaps and never synthesising RAPM.
+then on the stable `player_url`, filling only gaps and never synthesising LAKER.
 After it, age, height, mpg and availability have zero missing values in the 944
 frame.
 
@@ -1063,7 +1063,7 @@ version number consumed.
 
 | Commit | What | ISSUES |
 |--------|------|--------|
-| `966f176` | RAPM re-scrape: 58 rows filled via `nba_id` matching (name mismatches). Coverage: 2023 81.8%, 2026 83.5%. Remaining gaps confirmed absent from nbarapm.com | #39 amended |
+| `966f176` | LAKER re-scrape: 58 rows filled via `nba_id` matching (name mismatches). Coverage: 2023 81.8%, 2026 83.5%. Remaining gaps confirmed absent from nbarapm.com | #39 amended |
 | `966f176` | min_cap_charge batch 2: 6 corrections (MCW 2019, Gerald Green 2019, Barea 2019, Iwundu 2020, Bates-Diop 2023, Hyland 2026). `fix_minimum_convention.py` dedup logic fixed: append-only, never re-detects existing corrections | #38 amended |
 | `5fa5f4a` | Luol Deng 2019: 4th stretched dead money case ($5M LAL stretch, played for MIN). `salary_override` to vet minimum $2,564,753 | #36 updated (3→4 rows) |
 | `5fa5f4a` | `abs_bias_growth()` and `zone_scorecard()` promoted to `evaluate_suite.py` as shared helpers. `diagnostics.py` signing-type residuals split by confirmation/selection. `eval_floor_branch.py` imports shared versions | #20 partial |
@@ -1277,9 +1277,9 @@ Tags: `v8.9x` · `v8.10x`.
 
 ### v8.10x: `kalman_filtered_stats` — Kalman-filtered player quality (18th feature)
 
-A Kalman filter over the three impact metrics (DARKO DPM, LEBRON, RAPM) that
+A Kalman filter over the three impact metrics (DARKO DPM, LEBRON, LAKER) that
 produces a single filtered quality estimate per player-season. The filter runs
-causally per player, optimally weighting the three metrics (RAPM downweighted
+causally per player, optimally weighting the three metrics (LAKER downweighted
 ~3x relative to DARKO, proportional to measurement noise) and incorporating
 age-aware drift prediction (+0.21 z per year for age <= 22, tapering to -0.27
 for age 34+). All parameters estimated from the metric data, never from the
@@ -1321,6 +1321,62 @@ and every signing mechanism MAE improved or unchanged.
 Max zone MAE: $2.41M -> $2.28M (-$0.13M). The feature improves pricing of
 players at their ceiling, consistent with the filter's ability to separate
 productive bigs from declining ones more precisely than any single metric.
+
+### v8.11x: vet-min cap-hold normalization (ISSUES #38 fix)
+
+**Data quality fix, not a model change.** Basketball Reference reports vet-min
+salaries inconsistently: some rows carry the player's **paid salary** (which
+varies by experience tier, 0.554x to 1.583x of the base minimum under the 2023
+CBA), while others carry the **cap hold** (the team's cap charge, fixed at the
+2-year rate under 2017 CBA or the 3-year base under 2023 CBA). The mixing is
+season-determined: 2019 and 2021 are 100% paid convention; other seasons are
+predominantly cap-charge. 69 evaluation-frame rows were affected.
+
+The normalization rewrites every Minimum-labelled row whose `cap_pct` exceeds
+the cap-hold value by more than $15 to the cap-hold convention, using the CBA's
+published minimum scale from `mechanism_cap._get_vet_min_usd`. Applied in all
+five production paths: `train.py` (filter chain), `stages.py` (route frame),
+`evaluate_suite.py` (evaluation frame), `predict.py` (training medians), and
+`export_web.py` (web export + signing membership).
+
+| Layer | v8.10x | v8.11x |
+|---|---|---|
+| A1 | 0.8369 | 0.8373 (+0.0004) |
+
+Paired ΔSel +0.0004, not significant (p = 0.321). The near-zero R² impact is
+expected: these rows sit in the floor zone and are already left-censored by
+Grabit, so moving their target from ~1.8% to ~1.5% of cap changes what the
+model is told about rows it already clips. The value is in **target consistency**
+— all Minimum rows now use one convention — and in the **web export**, where
+actual salaries for vet-min players now match the cap-hold the team is charged
+rather than the experience-scaled pay the player receives.
+
+### v8.12x: O/D diff z-scores — offensive/defensive tilt (features 19-21)
+
+Three new features: `darko_od_diff_z`, `lebron_od_diff_z`, `laker_od_diff_z`.
+Each is the offensive minus defensive component of the corresponding impact
+metric, z-scored within season. They capture whether a player tilts toward
+offense or defense — a dimension orthogonal to the composites' overall quality
+signal (confirmed: kf_offense ↔ kf_defense r = −0.186).
+
+**Ablation (4 arms, 20 seeds).** Arm B (add 3 O−D diffs, keep everything else)
+was adopted at ΔSel = +0.0026, t = 2.01. Three rejected alternatives:
+- Arm A: replace 3 composites with 6 raw O/D z-scores (+0.0044, t = 1.14 — unstable)
+- Arm C: 6 raw O/D, drop Kalman (−0.0049 — confirms composite Kalman is irreplaceable)
+- Arm D: O/D Kalman (two independent filters) (−0.0009 — loses cross-metric information)
+
+| Layer | v8.11x (n=873) | v8.12x (n=873) |
+|---|---|---|
+| A1 | 0.8373 | 0.8384 (+0.0011) |
+| A2 | — | 0.8556 |
+| B1 | — | 0.8466 |
+| MAE | — | $2.70M |
+
+Code: `src/features/base_rating.py::attach_od_diffs()`, called from
+`load_training_data()`. Wired into all four production paths: train, predict,
+evaluate_suite, and export_web.
+
+Tags: `v8.11x` · `v8.12x`.
 
 ### Corrections to earlier findings
 

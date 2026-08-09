@@ -633,7 +633,7 @@ in-season partial signings directly instead of relying on the flat floor.
 **Fixed when**: Green 2024 either carries a true annual-rate salary or is
 excluded from the frame, and the near-miss audit has run over all seasons.
 
-## 38. Minimum-contract rows mix paid salary and cap-hit conventions
+## ~~38. Minimum-contract rows mix paid salary and cap-hit conventions~~ FIXED
 
 **Severity**: low-medium — affects the minimum-salary population (n~224), off by
 7-34% per row where wrong.
@@ -659,8 +659,12 @@ minimum scale for that season (Hoops Rumors publishes it annually).
 consistent with the model's purpose), then audit every Minimum row against the
 scale tables and correct the rows on the wrong convention.
 
-**Fixed when**: every Minimum row matches one declared convention, and the
-convention is documented in CONTEXT.md / METHODOLOGY.md.
+**Fixed 2026-08-08**: `_normalize_vetmin_caphold()` in `train.py` rewrites all
+Minimum-labelled rows whose `cap_pct` exceeds the cap-hold value to the
+cap-hold convention, using the CBA's published minimum scale. Applied in all
+five production paths (train, stages, evaluate_suite, predict, export_web).
+69 evaluation-frame rows adjusted. Paired ΔSel +0.0004 (not significant).
+Convention: cap hold (team cap charge). See VERSION_HISTORY v8.11x.
 
 **Amended 2026-08-01** (completeness audit): the mixing is **season-determined,
 not per-row** — a season-aligned defect in the TARGET, materially more serious.
@@ -676,34 +680,34 @@ are probably prorated — that sweep independently re-surfaced Green 2024 (#37),
 Noah 2020 and Batum 2020 (#36). Priority up: fix before any work leaning on
 2019/2021 residuals.
 
-## 39. `rapm_z` missingness is concentrated in one season, on a live feature
+## 39. `laker_z` missingness is concentrated in one season, on a live feature
 
 **Severity**: medium — 47 frame rows on a live feature, and the missingness is
 season-aligned, which is the class METHODOLOGY warns about.
 
-`rapm_z` is missing on 47 of 867 evaluation rows (5.4%), but the rate is not
+`laker_z` is missing on 47 of 867 evaluation rows (5.4%), but the rate is not
 flat across seasons: **2023 is 28/118 = 23.7%, a 4.4x concentration**. Every one
-of those rows is median-filled to 0.0895 — a near-average RAPM — so roughly a
-quarter of the 2023 frame is priced as if it had league-average RAPM regardless
-of its true value. Source-table `rapm` coverage: 2023 = 80.1%, 2026 = 81.7%,
+of those rows is median-filled to 0.0895 — a near-average LAKER — so roughly a
+quarter of the 2023 frame is priced as if it had league-average LAKER regardless
+of its true value. Source-table `laker` coverage: 2023 = 80.1%, 2026 = 81.7%,
 every other season 89.6-95.2%. `darko_dpm_z` is complete and `lebron_z` misses
-8, so this is a RAPM-source problem specifically. 49 rows are split-impact-source
+8, so this is a LAKER-source problem specifically. 49 rows are split-impact-source
 rows (one metric present, another missing) — a class earlier treated as
 resolved; 0 rows miss all three. The affected 2023 rows are not marginal:
 Kuzma ($25.6M), Clarkson ($23.5M), Brooks ($22.6M), Hunter ($20.1M), Keldon
-Johnson ($20.0M). Also 5/5 of `2TM` rows miss `rapm_z`.
+Johnson ($20.0M). Also 5/5 of `2TM` rows miss `laker_z`.
 
 **Reproduce**: build the frame with the train.py filter chain, stop before the
-median fill in `_prepare_Xy`, cross-tab `rapm_z.isna()` by season; or group
-`impact_metrics.csv` `rapm` non-null count by season.
+median fill in `_prepare_Xy`, cross-tab `laker_z.isna()` by season; or group
+`impact_metrics.csv` `laker` non-null count by season.
 
 **What to do**: re-scrape nbarapm.com for 2023 and 2026 — the two low seasons
 are probably an incomplete harvest. If the site genuinely lacks them, add a
-`rapm_known` indicator so the model can tell an imputed average from an observed
+`laker_known` indicator so the model can tell an imputed average from an observed
 one, and cost any change as an increment over that indicator (the #12
 coverage-indicator rule).
 
-**Amended 2026-08-04**: `rapm_known` indicator coded in `_prepare_Xy` and all
+**Amended 2026-08-04**: `laker_known` indicator coded in `_prepare_Xy` and all
 inference paths (evaluate_suite, predict, export_web). Paired CV on the 867-row
 corrected frame: delta sel = −0.0001, t = −0.04 — does not pass the selection
 gate. Left out of FEATURE_COLS; code remains guarded so re-testing after a
@@ -715,10 +719,10 @@ Claxton, Bones Hyland → Nah'Shon Hyland, KJ Martin → Kenyon Martin Jr., Alex
 Sarr → Alexandre Sarr, Jimmy Butler → Jimmy Butler III, etc.). Coverage after:
 2023 = 81.8% (+1.7pp), 2026 = 83.5% (+1.8pp). The five high-value 2023 players
 (Kuzma, Clarkson, Brooks, Hunter, Keldon Johnson) are confirmed absent from
-nbarapm.com — Kuzma has RAPM for 2018-2022 and 2024-2026 but not 2023. 88
+nbarapm.com — Kuzma has LAKER for 2018-2022 and 2024-2026 but not 2023. 88
 players remain missing in 2023, 92 in 2026. Both seasons stay below 85%.
 
-**Fixed when**: `rapm_known` passes the paired gate after the rebuild with the
+**Fixed when**: `laker_known` passes the paired gate after the rebuild with the
 58 filled rows, or a future nbarapm.com update fills the remaining gaps.
 
 ## 40. 111 rows of unknown waiver status are filled as "not waived", and the known-flag is not a feature
@@ -983,3 +987,35 @@ fails loudly rather than quietly.
 **Fixed when**: regenerating the offsets is either a checked step of the rebuild
 or unnecessary, and the deployed constants match a harness run on the current
 frame.
+
+
+## 49. The rookie-scale fill for prev_cap_pct pools deal years 2-4 instead of pricing the deal's first year
+
+**Severity**: low — a semantics defect worth 0-4% relative on the fill values,
+reaching only the 26 evaluation rows (4 first-round) whose prior-season pay is
+not on record.
+
+`scripts/phase3.py::_rookie_scale_fill_map` imputes a first contract's
+economic predecessor as the per-pick median cap_pct over ALL observed
+rookie-scale rows — which are deal years 2-4, because the deal's year 1 never
+reaches the training table (the stats-salary lag; see
+`train._load_rookie_scale_set`). The predecessor of a first contract should be
+priced at the deal's FIRST year. Measured 2026-08-09: pooling years 2-4
+overstates a year-2-only median by 0-4% relative (pick 1: 0.0908 vs 0.0876;
+pick 15: 0.0292 vs 0.0297) — the year-4 option's +26% dollar bump is mostly
+absorbed by cap growth in cap_pct units, so the defect is small.
+
+**Reproduce**: group df rows in `_load_rookie_scale_set` pairs by draft_pick
+and compare the median over all pairs against the median over
+(player, draft_year+1) pairs only.
+
+**What to do**: restrict the fill's source rows to (player, draft_year+1) — the
+earliest observed rookie season, deal year 2, the closest data-derived proxy for
+the deal's pricing point (215 source rows instead of 610). Keep the monotone
+enforcement and the beyond-30 fallback (already first-year semantics). This
+changes shipped prev_cap_pct values, so it rides a training-data rebuild with
+its own paired gate and version bump, and re-triggers #48's offset
+regeneration.
+
+**Fixed when**: the fill map is derived from draft_year+1 rows only and the
+rebuild that carries it has a version entry with its paired delta.

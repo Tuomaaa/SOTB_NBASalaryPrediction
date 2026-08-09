@@ -71,7 +71,8 @@ from src.model.train import (
     load_training_data, _filter_year1, _filter_rookie_scale, _filter_prorated,
     _filter_rookie_contracts,
     _filter_mislabeled_year1, _filter_continuations, _compute_max_eligible,
-    _compute_floor, _prepare_Xy, _make_tobit_obj, _XGB_BASE, FEATURE_COLS, TARGET,
+    _compute_floor, _normalize_vetmin_caphold,
+    _prepare_Xy, _make_tobit_obj, _XGB_BASE, FEATURE_COLS, TARGET,
 )
 from src.model.extension_cap import attach_extension_cap
 from src.model.mechanism_cap import attach_mechanism_caps
@@ -278,13 +279,14 @@ def load_evaluation_frame(keep_prorated: bool = False,
     # Rookie contracts (a player's first two NBA seasons) leave last, so its
     # printed drop count is the net frame effect and it clears the _compute_floor
     # pool below — a first contract informs neither the model nor the floor scale.
-    df = _filter_rookie_contracts(df).reset_index(drop=True)
+    df = _normalize_vetmin_caphold(_filter_rookie_contracts(df)).reset_index(
+        drop=True)
     df["cap"] = df["season"].map(CAP_BY_SEASON)
     df["salary_m"] = df[TARGET] * df["cap"] / 1e6
 
     # Missingness indicators before _prepare_Xy (ISSUES #39).
-    if "rapm_z" in df.columns and "rapm_known" not in df.columns:
-        df["rapm_known"] = df["rapm_z"].notna().astype(int)
+    if "laker_z" in df.columns and "laker_known" not in df.columns:
+        df["laker_known"] = df["laker_z"].notna().astype(int)
 
     _, _, _, features = _prepare_Xy(df)
     df[features] = df[features].fillna(df[features].median()).fillna(0)

@@ -3,7 +3,7 @@
 Endpoints (POST with player_name, called from within Playwright page context):
   /search/DARKO?allow_empty=1  → per-season DPM (DARKO Plus-Minus)
   /search/lebron?allow_empty=1 → per-season LEBRON
-  /search/LAKER_history?allow_empty=1 → per-season RAPM, BPM, WAR, usage, etc.
+  /search/LAKER_history?allow_empty=1 → per-season LAKER, BPM, WAR, usage, etc.
 
 All endpoints return per-season data with year/season columns.
 We batch player lookups inside a single Playwright browser session.
@@ -35,7 +35,7 @@ METRICS_CACHE = CACHE_DIR / "nbarapm_metrics"
 
 
 def _fetch_player_metrics(page, player_name: str) -> dict:
-    """Fetch DARKO, LEBRON, and RAPM for one player from within a page context."""
+    """Fetch DARKO, LEBRON, and LAKER for one player from within a page context."""
     return page.evaluate(
         """async (name) => {
             const out = {};
@@ -64,12 +64,12 @@ def _fetch_player_metrics(page, player_name: str) -> dict:
 def scrape_player_impact(player_names: list[str], batch_size: int = 50) -> dict[str, pd.DataFrame]:
     """Scrape impact metrics for a list of players.
 
-    Returns dict with keys 'darko', 'lebron', 'rapm' each containing a DataFrame.
+    Returns dict with keys 'darko', 'lebron', 'laker' each containing a DataFrame.
     Caches raw JSON per player to avoid re-fetching.
     """
     METRICS_CACHE.mkdir(parents=True, exist_ok=True)
 
-    all_darko, all_lebron, all_rapm = [], [], []
+    all_darko, all_lebron, all_laker = [], [], []
     uncached = []
 
     for name in player_names:
@@ -78,7 +78,7 @@ def scrape_player_impact(player_names: list[str], batch_size: int = 50) -> dict[
             data = json.loads(cache_file.read_text(encoding="utf-8"))
             all_darko.extend(data.get("DARKO", []))
             all_lebron.extend(data.get("lebron", []))
-            all_rapm.extend(data.get("LAKER_history", []))
+            all_laker.extend(data.get("LAKER_history", []))
         else:
             uncached.append(name)
 
@@ -109,7 +109,7 @@ def scrape_player_impact(player_names: list[str], batch_size: int = 50) -> dict[
 
                     all_darko.extend(data.get("DARKO", []))
                     all_lebron.extend(data.get("lebron", []))
-                    all_rapm.extend(data.get("LAKER_history", []))
+                    all_laker.extend(data.get("LAKER_history", []))
                 except Exception as e:
                     print(f"  [error] {name}: {e}")
 
@@ -120,9 +120,9 @@ def scrape_player_impact(player_names: list[str], batch_size: int = 50) -> dict[
 
     darko_df = pd.DataFrame(all_darko) if all_darko else pd.DataFrame()
     lebron_df = pd.DataFrame(all_lebron) if all_lebron else pd.DataFrame()
-    rapm_df = pd.DataFrame(all_rapm) if all_rapm else pd.DataFrame()
+    laker_df = pd.DataFrame(all_laker) if all_laker else pd.DataFrame()
 
-    return {"darko": darko_df, "lebron": lebron_df, "rapm": rapm_df}
+    return {"darko": darko_df, "lebron": lebron_df, "laker": laker_df}
 
 
 def build_impact_dataset(
@@ -131,7 +131,7 @@ def build_impact_dataset(
 ) -> pd.DataFrame:
     """Scrape and merge impact metrics into a single per-player-season DataFrame.
 
-    Returns columns: player_name, season, darko_dpm, lebron, rapm, plus offense/defense splits.
+    Returns columns: player_name, season, darko_dpm, lebron, laker, plus offense/defense splits.
     """
     metrics = scrape_player_impact(player_names)
 
@@ -163,8 +163,8 @@ def build_impact_dataset(
         df["player_name_norm"] = df["player_name"].apply(_normalize_name)
         frames.append(df)
 
-    if not metrics["rapm"].empty:
-        df = metrics["rapm"].copy()
+    if not metrics["laker"].empty:
+        df = metrics["laker"].copy()
         # Filter to regular season only (season_type "RS" vs "PO" for playoffs)
         if "season_type" in df.columns:
             df = df[df["season_type"] == "RS"]
@@ -175,11 +175,11 @@ def build_impact_dataset(
             )
         df = df.rename(columns={
             "year": "season", "player_name": "player_name", "nba_id": "nba_id",
-            "rapm": "rapm", "orapm": "rapm_off", "drapm": "rapm_def",
-            "rapm_rank": "rapm_rank", "war": "war", "usage_pct": "usage_pct",
+            "rapm": "laker", "orapm": "laker_off", "drapm": "laker_def",
+            "rapm_rank": "laker_rank", "war": "war", "usage_pct": "usage_pct",
         })
-        keep = ["player_name", "nba_id", "season", "rapm", "rapm_off", "rapm_def",
-                "rapm_rank", "war", "usage_pct", "games", "minutes", "position",
+        keep = ["player_name", "nba_id", "season", "laker", "laker_off", "laker_def",
+                "laker_rank", "war", "usage_pct", "games", "minutes", "position",
                 "age",
                 "bpm", "ts_plus", "efg_plus", "fg3_plus", "threepar_plus",
                 "ast_pct", "reb_pct", "stl_pct", "blk_pct", "tov_pct",
@@ -250,4 +250,4 @@ if __name__ == "__main__":
     print(f"\nSample (top 10 by DARKO DPM, 2024):")
     if "darko_dpm" in df.columns:
         top = df[df["season"] == 2024].nlargest(10, "darko_dpm")
-        print(top[["player_name", "season", "darko_dpm", "lebron", "rapm"]].to_string(index=False))
+        print(top[["player_name", "season", "darko_dpm", "lebron", "laker"]].to_string(index=False))

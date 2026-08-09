@@ -20,7 +20,7 @@ from src.model.train import (
 )
 
 CORE = [
-    "darko_dpm_z", "lebron_z", "rapm_z", "age", "mpg",
+    "darko_dpm_z", "lebron_z", "laker_z", "age", "mpg",
     "availability_3yr", "usage_pct", "height_inches", "ast_pct",
     "prev_cap_pct",
 ]
@@ -48,7 +48,7 @@ def classify(row: pd.Series) -> str:
         return "laker_block"
     if "availability_3yr" in missing and pd.notna(row.get("games")):
         return "availability_propagated"
-    if missing & {"rapm_z", "lebron_z", "usage_pct", "ast_pct"}:
+    if missing & {"laker_z", "lebron_z", "usage_pct", "ast_pct"}:
         return "partial_impact"
     return "other"
 

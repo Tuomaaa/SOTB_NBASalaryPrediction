@@ -1,7 +1,7 @@
 """Compute player availability from games-played data.
 
 Weighted GP% over the prior 3 seasons (weights: 0.5 / 0.3 / 0.2).
-Uses games + minutes data from the impact metrics (RAPM source includes both).
+Uses games + minutes data from the impact metrics (LAKER source includes both).
 """
 
 import pandas as pd

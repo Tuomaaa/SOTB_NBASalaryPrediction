@@ -1,8 +1,8 @@
 frame,player_name_norm,season,salary,year_in_contract,games,availability_3yr_coverage,missing_count,missing_fields,missingness_class
-full,a.j. green,2023,1901769,1,35.0,0.5,1,rapm_z,partial_impact
-full,a.j. green,2024,2120693,2,56.0,0.8,1,rapm_z,partial_impact
-full,a.j. green,2025,2301587,3,73.0,1.0,1,rapm_z,partial_impact
-full,a.j. green,2026,10044644,1,78.0,1.0,1,rapm_z,partial_impact
+full,a.j. green,2023,1901769,1,35.0,0.5,1,laker_z,partial_impact
+full,a.j. green,2024,2120693,2,56.0,0.8,1,laker_z,partial_impact
+full,a.j. green,2025,2301587,3,73.0,1.0,1,laker_z,partial_impact
+full,a.j. green,2026,10044644,1,78.0,1.0,1,laker_z,partial_impact
 full,a.j. lawson,2023,1000000,1,14.0,0.5,0,,complete
 full,aaron gordon,2019,19863636,1,78.0,0.5,0,,complete
 full,aaron gordon,2020,18136364,2,62.0,0.8,0,,complete
@@ -26,7 +26,7 @@ full,aaron nesmith,2024,11000000,1,72.0,1.0,0,,complete
 full,aaron nesmith,2025,11000000,2,45.0,1.0,0,,complete
 full,aaron nesmith,2026,11000000,3,45.0,1.0,0,,complete
 full,aaron wiggins,2022,1563518,1,50.0,0.5,0,,complete
-full,aaron wiggins,2023,1836096,1,70.0,0.8,1,rapm_z,partial_impact
+full,aaron wiggins,2023,1836096,1,70.0,0.8,1,laker_z,partial_impact
 full,aaron wiggins,2024,10514017,1,78.0,1.0,0,,complete
 full,aaron wiggins,2025,10102803,2,76.0,1.0,0,,complete
 full,aaron wiggins,2026,9224300,3,65.0,1.0,0,,complete
@@ -115,7 +115,7 @@ full,andre iguodala,2022,1836090,1,31.0,1.0,0,,complete
 full,andre jackson jr.,2024,1891857,1,57.0,0.5,0,,complete
 full,andre jackson jr.,2025,2221677,1,67.0,0.8,0,,complete
 full,andre jackson jr.,2026,2406205,2,48.0,1.0,0,,complete
-full,andre roberson,2019,10740741,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,andre roberson,2019,10740741,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,andre roberson,2020,274816,1,7.0,0.8,0,,complete
 full,andrew nembhard,2023,2131905,2,75.0,0.5,0,,complete
 full,andrew nembhard,2024,2019699,3,68.0,0.8,0,,complete
@@ -187,7 +187,7 @@ full,avery bradley,2019,4767000,1,49.0,0.5,0,,complete
 full,avery bradley,2020,5635000,1,49.0,0.8,0,,complete
 full,avery bradley,2021,2641691,1,17.0,1.0,0,,complete
 full,ayo dosunmu,2022,1563518,1,77.0,0.5,0,,complete
-full,ayo dosunmu,2023,6481482,1,80.0,0.8,1,rapm_z,partial_impact
+full,ayo dosunmu,2023,6481482,1,80.0,0.8,1,laker_z,partial_impact
 full,ayo dosunmu,2024,7000000,2,76.0,1.0,0,,complete
 full,ayo dosunmu,2025,7518518,3,46.0,1.0,0,,complete
 full,ayo dosunmu,2026,19310345,1,45.0,1.0,0,,complete
@@ -211,7 +211,7 @@ full,ben sheppard,2026,5031669,1,65.0,1.0,0,,complete
 full,ben simmons,2019,8113930,1,79.0,0.5,0,,complete
 full,ben simmons,2020,30559200,1,57.0,0.8,0,,complete
 full,ben simmons,2021,33003936,1,58.0,1.0,0,,complete
-full,ben simmons,2022,35448672,2,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,ben simmons,2022,35448672,2,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,ben simmons,2023,37893408,3,42.0,1.0,0,,complete
 full,ben simmons,2024,39256083,4,15.0,1.0,0,,complete
 full,bennedict mathurin,2023,6916080,2,78.0,0.5,0,,complete
@@ -242,11 +242,11 @@ full,bobby portis,2023,11710818,2,70.0,1.0,0,,complete
 full,bobby portis,2024,12578286,3,82.0,1.0,0,,complete
 full,bobby portis,2025,13445754,4,49.0,1.0,0,,complete
 full,bobby portis,2026,14521414,5,67.0,1.0,0,,complete
-full,bobi klintman,2025,1955377,1,8.0,0.5,1,rapm_z,partial_impact
+full,bobi klintman,2025,1955377,1,8.0,0.5,1,laker_z,partial_impact
 full,bol bol,2020,2058240,1,7.0,0.5,0,,complete
 full,bol bol,2021,2161152,1,32.0,0.8,0,,complete
 full,bol bol,2022,2200000,2,14.0,1.0,0,,complete
-full,bol bol,2023,2019706,1,70.0,1.0,1,rapm_z,partial_impact
+full,bol bol,2023,2019706,1,70.0,1.0,1,laker_z,partial_impact
 full,bol bol,2024,2087519,2,43.0,1.0,0,,complete
 full,bones hyland,2022,2201520,2,69.0,0.5,0,,complete
 full,bones hyland,2023,2306400,3,42.0,0.8,0,,complete
@@ -313,8 +313,8 @@ full,bruce brown,2022,6479000,1,72.0,1.0,0,,complete
 full,bruce brown,2023,22000000,1,80.0,1.0,0,,complete
 full,bruce brown,2024,23000000,2,34.0,1.0,0,,complete
 full,bruce brown,2025,2296274,1,23.0,1.0,0,,complete
-full,bruno caboclo,2019,1845301,1,34.0,0.5,2,lebron_z|rapm_z,partial_impact
-full,bruno caboclo,2020,361256,1,30.0,0.8,2,lebron_z|rapm_z,partial_impact
+full,bruno caboclo,2019,1845301,1,34.0,0.5,2,lebron_z|laker_z,partial_impact
+full,bruno caboclo,2020,361256,1,30.0,0.8,2,lebron_z|laker_z,partial_impact
 full,bryce mcgowens,2023,1719864,1,46.0,0.5,0,,complete
 full,bryce mcgowens,2025,724598,1,13.0,0.7,0,,complete
 full,bryce mcgowens,2026,2584539,1,42.0,0.8,0,,complete
@@ -358,14 +358,14 @@ full,cameron johnson,2020,4235160,2,57.0,0.5,0,,complete
 full,cameron johnson,2021,4437000,3,60.0,0.8,0,,complete
 full,cameron johnson,2022,5887899,1,66.0,1.0,0,,complete
 full,cameron johnson,2023,25679348,1,25.0,1.0,0,,complete
-full,cameron johnson,2024,22500000,1,58.0,1.0,1,rapm_z,partial_impact
+full,cameron johnson,2024,22500000,1,58.0,1.0,1,laker_z,partial_impact
 full,cameron johnson,2025,21057065,2,57.0,1.0,0,,complete
 full,cameron johnson,2026,23062500,3,54.0,1.0,0,,complete
 full,cameron payne,2019,196288,1,31.0,0.5,0,,complete
 full,cameron payne,2020,1977011,1,8.0,0.8,0,,complete
 full,cameron payne,2021,6500000,1,60.0,1.0,0,,complete
 full,cameron payne,2022,6000000,2,58.0,1.0,0,,complete
-full,cameron payne,2023,6500000,3,48.0,1.0,1,rapm_z,partial_impact
+full,cameron payne,2023,6500000,3,48.0,1.0,1,laker_z,partial_impact
 full,cameron payne,2024,2087519,1,47.0,1.0,0,,complete
 full,cameron payne,2025,712637,1,72.0,1.0,0,,complete
 full,caris levert,2019,2625718,1,40.0,0.5,0,,complete
@@ -382,12 +382,12 @@ full,cason wallace,2025,5820240,3,68.0,0.8,0,,complete
 full,cason wallace,2026,7420806,1,77.0,1.0,0,,complete
 full,cedric coward,2026,6001080,2,62.0,0.5,0,,complete
 full,charles bassey,2022,2600000,1,23.0,0.5,0,,complete
-full,charles bassey,2023,2600000,2,35.0,0.8,1,rapm_z,partial_impact
+full,charles bassey,2023,2600000,2,35.0,0.8,1,laker_z,partial_impact
 full,charles bassey,2024,2087519,1,19.0,1.0,0,,complete
 full,charles bassey,2025,263940,1,36.0,1.0,0,,complete
 full,charles bassey,2026,2449421,1,5.0,1.0,0,,complete
 full,chaz lanier,2026,2150917,1,34.0,0.5,0,,complete
-full,chet holmgren,2023,10386000,2,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,chet holmgren,2023,10386000,2,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,chet holmgren,2024,10880640,3,82.0,0.8,0,,complete
 full,chet holmgren,2025,13731368,1,32.0,1.0,0,,complete
 full,chet holmgren,2026,41240250,1,69.0,1.0,0,,complete
@@ -449,13 +449,13 @@ full,collin sexton,2019,4764960,1,82.0,0.5,0,,complete
 full,collin sexton,2020,4991880,2,65.0,0.8,0,,complete
 full,collin sexton,2021,6349671,1,60.0,1.0,0,,complete
 full,collin sexton,2022,16500000,1,11.0,1.0,0,,complete
-full,collin sexton,2023,17325000,2,48.0,1.0,1,rapm_z,partial_impact
+full,collin sexton,2023,17325000,2,48.0,1.0,1,laker_z,partial_impact
 full,collin sexton,2024,18350000,3,78.0,1.0,0,,complete
 full,collin sexton,2025,18975000,4,63.0,1.0,0,,complete
 full,collin sexton,2026,9366000,1,42.0,1.0,0,,complete
 full,cooper flagg,2026,14517480,2,70.0,0.5,0,,complete
 full,corey kispert,2022,3552840,2,77.0,0.5,0,,complete
-full,corey kispert,2023,3722040,3,74.0,0.8,1,rapm_z,partial_impact
+full,corey kispert,2023,3722040,3,74.0,0.8,1,laker_z,partial_impact
 full,corey kispert,2024,5705887,1,80.0,1.0,0,,complete
 full,corey kispert,2025,13975000,1,61.0,1.0,0,,complete
 full,corey kispert,2026,13975000,2,39.0,1.0,0,,complete
@@ -487,7 +487,7 @@ full,damian lillard,2022,42492492,2,29.0,1.0,0,,complete
 full,damian lillard,2023,45640084,3,58.0,1.0,0,,complete
 full,damian lillard,2024,48787676,4,73.0,1.0,0,,complete
 full,damian lillard,2025,14104000,1,58.0,1.0,0,,complete
-full,damian lillard,2026,13398800,2,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,damian lillard,2026,13398800,2,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,damyean dotson,2019,1618520,1,73.0,0.5,0,,complete
 full,damyean dotson,2020,2000000,1,48.0,0.8,0,,complete
 full,damyean dotson,2021,205662,1,46.0,1.0,0,,complete
@@ -509,7 +509,7 @@ full,danilo gallinari,2019,22615559,1,68.0,0.5,0,,complete
 full,danilo gallinari,2020,19500000,1,62.0,0.8,0,,complete
 full,danilo gallinari,2021,20475000,2,51.0,1.0,0,,complete
 full,danilo gallinari,2022,6479000,1,66.0,1.0,0,,complete
-full,danilo gallinari,2023,6802950,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,danilo gallinari,2023,6802950,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,daniss jenkins,2025,3809524,1,7.0,0.5,0,,complete
 full,daniss jenkins,2026,4000000,2,72.0,0.8,0,,complete
 full,danny green,2019,14634146,1,80.0,0.5,0,,complete
@@ -532,7 +532,7 @@ full,darius garland,2024,36725670,2,57.0,1.0,0,,complete
 full,darius garland,2025,39446090,3,75.0,1.0,0,,complete
 full,darius garland,2026,42166510,4,26.0,1.0,0,,complete
 full,darius miller,2019,7250000,1,69.0,0.5,0,,complete
-full,darius miller,2020,7000000,1,0.0,0.8,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,darius miller,2020,7000000,1,0.0,0.8,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,david nwaba,2019,1678854,1,51.0,0.5,0,,complete
 full,david nwaba,2020,1824003,1,20.0,0.8,0,,complete
 full,david nwaba,2021,4650000,1,30.0,1.0,0,,complete
@@ -547,7 +547,7 @@ full,davion mitchell,2026,12400000,2,70.0,1.0,0,,complete
 full,davon reed,2022,1902133,1,48.0,0.5,0,,complete
 full,day'ron sharpe,2022,2109480,2,32.0,0.5,0,,complete
 full,day'ron sharpe,2023,2210040,3,48.0,0.8,0,,complete
-full,day'ron sharpe,2024,3989122,1,61.0,1.0,1,rapm_z,partial_impact
+full,day'ron sharpe,2024,3989122,1,61.0,1.0,1,laker_z,partial_impact
 full,day'ron sharpe,2025,6250000,1,50.0,1.0,0,,complete
 full,day'ron sharpe,2026,10000000,1,62.0,1.0,0,,complete
 full,de'aaron fox,2019,6392760,1,81.0,0.5,0,,complete
@@ -561,7 +561,7 @@ full,de'aaron fox,2026,49488300,1,72.0,1.0,0,,complete
 full,de'andre hunter,2020,7422000,2,63.0,0.5,0,,complete
 full,de'andre hunter,2021,7775400,3,23.0,0.8,0,,complete
 full,de'andre hunter,2022,9835881,1,53.0,1.0,0,,complete
-full,de'andre hunter,2023,20089286,1,67.0,1.0,1,rapm_z,partial_impact
+full,de'andre hunter,2023,20089286,1,67.0,1.0,1,laker_z,partial_impact
 full,de'andre hunter,2024,21696429,2,57.0,1.0,0,,complete
 full,de'andre hunter,2025,23303571,3,37.0,1.0,0,,complete
 full,de'andre hunter,2026,24910714,4,43.0,1.0,0,,complete
@@ -576,7 +576,7 @@ full,de'anthony melton,2026,3451779,2,49.0,1.0,0,,complete
 full,dean wade,2020,1517981,1,12.0,0.5,0,,complete
 full,dean wade,2021,1782621,1,63.0,0.8,0,,complete
 full,dean wade,2022,1930681,2,51.0,1.0,0,,complete
-full,dean wade,2023,5709877,1,44.0,1.0,1,rapm_z,partial_impact
+full,dean wade,2023,5709877,1,44.0,1.0,1,laker_z,partial_impact
 full,dean wade,2024,6166667,2,54.0,1.0,0,,complete
 full,dean wade,2025,6623456,3,59.0,1.0,0,,complete
 full,dean wade,2026,9000000,1,59.0,1.0,0,,complete
@@ -600,7 +600,7 @@ full,deandre' bembry,2019,2603982,1,82.0,0.5,0,,complete
 full,deandre' bembry,2020,1737145,1,43.0,0.8,0,,complete
 full,deandre' bembry,2021,1939350,1,51.0,1.0,0,,complete
 full,deividas sirvydis,2021,1603559,1,20.0,0.5,0,,complete
-full,dejounte murray,2019,2321735,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,dejounte murray,2019,2321735,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,dejounte murray,2020,14286000,1,66.0,0.8,0,,complete
 full,dejounte murray,2021,15428880,2,67.0,1.0,0,,complete
 full,dejounte murray,2022,16571120,3,68.0,1.0,0,,complete
@@ -622,18 +622,18 @@ full,demar derozan,2023,28600000,5,74.0,1.0,0,,complete
 full,demar derozan,2024,23400000,1,79.0,1.0,0,,complete
 full,demar derozan,2025,24570000,2,77.0,1.0,0,,complete
 full,demarcus cousins,2019,3500000,1,30.0,0.5,0,,complete
-full,demarcus cousins,2020,1620564,1,0.0,0.8,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,demarcus cousins,2020,1620564,1,0.0,0.8,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,demarcus cousins,2021,1138659,1,25.0,1.0,0,,complete
 full,demarre carroll,2019,811447,1,67.0,0.5,0,,complete
 full,demarre carroll,2020,6119676,1,9.0,0.8,0,,complete
 full,demetrius jackson,2019,92857,1,6.0,0.5,0,,complete
 full,deni avdija,2021,4692840,2,54.0,0.5,0,,complete
 full,deni avdija,2022,4916160,3,82.0,0.8,0,,complete
-full,deni avdija,2023,6263188,1,76.0,1.0,1,rapm_z,partial_impact
+full,deni avdija,2023,6263188,1,76.0,1.0,1,laker_z,partial_impact
 full,deni avdija,2024,15625000,1,75.0,1.0,0,,complete
 full,deni avdija,2025,14375000,2,72.0,1.0,0,,complete
 full,deni avdija,2026,13125000,3,66.0,1.0,0,,complete
-full,denzel valentine,2019,3377569,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,denzel valentine,2019,3377569,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,denzel valentine,2020,4642800,1,36.0,0.8,0,,complete
 full,denzel valentine,2021,902801,1,62.0,1.0,0,,complete
 full,deonte burton,2019,1416852,1,32.0,0.5,1,lebron_z,partial_impact
@@ -707,7 +707,7 @@ full,dillon brooks,2019,1618520,1,18.0,0.5,0,,complete
 full,dillon brooks,2020,11400000,1,73.0,0.8,0,,complete
 full,dillon brooks,2021,12200000,2,67.0,1.0,0,,complete
 full,dillon brooks,2022,11400000,3,32.0,1.0,0,,complete
-full,dillon brooks,2023,22627671,1,73.0,1.0,1,rapm_z,partial_impact
+full,dillon brooks,2023,22627671,1,73.0,1.0,1,laker_z,partial_impact
 full,dillon brooks,2024,22255493,2,72.0,1.0,0,,complete
 full,dillon brooks,2025,21124110,3,75.0,1.0,0,,complete
 full,dillon brooks,2026,19992727,4,56.0,1.0,0,,complete
@@ -773,7 +773,7 @@ full,draymond green,2026,27678571,4,68.0,1.0,0,,complete
 full,drew eubanks,2020,1620564,1,22.0,0.5,0,,complete
 full,drew eubanks,2021,1762796,2,54.0,0.8,0,,complete
 full,drew eubanks,2022,1836090,3,22.0,1.0,0,,complete
-full,drew eubanks,2023,2346614,1,78.0,1.0,1,rapm_z,partial_impact
+full,drew eubanks,2023,2346614,1,78.0,1.0,1,laker_z,partial_impact
 full,drew eubanks,2024,5000000,1,75.0,1.0,0,,complete
 full,drew eubanks,2025,2296274,1,37.0,1.0,0,,complete
 full,drew timme,2025,1955377,1,9.0,0.5,0,,complete
@@ -785,7 +785,7 @@ full,duncan robinson,2020,1663861,1,73.0,0.8,0,,complete
 full,duncan robinson,2021,15560000,1,72.0,1.0,0,,complete
 full,duncan robinson,2022,16902000,2,79.0,1.0,0,,complete
 full,duncan robinson,2023,18154000,3,42.0,1.0,0,,complete
-full,duncan robinson,2024,19406000,4,68.0,1.0,1,rapm_z,partial_impact
+full,duncan robinson,2024,19406000,4,68.0,1.0,1,laker_z,partial_impact
 full,duncan robinson,2025,16834692,1,74.0,1.0,0,,complete
 full,duncan robinson,2026,15992957,2,77.0,1.0,0,,complete
 full,duop reath,2024,2048780,2,68.0,0.5,0,,complete
@@ -804,7 +804,7 @@ full,dwight powell,2023,4000000,1,76.0,1.0,0,,complete
 full,dwight powell,2024,4000000,2,63.0,1.0,0,,complete
 full,dwight powell,2025,4000000,3,55.0,1.0,0,,complete
 full,dylan harper,2026,12989040,2,69.0,0.5,0,,complete
-full,dylan windler,2020,2137440,2,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,dylan windler,2020,2137440,2,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,dylan windler,2021,2239200,3,31.0,0.8,0,,complete
 full,dylan windler,2022,4037278,1,50.0,1.0,0,,complete
 full,dylan windler,2023,2019706,1,3.0,1.0,0,,complete
@@ -815,7 +815,7 @@ full,dyson daniels,2026,25000000,1,76.0,1.0,0,,complete
 full,e'twaun moore,2019,8664928,1,53.0,0.5,0,,complete
 full,e'twaun moore,2020,1620564,1,56.0,0.8,0,,complete
 full,e'twaun moore,2021,2641691,1,27.0,1.0,0,,complete
-full,e.j. liddell,2023,1801769,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,e.j. liddell,2023,1801769,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,e.j. liddell,2024,706898,1,8.0,0.8,0,,complete
 full,e.j. liddell,2025,706898,2,12.0,1.0,0,,complete
 full,e.j. liddell,2026,706898,3,26.0,1.0,0,,complete
@@ -843,7 +843,7 @@ full,eric gordon,2020,16869276,1,36.0,0.8,0,,complete
 full,eric gordon,2021,18218818,2,27.0,1.0,0,,complete
 full,eric gordon,2022,19568360,3,57.0,1.0,0,,complete
 full,eric gordon,2023,3196448,1,22.0,1.0,0,,complete
-full,eric gordon,2024,3303771,2,68.0,1.0,1,rapm_z,partial_impact
+full,eric gordon,2024,3303771,2,68.0,1.0,1,laker_z,partial_impact
 full,eric gordon,2025,2296274,1,39.0,1.0,0,,complete
 full,eric paschall,2020,1517981,1,60.0,0.5,0,,complete
 full,eric paschall,2021,1782621,1,40.0,0.8,0,,complete
@@ -887,7 +887,7 @@ full,fred vanvleet,2022,21250000,3,65.0,1.0,0,,complete
 full,fred vanvleet,2023,40806300,1,69.0,1.0,0,,complete
 full,fred vanvleet,2024,42846615,2,73.0,1.0,0,,complete
 full,fred vanvleet,2025,25000000,1,60.0,1.0,0,,complete
-full,fred vanvleet,2026,25000000,2,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,fred vanvleet,2026,25000000,2,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,freddie gillespie,2021,171156,1,20.0,0.5,0,,complete
 full,furkan korkmaz,2019,1620564,1,48.0,0.5,0,,complete
 full,furkan korkmaz,2020,1762796,2,72.0,0.8,0,,complete
@@ -909,7 +909,7 @@ full,garrett temple,2024,2087519,2,27.0,1.0,0,,complete
 full,garrett temple,2025,2296274,3,28.0,1.0,0,,complete
 full,garrison mathews,2021,2000000,1,64.0,0.5,0,,complete
 full,garrison mathews,2022,2000000,2,65.0,0.8,0,,complete
-full,garrison mathews,2023,2000000,3,54.0,1.0,1,rapm_z,partial_impact
+full,garrison mathews,2023,2000000,3,54.0,1.0,1,laker_z,partial_impact
 full,garrison mathews,2024,2230253,4,66.0,1.0,0,,complete
 full,garrison mathews,2025,429325,1,47.0,1.0,0,,complete
 full,gary clark,2019,708426,1,51.0,0.5,0,,complete
@@ -930,14 +930,14 @@ full,gary payton ii,2022,8300000,1,71.0,1.0,0,,complete
 full,gary payton ii,2023,8715000,2,15.0,1.0,0,,complete
 full,gary payton ii,2024,9130000,3,44.0,1.0,0,,complete
 full,gary payton ii,2025,2296274,1,62.0,1.0,0,,complete
-full,gary trent jr.,2019,1416852,1,15.0,0.5,1,rapm_z,partial_impact
-full,gary trent jr.,2020,1663861,1,61.0,0.8,1,rapm_z,partial_impact
-full,gary trent jr.,2021,16000000,1,58.0,1.0,1,rapm_z,partial_impact
-full,gary trent jr.,2022,17505000,2,70.0,1.0,1,rapm_z,partial_impact
-full,gary trent jr.,2023,18560000,3,66.0,1.0,1,rapm_z,partial_impact
-full,gary trent jr.,2024,2087519,1,71.0,1.0,1,rapm_z,partial_impact
-full,gary trent jr.,2025,3697105,1,74.0,1.0,1,rapm_z,partial_impact
-full,gary trent jr.,2026,15200000,1,65.0,1.0,1,rapm_z,partial_impact
+full,gary trent jr.,2019,1416852,1,15.0,0.5,1,laker_z,partial_impact
+full,gary trent jr.,2020,1663861,1,61.0,0.8,1,laker_z,partial_impact
+full,gary trent jr.,2021,16000000,1,58.0,1.0,1,laker_z,partial_impact
+full,gary trent jr.,2022,17505000,2,70.0,1.0,1,laker_z,partial_impact
+full,gary trent jr.,2023,18560000,3,66.0,1.0,1,laker_z,partial_impact
+full,gary trent jr.,2024,2087519,1,71.0,1.0,1,laker_z,partial_impact
+full,gary trent jr.,2025,3697105,1,74.0,1.0,1,laker_z,partial_impact
+full,gary trent jr.,2026,15200000,1,65.0,1.0,1,laker_z,partial_impact
 full,george hill,2019,10133907,1,47.0,0.5,0,,complete
 full,george hill,2020,9590602,1,59.0,0.8,0,,complete
 full,george hill,2021,4000000,1,14.0,1.0,0,,complete
@@ -980,7 +980,7 @@ full,gradey dick,2026,7131511,1,76.0,1.0,0,,complete
 full,grant williams,2020,2498760,2,69.0,0.5,0,,complete
 full,grant williams,2021,2617800,3,63.0,0.8,0,,complete
 full,grant williams,2022,4306281,1,77.0,1.0,0,,complete
-full,grant williams,2023,12405000,1,79.0,1.0,1,rapm_z,partial_impact
+full,grant williams,2023,12405000,1,79.0,1.0,1,laker_z,partial_impact
 full,grant williams,2024,13025250,2,47.0,1.0,0,,complete
 full,grant williams,2025,13645500,3,16.0,1.0,0,,complete
 full,grant williams,2026,14265750,4,36.0,1.0,0,,complete
@@ -1053,12 +1053,12 @@ full,isaiah hartenstein,2019,1416852,1,28.0,0.5,0,,complete
 full,isaiah hartenstein,2020,1620564,2,23.0,0.8,0,,complete
 full,isaiah hartenstein,2021,1729217,3,16.0,1.0,0,,complete
 full,isaiah hartenstein,2022,7804879,1,68.0,1.0,0,,complete
-full,isaiah hartenstein,2023,9245121,1,82.0,1.0,1,rapm_z,partial_impact
+full,isaiah hartenstein,2023,9245121,1,82.0,1.0,1,laker_z,partial_impact
 full,isaiah hartenstein,2024,30000000,1,75.0,1.0,0,,complete
 full,isaiah hartenstein,2025,28500000,2,57.0,1.0,0,,complete
 full,isaiah hartenstein,2026,23148148,1,47.0,1.0,0,,complete
 full,isaiah jackson,2022,2573760,2,36.0,0.5,0,,complete
-full,isaiah jackson,2023,2696280,3,63.0,0.8,1,rapm_z,partial_impact
+full,isaiah jackson,2023,2696280,3,63.0,0.8,1,laker_z,partial_impact
 full,isaiah jackson,2024,4435381,1,59.0,1.0,0,,complete
 full,isaiah jackson,2025,7600000,1,5.0,1.0,0,,complete
 full,isaiah jackson,2026,7000000,2,38.0,1.0,0,,complete
@@ -1097,13 +1097,13 @@ full,ivica zubac,2019,6481482,1,26.0,0.5,0,,complete
 full,ivica zubac,2020,7000000,2,72.0,0.8,0,,complete
 full,ivica zubac,2021,7518518,3,72.0,1.0,0,,complete
 full,ivica zubac,2022,10123457,1,76.0,1.0,0,,complete
-full,ivica zubac,2023,10933333,2,76.0,1.0,1,rapm_z,partial_impact
-full,ivica zubac,2024,11743210,3,68.0,1.0,1,rapm_z,partial_impact
+full,ivica zubac,2023,10933333,2,76.0,1.0,1,laker_z,partial_impact
+full,ivica zubac,2024,11743210,3,68.0,1.0,1,laker_z,partial_impact
 full,ivica zubac,2025,18893980,1,80.0,1.0,0,,complete
 full,ivica zubac,2026,20342140,2,43.0,1.0,0,,complete
 full,j.j. barea,2019,2564753,1,38.0,0.5,0,,complete
 full,j.j. barea,2020,1620564,1,29.0,0.8,0,,complete
-full,j.p. macura,2019,106184,1,2.0,0.5,1,rapm_z,partial_impact
+full,j.p. macura,2019,106184,1,2.0,0.5,1,laker_z,partial_impact
 full,ja morant,2020,9166800,2,67.0,0.5,0,,complete
 full,ja morant,2021,9603360,3,63.0,0.8,0,,complete
 full,ja morant,2022,12119440,1,57.0,1.0,0,,complete
@@ -1116,18 +1116,18 @@ full,ja'kobe walter,2026,3811800,3,72.0,0.8,0,,complete
 full,jabari parker,2019,6500000,1,39.0,0.5,0,,complete
 full,jabari parker,2020,430729,1,32.0,0.8,0,,complete
 full,jabari parker,2021,1168288,1,10.0,1.0,0,,complete
-full,jabari smith jr.,2023,9326520,2,79.0,0.5,1,rapm_z,partial_impact
-full,jabari smith jr.,2024,9770880,3,76.0,0.8,1,rapm_z,partial_impact
-full,jabari smith jr.,2025,12350392,1,57.0,1.0,1,rapm_z,partial_impact
-full,jabari smith jr.,2026,23643411,1,77.0,1.0,1,rapm_z,partial_impact
+full,jabari smith jr.,2023,9326520,2,79.0,0.5,1,laker_z,partial_impact
+full,jabari smith jr.,2024,9770880,3,76.0,0.8,1,laker_z,partial_impact
+full,jabari smith jr.,2025,12350392,1,57.0,1.0,1,laker_z,partial_impact
+full,jabari smith jr.,2026,23643411,1,77.0,1.0,1,laker_z,partial_impact
 full,jabari walker,2023,1719864,1,56.0,0.5,0,,complete
 full,jabari walker,2024,2019699,1,72.0,0.8,0,,complete
 full,jabari walker,2025,724598,1,60.0,1.0,0,,complete
 full,jabari walker,2026,2584539,1,64.0,1.0,0,,complete
-full,jack white,2023,62130,1,17.0,0.5,1,rapm_z,partial_impact
+full,jack white,2023,62130,1,17.0,0.5,1,laker_z,partial_impact
 full,jacob evans,2019,1925880,1,30.0,0.5,0,,complete
 full,jacob evans,2020,2017320,1,27.0,0.8,0,,complete
-full,jaden hardy,2023,1719864,1,48.0,0.5,1,rapm_z,partial_impact
+full,jaden hardy,2023,1719864,1,48.0,0.5,1,laker_z,partial_impact
 full,jaden hardy,2024,2019699,1,73.0,0.8,0,,complete
 full,jaden hardy,2025,6000000,1,57.0,1.0,0,,complete
 full,jaden hardy,2026,6000000,2,23.0,1.0,0,,complete
@@ -1152,7 +1152,7 @@ full,jae crowder,2023,2019706,1,18.0,1.0,0,,complete
 full,jae crowder,2024,1655619,1,50.0,1.0,0,,complete
 full,jae'sean tate,2021,1517981,2,70.0,0.5,0,,complete
 full,jae'sean tate,2022,7065217,1,78.0,0.8,0,,complete
-full,jae'sean tate,2023,6500000,2,31.0,1.0,1,rapm_z,partial_impact
+full,jae'sean tate,2023,6500000,2,31.0,1.0,1,laker_z,partial_impact
 full,jae'sean tate,2024,7565217,1,65.0,1.0,0,,complete
 full,jae'sean tate,2025,2296274,1,52.0,1.0,0,,complete
 full,jahlil okafor,2019,1702486,1,59.0,0.5,0,,complete
@@ -1176,7 +1176,7 @@ full,jakob poeltl,2020,8101852,1,66.0,0.8,0,,complete
 full,jakob poeltl,2021,8750000,2,69.0,1.0,0,,complete
 full,jakob poeltl,2022,9398148,3,68.0,1.0,0,,complete
 full,jakob poeltl,2023,19500000,1,26.0,1.0,0,,complete
-full,jakob poeltl,2024,19500000,2,50.0,1.0,1,rapm_z,partial_impact
+full,jakob poeltl,2024,19500000,2,50.0,1.0,1,laker_z,partial_impact
 full,jakob poeltl,2025,19500000,3,57.0,1.0,0,,complete
 full,jakob poeltl,2026,19500000,4,46.0,1.0,0,,complete
 full,jalen brunson,2019,1416852,1,73.0,0.5,0,,complete
@@ -1187,11 +1187,11 @@ full,jalen brunson,2023,26346666,2,68.0,1.0,0,,complete
 full,jalen brunson,2024,24960001,3,77.0,1.0,0,,complete
 full,jalen brunson,2025,34944001,1,65.0,1.0,0,,complete
 full,jalen brunson,2026,37739521,2,74.0,1.0,0,,complete
-full,jalen duren,2023,4330680,2,67.0,0.5,1,rapm_z,partial_impact
+full,jalen duren,2023,4330680,2,67.0,0.5,1,laker_z,partial_impact
 full,jalen duren,2024,4536840,3,61.0,0.8,0,,complete
 full,jalen duren,2025,6483144,1,78.0,1.0,0,,complete
 full,jalen green,2022,9441840,2,67.0,0.5,0,,complete
-full,jalen green,2023,9891480,3,76.0,0.8,1,rapm_z,partial_impact
+full,jalen green,2023,9891480,3,76.0,0.8,1,laker_z,partial_impact
 full,jalen green,2024,12483048,1,82.0,1.0,0,,complete
 full,jalen green,2025,33584499,1,82.0,1.0,0,,complete
 full,jalen green,2026,36251166,2,32.0,1.0,0,,complete
@@ -1231,7 +1231,7 @@ full,jamal crawford,2019,289803,1,64.0,0.5,0,,complete
 full,jamal murray,2019,4444746,1,75.0,0.5,0,,complete
 full,jamal murray,2020,27285000,1,59.0,0.8,0,,complete
 full,jamal murray,2021,29467800,2,48.0,1.0,0,,complete
-full,jamal murray,2022,31650600,3,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,jamal murray,2022,31650600,3,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,jamal murray,2023,33833400,4,65.0,1.0,0,,complete
 full,jamal murray,2024,36016200,5,59.0,1.0,0,,complete
 full,jamal murray,2025,46394100,1,67.0,1.0,0,,complete
@@ -1256,7 +1256,7 @@ full,james johnson,2022,1836090,1,62.0,1.0,0,,complete
 full,james johnson,2023,2241188,1,18.0,1.0,0,,complete
 full,james johnson,2024,2087519,2,9.0,1.0,0,,complete
 full,james wiseman,2021,9166800,2,39.0,0.5,0,,complete
-full,james wiseman,2022,9603360,3,0.0,0.8,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,james wiseman,2022,9603360,3,0.0,0.8,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,james wiseman,2023,12119440,1,24.0,1.0,0,,complete
 full,james wiseman,2024,2237691,1,63.0,1.0,0,,complete
 full,james wiseman,2025,1131970,1,1.0,1.0,0,,complete
@@ -1270,28 +1270,28 @@ full,jarace walker,2024,6362520,2,33.0,0.5,0,,complete
 full,jarace walker,2025,6665520,3,75.0,0.8,0,,complete
 full,jarace walker,2026,8478542,1,76.0,1.0,0,,complete
 full,jared butler,2022,1563518,1,42.0,0.5,0,,complete
-full,jared butler,2023,1250000,1,6.0,0.8,1,rapm_z,partial_impact
+full,jared butler,2023,1250000,1,6.0,0.8,1,laker_z,partial_impact
 full,jared butler,2024,745726,1,40.0,1.0,0,,complete
 full,jared dudley,2019,2564753,1,59.0,0.5,0,,complete
 full,jared dudley,2020,1620564,1,45.0,0.8,0,,complete
-full,jared harper,2020,99020,1,3.0,0.5,1,rapm_z,partial_impact
-full,jared harper,2021,95930,1,8.0,0.8,1,rapm_z,partial_impact
+full,jared harper,2020,99020,1,3.0,0.5,1,laker_z,partial_impact
+full,jared harper,2021,95930,1,8.0,0.8,1,laker_z,partial_impact
 full,jared mccain,2025,4221360,2,23.0,0.5,0,,complete
 full,jared mccain,2026,4422600,3,37.0,0.8,0,,complete
-full,jaren jackson jr.,2019,6927480,1,58.0,0.5,1,rapm_z,partial_impact
-full,jaren jackson jr.,2020,7257360,2,57.0,0.8,1,rapm_z,partial_impact
-full,jaren jackson jr.,2021,9180560,1,11.0,1.0,1,rapm_z,partial_impact
-full,jaren jackson jr.,2022,28946605,1,78.0,1.0,1,rapm_z,partial_impact
-full,jaren jackson jr.,2023,27102202,2,63.0,1.0,1,rapm_z,partial_impact
-full,jaren jackson jr.,2024,25257798,3,66.0,1.0,1,rapm_z,partial_impact
-full,jaren jackson jr.,2025,35000000,1,74.0,1.0,1,rapm_z,partial_impact
-full,jaren jackson jr.,2026,49000000,1,48.0,1.0,1,rapm_z,partial_impact
+full,jaren jackson jr.,2019,6927480,1,58.0,0.5,1,laker_z,partial_impact
+full,jaren jackson jr.,2020,7257360,2,57.0,0.8,1,laker_z,partial_impact
+full,jaren jackson jr.,2021,9180560,1,11.0,1.0,1,laker_z,partial_impact
+full,jaren jackson jr.,2022,28946605,1,78.0,1.0,1,laker_z,partial_impact
+full,jaren jackson jr.,2023,27102202,2,63.0,1.0,1,laker_z,partial_impact
+full,jaren jackson jr.,2024,25257798,3,66.0,1.0,1,laker_z,partial_impact
+full,jaren jackson jr.,2025,35000000,1,74.0,1.0,1,laker_z,partial_impact
+full,jaren jackson jr.,2026,49000000,1,48.0,1.0,1,laker_z,partial_impact
 full,jarred vanderbilt,2019,1416852,1,17.0,0.5,0,,complete
 full,jarred vanderbilt,2020,1663861,1,9.0,0.8,0,,complete
 full,jarred vanderbilt,2021,4000000,1,64.0,1.0,0,,complete
 full,jarred vanderbilt,2022,4374000,2,74.0,1.0,0,,complete
 full,jarred vanderbilt,2023,4698000,3,52.0,1.0,0,,complete
-full,jarred vanderbilt,2024,10714286,1,29.0,1.0,1,rapm_z,partial_impact
+full,jarred vanderbilt,2024,10714286,1,29.0,1.0,1,laker_z,partial_impact
 full,jarred vanderbilt,2025,11571429,2,36.0,1.0,0,,complete
 full,jarred vanderbilt,2026,12428571,3,65.0,1.0,0,,complete
 full,jarrell brantley,2021,84414,1,28.0,0.5,0,,complete
@@ -1306,7 +1306,7 @@ full,jarrett allen,2026,28000000,1,56.0,1.0,0,,complete
 full,jarrett culver,2020,6104280,2,63.0,0.5,0,,complete
 full,jarrett culver,2021,6395160,1,34.0,0.8,0,,complete
 full,jase richardson,2026,3132360,2,54.0,0.5,0,,complete
-full,jason preston,2022,1563518,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,jason preston,2022,1563518,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,javale mcgee,2019,4000000,1,75.0,0.5,0,,complete
 full,javale mcgee,2020,4200000,2,68.0,0.8,0,,complete
 full,javale mcgee,2021,5000000,1,33.0,1.0,0,,complete
@@ -1339,14 +1339,14 @@ full,jaylen brown,2023,31830357,2,67.0,1.0,0,,complete
 full,jaylen brown,2024,49205800,1,70.0,1.0,0,,complete
 full,jaylen brown,2025,53142264,2,63.0,1.0,0,,complete
 full,jaylen brown,2026,57078728,3,71.0,1.0,0,,complete
-full,jaylen clark,2024,492323,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,jaylen clark,2024,492323,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,jaylen clark,2025,2191897,1,40.0,0.8,0,,complete
 full,jaylen clark,2026,3086420,1,68.0,1.0,0,,complete
 full,jaylen hoard,2021,191860,1,19.0,0.5,0,,complete
 full,jaylen nowell,2020,1517981,2,15.0,0.5,0,,complete
 full,jaylen nowell,2021,1782621,1,42.0,0.8,0,,complete
 full,jaylen nowell,2022,1930681,2,62.0,1.0,0,,complete
-full,jaylen nowell,2023,116075,1,65.0,1.0,1,rapm_z,partial_impact
+full,jaylen nowell,2023,116075,1,65.0,1.0,1,laker_z,partial_impact
 full,jaylen nowell,2024,278782,1,9.0,1.0,0,,complete
 full,jaylen wells,2025,1955377,1,79.0,0.5,0,,complete
 full,jaylen wells,2026,2296271,1,69.0,0.8,0,,complete
@@ -1389,7 +1389,7 @@ full,jerami grant,2025,32000001,3,47.0,1.0,0,,complete
 full,jerami grant,2026,34206898,4,57.0,1.0,0,,complete
 full,jeremiah fears,2026,7896240,2,82.0,0.5,0,,complete
 full,jeremiah robinson-earl,2022,2000000,2,49.0,0.5,0,,complete
-full,jeremiah robinson-earl,2023,1900000,3,43.0,0.8,1,rapm_z,partial_impact
+full,jeremiah robinson-earl,2023,1900000,3,43.0,0.8,1,laker_z,partial_impact
 full,jeremiah robinson-earl,2024,2196970,1,39.0,1.0,0,,complete
 full,jeremiah robinson-earl,2025,131970,1,66.0,1.0,0,,complete
 full,jeremy lamb,2019,10500000,1,79.0,0.5,0,,complete
@@ -1414,7 +1414,7 @@ full,jevon carter,2019,1416852,1,39.0,0.5,0,,complete
 full,jevon carter,2020,3925000,1,58.0,0.8,0,,complete
 full,jevon carter,2021,3650000,2,60.0,1.0,0,,complete
 full,jevon carter,2022,3925000,3,46.0,1.0,0,,complete
-full,jevon carter,2023,6190476,1,81.0,1.0,1,rapm_z,partial_impact
+full,jevon carter,2023,6190476,1,81.0,1.0,1,laker_z,partial_impact
 full,jevon carter,2024,6500000,2,72.0,1.0,0,,complete
 full,jevon carter,2025,871000,1,36.0,1.0,0,,complete
 full,jevon carter,2026,2449421,1,30.0,1.0,0,,complete
@@ -1430,7 +1430,7 @@ full,joakim noah,2019,434704,1,42.0,0.5,0,,complete
 full,joakim noah,2020,6431667,1,5.0,0.8,0,,complete
 full,joan beringer,2026,4411200,2,40.0,0.5,0,,complete
 full,jock landale,2022,1563518,1,54.0,0.5,0,,complete
-full,jock landale,2023,8000000,1,69.0,0.8,1,rapm_z,partial_impact
+full,jock landale,2023,8000000,1,69.0,0.8,1,laker_z,partial_impact
 full,jock landale,2024,8000000,2,56.0,1.0,0,,complete
 full,jock landale,2025,2296274,1,42.0,1.0,0,,complete
 full,jock landale,2026,14100000,1,45.0,1.0,0,,complete
@@ -1439,7 +1439,7 @@ full,joe harris,2019,7666667,1,76.0,0.5,0,,complete
 full,joe harris,2020,16071429,1,69.0,0.8,0,,complete
 full,joe harris,2021,17357143,2,69.0,1.0,0,,complete
 full,joe harris,2022,18642857,3,14.0,1.0,0,,complete
-full,joe harris,2023,19928571,1,74.0,1.0,1,rapm_z,partial_impact
+full,joe harris,2023,19928571,1,74.0,1.0,1,laker_z,partial_impact
 full,joe ingles,2019,11207387,1,82.0,0.5,0,,complete
 full,joe ingles,2020,10863637,2,72.0,0.8,0,,complete
 full,joe ingles,2021,12436364,3,67.0,1.0,0,,complete
@@ -1460,7 +1460,7 @@ full,john collins,2019,2686560,1,61.0,0.5,0,,complete
 full,john collins,2020,4137302,1,41.0,0.8,0,,complete
 full,john collins,2021,23000000,1,63.0,1.0,0,,complete
 full,john collins,2022,23500000,2,54.0,1.0,0,,complete
-full,john collins,2023,25340000,3,71.0,1.0,1,rapm_z,partial_impact
+full,john collins,2023,25340000,3,71.0,1.0,1,laker_z,partial_impact
 full,john collins,2024,26580000,4,68.0,1.0,0,,complete
 full,john collins,2025,26580000,5,40.0,1.0,0,,complete
 full,john collins,2026,17000000,1,69.0,1.0,0,,complete
@@ -1474,12 +1474,12 @@ full,john konchar,2024,6165000,1,55.0,1.0,1,lebron_z,partial_impact
 full,john konchar,2025,6165000,2,46.0,1.0,0,,complete
 full,john konchar,2026,6165000,3,26.0,1.0,0,,complete
 full,john wall,2019,38199000,1,32.0,0.5,0,,complete
-full,john wall,2020,41254920,1,0.0,0.8,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,john wall,2020,41254920,1,0.0,0.8,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,john wall,2021,44310840,2,40.0,1.0,0,,complete
-full,john wall,2022,40866760,3,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,john wall,2022,40866760,3,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,john wall,2023,6802950,1,34.0,1.0,0,,complete
 full,johnathan williams,2019,106181,1,24.0,0.5,0,,complete
-full,johni broome,2026,2150917,1,11.0,0.5,1,rapm_z,partial_impact
+full,johni broome,2026,2150917,1,11.0,0.5,1,laker_z,partial_impact
 full,johnny davis,2023,5050800,2,28.0,0.5,0,,complete
 full,johnny davis,2024,5291160,1,50.0,0.8,0,,complete
 full,johnny furphy,2025,1955377,2,50.0,0.5,0,,complete
@@ -1489,20 +1489,20 @@ full,jon leuer,2019,3169348,1,41.0,0.5,0,,complete
 full,jonah bolden,2019,1698450,1,44.0,0.5,0,,complete
 full,jonathan isaac,2019,5806440,1,75.0,0.5,0,,complete
 full,jonathan isaac,2020,7362566,1,34.0,0.8,0,,complete
-full,jonathan isaac,2021,17400000,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
-full,jonathan isaac,2022,17400000,2,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,jonathan isaac,2021,17400000,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
+full,jonathan isaac,2022,17400000,2,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,jonathan isaac,2023,17400000,3,11.0,1.0,0,,complete
 full,jonathan isaac,2024,25000000,1,58.0,1.0,0,,complete
 full,jonathan isaac,2025,15000000,1,71.0,1.0,0,,complete
 full,jonathan isaac,2026,10449421,1,52.0,1.0,0,,complete
 full,jonathan kuminga,2022,5739840,2,70.0,0.5,0,,complete
-full,jonathan kuminga,2023,6012840,3,67.0,0.8,1,rapm_z,partial_impact
+full,jonathan kuminga,2023,6012840,3,67.0,0.8,1,laker_z,partial_impact
 full,jonathan kuminga,2024,7636307,1,74.0,1.0,0,,complete
 full,jonathan kuminga,2025,23799569,1,47.0,1.0,0,,complete
 full,jonathan kuminga,2026,24300000,2,20.0,1.0,0,,complete
 full,jonathan mogbo,2025,1955377,2,63.0,0.5,0,,complete
 full,jonathon simmons,2019,1000000,1,41.0,0.5,0,,complete
-full,jontay porter,2020,1900000,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,jontay porter,2020,1900000,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,jontay porter,2021,300000,1,11.0,0.8,0,,complete
 full,jordan bell,2019,250000,1,68.0,0.5,0,,complete
 full,jordan bell,2020,580062,1,27.0,0.8,0,,complete
@@ -1511,12 +1511,12 @@ full,jordan clarkson,2019,13437500,1,81.0,0.5,0,,complete
 full,jordan clarkson,2020,11500000,1,42.0,0.8,0,,complete
 full,jordan clarkson,2021,12420000,2,68.0,1.0,0,,complete
 full,jordan clarkson,2022,13340000,3,79.0,1.0,0,,complete
-full,jordan clarkson,2023,23487629,1,61.0,1.0,1,rapm_z,partial_impact
+full,jordan clarkson,2023,23487629,1,61.0,1.0,1,laker_z,partial_impact
 full,jordan clarkson,2024,14092577,1,55.0,1.0,0,,complete
 full,jordan clarkson,2025,10651561,1,37.0,1.0,0,,complete
 full,jordan clarkson,2026,2449421,1,72.0,1.0,0,,complete
 full,jordan goodwin,2022,900000,1,2.0,0.5,0,,complete
-full,jordan goodwin,2023,1927896,1,62.0,0.8,1,rapm_z,partial_impact
+full,jordan goodwin,2023,1927896,1,62.0,0.8,1,laker_z,partial_impact
 full,jordan goodwin,2024,223718,1,40.0,1.0,0,,complete
 full,jordan goodwin,2025,2349578,1,29.0,1.0,0,,complete
 full,jordan goodwin,2026,5864198,1,70.0,1.0,0,,complete
@@ -1547,7 +1547,7 @@ full,jordan walsh,2024,1891857,1,9.0,0.5,0,,complete
 full,jordan walsh,2025,2221677,1,52.0,0.8,0,,complete
 full,jordan walsh,2026,2406205,2,68.0,1.0,0,,complete
 full,jose alvarado,2022,1563518,2,54.0,0.5,0,,complete
-full,jose alvarado,2023,1836096,1,61.0,0.8,1,rapm_z,partial_impact
+full,jose alvarado,2023,1836096,1,61.0,0.8,1,laker_z,partial_impact
 full,jose alvarado,2024,1988598,2,56.0,1.0,0,,complete
 full,jose alvarado,2025,4500000,1,56.0,1.0,0,,complete
 full,jose alvarado,2026,4500000,2,41.0,1.0,0,,complete
@@ -1675,7 +1675,7 @@ full,kasparas jakucionis,2026,3841680,2,53.0,0.5,0,,complete
 full,kawhi leonard,2019,32742000,1,60.0,0.5,0,,complete
 full,kawhi leonard,2020,34379100,2,57.0,0.8,0,,complete
 full,kawhi leonard,2021,39344900,3,52.0,1.0,0,,complete
-full,kawhi leonard,2022,42492492,4,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,kawhi leonard,2022,42492492,4,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,kawhi leonard,2023,45640084,5,52.0,1.0,0,,complete
 full,kawhi leonard,2024,49205800,6,68.0,1.0,0,,complete
 full,kawhi leonard,2025,50000000,7,37.0,1.0,0,,complete
@@ -1697,7 +1697,7 @@ full,kelan martin,2021,191860,1,35.0,0.8,0,,complete
 full,keldon johnson,2020,2048040,2,17.0,0.5,0,,complete
 full,keldon johnson,2021,2145720,3,69.0,0.8,0,,complete
 full,keldon johnson,2022,3873025,1,75.0,1.0,0,,complete
-full,keldon johnson,2023,20000000,1,63.0,1.0,1,rapm_z,partial_impact
+full,keldon johnson,2023,20000000,1,63.0,1.0,1,laker_z,partial_impact
 full,keldon johnson,2024,19000000,2,69.0,1.0,0,,complete
 full,keldon johnson,2025,17500000,3,77.0,1.0,0,,complete
 full,keldon johnson,2026,17500000,4,82.0,1.0,0,,complete
@@ -1705,7 +1705,7 @@ full,kelly olynyk,2019,11667885,1,79.0,0.5,0,,complete
 full,kelly olynyk,2020,12819649,2,67.0,0.8,0,,complete
 full,kelly olynyk,2021,12195122,3,43.0,1.0,0,,complete
 full,kelly olynyk,2022,12804878,4,40.0,1.0,0,,complete
-full,kelly olynyk,2023,12195122,5,68.0,1.0,1,rapm_z,partial_impact
+full,kelly olynyk,2023,12195122,5,68.0,1.0,1,laker_z,partial_impact
 full,kelly olynyk,2024,12804878,6,50.0,1.0,0,,complete
 full,kelly olynyk,2025,13445122,7,20.0,1.0,0,,complete
 full,kelly oubre jr.,2019,15625000,1,40.0,0.5,0,,complete
@@ -1713,7 +1713,7 @@ full,kelly oubre jr.,2020,14375000,2,56.0,0.8,0,,complete
 full,kelly oubre jr.,2021,12000000,1,55.0,1.0,0,,complete
 full,kelly oubre jr.,2022,12600000,2,76.0,1.0,0,,complete
 full,kelly oubre jr.,2023,2019706,1,48.0,1.0,0,,complete
-full,kelly oubre jr.,2024,7983000,1,68.0,1.0,1,rapm_z,partial_impact
+full,kelly oubre jr.,2024,7983000,1,68.0,1.0,1,laker_z,partial_impact
 full,kelly oubre jr.,2025,8382150,2,60.0,1.0,0,,complete
 full,kelly oubre jr.,2026,8050000,1,50.0,1.0,0,,complete
 full,kemba walker,2019,32742000,1,82.0,0.5,0,,complete
@@ -1723,7 +1723,7 @@ full,kemba walker,2022,684712,1,37.0,1.0,0,,complete
 full,kendall brown,2023,1100000,1,6.0,0.5,0,,complete
 full,kendrick nunn,2020,1663861,1,67.0,0.5,0,,complete
 full,kendrick nunn,2021,5000000,1,56.0,0.8,0,,complete
-full,kendrick nunn,2022,5250000,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,kendrick nunn,2022,5250000,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,kennedy chandler,2023,1719864,1,36.0,0.5,0,,complete
 full,kenrich williams,2019,1416852,1,46.0,0.5,0,,complete
 full,kenrich williams,2020,2000000,1,39.0,0.8,0,,complete
@@ -1756,7 +1756,7 @@ full,keshad johnson,2025,1955377,1,16.0,0.5,0,,complete
 full,kessler edwards,2022,1637966,1,48.0,0.5,0,,complete
 full,kessler edwards,2023,1927896,1,14.0,0.8,0,,complete
 full,kevin durant,2019,37199000,1,78.0,0.5,0,,complete
-full,kevin durant,2020,39058950,2,0.0,0.8,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,kevin durant,2020,39058950,2,0.0,0.8,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,kevin durant,2021,40918900,3,35.0,1.0,0,,complete
 full,kevin durant,2022,44119845,4,55.0,1.0,0,,complete
 full,kevin durant,2023,47649433,5,39.0,1.0,0,,complete
@@ -1781,13 +1781,13 @@ full,kevin love,2019,28942830,1,22.0,0.5,0,,complete
 full,kevin love,2020,31258256,2,56.0,0.8,0,,complete
 full,kevin love,2021,31258256,3,25.0,1.0,0,,complete
 full,kevin love,2022,27442830,1,74.0,1.0,0,,complete
-full,kevin love,2023,3835738,1,62.0,1.0,1,rapm_z,partial_impact
+full,kevin love,2023,3835738,1,62.0,1.0,1,laker_z,partial_impact
 full,kevin love,2024,3850000,2,55.0,1.0,0,,complete
 full,kevin love,2025,4150000,3,23.0,1.0,0,,complete
 full,kevin porter jr.,2020,1717981,1,50.0,0.5,0,,complete
 full,kevin porter jr.,2021,1782621,2,26.0,0.8,0,,complete
 full,kevin porter jr.,2022,3217631,1,61.0,1.0,0,,complete
-full,kevin porter jr.,2023,15860000,1,59.0,1.0,1,rapm_z,partial_impact
+full,kevin porter jr.,2023,15860000,1,59.0,1.0,1,laker_z,partial_impact
 full,kevin porter jr.,2025,5134000,1,45.0,0.7,0,,complete
 full,kevin porter jr.,2026,5390700,2,38.0,0.8,0,,complete
 full,kevon harris,2024,119972,1,2.0,0.5,0,,complete
@@ -1828,8 +1828,8 @@ full,killian tillie,2022,1901625,2,36.0,0.8,0,,complete
 full,kj martin,2023,1930681,1,82.0,0.5,0,,complete
 full,kj martin,2024,7975000,1,58.0,0.8,0,,complete
 full,klay thompson,2019,32742000,1,78.0,0.5,0,,complete
-full,klay thompson,2020,35361360,2,0.0,0.8,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
-full,klay thompson,2021,37980720,3,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,klay thompson,2020,35361360,2,0.0,0.8,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
+full,klay thompson,2021,37980720,3,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,klay thompson,2022,40600080,4,32.0,1.0,0,,complete
 full,klay thompson,2023,43219440,5,69.0,1.0,0,,complete
 full,klay thompson,2024,15873016,1,77.0,1.0,0,,complete
@@ -1869,7 +1869,7 @@ full,kyle kuzma,2019,1974600,1,70.0,0.5,0,,complete
 full,kyle kuzma,2020,3562178,1,61.0,0.8,0,,complete
 full,kyle kuzma,2021,13000000,1,68.0,1.0,0,,complete
 full,kyle kuzma,2022,13000000,2,66.0,1.0,0,,complete
-full,kyle kuzma,2023,25568182,1,64.0,1.0,1,rapm_z,partial_impact
+full,kyle kuzma,2023,25568182,1,64.0,1.0,1,laker_z,partial_impact
 full,kyle kuzma,2024,24456061,2,70.0,1.0,0,,complete
 full,kyle kuzma,2025,22410605,3,33.0,1.0,0,,complete
 full,kyle kuzma,2026,20345152,4,69.0,1.0,0,,complete
@@ -1877,7 +1877,7 @@ full,kyle lowry,2019,33296296,1,65.0,0.5,0,,complete
 full,kyle lowry,2020,30500000,2,58.0,0.8,0,,complete
 full,kyle lowry,2021,26984128,1,46.0,1.0,0,,complete
 full,kyle lowry,2022,28333334,2,63.0,1.0,0,,complete
-full,kyle lowry,2023,29682540,3,55.0,1.0,1,rapm_z,partial_impact
+full,kyle lowry,2023,29682540,3,55.0,1.0,1,laker_z,partial_impact
 full,kyle lowry,2024,2087519,1,37.0,1.0,0,,complete
 full,kyle lowry,2025,2296274,2,35.0,1.0,0,,complete
 full,kyle o'quinn,2019,2028594,1,45.0,0.5,0,,complete
@@ -1888,7 +1888,7 @@ full,kyrie irving,2022,38917057,4,29.0,1.0,0,,complete
 full,kyrie irving,2023,37037037,5,40.0,1.0,0,,complete
 full,kyrie irving,2024,41000000,6,58.0,1.0,0,,complete
 full,kyrie irving,2025,36566002,1,50.0,1.0,0,,complete
-full,kyrie irving,2026,39491282,2,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,kyrie irving,2026,39491282,2,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,kyshawn george,2025,2966760,2,68.0,0.5,0,,complete
 full,kyshawn george,2026,3108000,3,48.0,0.8,0,,complete
 full,kz okpala,2020,1517981,1,5.0,0.5,0,,complete
@@ -1956,18 +1956,18 @@ full,lonzo ball,2019,8719320,1,47.0,0.5,0,,complete
 full,lonzo ball,2020,11003782,1,63.0,0.8,0,,complete
 full,lonzo ball,2021,18604651,1,55.0,1.0,0,,complete
 full,lonzo ball,2022,19534884,2,35.0,1.0,0,,complete
-full,lonzo ball,2023,20465117,3,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
-full,lonzo ball,2024,21395348,4,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,lonzo ball,2023,20465117,3,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
+full,lonzo ball,2024,21395348,4,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,lonzo ball,2025,10000000,1,35.0,1.0,0,,complete
 full,lou williams,2019,8000000,1,75.0,0.5,0,,complete
 full,lou williams,2020,8000000,1,65.0,0.8,0,,complete
 full,lou williams,2021,5000000,1,42.0,1.0,0,,complete
 full,luc mbah a moute,2019,289803,1,4.0,0.5,0,,complete
-full,luca vildoza,2021,42789,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,luca vildoza,2021,42789,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,luguentz dort,2020,1517981,1,36.0,0.5,0,,complete
 full,luguentz dort,2021,1782621,1,52.0,0.8,0,,complete
 full,luguentz dort,2022,15277778,1,51.0,1.0,0,,complete
-full,luguentz dort,2023,15277778,2,74.0,1.0,1,rapm_z,partial_impact
+full,luguentz dort,2023,15277778,2,74.0,1.0,1,laker_z,partial_impact
 full,luguentz dort,2024,16500000,3,79.0,1.0,0,,complete
 full,luguentz dort,2025,18222222,4,71.0,1.0,0,,complete
 full,luguentz dort,2026,18222222,5,69.0,1.0,0,,complete
@@ -1980,7 +1980,7 @@ full,luka doncic,2024,43031940,3,70.0,1.0,0,,complete
 full,luka doncic,2025,45999660,4,28.0,1.0,0,,complete
 full,luka doncic,2026,49800000,5,64.0,1.0,0,,complete
 full,luka garza,2023,127683,1,28.0,0.5,0,,complete
-full,luka garza,2024,2162606,1,25.0,0.8,1,rapm_z,partial_impact
+full,luka garza,2024,2162606,1,25.0,0.8,1,laker_z,partial_impact
 full,luka garza,2025,2461463,2,39.0,1.0,0,,complete
 full,luka garza,2026,2801346,3,69.0,1.0,0,,complete
 full,luke kennard,2019,3827160,1,63.0,0.5,0,,complete
@@ -1995,7 +1995,7 @@ full,luke kornet,2019,2250000,1,46.0,0.5,0,,complete
 full,luke kornet,2020,2250000,2,36.0,0.8,0,,complete
 full,luke kornet,2021,606702,1,18.0,1.0,0,,complete
 full,luke kornet,2022,2133278,1,12.0,1.0,0,,complete
-full,luke kornet,2023,2413304,2,69.0,1.0,1,rapm_z,partial_impact
+full,luke kornet,2023,2413304,2,69.0,1.0,1,laker_z,partial_impact
 full,luke kornet,2024,2087519,1,63.0,1.0,0,,complete
 full,luke kornet,2025,11000000,1,73.0,1.0,0,,complete
 full,luke kornet,2026,10450000,2,68.0,1.0,0,,complete
@@ -2013,16 +2013,16 @@ full,malcolm brogdon,2020,20700000,2,54.0,0.8,0,,complete
 full,malcolm brogdon,2021,21700000,3,56.0,1.0,0,,complete
 full,malcolm brogdon,2022,22600000,1,36.0,1.0,0,,complete
 full,malcolm brogdon,2023,22500000,1,67.0,1.0,0,,complete
-full,malcolm hill,2023,116075,1,5.0,0.5,2,lebron_z|rapm_z,partial_impact
+full,malcolm hill,2023,116075,1,5.0,0.5,2,lebron_z|laker_z,partial_impact
 full,malcolm miller,2019,1588231,1,10.0,0.5,0,,complete
 full,malik beasley,2019,2731714,1,81.0,0.5,0,,complete
 full,malik beasley,2020,13425895,1,41.0,0.8,0,,complete
 full,malik beasley,2021,14391964,2,37.0,1.0,0,,complete
 full,malik beasley,2022,15558035,1,79.0,1.0,0,,complete
-full,malik beasley,2023,2019706,1,81.0,1.0,1,rapm_z,partial_impact
+full,malik beasley,2023,2019706,1,81.0,1.0,1,laker_z,partial_impact
 full,malik beasley,2024,6000000,1,79.0,1.0,0,,complete
-full,malik fitts,2021,402218,1,3.0,0.5,1,rapm_z,partial_impact
-full,malik fitts,2022,555217,1,15.0,0.8,1,rapm_z,partial_impact
+full,malik fitts,2021,402218,1,3.0,0.5,1,laker_z,partial_impact
+full,malik fitts,2022,555217,1,15.0,0.8,1,laker_z,partial_impact
 full,malik monk,2019,4028400,1,73.0,0.5,0,,complete
 full,malik monk,2020,5345687,1,55.0,0.8,0,,complete
 full,malik monk,2021,1789256,1,42.0,1.0,0,,complete
@@ -2074,7 +2074,7 @@ full,markieff morris,2022,1836090,1,17.0,1.0,0,,complete
 full,markieff morris,2023,2019706,2,27.0,1.0,0,,complete
 full,markieff morris,2024,2087519,1,26.0,1.0,0,,complete
 full,marko guduric,2020,2750000,2,44.0,0.5,0,,complete
-full,marko simonovic,2022,1563518,1,9.0,0.5,1,rapm_z,partial_impact
+full,marko simonovic,2022,1563518,1,9.0,0.5,1,laker_z,partial_impact
 full,marquese chriss,2019,1413272,1,27.0,0.5,0,,complete
 full,marquese chriss,2020,1824003,1,59.0,0.8,0,,complete
 full,marquese chriss,2021,1292900,1,2.0,1.0,0,,complete
@@ -2143,9 +2143,9 @@ full,micah potter,2026,2801346,1,47.0,0.8,0,,complete
 full,michael carter-williams,2019,2028594,1,12.0,0.5,0,,complete
 full,michael carter-williams,2020,3300000,1,45.0,0.8,0,,complete
 full,michael carter-williams,2021,3300000,2,31.0,1.0,0,,complete
-full,michael carter-williams,2022,652829,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,michael carter-williams,2022,652829,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,michael kidd-gilchrist,2019,12189237,1,64.0,0.5,0,,complete
-full,michael porter jr.,2019,3389400,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,michael porter jr.,2019,3389400,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,michael porter jr.,2020,3550800,2,55.0,0.8,0,,complete
 full,michael porter jr.,2021,5258735,1,61.0,1.0,0,,complete
 full,michael porter jr.,2022,30913750,1,9.0,1.0,0,,complete
@@ -2193,7 +2193,7 @@ full,mitchell robinson,2020,1663861,2,61.0,0.8,0,,complete
 full,mitchell robinson,2021,1802057,3,31.0,1.0,0,,complete
 full,mitchell robinson,2022,17045454,1,72.0,1.0,0,,complete
 full,mitchell robinson,2023,15681818,2,59.0,1.0,0,,complete
-full,mitchell robinson,2024,14318182,3,31.0,1.0,1,rapm_z,partial_impact
+full,mitchell robinson,2024,14318182,3,31.0,1.0,1,laker_z,partial_impact
 full,mitchell robinson,2025,12954546,4,17.0,1.0,0,,complete
 full,mitchell robinson,2026,15044000,1,60.0,1.0,0,,complete
 full,miye oni,2020,1517981,1,10.0,0.5,0,,complete
@@ -2218,7 +2218,7 @@ full,montrezl harrell,2019,6000000,1,82.0,0.5,0,,complete
 full,montrezl harrell,2020,9258000,1,63.0,0.8,0,,complete
 full,montrezl harrell,2021,9720900,1,69.0,1.0,0,,complete
 full,montrezl harrell,2022,2463490,1,46.0,1.0,0,,complete
-full,montrezl harrell,2023,2019706,1,57.0,1.0,1,rapm_z,partial_impact
+full,montrezl harrell,2023,2019706,1,57.0,1.0,1,laker_z,partial_impact
 full,moritz wagner,2019,2063520,1,43.0,0.5,0,,complete
 full,moritz wagner,2020,2161920,2,45.0,0.8,0,,complete
 full,moritz wagner,2021,1729217,1,25.0,1.0,0,,complete
@@ -2237,7 +2237,7 @@ full,moses moody,2024,5803269,1,66.0,1.0,0,,complete
 full,moses moody,2025,11574075,1,74.0,1.0,0,,complete
 full,moses moody,2026,12500000,2,60.0,1.0,0,,complete
 full,mouhamadou gueye,2026,2411090,1,2.0,0.5,0,,complete
-full,mouhamed gueye,2024,1891857,1,6.0,0.5,1,rapm_z,partial_impact
+full,mouhamed gueye,2024,1891857,1,6.0,0.5,1,laker_z,partial_impact
 full,mouhamed gueye,2025,2221677,1,33.0,0.8,0,,complete
 full,mouhamed gueye,2026,2406205,2,77.0,1.0,0,,complete
 full,mychal mulder,2020,1517981,1,7.0,0.5,0,,complete
@@ -2250,12 +2250,12 @@ full,myles turner,2024,19928500,2,77.0,1.0,0,,complete
 full,myles turner,2025,25318251,1,72.0,1.0,0,,complete
 full,myles turner,2026,26584164,2,71.0,1.0,0,,complete
 full,myron gardner,2026,2150917,1,45.0,0.5,0,,complete
-full,n'faly dante,2025,2048494,1,4.0,0.5,1,rapm_z,partial_impact
+full,n'faly dante,2025,2048494,1,4.0,0.5,1,laker_z,partial_impact
 full,nae'qwan tomlin,2025,718150,1,5.0,0.5,0,,complete
 full,nae'qwan tomlin,2026,2411090,1,64.0,0.8,0,,complete
 full,naji marshall,2021,1517981,1,32.0,0.5,0,,complete
 full,naji marshall,2022,1782621,1,55.0,0.8,0,,complete
-full,naji marshall,2023,1930681,2,77.0,1.0,1,rapm_z,partial_impact
+full,naji marshall,2023,1930681,2,77.0,1.0,1,laker_z,partial_impact
 full,naji marshall,2024,8571429,1,66.0,1.0,0,,complete
 full,naji marshall,2025,9000000,2,69.0,1.0,0,,complete
 full,naji marshall,2026,9428571,3,74.0,1.0,0,,complete
@@ -2269,7 +2269,7 @@ full,nathan knight,2022,1836090,1,37.0,0.5,0,,complete
 full,naz reid,2020,1517981,1,30.0,0.5,0,,complete
 full,naz reid,2021,1782621,1,70.0,0.8,0,,complete
 full,naz reid,2022,1930681,2,77.0,1.0,0,,complete
-full,naz reid,2023,12950400,1,68.0,1.0,1,rapm_z,partial_impact
+full,naz reid,2023,12950400,1,68.0,1.0,1,laker_z,partial_impact
 full,naz reid,2024,13986432,2,81.0,1.0,0,,complete
 full,naz reid,2025,21551724,1,80.0,1.0,0,,complete
 full,naz reid,2026,23275862,2,77.0,1.0,0,,complete
@@ -2294,7 +2294,7 @@ full,nic claxton,2025,25352272,2,70.0,1.0,0,,complete
 full,nic claxton,2026,23147727,3,69.0,1.0,0,,complete
 full,nick richards,2021,1517981,1,18.0,0.5,0,,complete
 full,nick richards,2022,1782621,1,50.0,0.8,0,,complete
-full,nick richards,2023,5000000,1,65.0,1.0,1,rapm_z,partial_impact
+full,nick richards,2023,5000000,1,65.0,1.0,1,laker_z,partial_impact
 full,nick richards,2024,5000000,2,67.0,1.0,0,,complete
 full,nick richards,2025,5000000,3,36.0,1.0,0,,complete
 full,nick smith jr.,2024,2587200,2,51.0,0.5,0,,complete
@@ -2324,7 +2324,7 @@ full,nikola jokic,2024,51415938,2,79.0,1.0,0,,complete
 full,nikola jokic,2025,55224526,3,70.0,1.0,0,,complete
 full,nikola jokic,2026,59033114,4,65.0,1.0,0,,complete
 full,nique clifford,2026,3263400,2,75.0,0.5,0,,complete
-full,noa essengue,2026,5701200,2,2.0,0.5,1,rapm_z,partial_impact
+full,noa essengue,2026,5701200,2,2.0,0.5,1,laker_z,partial_impact
 full,noah clowney,2024,3244080,2,23.0,0.5,0,,complete
 full,noah clowney,2025,3398640,3,46.0,0.8,0,,complete
 full,noah clowney,2026,5414034,1,66.0,1.0,0,,complete
@@ -2364,9 +2364,9 @@ full,olivier-maxence prosper,2025,1002360,1,52.0,0.8,0,,complete
 full,olivier-maxence prosper,2026,2497812,1,53.0,1.0,0,,complete
 full,omari spellman,2019,1897800,1,46.0,0.5,0,,complete
 full,omari spellman,2020,1988280,1,49.0,0.8,0,,complete
-full,omer yurtseven,2021,1489065,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,omer yurtseven,2021,1489065,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,omer yurtseven,2022,1752638,1,56.0,0.8,0,,complete
-full,omer yurtseven,2023,2800000,1,9.0,1.0,1,rapm_z,partial_impact
+full,omer yurtseven,2023,2800000,1,9.0,1.0,1,laker_z,partial_impact
 full,onyeka okongwu,2021,6104280,2,50.0,0.5,0,,complete
 full,onyeka okongwu,2022,6395160,3,48.0,0.8,0,,complete
 full,onyeka okongwu,2023,8109063,1,80.0,1.0,0,,complete
@@ -2395,11 +2395,11 @@ full,p.j. tucker,2024,246833,1,28.0,1.0,0,,complete
 full,p.j. washington,2020,4023600,2,58.0,0.5,0,,complete
 full,p.j. washington,2021,4215120,3,64.0,0.8,0,,complete
 full,p.j. washington,2022,5808435,1,65.0,1.0,0,,complete
-full,p.j. washington,2023,16847826,1,73.0,1.0,1,rapm_z,partial_impact
+full,p.j. washington,2023,16847826,1,73.0,1.0,1,laker_z,partial_impact
 full,p.j. washington,2024,15500000,2,44.0,1.0,0,,complete
 full,p.j. washington,2025,14152174,3,57.0,1.0,0,,complete
 full,p.j. washington,2026,19813044,1,56.0,1.0,0,,complete
-full,paolo banchero,2023,11608080,2,72.0,0.5,1,rapm_z,partial_impact
+full,paolo banchero,2023,11608080,2,72.0,0.5,1,laker_z,partial_impact
 full,paolo banchero,2024,12160800,3,80.0,0.8,0,,complete
 full,paolo banchero,2025,15334769,1,46.0,1.0,0,,complete
 full,paolo banchero,2026,41240250,1,72.0,1.0,0,,complete
@@ -2428,7 +2428,7 @@ full,patrick beverley,2019,12345679,1,78.0,0.5,0,,complete
 full,patrick beverley,2020,13333333,2,51.0,0.8,0,,complete
 full,patrick beverley,2021,14320988,1,37.0,1.0,0,,complete
 full,patrick beverley,2022,506508,1,58.0,1.0,0,,complete
-full,patrick beverley,2023,2019706,1,67.0,1.0,1,rapm_z,partial_impact
+full,patrick beverley,2023,2019706,1,67.0,1.0,1,laker_z,partial_impact
 full,patrick mccaw,2019,4000000,1,26.0,0.5,0,,complete
 full,patrick mccaw,2020,4000000,2,37.0,0.8,0,,complete
 full,patrick patterson,2019,2331593,1,63.0,0.5,0,,complete
@@ -2436,7 +2436,7 @@ full,patrick patterson,2020,3077704,1,59.0,0.8,0,,complete
 full,patrick patterson,2021,737066,1,38.0,1.0,0,,complete
 full,patrick williams,2021,7422000,2,71.0,0.5,0,,complete
 full,patrick williams,2022,7775400,3,17.0,0.8,0,,complete
-full,patrick williams,2023,9835881,1,82.0,1.0,1,rapm_z,partial_impact
+full,patrick williams,2023,9835881,1,82.0,1.0,1,laker_z,partial_impact
 full,patrick williams,2024,18000000,1,43.0,1.0,0,,complete
 full,patrick williams,2025,18000000,2,63.0,1.0,0,,complete
 full,patrick williams,2026,18000000,3,72.0,1.0,0,,complete
@@ -2536,7 +2536,7 @@ full,ricky rubio,2020,17000000,2,65.0,0.8,0,,complete
 full,ricky rubio,2021,17800000,3,68.0,1.0,0,,complete
 full,ricky rubio,2022,5853659,1,34.0,1.0,0,,complete
 full,ricky rubio,2023,3695311,1,33.0,1.0,0,,complete
-full,ricky rubio,2024,424672,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,ricky rubio,2024,424672,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,rj barrett,2020,8231760,2,56.0,0.5,0,,complete
 full,rj barrett,2021,8623920,3,72.0,0.8,0,,complete
 full,rj barrett,2022,10900635,1,70.0,1.0,0,,complete
@@ -2551,7 +2551,7 @@ full,robert covington,2020,12138345,1,48.0,0.8,0,,complete
 full,robert covington,2021,12975471,1,70.0,1.0,0,,complete
 full,robert covington,2022,12307692,2,48.0,1.0,0,,complete
 full,robert covington,2023,11692308,1,48.0,1.0,0,,complete
-full,robert franks,2020,198040,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,robert franks,2020,198040,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,robin lopez,2019,4767000,1,74.0,0.5,0,,complete
 full,robin lopez,2020,7300000,1,66.0,0.8,0,,complete
 full,robin lopez,2021,5000000,1,71.0,1.0,0,,complete
@@ -2575,7 +2575,7 @@ full,royce o'neale,2019,1618520,1,82.0,0.5,0,,complete
 full,royce o'neale,2020,8500000,1,71.0,0.8,0,,complete
 full,royce o'neale,2021,8800000,2,71.0,1.0,0,,complete
 full,royce o'neale,2022,9200000,3,77.0,1.0,0,,complete
-full,royce o'neale,2023,9500000,4,76.0,1.0,1,rapm_z,partial_impact
+full,royce o'neale,2023,9500000,4,76.0,1.0,1,laker_z,partial_impact
 full,royce o'neale,2024,9375000,5,49.0,1.0,0,,complete
 full,royce o'neale,2025,10125000,6,75.0,1.0,0,,complete
 full,royce o'neale,2026,10875000,7,78.0,1.0,0,,complete
@@ -2627,7 +2627,7 @@ full,saddiq bey,2021,2824320,2,70.0,0.5,0,,complete
 full,saddiq bey,2022,2959080,3,82.0,0.8,0,,complete
 full,saddiq bey,2023,4556983,1,52.0,1.0,0,,complete
 full,saddiq bey,2024,6440678,1,63.0,1.0,0,,complete
-full,saddiq bey,2025,6118644,2,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,saddiq bey,2025,6118644,2,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,saddiq bey,2026,6440678,3,72.0,1.0,0,,complete
 full,sam hauser,2022,1637966,1,26.0,0.5,0,,complete
 full,sam hauser,2023,1927896,1,80.0,0.8,0,,complete
@@ -2674,7 +2674,7 @@ full,seth curry,2019,7461380,1,74.0,0.5,0,,complete
 full,seth curry,2020,7834449,2,64.0,0.8,0,,complete
 full,seth curry,2021,8207518,3,57.0,1.0,0,,complete
 full,seth curry,2022,8496653,4,45.0,1.0,0,,complete
-full,seth curry,2023,4000000,1,61.0,1.0,1,rapm_z,partial_impact
+full,seth curry,2023,4000000,1,61.0,1.0,1,laker_z,partial_impact
 full,seth curry,2024,2087519,1,36.0,1.0,0,,complete
 full,seth curry,2025,1755198,1,68.0,1.0,0,,complete
 full,shabazz napier,2019,1845301,1,56.0,0.5,0,,complete
@@ -2694,7 +2694,7 @@ full,shake milton,2019,1445697,1,20.0,0.5,0,,complete
 full,shake milton,2020,1701593,1,40.0,0.8,0,,complete
 full,shake milton,2021,1846738,2,63.0,1.0,0,,complete
 full,shake milton,2022,1997718,3,55.0,1.0,0,,complete
-full,shake milton,2023,5000000,1,76.0,1.0,1,rapm_z,partial_impact
+full,shake milton,2023,5000000,1,76.0,1.0,1,laker_z,partial_impact
 full,shake milton,2024,2875000,1,38.0,1.0,0,,complete
 full,shaquille harrison,2019,898310,1,73.0,0.5,0,,complete
 full,shaquille harrison,2020,770433,1,43.0,0.8,0,,complete
@@ -2749,7 +2749,7 @@ full,steven adams,2020,29592695,2,63.0,0.8,0,,complete
 full,steven adams,2021,17073171,1,58.0,1.0,0,,complete
 full,steven adams,2022,17926829,2,76.0,1.0,0,,complete
 full,steven adams,2023,12600000,1,42.0,1.0,0,,complete
-full,steven adams,2024,12600000,2,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,steven adams,2024,12600000,2,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,steven adams,2025,14130434,3,58.0,1.0,0,,complete
 full,steven adams,2026,13000000,4,32.0,1.0,0,,complete
 full,svi mykhailiuk,2019,1416852,1,39.0,0.5,0,,complete
@@ -2771,7 +2771,7 @@ full,t.j. mcconnell,2026,11000000,6,56.0,1.0,0,,complete
 full,t.j. warren,2019,10810000,1,43.0,0.5,0,,complete
 full,t.j. warren,2020,12000000,2,67.0,0.8,0,,complete
 full,t.j. warren,2021,12690000,3,4.0,1.0,0,,complete
-full,t.j. warren,2022,1836090,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,t.j. warren,2022,1836090,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,t.j. warren,2023,220543,1,16.0,1.0,0,,complete
 full,taj gibson,2019,9800000,1,70.0,0.5,0,,complete
 full,taj gibson,2020,2442968,1,62.0,0.8,0,,complete
@@ -2782,7 +2782,7 @@ full,taj gibson,2024,2087519,1,16.0,1.0,0,,complete
 full,talen horton-tucker,2020,1517981,1,6.0,0.5,0,,complete
 full,talen horton-tucker,2021,9500000,1,65.0,0.8,0,,complete
 full,talen horton-tucker,2022,10260000,1,60.0,1.0,0,,complete
-full,talen horton-tucker,2023,11020000,2,65.0,1.0,1,rapm_z,partial_impact
+full,talen horton-tucker,2023,11020000,2,65.0,1.0,1,laker_z,partial_impact
 full,talen horton-tucker,2024,2087519,1,51.0,1.0,0,,complete
 full,tari eason,2023,3527160,2,82.0,0.5,0,,complete
 full,tari eason,2024,3695160,3,22.0,0.8,0,,complete
@@ -2848,21 +2848,21 @@ full,thomas bryant,2023,2528233,1,41.0,1.0,0,,complete
 full,thomas bryant,2024,2087519,1,38.0,1.0,0,,complete
 full,thomas bryant,2025,2296274,2,56.0,1.0,0,,complete
 full,thomas bryant,2026,2449421,1,60.0,1.0,0,,complete
-full,thomas sorber,2026,4887720,2,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,thomas sorber,2026,4887720,2,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,thon maker,2019,3569643,1,29.0,0.5,0,,complete
 full,thon maker,2020,309355,1,60.0,0.8,0,,complete
 full,tim frazier,2019,1882867,1,47.0,0.5,0,,complete
 full,tim frazier,2020,518612,1,27.0,0.8,0,,complete
 full,tim frazier,2021,128709,1,5.0,1.0,0,,complete
-full,tim hardaway jr.,2019,18150000,1,65.0,0.5,1,rapm_z,partial_impact
-full,tim hardaway jr.,2020,18975000,2,71.0,0.8,1,rapm_z,partial_impact
-full,tim hardaway jr.,2021,21306816,3,70.0,1.0,1,rapm_z,partial_impact
-full,tim hardaway jr.,2022,19602273,4,42.0,1.0,1,rapm_z,partial_impact
-full,tim hardaway jr.,2023,17897728,5,71.0,1.0,1,rapm_z,partial_impact
-full,tim hardaway jr.,2024,16193183,6,79.0,1.0,1,rapm_z,partial_impact
-full,tim hardaway jr.,2025,2296274,1,77.0,1.0,1,rapm_z,partial_impact
-full,tim hardaway jr.,2026,6500000,1,80.0,1.0,1,rapm_z,partial_impact
-full,timofey mozgov,2019,5573333,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,tim hardaway jr.,2019,18150000,1,65.0,0.5,1,laker_z,partial_impact
+full,tim hardaway jr.,2020,18975000,2,71.0,0.8,1,laker_z,partial_impact
+full,tim hardaway jr.,2021,21306816,3,70.0,1.0,1,laker_z,partial_impact
+full,tim hardaway jr.,2022,19602273,4,42.0,1.0,1,laker_z,partial_impact
+full,tim hardaway jr.,2023,17897728,5,71.0,1.0,1,laker_z,partial_impact
+full,tim hardaway jr.,2024,16193183,6,79.0,1.0,1,laker_z,partial_impact
+full,tim hardaway jr.,2025,2296274,1,77.0,1.0,1,laker_z,partial_impact
+full,tim hardaway jr.,2026,6500000,1,80.0,1.0,1,laker_z,partial_impact
+full,timofey mozgov,2019,5573333,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,tobias harris,2019,32742000,1,55.0,0.5,0,,complete
 full,tobias harris,2020,34358850,2,72.0,0.8,0,,complete
 full,tobias harris,2021,35995950,3,62.0,1.0,0,,complete
@@ -2883,7 +2883,7 @@ full,torrey craig,2019,2000000,1,75.0,0.5,0,,complete
 full,torrey craig,2020,1620564,1,58.0,0.8,0,,complete
 full,torrey craig,2021,4878049,1,32.0,1.0,0,,complete
 full,torrey craig,2022,5121951,2,51.0,1.0,0,,complete
-full,torrey craig,2023,2528233,1,79.0,1.0,1,rapm_z,partial_impact
+full,torrey craig,2023,2528233,1,79.0,1.0,1,laker_z,partial_impact
 full,torrey craig,2024,779820,1,53.0,1.0,0,,complete
 full,toumani camara,2024,1891857,1,70.0,0.5,0,,complete
 full,toumani camara,2025,2221677,1,78.0,0.8,0,,complete
@@ -2932,9 +2932,9 @@ full,trey lyles,2019,5500000,1,64.0,0.5,0,,complete
 full,trey lyles,2020,5500000,2,63.0,0.8,0,,complete
 full,trey lyles,2021,2500000,1,23.0,1.0,0,,complete
 full,trey lyles,2022,2625000,2,51.0,1.0,0,,complete
-full,trey lyles,2023,8000000,1,74.0,1.0,1,rapm_z,partial_impact
+full,trey lyles,2023,8000000,1,74.0,1.0,1,laker_z,partial_impact
 full,trey lyles,2024,8000000,2,58.0,1.0,0,,complete
-full,trey lyles,2026,2449421,1,0.0,0.7,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,trey lyles,2026,2449421,1,0.0,0.7,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,trey murphy iii,2022,3206520,2,62.0,0.5,0,,complete
 full,trey murphy iii,2023,3359280,3,79.0,0.8,0,,complete
 full,trey murphy iii,2024,5159854,1,57.0,1.0,0,,complete
@@ -2946,14 +2946,14 @@ full,tristan thompson,2019,18539130,1,43.0,0.5,0,,complete
 full,tristan thompson,2020,9258000,1,57.0,0.8,0,,complete
 full,tristan thompson,2021,1000000,1,54.0,1.0,0,,complete
 full,tristan thompson,2022,10552,1,30.0,1.0,0,,complete
-full,tristan thompson,2023,2019706,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,tristan thompson,2023,2019706,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,tristan thompson,2024,2087519,2,49.0,1.0,0,,complete
 full,troy daniels,2019,481000,1,51.0,0.5,0,,complete
 full,troy williams,2019,122741,1,21.0,0.5,0,,complete
 full,ty jerome,2020,2303040,2,31.0,0.5,0,,complete
 full,ty jerome,2021,2412840,3,33.0,0.8,0,,complete
 full,ty jerome,2022,4220057,1,48.0,1.0,0,,complete
-full,ty jerome,2023,2439025,1,45.0,1.0,1,rapm_z,partial_impact
+full,ty jerome,2023,2439025,1,45.0,1.0,1,laker_z,partial_impact
 full,ty jerome,2024,2560975,2,2.0,1.0,0,,complete
 full,ty jerome,2025,8781000,1,70.0,1.0,0,,complete
 full,ty jerome,2026,9220050,2,15.0,1.0,0,,complete
@@ -2974,13 +2974,13 @@ full,tyler lydon,2019,50000,1,25.0,0.5,0,,complete
 full,tyler smith,2025,1955377,1,23.0,0.5,0,,complete
 full,tyler ulis,2019,50000,1,1.0,0.5,0,,complete
 full,tyler zeller,2019,245686,1,4.0,0.5,0,,complete
-full,tyrell terry,2021,1517981,1,11.0,0.5,1,rapm_z,partial_impact
+full,tyrell terry,2021,1517981,1,11.0,0.5,1,laker_z,partial_impact
 full,tyrese haliburton,2021,4023600,2,58.0,0.5,0,,complete
 full,tyrese haliburton,2022,4215120,3,51.0,0.8,0,,complete
 full,tyrese haliburton,2023,5808435,1,56.0,1.0,0,,complete
 full,tyrese haliburton,2024,42176400,1,69.0,1.0,0,,complete
 full,tyrese haliburton,2025,45550512,2,73.0,1.0,0,,complete
-full,tyrese haliburton,2026,48924624,3,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,tyrese haliburton,2026,48924624,3,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,tyrese martin,2025,2191897,1,60.0,0.5,0,,complete
 full,tyrese maxey,2021,2602920,2,61.0,0.5,0,,complete
 full,tyrese maxey,2022,2726880,3,75.0,0.8,0,,complete
@@ -3011,7 +3011,7 @@ full,victor oladipo,2019,21000000,1,36.0,0.5,0,,complete
 full,victor oladipo,2020,21000000,1,19.0,0.8,0,,complete
 full,victor oladipo,2021,2389641,1,20.0,1.0,0,,complete
 full,victor oladipo,2022,8750000,1,8.0,1.0,0,,complete
-full,victor oladipo,2023,9450000,1,42.0,1.0,1,rapm_z,partial_impact
+full,victor oladipo,2023,9450000,1,42.0,1.0,1,laker_z,partial_impact
 full,victor wembanyama,2024,12768960,2,71.0,0.5,0,,complete
 full,victor wembanyama,2025,13376880,3,46.0,0.8,0,,complete
 full,victor wembanyama,2026,16868246,1,64.0,1.0,0,,complete
@@ -3032,11 +3032,11 @@ full,wendell carter jr.,2019,5201400,1,44.0,0.5,0,,complete
 full,wendell carter jr.,2020,5448840,2,43.0,0.8,0,,complete
 full,wendell carter jr.,2021,6920027,1,32.0,1.0,0,,complete
 full,wendell carter jr.,2022,14150000,1,62.0,1.0,0,,complete
-full,wendell carter jr.,2023,13050000,2,57.0,1.0,1,rapm_z,partial_impact
+full,wendell carter jr.,2023,13050000,2,57.0,1.0,1,laker_z,partial_impact
 full,wendell carter jr.,2024,11950000,3,55.0,1.0,0,,complete
 full,wendell carter jr.,2025,10850000,4,68.0,1.0,0,,complete
 full,wendell carter jr.,2026,18102000,1,78.0,1.0,0,,complete
-full,wenyen gabriel,2019,1445697,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,wenyen gabriel,2019,1445697,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,wenyen gabriel,2020,1620564,1,19.0,0.8,0,,complete
 full,wenyen gabriel,2021,99380,1,21.0,1.0,0,,complete
 full,wenyen gabriel,2022,1878720,1,19.0,1.0,0,,complete
@@ -3063,20 +3063,20 @@ full,wilson chandler,2019,2564753,1,36.0,0.5,0,,complete
 full,xavier cooks,2023,1719864,1,10.0,0.5,1,lebron_z,partial_impact
 full,xavier sneed,2022,94136,1,7.0,0.5,0,,complete
 full,yang hansen,2026,4643520,2,43.0,0.5,0,,complete
-full,yante maten,2019,100000,1,2.0,0.5,1,rapm_z,partial_impact
+full,yante maten,2019,100000,1,2.0,0.5,1,laker_z,partial_impact
 full,yogi ferrell,2019,3150000,1,71.0,0.5,0,,complete
 full,yogi ferrell,2020,110998,1,50.0,0.8,0,,complete
 full,yuta watanabe,2020,321893,1,18.0,0.5,0,,complete
 full,yuta watanabe,2021,1762796,1,50.0,0.8,0,,complete
 full,yuta watanabe,2022,1836090,1,38.0,1.0,0,,complete
-full,yuta watanabe,2023,2346614,1,58.0,1.0,1,rapm_z,partial_impact
+full,yuta watanabe,2023,2346614,1,58.0,1.0,1,laker_z,partial_impact
 full,yves missi,2025,3353040,2,73.0,0.5,0,,complete
 full,yves missi,2026,3512760,3,66.0,0.8,0,,complete
 full,zaccharie risacher,2025,13197720,2,75.0,0.5,0,,complete
 full,zaccharie risacher,2026,13826040,3,67.0,0.8,0,,complete
 full,zach collins,2019,4240200,1,77.0,0.5,0,,complete
 full,zach collins,2020,5406255,1,11.0,0.8,0,,complete
-full,zach collins,2021,7000000,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,zach collins,2021,7000000,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,zach collins,2022,7350000,2,28.0,1.0,0,,complete
 full,zach collins,2023,7700000,3,63.0,1.0,0,,complete
 full,zach collins,2024,16741200,1,69.0,1.0,0,,complete
@@ -3106,14 +3106,14 @@ full,ziaire williams,2025,6250000,2,63.0,1.0,0,,complete
 full,ziaire williams,2026,2449421,1,56.0,1.0,0,,complete
 full,zion williamson,2020,10245480,2,24.0,0.5,0,,complete
 full,zion williamson,2021,10733400,3,61.0,0.8,0,,complete
-full,zion williamson,2022,13534817,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+full,zion williamson,2022,13534817,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 full,zion williamson,2023,34005250,1,29.0,1.0,0,,complete
 full,zion williamson,2024,36725670,2,70.0,1.0,0,,complete
 full,zion williamson,2025,39446090,3,30.0,1.0,0,,complete
 full,zion williamson,2026,42166510,4,62.0,1.0,0,,complete
 full,zylan cheatham,2020,1445697,1,4.0,0.5,0,,complete
-evaluation,a.j. green,2023,1901769,1,35.0,0.5,1,rapm_z,partial_impact
-evaluation,a.j. green,2026,10044644,1,78.0,1.0,1,rapm_z,partial_impact
+evaluation,a.j. green,2023,1901769,1,35.0,0.5,1,laker_z,partial_impact
+evaluation,a.j. green,2026,10044644,1,78.0,1.0,1,laker_z,partial_impact
 evaluation,aaron gordon,2022,19690909,1,75.0,1.0,0,,complete
 evaluation,aaron gordon,2026,33658037,1,36.0,1.0,0,,complete
 evaluation,aaron holiday,2022,1836090,1,41.0,1.0,0,,complete
@@ -3170,7 +3170,7 @@ evaluation,austin rivers,2022,1836090,1,67.0,1.0,0,,complete
 evaluation,avery bradley,2019,4767000,1,49.0,0.5,0,,complete
 evaluation,avery bradley,2020,5635000,1,49.0,0.8,0,,complete
 evaluation,avery bradley,2021,2641691,1,17.0,1.0,0,,complete
-evaluation,ayo dosunmu,2023,6481482,1,80.0,0.8,1,rapm_z,partial_impact
+evaluation,ayo dosunmu,2023,6481482,1,80.0,0.8,1,laker_z,partial_impact
 evaluation,ayo dosunmu,2026,19310345,1,45.0,1.0,0,,complete
 evaluation,bam adebayo,2021,28103550,1,64.0,1.0,0,,complete
 evaluation,bam adebayo,2026,49488300,1,73.0,1.0,0,,complete
@@ -3188,9 +3188,9 @@ evaluation,bobby portis,2019,15000000,1,28.0,0.5,0,,complete
 evaluation,bobby portis,2020,3623000,1,66.0,0.8,0,,complete
 evaluation,bobby portis,2021,4347600,1,66.0,1.0,0,,complete
 evaluation,bobby portis,2022,10843350,1,72.0,1.0,0,,complete
-evaluation,bobi klintman,2025,1955377,1,8.0,0.5,1,rapm_z,partial_impact
+evaluation,bobi klintman,2025,1955377,1,8.0,0.5,1,laker_z,partial_impact
 evaluation,bol bol,2020,2058240,1,7.0,0.5,0,,complete
-evaluation,bol bol,2023,2019706,1,70.0,1.0,1,rapm_z,partial_impact
+evaluation,bol bol,2023,2019706,1,70.0,1.0,1,laker_z,partial_impact
 evaluation,bones hyland,2025,2296274,1,20.0,1.0,0,,complete
 evaluation,bones hyland,2026,2845883,1,71.0,1.0,0,,complete
 evaluation,brad wanamaker,2019,1355341,1,36.0,0.5,0,,complete
@@ -3278,13 +3278,13 @@ evaluation,day'ron sharpe,2025,6250000,1,50.0,1.0,0,,complete
 evaluation,day'ron sharpe,2026,10000000,1,62.0,1.0,0,,complete
 evaluation,de'aaron fox,2021,28103500,1,58.0,1.0,0,,complete
 evaluation,de'aaron fox,2026,49488300,1,72.0,1.0,0,,complete
-evaluation,de'andre hunter,2023,20089286,1,67.0,1.0,1,rapm_z,partial_impact
+evaluation,de'andre hunter,2023,20089286,1,67.0,1.0,1,laker_z,partial_impact
 evaluation,de'anthony melton,2020,9571712,1,60.0,0.8,0,,complete
 evaluation,de'anthony melton,2024,12822000,1,38.0,1.0,0,,complete
 evaluation,de'anthony melton,2025,3080921,1,6.0,1.0,0,,complete
 evaluation,dean wade,2020,1517981,1,12.0,0.5,0,,complete
 evaluation,dean wade,2021,1782621,1,63.0,0.8,0,,complete
-evaluation,dean wade,2023,5709877,1,44.0,1.0,1,rapm_z,partial_impact
+evaluation,dean wade,2023,5709877,1,44.0,1.0,1,laker_z,partial_impact
 evaluation,dean wade,2026,9000000,1,59.0,1.0,0,,complete
 evaluation,deandre ayton,2022,30913750,1,58.0,1.0,0,,complete
 evaluation,deandre ayton,2025,8104000,1,40.0,1.0,0,,complete
@@ -3302,7 +3302,7 @@ evaluation,delon wright,2022,7804878,1,77.0,1.0,0,,complete
 evaluation,delon wright,2024,2087519,1,33.0,1.0,0,,complete
 evaluation,demar derozan,2024,23400000,1,79.0,1.0,0,,complete
 evaluation,demarcus cousins,2019,3500000,1,30.0,0.5,0,,complete
-evaluation,demarcus cousins,2020,1620564,1,0.0,0.8,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+evaluation,demarcus cousins,2020,1620564,1,0.0,0.8,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 evaluation,deni avdija,2024,15625000,1,75.0,1.0,0,,complete
 evaluation,denzel valentine,2020,4642800,1,36.0,0.8,0,,complete
 evaluation,deonte burton,2019,1416852,1,32.0,0.5,1,lebron_z,partial_impact
@@ -3324,7 +3324,7 @@ evaluation,devonte' graham,2024,2850000,1,23.0,1.0,0,,complete
 evaluation,dewayne dedmon,2019,13333333,1,64.0,0.5,0,,complete
 evaluation,didi louzada,2021,1786878,1,3.0,0.5,0,,complete
 evaluation,dillon brooks,2020,11400000,1,73.0,0.8,0,,complete
-evaluation,dillon brooks,2023,22627671,1,73.0,1.0,1,rapm_z,partial_impact
+evaluation,dillon brooks,2023,22627671,1,73.0,1.0,1,laker_z,partial_impact
 evaluation,domantas sabonis,2020,19800000,1,62.0,0.8,0,,complete
 evaluation,domantas sabonis,2023,30600000,1,79.0,1.0,0,,complete
 evaluation,domantas sabonis,2024,40500000,1,82.0,1.0,0,,complete
@@ -3339,7 +3339,7 @@ evaluation,doug mcdermott,2024,2087519,1,46.0,1.0,0,,complete
 evaluation,draymond green,2020,22246956,1,43.0,0.8,0,,complete
 evaluation,draymond green,2023,22321429,1,73.0,1.0,0,,complete
 evaluation,drew eubanks,2020,1620564,1,22.0,0.5,0,,complete
-evaluation,drew eubanks,2023,2346614,1,78.0,1.0,1,rapm_z,partial_impact
+evaluation,drew eubanks,2023,2346614,1,78.0,1.0,1,laker_z,partial_impact
 evaluation,drew eubanks,2024,5000000,1,75.0,1.0,0,,complete
 evaluation,drew eubanks,2025,2296274,1,37.0,1.0,0,,complete
 evaluation,drew timme,2025,1955377,1,9.0,0.5,0,,complete
@@ -3358,7 +3358,7 @@ evaluation,dylan windler,2023,2019706,1,3.0,1.0,0,,complete
 evaluation,dyson daniels,2026,25000000,1,76.0,1.0,0,,complete
 evaluation,e'twaun moore,2020,1620564,1,56.0,0.8,0,,complete
 evaluation,e'twaun moore,2021,2641691,1,27.0,1.0,0,,complete
-evaluation,e.j. liddell,2023,1801769,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+evaluation,e.j. liddell,2023,1801769,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 evaluation,ed davis,2019,4767000,1,81.0,0.5,0,,complete
 evaluation,ed davis,2021,2641691,1,23.0,1.0,0,,complete
 evaluation,edmond sumner,2019,2000000,1,23.0,0.5,0,,complete
@@ -3399,10 +3399,10 @@ evaluation,gary harris,2024,7500000,1,54.0,1.0,0,,complete
 evaluation,gary harris,2025,3634153,1,48.0,1.0,0,,complete
 evaluation,gary payton ii,2022,8300000,1,71.0,1.0,0,,complete
 evaluation,gary payton ii,2025,2296274,1,62.0,1.0,0,,complete
-evaluation,gary trent jr.,2021,16000000,1,58.0,1.0,1,rapm_z,partial_impact
-evaluation,gary trent jr.,2024,2087519,1,71.0,1.0,1,rapm_z,partial_impact
-evaluation,gary trent jr.,2025,3697105,1,74.0,1.0,1,rapm_z,partial_impact
-evaluation,gary trent jr.,2026,15200000,1,65.0,1.0,1,rapm_z,partial_impact
+evaluation,gary trent jr.,2021,16000000,1,58.0,1.0,1,laker_z,partial_impact
+evaluation,gary trent jr.,2024,2087519,1,71.0,1.0,1,laker_z,partial_impact
+evaluation,gary trent jr.,2025,3697105,1,74.0,1.0,1,laker_z,partial_impact
+evaluation,gary trent jr.,2026,15200000,1,65.0,1.0,1,laker_z,partial_impact
 evaluation,george hill,2019,10133907,1,47.0,0.5,0,,complete
 evaluation,george hill,2021,4000000,1,14.0,1.0,0,,complete
 evaluation,georges niang,2021,3300000,1,72.0,1.0,0,,complete
@@ -3414,7 +3414,7 @@ evaluation,goga bitadze,2024,9057971,1,62.0,1.0,0,,complete
 evaluation,gordon hayward,2020,28500000,1,52.0,0.8,0,,complete
 evaluation,gorgui dieng,2021,4000000,1,22.0,1.0,0,,complete
 evaluation,gorgui dieng,2022,1836090,1,44.0,1.0,0,,complete
-evaluation,grant williams,2023,12405000,1,79.0,1.0,1,rapm_z,partial_impact
+evaluation,grant williams,2023,12405000,1,79.0,1.0,1,laker_z,partial_impact
 evaluation,grayson allen,2022,8500000,1,66.0,1.0,0,,complete
 evaluation,grayson allen,2024,15625000,1,75.0,1.0,0,,complete
 evaluation,guerschon yabusele,2025,5500000,1,70.0,0.5,0,,complete
@@ -3457,7 +3457,7 @@ evaluation,j.j. barea,2019,2564753,1,38.0,0.5,0,,complete
 evaluation,j.j. barea,2020,1620564,1,29.0,0.8,0,,complete
 evaluation,ja morant,2023,34005250,1,61.0,1.0,0,,complete
 evaluation,jabari parker,2019,6500000,1,39.0,0.5,0,,complete
-evaluation,jabari smith jr.,2026,23643411,1,77.0,1.0,1,rapm_z,partial_impact
+evaluation,jabari smith jr.,2026,23643411,1,77.0,1.0,1,laker_z,partial_impact
 evaluation,jaden hardy,2025,6000000,1,57.0,1.0,0,,complete
 evaluation,jaden mcdaniels,2024,23017242,1,72.0,1.0,0,,complete
 evaluation,jae crowder,2020,9258000,1,45.0,0.8,0,,complete
@@ -3497,14 +3497,14 @@ evaluation,jamychal green,2020,7199760,1,63.0,0.8,0,,complete
 evaluation,jamychal green,2022,1836090,1,67.0,1.0,0,,complete
 evaluation,jared dudley,2019,2564753,1,59.0,0.5,0,,complete
 evaluation,jared dudley,2020,1620564,1,45.0,0.8,0,,complete
-evaluation,jaren jackson jr.,2022,28946605,1,78.0,1.0,1,rapm_z,partial_impact
-evaluation,jaren jackson jr.,2025,35000000,1,74.0,1.0,1,rapm_z,partial_impact
-evaluation,jaren jackson jr.,2026,49000000,1,48.0,1.0,1,rapm_z,partial_impact
+evaluation,jaren jackson jr.,2022,28946605,1,78.0,1.0,1,laker_z,partial_impact
+evaluation,jaren jackson jr.,2025,35000000,1,74.0,1.0,1,laker_z,partial_impact
+evaluation,jaren jackson jr.,2026,49000000,1,48.0,1.0,1,laker_z,partial_impact
 evaluation,jarred vanderbilt,2021,4000000,1,64.0,1.0,0,,complete
-evaluation,jarred vanderbilt,2024,10714286,1,29.0,1.0,1,rapm_z,partial_impact
+evaluation,jarred vanderbilt,2024,10714286,1,29.0,1.0,1,laker_z,partial_impact
 evaluation,jarrett allen,2021,20000000,1,51.0,1.0,0,,complete
 evaluation,jarrett allen,2026,28000000,1,56.0,1.0,0,,complete
-evaluation,jason preston,2022,1563518,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+evaluation,jason preston,2022,1563518,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 evaluation,javale mcgee,2019,4000000,1,75.0,0.5,0,,complete
 evaluation,javale mcgee,2021,5000000,1,33.0,1.0,0,,complete
 evaluation,javale mcgee,2023,2348324,1,42.0,1.0,0,,complete
@@ -3535,12 +3535,12 @@ evaluation,jericho sims,2022,1639842,1,41.0,0.5,0,,complete
 evaluation,jericho sims,2025,2461463,1,39.0,1.0,0,,complete
 evaluation,jevon carter,2019,1416852,1,39.0,0.5,0,,complete
 evaluation,jevon carter,2020,3925000,1,58.0,0.8,0,,complete
-evaluation,jevon carter,2023,6190476,1,81.0,1.0,1,rapm_z,partial_impact
+evaluation,jevon carter,2023,6190476,1,81.0,1.0,1,laker_z,partial_impact
 evaluation,jevon carter,2026,2449421,1,30.0,1.0,0,,complete
 evaluation,jimmy butler,2019,32742000,1,55.0,0.5,0,,complete
 evaluation,jimmy butler,2023,45183960,1,64.0,1.0,0,,complete
 evaluation,joakim noah,2020,6431667,1,5.0,0.8,0,,complete
-evaluation,jock landale,2023,8000000,1,69.0,0.8,1,rapm_z,partial_impact
+evaluation,jock landale,2023,8000000,1,69.0,0.8,1,laker_z,partial_impact
 evaluation,jock landale,2025,2296274,1,42.0,1.0,0,,complete
 evaluation,jock landale,2026,14100000,1,45.0,1.0,0,,complete
 evaluation,joe harris,2020,16071429,1,69.0,0.8,0,,complete
@@ -3555,14 +3555,14 @@ evaluation,john konchar,2020,2100000,1,19.0,0.5,1,lebron_z,partial_impact
 evaluation,john wall,2019,38199000,1,32.0,0.5,0,,complete
 evaluation,johnny juzang,2024,3087519,1,20.0,0.5,0,,complete
 evaluation,jonah bolden,2019,1698450,1,44.0,0.5,0,,complete
-evaluation,jonathan isaac,2021,17400000,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+evaluation,jonathan isaac,2021,17400000,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 evaluation,jonathan isaac,2024,25000000,1,58.0,1.0,0,,complete
 evaluation,jonathan isaac,2025,15000000,1,71.0,1.0,0,,complete
 evaluation,jonathan isaac,2026,10449421,1,52.0,1.0,0,,complete
 evaluation,jonathan kuminga,2025,23799569,1,47.0,1.0,0,,complete
-evaluation,jontay porter,2020,1900000,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+evaluation,jontay porter,2020,1900000,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 evaluation,jordan clarkson,2020,11500000,1,42.0,0.8,0,,complete
-evaluation,jordan clarkson,2023,23487629,1,61.0,1.0,1,rapm_z,partial_impact
+evaluation,jordan clarkson,2023,23487629,1,61.0,1.0,1,laker_z,partial_impact
 evaluation,jordan clarkson,2024,14092577,1,55.0,1.0,0,,complete
 evaluation,jordan clarkson,2026,2449421,1,72.0,1.0,0,,complete
 evaluation,jordan goodwin,2026,5864198,1,70.0,1.0,0,,complete
@@ -3614,11 +3614,11 @@ evaluation,keita bates-diop,2019,1416852,1,30.0,0.5,0,,complete
 evaluation,keita bates-diop,2021,1729217,1,30.0,0.7,0,,complete
 evaluation,keita bates-diop,2023,2346614,1,67.0,1.0,0,,complete
 evaluation,keita bates-diop,2024,2654644,1,39.0,1.0,0,,complete
-evaluation,keldon johnson,2023,20000000,1,63.0,1.0,1,rapm_z,partial_impact
+evaluation,keldon johnson,2023,20000000,1,63.0,1.0,1,laker_z,partial_impact
 evaluation,kelly oubre jr.,2019,15625000,1,40.0,0.5,0,,complete
 evaluation,kelly oubre jr.,2021,12000000,1,55.0,1.0,0,,complete
 evaluation,kelly oubre jr.,2023,2019706,1,48.0,1.0,0,,complete
-evaluation,kelly oubre jr.,2024,7983000,1,68.0,1.0,1,rapm_z,partial_impact
+evaluation,kelly oubre jr.,2024,7983000,1,68.0,1.0,1,laker_z,partial_impact
 evaluation,kelly oubre jr.,2026,8050000,1,50.0,1.0,0,,complete
 evaluation,kemba walker,2019,32742000,1,82.0,0.5,0,,complete
 evaluation,kemba walker,2021,8729020,1,43.0,1.0,0,,complete
@@ -3643,8 +3643,8 @@ evaluation,kevin huerter,2026,8333333,1,44.0,1.0,0,,complete
 evaluation,kevin knox,2022,3000000,1,17.0,1.0,0,,complete
 evaluation,kevin knox,2023,1845593,1,42.0,1.0,0,,complete
 evaluation,kevin love,2019,28942830,1,22.0,0.5,0,,complete
-evaluation,kevin love,2023,3835738,1,62.0,1.0,1,rapm_z,partial_impact
-evaluation,kevin porter jr.,2023,15860000,1,59.0,1.0,1,rapm_z,partial_impact
+evaluation,kevin love,2023,3835738,1,62.0,1.0,1,laker_z,partial_impact
+evaluation,kevin porter jr.,2023,15860000,1,59.0,1.0,1,laker_z,partial_impact
 evaluation,kevin porter jr.,2025,5134000,1,45.0,0.7,0,,complete
 evaluation,kevon looney,2019,4464286,1,80.0,0.5,0,,complete
 evaluation,kevon looney,2022,8000000,1,82.0,1.0,0,,complete
@@ -3666,7 +3666,7 @@ evaluation,kyle anderson,2022,8780488,1,69.0,1.0,0,,complete
 evaluation,kyle anderson,2026,2449421,1,20.0,1.0,0,,complete
 evaluation,kyle korver,2019,2564753,1,54.0,0.5,0,,complete
 evaluation,kyle kuzma,2021,13000000,1,68.0,1.0,0,,complete
-evaluation,kyle kuzma,2023,25568182,1,64.0,1.0,1,rapm_z,partial_impact
+evaluation,kyle kuzma,2023,25568182,1,64.0,1.0,1,laker_z,partial_impact
 evaluation,kyle lowry,2021,26984128,1,46.0,1.0,0,,complete
 evaluation,kyle lowry,2024,2087519,1,37.0,1.0,0,,complete
 evaluation,kyle o'quinn,2019,2028594,1,45.0,0.5,0,,complete
@@ -3692,7 +3692,7 @@ evaluation,lou williams,2020,8000000,1,65.0,0.8,0,,complete
 evaluation,lou williams,2021,5000000,1,42.0,1.0,0,,complete
 evaluation,luguentz dort,2022,15277778,1,51.0,1.0,0,,complete
 evaluation,luka doncic,2022,37096500,1,65.0,1.0,0,,complete
-evaluation,luka garza,2024,2162606,1,25.0,0.8,1,rapm_z,partial_impact
+evaluation,luka garza,2024,2162606,1,25.0,0.8,1,laker_z,partial_impact
 evaluation,luke kennard,2021,12727273,1,63.0,1.0,0,,complete
 evaluation,luke kennard,2024,9250000,1,39.0,1.0,0,,complete
 evaluation,luke kennard,2025,11000000,1,65.0,1.0,0,,complete
@@ -3704,7 +3704,7 @@ evaluation,luke kornet,2025,11000000,1,73.0,1.0,0,,complete
 evaluation,malcolm brogdon,2019,20000000,1,64.0,0.5,0,,complete
 evaluation,malcolm brogdon,2023,22500000,1,67.0,1.0,0,,complete
 evaluation,malik beasley,2020,13425895,1,41.0,0.8,0,,complete
-evaluation,malik beasley,2023,2019706,1,81.0,1.0,1,rapm_z,partial_impact
+evaluation,malik beasley,2023,2019706,1,81.0,1.0,1,laker_z,partial_impact
 evaluation,malik beasley,2024,6000000,1,79.0,1.0,0,,complete
 evaluation,malik monk,2021,1789256,1,42.0,1.0,0,,complete
 evaluation,malik monk,2022,9472219,1,76.0,1.0,0,,complete
@@ -3768,7 +3768,7 @@ evaluation,monte morris,2021,8849071,1,47.0,1.0,0,,complete
 evaluation,monte morris,2024,2087519,1,27.0,1.0,0,,complete
 evaluation,montrezl harrell,2020,9258000,1,63.0,0.8,0,,complete
 evaluation,montrezl harrell,2022,2463490,1,46.0,1.0,0,,complete
-evaluation,montrezl harrell,2023,2019706,1,57.0,1.0,1,rapm_z,partial_impact
+evaluation,montrezl harrell,2023,2019706,1,57.0,1.0,1,laker_z,partial_impact
 evaluation,moritz wagner,2023,8000000,1,57.0,1.0,0,,complete
 evaluation,moritz wagner,2024,11000000,1,80.0,1.0,0,,complete
 evaluation,moritz wagner,2025,5000000,1,30.0,1.0,0,,complete
@@ -3779,12 +3779,12 @@ evaluation,myles turner,2019,17500000,1,74.0,0.5,0,,complete
 evaluation,myles turner,2022,35069500,1,42.0,1.0,0,,complete
 evaluation,myles turner,2023,20975000,1,62.0,1.0,0,,complete
 evaluation,myles turner,2025,25318251,1,72.0,1.0,0,,complete
-evaluation,n'faly dante,2025,2048494,1,4.0,0.5,1,rapm_z,partial_impact
+evaluation,n'faly dante,2025,2048494,1,4.0,0.5,1,laker_z,partial_impact
 evaluation,naji marshall,2024,8571429,1,66.0,1.0,0,,complete
 evaluation,nassir little,2023,6250000,1,54.0,1.0,0,,complete
 evaluation,nassir little,2024,3107143,1,45.0,1.0,0,,complete
 evaluation,nathan knight,2022,1836090,1,37.0,0.5,0,,complete
-evaluation,naz reid,2023,12950400,1,68.0,1.0,1,rapm_z,partial_impact
+evaluation,naz reid,2023,12950400,1,68.0,1.0,1,laker_z,partial_impact
 evaluation,naz reid,2025,21551724,1,80.0,1.0,0,,complete
 evaluation,neemias queta,2024,2162606,1,28.0,0.8,0,,complete
 evaluation,nemanja bjelica,2021,2089448,1,26.0,1.0,0,,complete
@@ -3796,7 +3796,7 @@ evaluation,nic claxton,2022,8500000,1,47.0,1.0,0,,complete
 evaluation,nic claxton,2024,27556817,1,71.0,1.0,0,,complete
 evaluation,nick richards,2021,1517981,1,18.0,0.5,0,,complete
 evaluation,nick richards,2022,1782621,1,50.0,0.8,0,,complete
-evaluation,nick richards,2023,5000000,1,65.0,1.0,1,rapm_z,partial_impact
+evaluation,nick richards,2023,5000000,1,65.0,1.0,1,laker_z,partial_impact
 evaluation,nickeil alexander-walker,2025,15161800,1,82.0,1.0,0,,complete
 evaluation,nicolas batum,2020,8856969,1,22.0,0.8,0,,complete
 evaluation,nicolas batum,2022,10843350,1,59.0,1.0,0,,complete
@@ -3809,8 +3809,8 @@ evaluation,norman powell,2026,21500000,1,58.0,1.0,0,,complete
 evaluation,obi toppin,2024,12975000,1,82.0,1.0,0,,complete
 evaluation,og anunoby,2021,16071429,1,43.0,1.0,0,,complete
 evaluation,og anunoby,2024,36637932,1,27.0,1.0,0,,complete
-evaluation,omer yurtseven,2021,1489065,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
-evaluation,omer yurtseven,2023,2800000,1,9.0,1.0,1,rapm_z,partial_impact
+evaluation,omer yurtseven,2021,1489065,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
+evaluation,omer yurtseven,2023,2800000,1,9.0,1.0,1,laker_z,partial_impact
 evaluation,onyeka okongwu,2024,14000000,1,55.0,1.0,0,,complete
 evaluation,orlando robinson,2023,1801769,1,31.0,0.5,0,,complete
 evaluation,oshae brissett,2023,2165000,1,65.0,1.0,0,,complete
@@ -3820,14 +3820,14 @@ evaluation,p.j. tucker,2020,7969537,1,72.0,0.8,0,,complete
 evaluation,p.j. tucker,2021,7000000,1,32.0,1.0,0,,complete
 evaluation,p.j. tucker,2022,10490000,1,71.0,1.0,0,,complete
 evaluation,p.j. tucker,2023,11014500,1,75.0,1.0,0,,complete
-evaluation,p.j. washington,2023,16847826,1,73.0,1.0,1,rapm_z,partial_impact
+evaluation,p.j. washington,2023,16847826,1,73.0,1.0,1,laker_z,partial_impact
 evaluation,p.j. washington,2026,19813044,1,56.0,1.0,0,,complete
 evaluation,paolo banchero,2026,41240250,1,72.0,1.0,0,,complete
 evaluation,pascal siakam,2020,30559200,1,60.0,0.8,0,,complete
 evaluation,pat connaughton,2020,4938273,1,67.0,0.8,0,,complete
 evaluation,pat connaughton,2023,9423869,1,61.0,1.0,0,,complete
 evaluation,patrick beverley,2019,12345679,1,78.0,0.5,0,,complete
-evaluation,patrick beverley,2023,2019706,1,67.0,1.0,1,rapm_z,partial_impact
+evaluation,patrick beverley,2023,2019706,1,67.0,1.0,1,laker_z,partial_impact
 evaluation,patrick mccaw,2019,4000000,1,26.0,0.5,0,,complete
 evaluation,patrick patterson,2019,2331593,1,63.0,0.5,0,,complete
 evaluation,patrick patterson,2020,3077704,1,59.0,0.8,0,,complete
@@ -3915,14 +3915,14 @@ evaluation,semi ojeleye,2021,1789256,1,56.0,1.0,0,,complete
 evaluation,serge ibaka,2020,9258000,1,55.0,0.8,0,,complete
 evaluation,serge ibaka,2022,1836090,1,35.0,1.0,0,,complete
 evaluation,seth curry,2019,7461380,1,74.0,0.5,0,,complete
-evaluation,seth curry,2023,4000000,1,61.0,1.0,1,rapm_z,partial_impact
+evaluation,seth curry,2023,4000000,1,61.0,1.0,1,laker_z,partial_impact
 evaluation,seth curry,2024,2087519,1,36.0,1.0,0,,complete
 evaluation,shabazz napier,2019,1845301,1,56.0,0.5,0,,complete
 evaluation,shaedon sharpe,2026,20089287,1,50.0,1.0,0,,complete
 evaluation,shai gilgeous-alexander,2022,30913750,1,56.0,1.0,0,,complete
 evaluation,shake milton,2019,1445697,1,20.0,0.5,0,,complete
 evaluation,shake milton,2020,1701593,1,40.0,0.8,0,,complete
-evaluation,shake milton,2023,5000000,1,76.0,1.0,1,rapm_z,partial_impact
+evaluation,shake milton,2023,5000000,1,76.0,1.0,1,laker_z,partial_impact
 evaluation,shake milton,2024,2875000,1,38.0,1.0,0,,complete
 evaluation,simone fontecchio,2024,7692308,1,50.0,0.8,0,,complete
 evaluation,simone fontecchio,2026,2449421,1,70.0,1.0,0,,complete
@@ -3943,7 +3943,7 @@ evaluation,svi mykhailiuk,2024,3500000,1,41.0,1.0,0,,complete
 evaluation,t.j. mcconnell,2019,3500000,1,76.0,0.5,0,,complete
 evaluation,t.j. mcconnell,2021,7500000,1,69.0,1.0,0,,complete
 evaluation,t.j. warren,2019,10810000,1,43.0,0.5,0,,complete
-evaluation,t.j. warren,2022,1836090,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+evaluation,t.j. warren,2022,1836090,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 evaluation,taj gibson,2019,9800000,1,70.0,0.5,0,,complete
 evaluation,taj gibson,2020,2442968,1,62.0,0.8,0,,complete
 evaluation,taj gibson,2021,4910000,1,45.0,1.0,0,,complete
@@ -3976,8 +3976,8 @@ evaluation,thomas bryant,2023,2528233,1,41.0,1.0,0,,complete
 evaluation,thomas bryant,2024,2087519,1,38.0,1.0,0,,complete
 evaluation,thomas bryant,2026,2449421,1,60.0,1.0,0,,complete
 evaluation,tim frazier,2019,1882867,1,47.0,0.5,0,,complete
-evaluation,tim hardaway jr.,2025,2296274,1,77.0,1.0,1,rapm_z,partial_impact
-evaluation,tim hardaway jr.,2026,6500000,1,80.0,1.0,1,rapm_z,partial_impact
+evaluation,tim hardaway jr.,2025,2296274,1,77.0,1.0,1,laker_z,partial_impact
+evaluation,tim hardaway jr.,2026,6500000,1,80.0,1.0,1,laker_z,partial_impact
 evaluation,tobias harris,2019,32742000,1,55.0,0.5,0,,complete
 evaluation,tobias harris,2024,25365854,1,70.0,1.0,0,,complete
 evaluation,tobias harris,2026,15044000,1,63.0,1.0,0,,complete
@@ -3985,7 +3985,7 @@ evaluation,tony bradley,2021,1789256,1,22.0,1.0,0,,complete
 evaluation,tony snell,2021,2389641,1,47.0,1.0,0,,complete
 evaluation,torrey craig,2020,1620564,1,58.0,0.8,0,,complete
 evaluation,torrey craig,2021,4878049,1,32.0,1.0,0,,complete
-evaluation,torrey craig,2023,2528233,1,79.0,1.0,1,rapm_z,partial_impact
+evaluation,torrey craig,2023,2528233,1,79.0,1.0,1,laker_z,partial_impact
 evaluation,toumani camara,2026,18080358,1,82.0,1.0,0,,complete
 evaluation,trae young,2022,37096500,1,76.0,1.0,0,,complete
 evaluation,trae young,2026,49488300,1,10.0,1.0,0,,complete
@@ -3999,17 +3999,17 @@ evaluation,trevor ariza,2021,2641691,1,30.0,1.0,0,,complete
 evaluation,trey burke,2020,3000000,1,25.0,0.8,0,,complete
 evaluation,trey lyles,2019,5500000,1,64.0,0.5,0,,complete
 evaluation,trey lyles,2021,2500000,1,23.0,1.0,0,,complete
-evaluation,trey lyles,2023,8000000,1,74.0,1.0,1,rapm_z,partial_impact
-evaluation,trey lyles,2026,2449421,1,0.0,0.7,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+evaluation,trey lyles,2023,8000000,1,74.0,1.0,1,laker_z,partial_impact
+evaluation,trey lyles,2026,2449421,1,0.0,0.7,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 evaluation,trey murphy iii,2025,25000000,1,53.0,1.0,0,,complete
 evaluation,tristan thompson,2020,9258000,1,57.0,0.8,0,,complete
-evaluation,tristan thompson,2023,2019706,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
-evaluation,ty jerome,2023,2439025,1,45.0,1.0,1,rapm_z,partial_impact
+evaluation,tristan thompson,2023,2019706,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
+evaluation,ty jerome,2023,2439025,1,45.0,1.0,1,laker_z,partial_impact
 evaluation,ty jerome,2025,8781000,1,70.0,1.0,0,,complete
 evaluation,tyler herro,2023,27000000,1,67.0,1.0,0,,complete
 evaluation,tyler johnson,2020,1620564,1,31.0,0.8,0,,complete
 evaluation,tyler smith,2025,1955377,1,23.0,0.5,0,,complete
-evaluation,tyrell terry,2021,1517981,1,11.0,0.5,1,rapm_z,partial_impact
+evaluation,tyrell terry,2021,1517981,1,11.0,0.5,1,laker_z,partial_impact
 evaluation,tyrese haliburton,2024,42176400,1,69.0,1.0,0,,complete
 evaluation,tyrese martin,2025,2191897,1,60.0,0.5,0,,complete
 evaluation,tyrese maxey,2024,35147000,1,70.0,1.0,0,,complete
@@ -4033,7 +4033,7 @@ evaluation,wayne ellington,2020,2564753,1,36.0,0.8,0,,complete
 evaluation,wayne ellington,2021,2641691,1,46.0,1.0,0,,complete
 evaluation,wendell carter jr.,2022,14150000,1,62.0,1.0,0,,complete
 evaluation,wendell carter jr.,2026,18102000,1,78.0,1.0,0,,complete
-evaluation,wenyen gabriel,2019,1445697,1,0.0,0.5,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+evaluation,wenyen gabriel,2019,1445697,1,0.0,0.5,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 evaluation,wenyen gabriel,2020,1620564,1,19.0,0.8,0,,complete
 evaluation,wenyen gabriel,2022,1878720,1,19.0,1.0,0,,complete
 evaluation,wes iwundu,2019,1618520,1,68.0,0.5,0,,complete
@@ -4047,8 +4047,8 @@ evaluation,willie cauley-stein,2020,4100000,1,41.0,0.8,0,,complete
 evaluation,wilson chandler,2019,2564753,1,36.0,0.5,0,,complete
 evaluation,xavier cooks,2023,1719864,1,10.0,0.5,1,lebron_z,partial_impact
 evaluation,yuta watanabe,2022,1836090,1,38.0,1.0,0,,complete
-evaluation,yuta watanabe,2023,2346614,1,58.0,1.0,1,rapm_z,partial_impact
-evaluation,zach collins,2021,7000000,1,0.0,1.0,4,lebron_z|rapm_z|usage_pct|ast_pct,did_not_play
+evaluation,yuta watanabe,2023,2346614,1,58.0,1.0,1,laker_z,partial_impact
+evaluation,zach collins,2021,7000000,1,0.0,1.0,4,lebron_z|laker_z|usage_pct|ast_pct,did_not_play
 evaluation,zach collins,2024,16741200,1,69.0,1.0,0,,complete
 evaluation,zach collins,2026,8292683,1,10.0,1.0,0,,complete
 evaluation,zach lavine,2022,37096500,1,67.0,1.0,0,,complete

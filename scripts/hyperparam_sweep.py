@@ -17,7 +17,7 @@ from src.model.train import (
 )
 
 FEATURES = [
-    "darko_dpm_z", "lebron_z", "rapm_z",
+    "darko_dpm_z", "lebron_z", "laker_z",
     "age", "age_squared",
     "mpg",
     "availability_3yr",

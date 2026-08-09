@@ -9,7 +9,7 @@ Predict a player's market value as **cap_pct** (annual salary / salary cap), usi
 | Source | Data | Rows |
 |--------|------|------|
 | Basketball Reference | Per-season salary, age, team | 4,723 player-seasons (1,086 players, 2019–2031) |
-| nbarapm.com | DARKO DPM, LEBRON, RAPM, usage, box-score rates | 3,880 player-seasons (903 players) |
+| nbarapm.com | DARKO DPM, LEBRON, LAKER, usage, box-score rates | 3,880 player-seasons (903 players) |
 | Basketball Reference | Height in inches | 5,416 players |
 | Basketball Reference | Pre-window salaries for the ceiling floor and `prev_cap_pct` | 767 player-seasons (~550 players, 2016–2018) |
 | Spotrac | Signing mechanism, contract years, total value, AAV | 8,910 contract-seasons; 1,073 FA signings (2019–2026) |
@@ -163,15 +163,43 @@ continuation, but its 2025-26 salary was raised $11.6M by the renegotiation on
 2025-07-13 — structurally identical to Markkanen 2024 and Turner 2022. Resolved
 as fresh.
 
-## Feature Set (18 features)
+## Feature Set (21 features)
 
 ### Performance Metrics (z-scored within season)
 | Feature | Description |
 |---------|-------------|
 | `darko_dpm_z` | DARKO Daily Plus-Minus, z-scored by season |
 | `lebron_z` | LEBRON metric, z-scored by season |
-| `rapm_z` | Regularized Adjusted Plus-Minus, z-scored by season |
+| `laker_z` | LAKER, z-scored by season |
 | `kalman_filtered_stats` | Kalman-filtered player quality estimate. See below. |
+| `darko_od_diff_z` | DARKO offensive minus defensive component, z-scored by season. See below. |
+| `lebron_od_diff_z` | LEBRON offensive minus defensive component, z-scored by season. See below. |
+| `laker_od_diff_z` | LAKER offensive minus defensive component, z-scored by season. See below. |
+
+#### O/D diff z-scores (v8.12x)
+
+The three composite z-scores (DARKO DPM, LEBRON, LAKER) measure overall player
+quality. The O/D diffs capture a second, **orthogonal** dimension: whether a
+player tilts toward offense or defense. `darko_od_diff = darko_odpm - darko_ddpm`
+(and likewise for LEBRON and LAKER), then z-scored within season so the scale
+matches the composites.
+
+**Why the diffs, not the raw O/D columns.** Replacing the 3 composites with
+6 raw O/D z-scores (Arm A) scored +0.0044, t = 1.14 on 20 seeds — the gains
+are unstable because 6 columns cost 3 degrees of freedom while mostly
+re-expressing the same total quality signal. The diffs (Arm B) are additive —
+keep all existing features, add 3 — and the signal they carry (offensive tilt)
+is nearly uncorrelated with the composites (confirmed: kf_offense ↔ kf_defense
+r = −0.186). Paired ΔSel = +0.0026, t = 2.01 on 20 seeds; 4 of 5 folds
+positive; stable across seed halves (seeds 0-9: t = 1.73, seeds 10-19: t = 2.08).
+
+A two-filter Kalman variant (one filter from O metrics, one from D) was also
+tested (Arm D): it recovers only half of `kalman_filtered_stats`'s value
+(r = 0.775 with the composite) because independent filters lose the
+cross-information between O and D measurements.
+
+Code: `src/features/base_rating.py::attach_od_diffs()`, attached at load time
+in `train.py::load_training_data()`.
 
 ### Age & Workload
 | Feature | Description |
@@ -213,7 +241,7 @@ the same falsification: the within-team permutation retains 6% of its gain
 
 #### `kalman_filtered_stats` — Kalman-filtered player quality (v8.10x)
 
-A Kalman filter over the three impact metrics (DARKO DPM, LEBRON, RAPM) that
+A Kalman filter over the three impact metrics (DARKO DPM, LEBRON, LAKER) that
 produces a single filtered quality estimate per player-season. The filter runs
 causally per player — it sees only seasons up to and including the current one —
 so it is strictly ex ante and carries no look-ahead.
@@ -223,13 +251,13 @@ so it is strictly ex ante and carries no look-ahead.
 constant estimated from mean year-over-year change bucketed by age: +0.21
 (age <= 22), +0.05 (22-25), -0.04 (25-28), -0.19 (28-31), -0.26 (31-34),
 -0.27 (34+). Each season's three z-scored metrics are noisy measurements of the
-same latent state: `[darko_z, lebron_z, rapm_z] = x + measurement_noise`.
+same latent state: `[darko_z, lebron_z, laker_z] = x + measurement_noise`.
 
 **Parameter estimation, from metric data only.** All filter parameters are
 estimated from the metric data, never from the target:
 
 - **R** (measurement noise covariance) from pairwise metric disagreement:
-  DARKO 0.138, LEBRON 0.203, RAPM 0.447. RAPM is downweighted roughly 3x
+  DARKO 0.138, LEBRON 0.203, LAKER 0.447. LAKER is downweighted roughly 3x
   relative to DARKO, which matches its known noisiness (smaller sample of
   possessions, heavier regularisation).
 - **drift(age)** from the mean year-over-year change in each metric, bucketed
@@ -239,7 +267,7 @@ estimated from the metric data, never from the target:
 
 **Why it outperforms raw metrics.** `corr(kalman_filtered_stats, darko_z) = 0.959` — high, but
 the residual carries two things the raw z-scores do not: (1) **optimal
-multi-metric weighting**, where RAPM is downweighted relative to DARKO and
+multi-metric weighting**, where LAKER is downweighted relative to DARKO and
 LEBRON in proportion to its measurement noise, and (2) **age-aware drift
 prediction**, so a 22-year-old's filtered state is pulled upward by the
 expected growth trajectory while a 32-year-old's is pulled down. The
@@ -300,11 +328,11 @@ them as zero; 2020-21 counts 72 games.
 
 A Basketball Reference advanced-stat fallback fills absent workload and box
 rates over eight seasons, matched on name-season then on the stable
-`player_url`, filling only gaps and never synthesising RAPM. After the repair,
+`player_url`, filling only gaps and never synthesising LAKER. After the repair,
 age, height, mpg and availability have zero missing values in the 944 frame.
 
 The impact-source join itself was repaired in v8.1x: the three sources
-(DARKO, LEBRON, LAKER/RAPM) sometimes spelled the same player differently, and
+(DARKO, LEBRON, LAKER) sometimes spelled the same player differently, and
 the old name-season merge left those rows split. Joining on `(nba_id, season)`
 closes the gap.
 
@@ -312,11 +340,11 @@ closes the gap.
 
 | Feature | ΔCV R² | Reason Rejected |
 |---------|--------|-----------------|
-| `bpm`, `ts_plus`, `fg3_plus`, `threepar_plus` | < +0.001 | Redundant with DARKO/LEBRON/RAPM |
+| `bpm`, `ts_plus`, `fg3_plus`, `threepar_plus` | < +0.001 | Redundant with DARKO/LEBRON/LAKER |
 | `ast_tov_ratio` | +0.0001 | Redundant with ast_pct |
 | `experience_years` | -0.0004 | Collinear with age |
 | `win_pct`, `made_playoffs` | +0.0004 | Team context already in player metrics |
-| `playoff_bpm_diff_adj`, `playoff_rapm_diff_adj` | +0.0003 | Sparse (35% coverage), noisy. **Superseded 2026-08-01, but only for minutes**: `playoff_mpg_diff` (adopted v8.6x, +0.00576 paired, t 3.41) shows the playoff signal is in the ROTATION, not in playoff box-score rates. A benched player's per-possession metrics stay respectable on a small sample; the minutes themselves are what the market prices. These two rows stand as measured — do not re-test them expecting the v8.6x result. |
+| `playoff_bpm_diff_adj`, `playoff_laker_diff_adj` | +0.0003 | Sparse (35% coverage), noisy. **Superseded 2026-08-01, but only for minutes**: `playoff_mpg_diff` (adopted v8.6x, +0.00576 paired, t 3.41) shows the playoff signal is in the ROTATION, not in playoff box-score rates. A benched player's per-possession metrics stay respectable on a small sample; the minutes themselves are what the market prices. These two rows stand as measured — do not re-test them expecting the v8.6x result. |
 | `po_games` (alongside `playoff_mpg_diff`) | +0.00109 paired, t 4.89 | Rejected 2026-08-01 as a **team-success proxy** despite clearing the bar: permuting it within (season, playoff team) retains the entire edge. Same family as `win_pct` / `made_playoffs` below. See the `playoff_mpg_diff` section above. |
 | `max_eligible_pct` | +0.0008 | Collinear with age/experience |
 | `is_vet_min`, `is_mle_range` | N/A | Derived from target variable (leakage) |
@@ -337,6 +365,8 @@ closes the gap.
 | `weight_x_age` | N/A | No weight column in the training set — the height scraper reads only the height field of the BBRef index pages. Would inherit the same counter-effect problem as `height_x_age`: heavy+old contains both ends of the price range |
 | `kf_innov` (Kalman innovation) | +0.00167 (t = 1.34) | Tested alongside `kalman_filtered_stats` (v8.10x). The filter's innovation (surprise) — actual measurement minus predicted measurement — captures how much a player over- or under-performed expectations. Does not clear t > 2 on its own; the quality estimate already absorbs the signal |
 | `ema_quality` (exponential moving average) | +0.00263 (t = 1.17) | Control for `kalman_filtered_stats` (v8.10x). A simple EMA over the three z-scored impact metrics, which does temporal smoothing without optimal metric weighting or age-aware drift. Recovers only half of `kalman_filtered_stats`'s gain, confirming the Kalman filter's advantage is in the weighting and drift, not mere smoothing |
+| 6 raw O/D z-scores replacing 3 composites | +0.0044 (t = 1.14) | Arm A of the O/D split ablation (v8.12x). Replacing `darko_dpm_z`, `lebron_z`, `laker_z` with their 6 offensive and defensive components costs 3 degrees of freedom and mostly re-expresses total quality. Gains are fold-unstable: range −0.00000 to +0.01931 across 5 folds |
+| O/D Kalman (two independent filters) | −0.0009 (Arm D) | Two scalar Kalman filters (one from O metrics, one from D) replacing the composite `kalman_filtered_stats`. Correlation with composite is only 0.775 — independent filters lose cross-metric information between O and D measurements. Recovers half the value at best |
 
 ### Training-set choices tested and rejected
 

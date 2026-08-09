@@ -154,7 +154,7 @@ def fill_impact_from_bbref(
     The fallback never overwrites nbarapm and never creates a new impact row;
     DARKO remains the population anchor. It supplies only directly comparable
     identity, workload and Basketball Reference rate fields for played seasons.
-    RAPM is intentionally not synthesized.
+    LAKER is intentionally not synthesized.
     """
     if stats.empty:
         return impact.copy()

@@ -59,6 +59,7 @@ import pandas as pd
 from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR, RAW_DIR
 from src.model import stages
 from src.model.extension_cap import attach_extension_cap, attach_extension_value
+from src.features.base_rating import attach_od_diffs
 from src.features.playoff_minutes import attach_playoff_mpg
 from src.features.waiver_history import (
     attach_waiver_interactions,
@@ -78,6 +79,7 @@ from src.model.train import (
     _filter_rookie_scale,
     _filter_year1,
     _load_rookie_scale_set,
+    _normalize_vetmin_caphold,
     _prepare_Xy,
     load_training_data,
     train_grabit,
@@ -111,7 +113,7 @@ PALETTE = {
 FEATURE_LABELS = {
     "darko_dpm_z": "DARKO DPM",
     "lebron_z": "LEBRON",
-    "rapm_z": "RAPM",
+    "laker_z": "LAKER",
     "age": "Age",
     "age_squared": "Age²",
     "mpg": "Minutes / game",
@@ -222,9 +224,10 @@ def _training_medians(df: pd.DataFrame) -> tuple[list[str], pd.Series]:
     the same season-restricted df that was handed to train_grabit — the medians
     must reflect only the seasons the model actually saw.
     """
-    tr = _filter_rookie_contracts(_filter_continuations(_filter_mislabeled_year1(
-        _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
-            _filter_year1(df)))))))
+    tr = _normalize_vetmin_caphold(_filter_rookie_contracts(
+        _filter_continuations(_filter_mislabeled_year1(
+            _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
+                _filter_year1(df))))))))
     X_tr, _, _, features = _prepare_Xy(tr)
     return features, X_tr.median()
 
@@ -243,9 +246,10 @@ def _signing_membership(df: pd.DataFrame) -> set[tuple[str, int]]:
     trained on. Run over every season (the holdout included) so 2026 members are
     decided by the same rule as 2019's.
     """
-    chain = _filter_rookie_contracts(_filter_continuations(_filter_mislabeled_year1(
-        _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
-            _filter_year1(df.copy())))))))
+    chain = _normalize_vetmin_caphold(_filter_rookie_contracts(
+        _filter_continuations(_filter_mislabeled_year1(
+            _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
+                _filter_year1(df.copy()))))))))
     return set(zip(chain["player_name_norm"], chain["season"].astype(int)))
 
 
@@ -258,7 +262,7 @@ def _zscore_basis(df: pd.DataFrame) -> dict[str, dict[str, dict[str, float]]]:
     """
     metrics = (("darko_dpm", "darko_dpm_z"),
                ("lebron", "lebron_z"),
-               ("rapm", "rapm_z"))
+               ("laker", "laker_z"))
     basis: dict[str, dict[str, dict[str, float]]] = {}
     for season, group in df.groupby("season"):
         season_out = {}
@@ -471,6 +475,7 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     import shap
 
     full = _compute_max_eligible(df.copy())
+    full = _normalize_vetmin_caphold(full)
     full = _compute_floor(full)
     # Stage-3 inputs. A row is only an extension row when a dated span STARTS on
     # its season, so escalator years and rookie-scale years come back False and
@@ -479,8 +484,8 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     full = attach_extension_value(full)
 
     # Missingness indicator before fill (ISSUES #39).
-    if "rapm_z" in full.columns and "rapm_known" not in full.columns:
-        full["rapm_known"] = full["rapm_z"].notna().astype(int)
+    if "laker_z" in full.columns and "laker_known" not in full.columns:
+        full["laker_known"] = full["laker_z"].notna().astype(int)
 
     X = full.reindex(columns=features).copy()
     X = X.fillna(medians).fillna(0)
@@ -581,7 +586,7 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     out["is_ext_capped"] = flags["is_ext_capped"]
     out["is_floored"] = flags["is_floored"]
 
-    for col in ("darko_dpm_z", "lebron_z", "rapm_z", "mpg", "usage_pct",
+    for col in ("darko_dpm_z", "lebron_z", "laker_z", "mpg", "usage_pct",
                 "availability_3yr", "ast_pct", "height_inches", "draft_pick",
                 "award_score_cum"):
         out[col] = full[col] if col in full.columns else np.nan
@@ -590,6 +595,16 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     out = out.merge(st, on=["player_name_norm", "season"], how="left")
     if len(out) != len(full):
         raise SystemExit("signing_type merge changed the row count")
+    # Second-round exception signings are convention-priced ($2.3M), not market-
+    # negotiated. The experience filter catches most first contracts (exp<=1), but
+    # extending it to exp<=2 for second-round picks would wrongly drop real market
+    # deals (Austin Reaves 2023, Herbert Jones 2023, etc.). Exclude by the Spotrac
+    # signing-type label instead — it is exact, and only affects board membership.
+    n_2nd = int((out["is_signing"] & (out["signing_type"] == "Second Round")).sum())
+    if n_2nd:
+        out.loc[out["signing_type"] == "Second Round", "is_signing"] = False
+        print(f"  Second-round exception exclusion: {n_2nd} rows removed from "
+              "signing-board membership")
 
     out["base_salary"] = expected * out["cap"]
     out["is_fa"] = False
@@ -633,9 +648,10 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
     # Same z-score basis as the model saw: the holdout season's training players.
     t_hold = df[df["season"] == HOLDOUT_SEASON]
     for raw, zc in (("darko_dpm", "darko_dpm_z"), ("lebron", "lebron_z"),
-                    ("rapm", "rapm_z")):
+                    ("laker", "laker_z")):
         mu, sd = t_hold[raw].mean(), t_hold[raw].std()
         fa[zc] = (fa[raw] - mu) / sd
+    fa = attach_od_diffs(fa)
 
     fa["mpg"] = fa["minutes"] / fa["games"].replace(0, np.nan)
     fa["cba_era"] = 1
@@ -668,8 +684,8 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
           f"{int(fa['po_mpg'].notna().sum())} of {len(fa)} free agents played")
 
     # Missingness indicator before fill (ISSUES #39).
-    if "rapm_z" in fa.columns and "rapm_known" not in fa.columns:
-        fa["rapm_known"] = fa["rapm_z"].notna().astype(int)
+    if "laker_z" in fa.columns and "laker_known" not in fa.columns:
+        fa["laker_known"] = fa["laker_z"].notna().astype(int)
 
     X = fa.reindex(columns=features).fillna(medians).fillna(0)
     latent = model.predict(X)
@@ -745,7 +761,7 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         "is_floored": False,
         "darko_dpm_z": fa["darko_dpm_z"].values,
         "lebron_z": fa["lebron_z"].values,
-        "rapm_z": fa["rapm_z"].values,
+        "laker_z": fa["laker_z"].values,
         "mpg": fa["mpg"].values,
         "usage_pct": fa["usage_pct"].values,
         "availability_3yr": fa["availability_3yr"].values,
@@ -830,7 +846,7 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
             "st": None if pd.isna(r.signing_type) else r.signing_type,
             "dk": _round(r.darko_dpm_z),
             "lb": _round(r.lebron_z),
-            "rp": _round(r.rapm_z),
+            "rp": _round(r.laker_z),
             "mp": _round(r.mpg, 1),
             "us": _round(r.usage_pct, 1),
             "av": _round(r.availability_3yr, 3),

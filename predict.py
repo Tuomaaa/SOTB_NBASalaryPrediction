@@ -138,7 +138,7 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
         "player_name", "player_name_norm", "season", "age", "position",
         "predicted_cap_pct", "predicted_salary",
         "is_free_agent", "actual_salary", "reference_salary", "diff",
-        "darko_dpm", "lebron", "rapm",
+        "darko_dpm", "lebron", "laker",
         "minutes", "usage_pct", "team_abbreviation",
     ]
     out = pred_df[[c for c in out_cols if c in pred_df.columns]].copy()

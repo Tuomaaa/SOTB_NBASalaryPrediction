@@ -84,11 +84,11 @@ _CLF_ROUNDS = 400
 CLF_EXTRA_TREND = [
     "darko_dpm_z_d1", "darko_dpm_z_slope3", "darko_dpm_z_peakd",
     "lebron_z_d1", "lebron_z_slope3", "lebron_z_peakd",
-    "rapm_z_d1", "rapm_z_slope3", "rapm_z_peakd",
+    "laker_z_d1", "laker_z_slope3", "laker_z_peakd",
     "trend_has_prev",
 ]
 CLF_EXTRA_SIGNDELTA = [
-    "darko_dpm_z_signdelta", "lebron_z_signdelta", "rapm_z_signdelta",
+    "darko_dpm_z_signdelta", "lebron_z_signdelta", "laker_z_signdelta",
     "mpg_signdelta", "usage_pct_signdelta", "ast_pct_signdelta",
 ]
 CLF_EXTRA_MISC = [
@@ -121,7 +121,7 @@ CLF_EXTRA_COLS = CLF_EXTRA_TREND + CLF_EXTRA_SIGNDELTA + CLF_EXTRA_MISC
 # P(max); that is a change to a shared contract (deployed_p_max, predict.py,
 # export_web.py and the suite all route through it) and wants its own version.
 CLF_BASE_COLS = [
-    "darko_dpm_z", "lebron_z", "rapm_z",
+    "darko_dpm_z", "lebron_z", "laker_z",
     "age", "age_squared",
     "mpg",
     "availability_3yr",

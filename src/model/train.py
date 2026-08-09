@@ -24,13 +24,14 @@ from sklearn.model_selection import GroupKFold, cross_validate
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
-from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON, RAW_DIR
+from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON, RAW_DIR, CBA_NEW_ERA_SEASON
+from src.features.base_rating import attach_od_diffs
 from src.features.kalman_quality import attach_kalman_quality
 from src.features.playoff_minutes import attach_playoff_mpg
 from src.features.waiver_history import attach_waiver_interactions
 
 FEATURE_COLS = [
-    "darko_dpm_z", "lebron_z", "rapm_z",
+    "darko_dpm_z", "lebron_z", "laker_z",
     "age", "age_squared",
     "mpg",
     "availability_3yr",
@@ -45,6 +46,9 @@ FEATURE_COLS = [
     "mpg_x_waived",
     "playoff_mpg_diff",
     "kalman_filtered_stats",
+    "darko_od_diff_z",
+    "lebron_od_diff_z",
+    "laker_od_diff_z",
 ]
 
 TARGET = "cap_pct"
@@ -119,6 +123,7 @@ def load_training_data() -> pd.DataFrame:
     df = attach_waiver_interactions(df)
     df = attach_playoff_mpg(df)
     df = attach_kalman_quality(df)
+    df = attach_od_diffs(df)
     return df
 
 
@@ -401,9 +406,9 @@ def _prepare_Xy(df: pd.DataFrame, features: list[str] | None = None):
         features = FEATURE_COLS
 
     # Missingness indicators before median fill (ISSUES #39).
-    if "rapm_known" in features and "rapm_z" in df.columns:
+    if "laker_known" in features and "laker_z" in df.columns:
         df = df.copy()
-        df["rapm_known"] = df["rapm_z"].notna().astype(int)
+        df["laker_known"] = df["laker_z"].notna().astype(int)
 
     avail = [f for f in features if f in df.columns]
     X = df[avail].copy()
@@ -614,19 +619,50 @@ def _load_contract_structure_corrections() -> pd.DataFrame:
     return pd.read_csv(path)
 
 
+def _normalize_vetmin_caphold(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize vet-min salaries from paid-salary to cap-hold convention.
+
+    BBRef reports paid salary for some vet-min players and cap hold for others.
+    The CBA says the cap charge is the base minimum regardless of experience;
+    the league reimburses the tier differential. Since cap_pct should reflect
+    team cap cost, all vet-min rows are standardized to the base.
+    """
+    from scripts.diagnostics import attach_signing_labels
+    from src.model.mechanism_cap import _get_vet_min_usd
+
+    df = df.copy()
+    if "signing_cat" not in df.columns:
+        sal = df["salary"] if "salary" in df.columns else None
+        df = attach_signing_labels(df, salary_dollars=sal)
+
+    caphold = {}
+    for s in df["season"].unique():
+        exp_for_base = 2 if s < CBA_NEW_ERA_SEASON else 3
+        caphold[s] = _get_vet_min_usd(int(s), exp_for_base) / CAP_BY_SEASON[int(s)]
+
+    mask = ((df["signing_cat"] == "Minimum")
+            & (df[TARGET] <= 0.025)
+            & (df[TARGET] > df["season"].map(caphold) + 1e-4))
+    n = mask.sum()
+    if n:
+        if "salary" in df.columns:
+            df["salary"] = df["salary"].astype(float)
+        for idx in df[mask].index:
+            s = int(df.loc[idx, "season"])
+            df.loc[idx, TARGET] = caphold[s]
+            if "salary" in df.columns:
+                df.loc[idx, "salary"] = caphold[s] * CAP_BY_SEASON[s]
+        print(f"Vet-min cap-hold normalization: {n} rows adjusted to base minimum")
+    return df
+
+
 def _compute_floor(df: pd.DataFrame) -> pd.DataFrame:
     """Attach the CBA salary floor: is_at_floor + floor_pct per row.
 
-    The minimum scale is the mirror image of the max tiers — a hard bound no
-    contract can cross, so a player whose unconstrained price sits below it is
-    observed AT it (left-censoring; see _make_tobit_obj). at-floor rows are
-    Minimum-labeled rows inside the vet-min band (<=2.5% of cap; prorated rows
-    are already filtered at 1.2%). floor_pct is the (season, experience-bucket)
-    median pay of those rows — the scale is a discrete lookup in reality, and
-    the data's own mass points recover it (0.0148 = two-year vets, 0.0235 =
-    ten-year vets) without maintaining CBA tables. Fixed-row validation: with
-    this floor as the Stage-2 clip, at-floor rows in the sub-2% predicted band
-    carry +$0.05-0.09M bias — the clip lands almost exactly on observed pay.
+    After cap-hold normalization (`_normalize_vetmin_caphold`), the floor is
+    uniform within each season — the base vet-min cap charge (~1.48% of cap).
+    The empirical median recovers this from the data's own mass point, and the
+    experience-bucket grouping is retained for robustness.
 
     The label is used at TRAINING time only (same precedent as
     is_max_contract, which also reads the observed outcome); at inference the
@@ -1154,9 +1190,10 @@ def _multiseed_grabit_cv(df: pd.DataFrame, seeds: list[int] | None = None,
     if seeds is None:
         seeds = list(range(10))
 
-    filt = _filter_rookie_contracts(_filter_continuations(_filter_mislabeled_year1(
-        _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
-            _filter_year1(df.copy())))))))
+    filt = _normalize_vetmin_caphold(_filter_rookie_contracts(
+        _filter_continuations(_filter_mislabeled_year1(
+            _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
+                _filter_year1(df.copy()))))))))
     filt = _compute_floor(filt)
     X, y, groups, features = _prepare_Xy(filt)
     seasons = filt["season"].values

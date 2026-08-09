@@ -1,31 +1,31 @@
 player_name_norm,season,direction,salary_m,pred_m,err_m,is_waived,category,comment
-damian lillard,2025,OVER,14.10,38.42,+24.32,1,waiver,is_waived=1; Achilles 2025 playoffs; stretch-waived $112.6M
-victor oladipo,2021,OVER,2.39,26.09,+23.70,0,injury,quad rupture; 20gp avail=0.31; injury/availability signal insufficient
+damian lillard,2025,OVER,14.1,38.42,24.32,1,waiver,is_waived=1; Achilles 2025 playoffs; stretch-waived $112.6M
+victor oladipo,2021,OVER,2.39,26.09,23.7,0,injury,quad rupture; 20gp avail=0.31; injury/availability signal insufficient
 myles turner,2022,UNDER,35.07,13.53,-21.54,0,model wrong,DPM=1.3 LEBRON=2.3; productive C underpaid by model
-kemba walker,2021,OVER,8.73,27.81,+19.08,1,waiver,is_waived=1; chronic knee; OKC buyout
-demar derozan,2024,OVER,23.40,40.48,+17.08,0,not modelable,34yo; age features maxed; SAC waived Jul 2026
-isaiah hartenstein,2024,UNDER,30.00,14.32,-15.68,0,model wrong,productive C; producing at contract level
-montrezl harrell,2022,OVER,2.46,17.74,+15.28,0,not modelable,drug trafficking conviction; metrics excellent
-cam thomas,2025,OVER,5.99,20.66,+14.67,0,empty stats,USG=32.6% DPM=-0.1; high usage zero impact
-hassan whiteside,2020,OVER,1.62,15.85,+14.23,0,not modelable,effort/reputation; archetype OK (cf. Hartenstein)
-aaron gordon,2026,UNDER,33.66,21.02,-12.64,0,model wrong,DEN extension; DPM=2.1 RAPM=3.2; metrics support price
-james harden,2025,OVER,39.18,51.43,+12.25,0,not modelable,35yo; age features maxed
-demarcus cousins,2019,OVER,3.50,15.68,+12.18,0,injury,Achilles+quad; 30gp avail=0.37; injury signal insufficient
-andre drummond,2021,OVER,2.40,14.49,+12.08,1,waiver,is_waived=1; CLE buyout; replaced by Allen
-mikal bridges,2026,UNDER,33.48,21.44,-12.04,0,model wrong,NYK extension; RAPM=3.0 LEBRON=2.0 82gp ironman
-russell westbrook,2023,OVER,3.84,15.80,+11.96,1,waiver,is_waived=1; LAL→UTA buyout
+kemba walker,2021,OVER,8.73,27.81,19.08,1,waiver,is_waived=1; chronic knee; OKC buyout
+demar derozan,2024,OVER,23.4,40.48,17.08,0,not modelable,34yo; age features maxed; SAC waived Jul 2026
+isaiah hartenstein,2024,UNDER,30.0,14.32,-15.68,0,model wrong,productive C; producing at contract level
+montrezl harrell,2022,OVER,2.46,17.74,15.28,0,not modelable,drug trafficking conviction; metrics excellent
+cam thomas,2025,OVER,5.99,20.66,14.67,0,empty stats,USG=32.6% DPM=-0.1; high usage zero impact
+hassan whiteside,2020,OVER,1.62,15.85,14.23,0,not modelable,effort/reputation; archetype OK (cf. Hartenstein)
+aaron gordon,2026,UNDER,33.66,21.02,-12.64,0,model wrong,DEN extension; DPM=2.1 LAKER=3.2; metrics support price
+james harden,2025,OVER,39.18,51.43,12.25,0,not modelable,35yo; age features maxed
+demarcus cousins,2019,OVER,3.5,15.68,12.18,0,injury,Achilles+quad; 30gp avail=0.37; injury signal insufficient
+andre drummond,2021,OVER,2.4,14.49,12.08,1,waiver,is_waived=1; CLE buyout; replaced by Allen
+mikal bridges,2026,UNDER,33.48,21.44,-12.04,0,model wrong,NYK extension; LAKER=3.0 LEBRON=2.0 82gp ironman
+russell westbrook,2023,OVER,3.84,15.8,11.96,1,waiver,is_waived=1; LAL→UTA buyout
 og anunoby,2024,UNDER,36.64,25.56,-11.07,0,model wrong,NYK Bird Rights; DPM=2.9 elite; 27gp hurts but metrics justify
 nic claxton,2024,UNDER,27.56,16.63,-10.92,0,model wrong,LEBRON=1.5; productive C
-willie cauley-stein,2019,OVER,2.18,12.64,+10.46,0,data issue,turned down $9M from CHA; took $2.18M minimum to chase ring with GSW; salary != market value
-chris paul,2025,OVER,2.30,12.50,+10.21,0,not modelable,age 39; minimum; age features maxed
-jaden mcdaniels,2024,UNDER,23.02,12.89,-10.13,0,not modelable,MIN extension; LEBRON=-1.9 RAPM=-0.5; paid for potential/defense not in metrics
-ricky rubio,2022,OVER,5.85,15.87,+10.02,0,injury,ACL; injury_reports=45 avail=0.67; injury signal insufficient
-gary trent jr.,2026,UNDER,15.20,5.19,-10.01,0,data issue,NBA investigating MIL for circumvention; 2yr minimum then $16M/yr extension; salary not market price
-immanuel quickley,2024,UNDER,32.50,22.56,-9.94,0,model wrong,TOR Bird Rights near-max; DPM=0.7 LEBRON=0.8; positive metrics
-marc gasol,2020,OVER,2.56,12.05,+9.50,0,not modelable,37yo center; ring-chase minimum
-kevin porter jr.,2023,OVER,15.86,25.29,+9.43,0,data issue,pre-existing behavioral issues (traded from CLE for locker room); DV arrest came after this season
-javonte green,2024,OVER,1.72,11.07,+9.35,1,data issue,prorated partial-season salary (CHI hardship 10-day Mar 2024); not a real Year-1 signing
-jarrett allen,2021,UNDER,20.00,11.05,-8.95,0,model wrong,CLE Bird Rights; productive C
-rudy gobert,2021,UNDER,35.34,26.46,-8.88,0,model wrong,DPOY; DPM=4.9 RAPM=5.2 elite
-al horford,2019,UNDER,28.00,12.60,-15.40,0,TBD,PHI Cap Space; 32yo C; $28M
+willie cauley-stein,2019,OVER,2.18,12.64,10.46,0,data issue,turned down $9M from CHA; took $2.18M minimum to chase ring with GSW; salary != market value
+chris paul,2025,OVER,2.3,12.5,10.21,0,not modelable,age 39; minimum; age features maxed
+jaden mcdaniels,2024,UNDER,23.02,12.89,-10.13,0,not modelable,MIN extension; LEBRON=-1.9 LAKER=-0.5; paid for potential/defense not in metrics
+ricky rubio,2022,OVER,5.85,15.87,10.02,0,injury,ACL; injury_reports=45 avail=0.67; injury signal insufficient
+gary trent jr.,2026,UNDER,15.2,5.19,-10.01,0,data issue,NBA investigating MIL for circumvention; 2yr minimum then $16M/yr extension; salary not market price
+immanuel quickley,2024,UNDER,32.5,22.56,-9.94,0,model wrong,TOR Bird Rights near-max; DPM=0.7 LEBRON=0.8; positive metrics
+marc gasol,2020,OVER,2.56,12.05,9.5,0,not modelable,37yo center; ring-chase minimum
+kevin porter jr.,2023,OVER,15.86,25.29,9.43,0,data issue,pre-existing behavioral issues (traded from CLE for locker room); DV arrest came after this season
+javonte green,2024,OVER,1.72,11.07,9.35,1,data issue,prorated partial-season salary (CHI hardship 10-day Mar 2024); not a real Year-1 signing
+jarrett allen,2021,UNDER,20.0,11.05,-8.95,0,model wrong,CLE Bird Rights; productive C
+rudy gobert,2021,UNDER,35.34,26.46,-8.88,0,model wrong,DPOY; DPM=4.9 LAKER=5.2 elite
+al horford,2019,UNDER,28.0,12.6,-15.4,0,TBD,PHI Cap Space; 32yo C; $28M
 terry rozier,2019,UNDER,19.89,4.82,-15.07,0,TBD,CHO Sign & Trade; model severely underpredicted

@@ -16,7 +16,7 @@ This project builds an open-source NBA player valuation model that predicts cont
 * **Bird Rights / Sign & Trade**: Mechanisms that allow teams to exceed the salary cap to retain their own players, which creates a retention premium invisible to standard models.
 * **MLE (Mid-Level Exception) / Minimum Contracts**: Signing exceptions with hard ceilings that often constrain players who actually perform better than their observed salary.
 * **Cap Space Signings**: Standard free agent signings using available team budget, which reflect a relatively calibrated market value with minimal bias.
-* **DARKO DPM, LEBRON, RAPM**: Three independent impact metrics used to capture a player's value from different angles.
+* **DARKO DPM, LEBRON, LAKER**: Three independent impact metrics used to capture a player's value from different angles.
 * **Usage Rate**: A metric that signals a player's playing time and impact.
 * **Awards (MVP, All-NBA, DPOY)**: Major league accolades (Most Valuable Player, All-NBA, Defensive Player of the Year) that act as context features reflecting a player's reputation and role.
 
@@ -29,7 +29,7 @@ This project builds an open-source NBA player valuation model that predicts cont
 | Source | Content | Scale |
 |--------|---------|-------|
 | Basketball Reference | Salary, age, games played | 4,723 player-seasons, 2019–2031 |
-| nbarapm.com | DARKO DPM, LEBRON, RAPM, usage rates | 3,880 player-seasons |
+| nbarapm.com | DARKO DPM, LEBRON, LAKER, usage rates | 3,880 player-seasons |
 | Spotrac | Signing mechanisms (Bird Rights, MLE, cap space, etc.) | 2,403 contract-seasons |
 | Manual curation | Awards (MVP, All-NBA, DPOY), draft position, salary cap history | Hand-verified CSVs |
 
@@ -49,11 +49,11 @@ runs as an assertion over every season.
 
 ## Methodology
 
-### Feature Engineering (17 features)
+### Feature Engineering (21 features)
 
 | Category | Features | Rationale |
 |----------|----------|-----------|
-| Performance | DARKO DPM, LEBRON, RAPM (all z-scored within season) | Three independent impact metrics capture value from different angles |
+| Performance | DARKO DPM, LEBRON, LAKER (all z-scored within season); O−D diff z-scores for each; Kalman-filtered quality | Three independent impact metrics capture value from different angles; the O−D diffs capture offensive/defensive tilt orthogonal to overall quality; the Kalman filter produces an optimally weighted, age-aware quality estimate |
 | Workload | minutes/game, usage rate, 3-year weighted availability, playoff minutes swing | Playing time and durability signal; the playoff rotation is a dated public judgement the box score does not contain |
 | Demographics | age, age², height, draft pick | Age curve is nonlinear; draft pedigree carries a reputation premium |
 | Context | cumulative award score, assist%, CBA era flag, previous contract value, recent prior waiver, minutes × waived | Reputation, role, regime change, anchoring, and previous-contract termination context |

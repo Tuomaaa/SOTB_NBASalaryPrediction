@@ -660,7 +660,7 @@ def main():
 
     print("\n  (b) is the fat tail separable on features the model already has?")
     prof_cols = [c for c in ("age", "mpg", "availability_3yr", "darko_dpm_z",
-                             "lebron_z", "rapm_z", "usage_pct", "prev_cap_pct",
+                             "lebron_z", "laker_z", "usage_pct", "prev_cap_pct",
                              "award_score_cum") if c in df.columns]
     rest = np.zeros(len(df), bool); rest[np.flatnonzero(at_floor)] = True
     rest[top12] = False

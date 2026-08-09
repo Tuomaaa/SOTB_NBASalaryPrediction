@@ -32,7 +32,7 @@ from src.model import stages
 from src.model.train import (
     load_training_data, train_grabit, _compute_max_eligible, _compute_floor,
     _filter_year1, _filter_rookie_scale, _filter_rookie_contracts, _filter_prorated,
-    _filter_mislabeled_year1, _filter_continuations,
+    _filter_mislabeled_year1, _filter_continuations, _normalize_vetmin_caphold,
     _prepare_Xy, FEATURE_COLS, TARGET,
 )
 
@@ -45,9 +45,10 @@ def _normalize_name(name: str) -> str:
 
 def _training_medians(df: pd.DataFrame) -> tuple[list[str], pd.Series]:
     """Feature list and fill values from the filtered training set."""
-    tr = _filter_rookie_contracts(_filter_continuations(_filter_mislabeled_year1(
-        _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
-            _filter_year1(df)))))))
+    tr = _normalize_vetmin_caphold(_filter_rookie_contracts(
+        _filter_continuations(_filter_mislabeled_year1(
+            _compute_max_eligible(_filter_prorated(_filter_rookie_scale(
+                _filter_year1(df))))))))
     X_tr, _, _, features = _prepare_Xy(tr)
     return features, X_tr.median()
 
@@ -75,7 +76,7 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     print(f"\n{target_season} players with complete data: {len(pred_df)}")
 
     # Borrow features from each player's most recent training row
-    from src.features.base_rating import add_base_rating
+    from src.features.base_rating import add_base_rating, attach_od_diffs
     from src.features.age_curve import add_age_features
     from src.features.availability import compute_availability
     from src.features.cba_constraints import add_cba_features
@@ -87,9 +88,10 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
 
 
     pred_df = add_base_rating(pred_df)
+    pred_df = attach_od_diffs(pred_df)
     # Missingness indicator before any fill (ISSUES #39).
-    if "rapm_z" in pred_df.columns:
-        pred_df["rapm_known"] = pred_df["rapm_z"].notna().astype(int)
+    if "laker_z" in pred_df.columns:
+        pred_df["laker_known"] = pred_df["laker_z"].notna().astype(int)
     pred_df = add_age_features(pred_df)
     pred_df = compute_availability(pred_df)
     pred_df = add_cba_features(pred_df)
@@ -225,7 +227,7 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
         "predicted_cap_pct", "predicted_salary", "latent_cap_pct", "latent_salary",
         "p_max", "is_pushed", "is_capped", "is_floored",
         "is_free_agent", "actual_salary", "reference_salary", "diff",
-        "darko_dpm", "lebron", "rapm",
+        "darko_dpm", "lebron", "laker",
         "minutes", "usage_pct", "team_abbreviation",
     ]
     out = pred_df[[c for c in out_cols if c in pred_df.columns]].copy()

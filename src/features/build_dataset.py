@@ -2,11 +2,11 @@
 
 Joins:
   - salaries.csv (player, season, salary, cap_pct)
-  - impact_metrics.csv (player_name_norm, season, darko_dpm, lebron, rapm, ...)
+  - impact_metrics.csv (player_name_norm, season, darko_dpm, lebron, laker, ...)
   - contract_structure_v2.csv (year_in_contract for year-1 filtering)
 
 Then applies feature engineering:
-  - base_rating (z-scored composite of DARKO/LEBRON/RAPM)
+  - base_rating (z-scored composite of DARKO/LEBRON/LAKER)
   - age features (age, age²)
   - availability (3-year weighted GP%)
   - CBA era flag
@@ -270,8 +270,8 @@ def build_dataset() -> pd.DataFrame:
         "player_name", "player_name_norm", "team", "season",
         "salary", "cap_pct",
         # Impact metrics (raw + z-scored)
-        "darko_dpm", "lebron", "rapm",
-        "darko_dpm_z", "lebron_z", "rapm_z",
+        "darko_dpm", "lebron", "laker",
+        "darko_dpm_z", "lebron_z", "laker_z",
         # Age
         "age", "age_squared",
         # Workload & availability

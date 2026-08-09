@@ -35,7 +35,7 @@ TRAINING = PROCESSED_DIR / "training_data_v2.csv"
 # cap correction legitimately moves them; prev_cap_pct's first-contract fill is
 # a median over the dataset and shifts whenever rows are added.
 STABLE_FEATURES = [
-    "darko_dpm_z", "lebron_z", "rapm_z", "age", "age_squared", "mpg",
+    "darko_dpm_z", "lebron_z", "laker_z", "age", "age_squared", "mpg",
     "availability_3yr", "usage_pct", "height_inches", "cba_era", "ast_pct",
     "is_waived", "is_waived_known",
     "award_score_cum", "draft_pick", "year_in_contract", "contract_years",
