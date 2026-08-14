@@ -84,6 +84,11 @@ from src.model.stages import (
     compose, stage3_signing, signing_offsets, TAU, MARGIN, SIGNING_K,
     SIGNING_ELIGIBLE_TYPES, SIGNING_OFFSETS_DEPLOYED,
 )
+from src.features.kf_market_value import (
+    MEASUREMENT_FEATURES, kalman_update, estimate_q,
+    build_anchor_map as kf_build_anchor_map,
+    P0 as KF_P0, load_prehistory_anchors,
+)
 # reuse the canonical label logic so C2 segments match scripts/diagnostics.py
 from scripts.diagnostics import attach_signing_labels
 
@@ -118,6 +123,27 @@ BASELINE_LADDER = {
     "mpg + prev_cap_pct": ["mpg", "prev_cap_pct"],
     "mpg + prev + age + darko": ["mpg", "prev_cap_pct", "age", "darko_dpm_z"],
 }
+
+N_INNER = 4  # inner folds for nested CV when computing kf_market_value
+
+
+@dataclass
+class KFContext:
+    """Pre-computed data structures for nested-CV kf_market_value computation.
+
+    Built once by `prepare_kf_context` and captured by the KF fitters. Each
+    outer fold recomputes the KF values from inner models, but the anchor map
+    and intermediate indices are fixed across folds — they depend on the
+    evaluation frame structure, not on the fold split.
+    """
+    df_full: pd.DataFrame           # full training data (all year_in_contract rows)
+    full_needed: pd.DataFrame       # df_full subset that needs intermediate predictions
+    inter_pos: list                  # per-eval-row list of positions into full_needed
+    tier: np.ndarray                # 0/1/2 per eval row (fallback/market/rookie)
+    anchor: np.ndarray              # anchor cap_pct per eval row
+    groups: np.ndarray              # player_name_norm array for player_inner lookup
+    measurement_features: list      # 21 features with prev_cap_pct (for base model)
+    n_inner: int = N_INNER
 
 
 # ---------------------------------------------------------------------------
@@ -253,11 +279,199 @@ def make_champion_fitter(clf_features: list[str], push: bool = True,
 
 
 # ---------------------------------------------------------------------------
+# KF fitters — nested-CV computation of kf_market_value per outer fold
+# ---------------------------------------------------------------------------
+
+def fit_measurement_models(train: pd.DataFrame, features: list[str],
+                           clf_features: list[str], seed: int,
+                           sigma: float = 0.02, gate_frac: float = 0.55,
+                           floor_gate_k: float = 2.0):
+    """Fit the champion Grabit + route classifier on MEASUREMENT_FEATURES.
+
+    Split into fit and predict so one fitted pair can price several frames
+    (inner validation rows AND df_full intermediate rows) without refitting.
+    """
+    y_tr = train[TARGET].values
+    max_elig_tr = train["max_eligible_pct"].values
+    is_max_tr = train["is_max_contract"].values.astype(bool)
+
+    base = XGBRegressor(**{**_XGB_BASE, "random_state": seed})
+    base.fit(train[features], y_tr)
+    bp = base.predict(train[features])
+    gate = is_max_tr & (bp >= gate_frac * max_elig_tr)
+    if floor_gate_k > 0 and "is_at_floor" in train.columns:
+        gate_l = train["is_at_floor"].values & (bp <= floor_gate_k * y_tr)
+    else:
+        gate_l = np.zeros(len(train), bool)
+
+    model = XGBRegressor(**{**_XGB_BASE, "random_state": seed,
+                            "objective": _make_tobit_obj(gate, sigma,
+                                                         left_mask=gate_l),
+                            "base_score": float(y_tr.mean())})
+    model.fit(train[features], y_tr)
+    clf = train_route_classifier(train, clf_features, seed)
+    return model, clf
+
+
+def predict_with_measurement(model, clf, test: pd.DataFrame,
+                             features: list[str],
+                             clf_features: list[str]) -> np.ndarray:
+    """Champion composition (push -> clip -> extension clip) using fitted models.
+
+    On intermediate rows, is_extension is False everywhere, so Stage 3 is a
+    no-op and the measurement is the model's market-value estimate.
+    """
+    latent = model.predict(test[features])
+    lo = (test["floor_pct"].values if "floor_pct" in test.columns
+          else np.zeros(len(test)))
+    hi = test["max_eligible_pct"].values
+    p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
+    return compose(latent, lo=lo, hi=hi, p_max=p_max,
+                   is_extension=test["is_extension"].values,
+                   ext_cap_pct=test["ext_cap_pct"].values)
+
+
+def _compute_kf_nested(kf_ctx: KFContext, train: pd.DataFrame,
+                       test: pd.DataFrame, clf_features: list[str],
+                       seed: int):
+    """Compute kf_market_value for train and test via nested inner OOF.
+
+    The inner N_INNER-fold GroupKFold over the outer TRAINING rows produces
+    fold-honest base predictions. For training row i, the KF measurement uses
+    the inner model that excluded i's player; for test rows (outer fold f),
+    the mean of all inner models is used (the player was never in any inner
+    model). Returns (train_aug, test_aug) DataFrames with kf_market_value.
+    """
+    tr_idx = train.index.values
+    te_idx = test.index.values
+    y_tr = train[TARGET].values
+    g_tr = train["player_name_norm"].values
+    mf = kf_ctx.measurement_features
+
+    inner_folds = list(GroupKFold(n_splits=kf_ctx.n_inner)
+                       .split(train, y_tr, g_tr))
+    inner_oof = np.full(len(tr_idx), np.nan)
+    full_pred = np.zeros((kf_ctx.n_inner, len(kf_ctx.full_needed)))
+    player_inner: dict[str, int] = {}
+
+    for j, (itr, iva) in enumerate(inner_folds):
+        model, clf = fit_measurement_models(train.iloc[itr], mf,
+                                             clf_features, seed)
+        inner_oof[iva] = predict_with_measurement(model, clf,
+                                                   train.iloc[iva],
+                                                   mf, clf_features)
+        full_pred[j] = predict_with_measurement(model, clf,
+                                                 kf_ctx.full_needed,
+                                                 mf, clf_features)
+        for p in np.unique(g_tr[iva]):
+            player_inner[p] = j
+
+    full_mean = full_pred.mean(axis=0)
+    r_var = float(np.var(y_tr - inner_oof, ddof=1))
+    q_var = estimate_q(kf_ctx.df_full, set(g_tr), r_var)
+
+    def kf_for_indices(indices):
+        out = np.full(len(indices), np.nan)
+        for k, i in enumerate(indices):
+            if not np.isfinite(kf_ctx.anchor[i]):
+                continue
+            pos_list = kf_ctx.inter_pos[i]
+            if not pos_list:
+                out[k] = kf_ctx.anchor[i]
+                continue
+            j = player_inner.get(kf_ctx.groups[i])
+            zs = (full_pred[j, pos_list] if j is not None
+                  else full_mean[pos_list])
+            p0 = r_var if kf_ctx.tier[i] == 2 else KF_P0
+            out[k] = kalman_update(kf_ctx.anchor[i], zs, q_var, r_var, p0)
+        return out
+
+    kf_tr = kf_for_indices(tr_idx)
+    kf_va = kf_for_indices(te_idx)
+
+    prev_tr = train["prev_cap_pct"].values
+    prev_va = test["prev_cap_pct"].values
+    kf_tr = np.where(np.isfinite(kf_tr), kf_tr, prev_tr)
+    kf_va = np.where(np.isfinite(kf_va), kf_va, prev_va)
+
+    fill = (float(np.nanmedian(kf_tr)) if np.isfinite(kf_tr).any()
+            else float(np.nanmedian(prev_tr)))
+    train_aug = train.copy()
+    test_aug = test.copy()
+    train_aug["kf_market_value"] = np.where(np.isfinite(kf_tr), kf_tr, fill)
+    test_aug["kf_market_value"] = np.where(np.isfinite(kf_va), kf_va, fill)
+    return train_aug, test_aug
+
+
+def make_kf_stage_arms_fitter(kf_ctx: KFContext, clf_features: list[str],
+                              grabit_params: dict | None = None):
+    """Multi-arm fitter with nested-CV kf_market_value computation per fold.
+
+    Same shape as `make_stage_arms_fitter` — returns a dict of ARM_CLIP,
+    ARM_EXANTE, ARM_EXT from one Grabit fit — but internally computes
+    kf_market_value via `_compute_kf_nested` before fitting the final model.
+
+    The `features` argument this fitter receives should be FEATURE_COLS
+    (21 features including kf_market_value). The base model used for KF
+    measurements uses MEASUREMENT_FEATURES (prev_cap_pct, not kf).
+    """
+    gp = grabit_params or {}
+
+    def fitter(train, test, features, seed):
+        train_aug, test_aug = _compute_kf_nested(kf_ctx, train, test,
+                                                  clf_features, seed)
+        latent, lo, hi = grabit_latent(train_aug, test_aug, features,
+                                       seed, **gp)
+        clf = train_route_classifier(train_aug, clf_features, seed)
+        p_max = route_proba(clf, test_aug, clf_features)[:, MAX_IDX]
+        is_ext = test["is_extension"].values
+        ext_cap = test["ext_cap_pct"].values
+        return {
+            ARM_CLIP: compose(latent, lo=lo, hi=hi),
+            ARM_EXANTE: compose(latent, lo=lo, hi=hi, p_max=p_max),
+            ARM_EXT: compose(latent, lo=lo, hi=hi, p_max=p_max,
+                             is_extension=is_ext, ext_cap_pct=ext_cap),
+        }
+
+    return fitter
+
+
+def make_kf_champion_fitter(kf_ctx: KFContext, clf_features: list[str],
+                            push: bool = True, stage3: bool = True,
+                            grabit_params: dict | None = None):
+    """Single-arm champion fitter with nested-CV kf_market_value.
+
+    Same shape as `make_champion_fitter` — returns predictions through
+    the extension clip — but computes kf_market_value internally per fold.
+    """
+    gp = grabit_params or {}
+
+    def fitter(train, test, features, seed):
+        train_aug, test_aug = _compute_kf_nested(kf_ctx, train, test,
+                                                  clf_features, seed)
+        latent, lo, hi = grabit_latent(train_aug, test_aug, features,
+                                       seed, **gp)
+        p_max = None
+        if push:
+            clf = train_route_classifier(train_aug, clf_features, seed)
+            p_max = route_proba(clf, test_aug, clf_features)[:, MAX_IDX]
+        kw = {}
+        if stage3:
+            kw = {"is_extension": test["is_extension"].values,
+                  "ext_cap_pct": test["ext_cap_pct"].values}
+        return compose(latent, lo=lo, hi=hi, p_max=p_max, **kw)
+
+    return fitter
+
+
+# ---------------------------------------------------------------------------
 # Data
 # ---------------------------------------------------------------------------
 
 def load_evaluation_frame(keep_prorated: bool = False,
-                          verbose: bool = True) -> tuple[pd.DataFrame, list[str]]:
+                          verbose: bool = True,
+                          allow_missing_computed: bool = False,
+                          ) -> tuple[pd.DataFrame, list[str]]:
     """Training rows with features imputed, plus the usable feature list.
 
     Applies the same filter chain as train.py so the suite scores what the model
@@ -289,7 +503,23 @@ def load_evaluation_frame(keep_prorated: bool = False,
         df["laker_known"] = df["laker_z"].notna().astype(int)
 
     _, _, _, features = _prepare_Xy(df)
+    dropped = set(FEATURE_COLS) - set(features)
+    if dropped and not allow_missing_computed:
+        raise RuntimeError(
+            f"load_evaluation_frame: {len(FEATURE_COLS)} features declared in "
+            f"FEATURE_COLS but _prepare_Xy returned {len(features)} — silently "
+            f"dropped: {dropped}. A computed feature (e.g. kf_market_value) is "
+            f"missing from the frame. Pass allow_missing_computed=True if the "
+            f"caller computes them per-fold (ablation harness, nested CV).")
     df[features] = df[features].fillna(df[features].median()).fillna(0)
+    # When kf_market_value is the missing computed feature, prev_cap_pct was
+    # removed from FEATURE_COLS (replaced by kf) but is still needed for:
+    #   (a) the KF anchor/fallback (kf degrades to prev where no anchor exists)
+    #   (b) the baseline ladder (BASELINE_LADDER references it)
+    # Median-fill it here so every consumer gets a usable column.
+    if "prev_cap_pct" in df.columns and "prev_cap_pct" not in features:
+        df["prev_cap_pct"] = df["prev_cap_pct"].fillna(
+            df["prev_cap_pct"].median()).fillna(0)
     df["is_confirmation"] = df["player_name_norm"].map(_in_confirmation_set)
     # Diagnostic label only, never a feature. Salary-aware: when a mid-season
     # buyout puts two contracts on one season, the one that produced this
@@ -319,6 +549,102 @@ def _in_confirmation_set(player_name_norm: str) -> bool:
     """
     digest = hashlib.md5(str(player_name_norm).encode("utf-8")).hexdigest()
     return int(digest[:8], 16) % 100 < CONFIRMATION_PCT
+
+
+def prepare_full_frame(df_eval: pd.DataFrame,
+                       features: list[str]) -> pd.DataFrame:
+    """Load the full training dataset and prepare it for KF measurement.
+
+    The intermediate rows only appear on the test side of a fit, so they need
+    the prediction-time columns: features (median-filled from the eval frame),
+    Stage-2 bounds, inert Stage-3 route facts, and classifier columns.
+    """
+    df_full = load_training_data()
+    df_full = _compute_max_eligible(df_full)
+
+    # Floor: eval frame's per-season median, good enough for a KF measurement
+    season_floor = df_eval.groupby("season")["floor_pct"].median()
+    df_full["floor_pct"] = (df_full["season"].map(season_floor)
+                            .fillna(float(df_eval["floor_pct"].min())))
+
+    # Stage 3 is inert on intermediate rows: an escalator season is not a
+    # first-paying-year extension, so the measurement is the model's market-
+    # value estimate, not a route-capped price.
+    df_full["is_extension"] = False
+    df_full["ext_cap_pct"] = np.nan
+
+    med = df_eval[features].median()
+    df_full[features] = df_full[features].fillna(med).fillna(0)
+    df_full, _ = attach_clf_features(df_full)
+    return df_full.reset_index(drop=True)
+
+
+def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
+                       prehistory: bool = False,
+                       expand_anchors: bool = True,
+                       n_inner: int = N_INNER,
+                       verbose: bool = True) -> KFContext:
+    """Build the KFContext for nested-CV kf_market_value computation.
+
+    The context is built once and captured by KF fitters. Its anchor map and
+    intermediate indices are fixed across folds; only the KF values change
+    (recomputed from per-fold inner models).
+
+    Args:
+        df_eval:       the evaluation frame from load_evaluation_frame.
+        base_features: the feature list returned by load_evaluation_frame
+                       (20 features, without kf_market_value).
+        prehistory:    inject pre-2019 Year-1 cap_pct as tier-1 anchors.
+        expand_anchors: enable v8.14x tier-2 anchor expansions.
+        n_inner:       inner folds for nested CV (default 4).
+    """
+    mf = list(MEASUREMENT_FEATURES)
+    # MEASUREMENT_FEATURES includes prev_cap_pct which was removed from
+    # FEATURE_COLS. Verify it exists in the frame (median-filled by
+    # load_evaluation_frame when allow_missing_computed=True).
+    missing_mf = [f for f in mf if f not in df_eval.columns]
+    assert not missing_mf, f"Measurement features missing from frame: {missing_mf}"
+
+    if verbose:
+        print("Preparing KF context (full frame + anchor map)...")
+    df_full = prepare_full_frame(df_eval, mf)
+
+    extra_events = None
+    if prehistory:
+        if verbose:
+            print("Loading pre-2019 Year-1 anchors (--prehistory):")
+        extra_events = load_prehistory_anchors()
+
+    inter_idx, needed_idx, tier, anchor_val = kf_build_anchor_map(
+        df_eval, df_full, extra_events=extra_events,
+        expand_anchors=expand_anchors)
+
+    prev = df_eval["prev_cap_pct"].values
+    anchor = np.where(tier > 0, anchor_val, prev)
+    groups = df_eval["player_name_norm"].values
+
+    pos_of = {fi: k for k, fi in enumerate(needed_idx)}
+    inter_pos = [[pos_of[fi] for fi in lst] for lst in inter_idx]
+    full_needed = df_full.iloc[needed_idx]
+
+    n_anchor = int((tier > 0).sum())
+    n_inter = sum(1 for lst in inter_idx if lst)
+    if verbose:
+        print(f"  full frame {len(df_full)} rows; intermediate predict "
+              f"subset {len(needed_idx)} unique rows")
+        print(f"  anchors: {n_anchor}/{len(df_eval)} rows; {n_inter} have "
+              f">=1 measurement season")
+        for t_id, lab in ((1, "tier 1 market-price"),
+                          (2, "tier 2 rookie anchor")):
+            m = tier == t_id
+            print(f"    {lab}: {int(m.sum())} rows")
+        print(f"    tier 3 fallback kf=prev: {int((tier == 0).sum())} rows")
+
+    return KFContext(
+        df_full=df_full, full_needed=full_needed, inter_pos=inter_pos,
+        tier=tier, anchor=anchor, groups=groups,
+        measurement_features=mf, n_inner=n_inner,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -552,6 +878,151 @@ def rolling_forward_signing(df: pd.DataFrame, features: list[str],
                 f"{t}={offs[t]['offset']:+.5f}(n={offs[t]['n']})"
                 for t in SIGNING_ELIGIBLE_TYPES), flush=True)
     return out, detail
+
+
+# ---------------------------------------------------------------------------
+# KF Layer B — rolling forward with pre-computed kf_market_value per origin
+# ---------------------------------------------------------------------------
+
+def _compute_kf_forward(df: pd.DataFrame, kf_ctx: KFContext,
+                        train_mask: np.ndarray, clf_features: list[str],
+                        seeds) -> np.ndarray:
+    """Compute KF values for a forward origin using base model on training rows.
+
+    For Layer B the temporal split is naturally fold-honest: the base model
+    trained on seasons < T never sees season T's targets, so no inner OOF is
+    needed. Fits one base model per seed and averages.
+    """
+    mf = kf_ctx.measurement_features
+    n_seeds = len(seeds)
+    full_p = np.zeros(len(kf_ctx.full_needed))
+    tr_p = np.zeros(int(train_mask.sum()))
+
+    for seed in seeds:
+        model, clf = fit_measurement_models(df[train_mask], mf,
+                                             clf_features, seed)
+        full_p += predict_with_measurement(model, clf, kf_ctx.full_needed,
+                                            mf, clf_features)
+        tr_p += predict_with_measurement(model, clf, df[train_mask],
+                                          mf, clf_features)
+    full_p /= n_seeds
+    tr_p /= n_seeds
+
+    y_tr = df.loc[train_mask, TARGET].values
+    r_var = float(np.var(y_tr - tr_p, ddof=1))
+    q_var = estimate_q(kf_ctx.df_full,
+                       set(df.loc[train_mask, "player_name_norm"]), r_var)
+
+    # KF for ALL eval rows (both train and test need values)
+    kf_all = np.full(len(df), np.nan)
+    for i in range(len(df)):
+        if not np.isfinite(kf_ctx.anchor[i]):
+            continue
+        pos_list = kf_ctx.inter_pos[i]
+        if not pos_list:
+            kf_all[i] = kf_ctx.anchor[i]
+            continue
+        kf_all[i] = kalman_update(
+            kf_ctx.anchor[i], full_p[pos_list], q_var, r_var,
+            r_var if kf_ctx.tier[i] == 2 else KF_P0)
+
+    prev = df["prev_cap_pct"].values
+    return np.where(np.isfinite(kf_all), kf_all, prev)
+
+
+def layer_b_kf(df: pd.DataFrame, kf_ctx: KFContext,
+               clf_features: list[str], seeds=DEFAULT_SEEDS,
+               origins=FORWARD_ORIGINS, k: float = SIGNING_K,
+               grabit_params: dict | None = None,
+               verbose: bool = True) -> tuple[dict, np.ndarray, dict]:
+    """Layer B with KF: rolling forward + signing offsets per origin.
+
+    For each origin T:
+      1. Fit base model on all seasons < T (no nested CV needed — temporal
+         split is naturally fold-honest)
+      2. Compute KF for all rows from that base model
+      3. Augment training and test data with kf_market_value
+      4. Fit Stage-2/3 arms on augmented training data, predict test
+      5. For signing offsets: inner OOF on augmented training data with a
+         standard champion fitter
+
+    Returns:
+        (fwd_arms, signing_fwd, signing_detail) matching the shape
+        run_suite_arms_kf expects.
+    """
+    gp = grabit_params or {}
+    features = list(FEATURE_COLS)
+    season = df["season"].values
+    cat = df["signing_cat"].values
+    lo, hi = df["floor_pct"].values, df["max_eligible_pct"].values
+    is_ext, ext_cap = df["is_extension"].values, df["ext_cap_pct"].values
+    mech_cap = (df["mech_cap_pct"].values
+                if "mech_cap_pct" in df.columns else None)
+
+    fwd_preds = {}
+    signing_fwd = np.full(len(df), np.nan)
+    signing_detail = {}
+
+    for T in origins:
+        te, tr = season == T, season < T
+        n_te, n_tr = int(te.sum()), int(tr.sum())
+        if n_te < 10 or n_tr < 200:
+            continue
+        if verbose:
+            print(f"\n  Layer B origin {T}: train {n_tr}, test {n_te}",
+                  flush=True)
+
+        # KF: compute once for this origin
+        kf_all = _compute_kf_forward(df, kf_ctx, tr, clf_features, seeds)
+        fill = float(np.nanmedian(kf_all[tr]))
+        if verbose:
+            print(f"    KF computed (fill={fill:.5f})", flush=True)
+
+        # Augment frames
+        train_aug = df[tr].copy()
+        test_aug = df[te].copy()
+        train_aug["kf_market_value"] = np.where(
+            np.isfinite(kf_all[tr]), kf_all[tr], fill)
+        test_aug["kf_market_value"] = np.where(
+            np.isfinite(kf_all[te]), kf_all[te], fill)
+
+        # Stage-2/3 arms: standard multi-arm fitter on augmented data
+        fitter = make_stage_arms_fitter(clf_features, grabit_params=gp)
+        acc = {}
+        for seed in seeds:
+            out = fitter(train_aug, test_aug, features, seed)
+            for name, pred in out.items():
+                if name not in acc:
+                    acc[name] = np.zeros(n_te)
+                acc[name] += pred
+        for name in acc:
+            fwd_preds.setdefault(name, np.full(len(df), np.nan))
+            fwd_preds[name][te] = acc[name] / len(seeds)
+
+        # Signing offsets: inner OOF on augmented training data
+        if verbose:
+            print(f"    B1 inner OOF for signing offsets over {n_tr} rows...",
+                  flush=True)
+        inner_fitter = make_champion_fitter(clf_features)
+        inner_oof, _, _ = oof_groupkfold(train_aug, features,
+                                          inner_fitter, seeds)
+        offs = signing_offsets(train_aug[TARGET].values - inner_oof,
+                               train_aug["signing_cat"].values,
+                               k=k, detail=True)
+        signing_fwd[te] = stage3_signing(
+            fwd_preds[ARM_EXT][te], cat[te], offs,
+            lo=lo[te], hi=hi[te],
+            mech_cap_pct=mech_cap[te] if mech_cap is not None else None,
+            is_extension=is_ext[te], ext_cap_pct=ext_cap[te])
+        signing_detail[int(T)] = {t: {"offset": d["offset"], "n": d["n"]}
+                                   for t, d in offs.items()}
+        if verbose:
+            print("      offsets: " + "  ".join(
+                f"{t}={offs[t]['offset']:+.5f}(n={offs[t]['n']})"
+                for t in SIGNING_ELIGIBLE_TYPES), flush=True)
+
+    fwd_preds[ARM_CHAMPION] = signing_fwd
+    return fwd_preds, signing_fwd, signing_detail
 
 
 # ---------------------------------------------------------------------------
@@ -897,7 +1368,7 @@ def baseline_ladder(df, features, seeds=DEFAULT_SEEDS) -> dict:
     y = df[TARGET].values
     ladder = {"predict the mean": 0.0}
     for name, cols in BASELINE_LADDER.items():
-        cols = [c for c in cols if c in features]
+        cols = [c for c in cols if c in df.columns]
         if cols:
             oof, _, _ = oof_groupkfold(df, cols, baseline_fitter, seeds=seeds[:3])
             ladder[name] = float(r2_score(y, oof))
@@ -1024,6 +1495,52 @@ def run_suite_arms(df: pd.DataFrame, features: list[str], fitter,
     out = {}
     for name, (oof, fold_r2, fold_r2_sel) in oof_arms.items():
         res = SuiteResult(name=name, oof=oof, forward=fwd_arms[name],
+                          fold_r2=fold_r2, fold_r2_sel=fold_r2_sel)
+        res.metrics.update(layer_a(df, oof, fold_r2))
+        res.metrics.update(layer_b(df, res.forward))
+        res.metrics.update(layer_c(df, oof))
+        res.metrics.update(layer_d(df, features, oof, seeds, ladder=ladder))
+        out[name] = res
+    return out, {"layer_a_offsets": lfo, "layer_b_offsets": b_detail}
+
+
+def run_suite_arms_kf(df: pd.DataFrame, features: list[str], kf_fitter,
+                      kf_ctx: KFContext, clf_features: list[str],
+                      seeds=DEFAULT_SEEDS, ladder=None,
+                      grabit_params: dict | None = None,
+                      ) -> tuple[dict[str, SuiteResult], dict]:
+    """Score the KF champion through all four layers with nested CV.
+
+    Layer A: `oof_groupkfold_signing` with a KF multi-arm fitter that computes
+    kf_market_value via inner OOF per outer fold (fold-honest nested CV).
+
+    Layer B: `layer_b_kf` pre-computes KF per origin from a base model trained
+    on seasons < T (naturally fold-honest, no nested CV needed). Signing offsets
+    come from an inner OOF on the augmented training window.
+
+    Returns the same shape as `run_suite_arms`:
+        ({arm: SuiteResult}, {"layer_a_offsets": ..., "layer_b_offsets": ...})
+    """
+    print(f"\nScoring the KF Stage-2/3 arms over {len(seeds)} seeds "
+          f"(nested CV)...")
+
+    # Layer A: KF multi-arm fitter + fold-honest signing offset
+    oof_arms, lfo = oof_groupkfold_signing(df, features, kf_fitter, seeds)
+
+    # Layer B: KF + signing per origin (pre-computed KF, inner OOF for offsets)
+    print("\n  Layer B -- KF with signing offsets (pre-computed per origin)...")
+    fwd_arms, _, b_detail = layer_b_kf(
+        df, kf_ctx, clf_features, seeds, grabit_params=grabit_params)
+
+    if ladder is None:
+        ladder = baseline_ladder(df, features, seeds)
+
+    out = {}
+    for name, (oof, fold_r2, fold_r2_sel) in oof_arms.items():
+        fwd = fwd_arms.get(name)
+        if fwd is None:
+            fwd = np.full(len(df), np.nan)
+        res = SuiteResult(name=name, oof=oof, forward=fwd,
                           fold_r2=fold_r2, fold_r2_sel=fold_r2_sel)
         res.metrics.update(layer_a(df, oof, fold_r2))
         res.metrics.update(layer_b(df, res.forward))
@@ -1179,17 +1696,47 @@ def print_stage3_accounting(df, arms: dict):
 
 
 def main():
-    df, features = load_evaluation_frame()
+    sys.stdout.reconfigure(encoding="utf-8")
+    import argparse
+    parser = argparse.ArgumentParser(description="Four-layer evaluation suite")
+    parser.add_argument("--no-prehistory", action="store_true",
+                        help="KF mode: disable pre-2019 Year-1 anchors")
+    parser.add_argument("--no-expand-anchors", action="store_true",
+                        help="KF mode: disable tier-2 anchor expansions")
+    args = parser.parse_args()
+
+    kf_mode = "kf_market_value" in FEATURE_COLS
+
+    if kf_mode:
+        df, base_features = load_evaluation_frame(allow_missing_computed=True)
+        features = list(FEATURE_COLS)
+        print(f"KF mode: {len(base_features)} base features from "
+              f"load_evaluation_frame, {len(features)} final features "
+              "(kf_market_value computed per fold via nested CV)")
+    else:
+        df, features = load_evaluation_frame()
+        base_features = features
+
     df, clf_features = attach_clf_features(df)
     print(f"Loaded {len(df)} rows, {len(features)} features, "
           f"{len(clf_features)} classifier features, "
           f"seasons {df['season'].min()}-{df['season'].max()}, "
           f"{int(df['is_extension'].sum())} first-year extension rows")
 
-    ladder = baseline_ladder(df, features, DEFAULT_SEEDS)
-    arms, signing = run_suite_arms(
-        df, features, make_stage_arms_fitter(clf_features), ladder=ladder,
-        inner_fitter=make_champion_fitter(clf_features))
+    ladder = baseline_ladder(df, base_features, DEFAULT_SEEDS)
+
+    if kf_mode:
+        kf_ctx = prepare_kf_context(df, base_features,
+                                     prehistory=not args.no_prehistory,
+                                     expand_anchors=not args.no_expand_anchors)
+        kf_fitter = make_kf_stage_arms_fitter(kf_ctx, clf_features)
+        arms, signing = run_suite_arms_kf(
+            df, features, kf_fitter, kf_ctx, clf_features, ladder=ladder)
+    else:
+        arms, signing = run_suite_arms(
+            df, features, make_stage_arms_fitter(clf_features), ladder=ladder,
+            inner_fitter=make_champion_fitter(clf_features))
+
     champion = arms[ARM_CHAMPION]
     print_report(df, champion)
 
@@ -1217,8 +1764,8 @@ def main():
     print_convention_block(df, arms, deltas)
     print_stage3_accounting(df, arms)
 
-    challenger = run_suite(df, features, baseline_fitter, "Baseline XGBoost",
-                           ladder=ladder)
+    challenger = run_suite(df, base_features, baseline_fitter,
+                           "Baseline XGBoost", ladder=ladder)
     print_report(df, challenger)
 
     delta = paired_delta(challenger.fold_r2, champion.fold_r2)
@@ -1296,7 +1843,8 @@ def main():
         if prev.exists():
             stem, dot, ext = name.partition(".")
             prev.replace(out_dir / f"{stem}_prev{dot}{ext}")
-    payload = {"champion": champion.metrics, "challenger": challenger.metrics,
+    payload = {"kf_mode": kf_mode,
+               "champion": champion.metrics, "challenger": challenger.metrics,
                # The champion is a TOLD-ROUTE number (Stage 3 reads the realized
                # extension flag and the realized signing mechanism). These three
                # are the same stack with the signing offset off (the v8.7x

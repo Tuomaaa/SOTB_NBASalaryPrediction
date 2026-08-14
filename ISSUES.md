@@ -1019,3 +1019,5 @@ regeneration.
 
 **Fixed when**: the fill map is derived from draft_year+1 rows only and the
 rebuild that carries it has a version entry with its paired delta.
+
+

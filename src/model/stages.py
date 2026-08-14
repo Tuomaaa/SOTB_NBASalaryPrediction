@@ -89,6 +89,7 @@ strictly earlier than the one it scores, and the deployed constants below come
 from OOF residuals, never in-sample ones.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -123,19 +124,37 @@ SIGNING_ELIGIBLE_TYPES = ("Bird Rights", "Cap Space", "Early Bird", "Non-Bird")
 #   source  scripts/eval_stage3_signing.py — the gated measurement harness
 #   frame   the 873-row evaluation frame (18 features), ALL OOF rows, seeds 0-9, k = 20
 #   regen   python scripts/eval_stage3_signing.py
-#           then copy `deployed_offsets_k20[*]["offset"]` out of
-#           outputs/models/stage3_signing_offset_eval.json
+#           (the harness writes data/raw/raw_external/signing_offsets.json)
 #
-# They live in code rather than in a JSON because outputs/models/ is gitignored
-# and a fresh clone would otherwise have no copy at all. Leaving them stale
-# after a rebuild prices every Bird-Rights row off a residual the model no
-# longer has.
-SIGNING_OFFSETS_DEPLOYED = {
+# The file-based path is the primary source; the hard-coded fallback below
+# exists so a fresh clone without the file still has a reasonable default.
+_SIGNING_OFFSETS_FALLBACK = {
     "Bird Rights": 0.013524496140298447,
     "Cap Space": 0.006433982124433493,
     "Early Bird": 0.0071840723138968925,
     "Non-Bird": -0.004729534476553264,
 }
+
+_SIGNING_OFFSETS_FILE = (
+    Path(__file__).resolve().parent.parent.parent
+    / "data" / "raw" / "raw_external" / "signing_offsets.json"
+)
+
+
+def _load_signing_offsets() -> dict:
+    if _SIGNING_OFFSETS_FILE.exists():
+        with open(_SIGNING_OFFSETS_FILE) as f:
+            loaded = json.load(f)
+        for t in SIGNING_ELIGIBLE_TYPES:
+            if t not in loaded:
+                raise ValueError(
+                    f"{_SIGNING_OFFSETS_FILE} missing key {t!r}. "
+                    "Regenerate with: python scripts/eval_stage3_signing.py")
+        return {t: loaded[t] for t in SIGNING_ELIGIBLE_TYPES}
+    return dict(_SIGNING_OFFSETS_FALLBACK)
+
+
+SIGNING_OFFSETS_DEPLOYED = _load_signing_offsets()
 
 # Deployed-model seed, matching train._XGB_BASE's random_state so the shipped
 # classifier is as reproducible as the shipped regression.

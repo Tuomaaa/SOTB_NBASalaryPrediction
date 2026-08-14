@@ -17,6 +17,9 @@ SEASONS = list(range(2019, 2027))  # 2019-20 through 2025-26
 # corroborated by max contracts landing on exactly 25/30/35% of it — see
 # scripts/check_caps.py, which fails if a season stops reconciling.
 CAP_BY_SEASON = {
+    2015: 70_000_000,   # 2015-16: first post-TV-deal cap spike
+    2016: 94_143_000,   # 2016-17
+    2017: 99_093_000,   # 2017-18
     2018: 101_869_000,
     2019: 109_140_000,
     2020: 109_140_000,

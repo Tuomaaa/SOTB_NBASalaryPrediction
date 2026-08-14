@@ -379,7 +379,8 @@ def main():
     args = ap.parse_args()
     seeds = tuple(DEFAULT_SEEDS[:args.seeds])
 
-    df, features = load_evaluation_frame(verbose=True)
+    df, features = load_evaluation_frame(verbose=True,
+                                         allow_missing_computed=True)
     df, clf_features = rm.attach_clf_features(df)
 
     y = df[TARGET].values
@@ -839,13 +840,15 @@ def main():
         json.dump(payload, fh, indent=2, default=float)
     print(f"Saved {OUT_JSON}")
 
-    print("\n" + "=" * 100)
-    print("  Adopted at v8.8x. Copy DEPLOYED-FORM OFFSETS (k=20) above into "
-          "stages.SIGNING_OFFSETS_DEPLOYED")
-    print("  whenever the training data is rebuilt — they are data-dependent "
-          "constants, and")
-    print("  outputs/models/ is gitignored, so code is their only home.")
-    print("=" * 100)
+    # Write the deployed offsets to the tracked file that stages.py loads.
+    from src.model.stages import _SIGNING_OFFSETS_FILE
+    deployed = {t: dep20[t]["offset"] if isinstance(dep20[t], dict)
+                else float(dep20[t])
+                for t in ELIGIBLE_TYPES}
+    _SIGNING_OFFSETS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(_SIGNING_OFFSETS_FILE, "w") as fh:
+        json.dump(deployed, fh, indent=2)
+    print(f"Saved {_SIGNING_OFFSETS_FILE} (stages.py will load these on next import)")
 
 
 if __name__ == "__main__":

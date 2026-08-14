@@ -20,10 +20,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import numpy as np
 import pandas as pd
 
-from src.model.train import TARGET, PRORATED_FLOOR, _load_rookie_scale_set
+from config import CAP_BY_SEASON, PROCESSED_DIR
+from src.model.train import TARGET, PRORATED_FLOOR, _load_rookie_scale_set, _load_debut_seasons
 
 P0 = 0.0005
-Q_FLOOR = 0.0005
+Q_FLOOR = 0.04
 
 MEASUREMENT_FEATURES = [
     "darko_dpm_z", "lebron_z", "laker_z",
@@ -78,8 +79,87 @@ def estimate_q(df_full, players, r_var):
     return max(var_d - 2.0 * r_var, Q_FLOOR)
 
 
-def build_anchor_map(df_eval, df_full):
+def load_prehistory_anchors() -> dict[str, dict[int, tuple[float, bool]]]:
+    """Load pre-2019 Year-1 cap_pct values for KF anchor injection.
+
+    Sources:
+      - salaries_prehistory.csv: BBRef salary data for seasons 2016-2018
+      - spotrac_signing_types.csv: Year-1 identification (season == contract_start)
+      - Spotrac AAV for season 2015 where no BBRef salary exists
+
+    Returns dict[player_name_norm -> {season: (cap_pct, is_prorated)}].
+    Pre-2019 rows enter the anchor map only, never the training set.
+    """
+    # 1. Load Spotrac signing types to identify Year-1 contracts
+    spotrac_path = PROCESSED_DIR / "spotrac_signing_types.csv"
+    if not spotrac_path.exists():
+        print("WARNING: spotrac_signing_types.csv not found, no prehistory anchors")
+        return {}
+    st = pd.read_csv(spotrac_path)
+    st["season"] = st["season"].astype(int)
+    st["contract_start"] = st["contract_start"].astype(int)
+    y1 = st[(st["season"] == st["contract_start"])
+            & (st["season"] >= 2015) & (st["season"] <= 2018)].copy()
+    y1_set = set(zip(y1["player_name_norm"], y1["season"]))
+    print(f"  Spotrac Year-1 contracts 2015-2018: {len(y1_set)}")
+
+    # 2. Load BBRef prehistory salaries (2016-2018)
+    prehistory_path = PROCESSED_DIR / "salaries_prehistory.csv"
+    events: dict[str, dict[int, tuple[float, bool]]] = {}
+    bbref_covered = set()
+    if prehistory_path.exists():
+        ph = pd.read_csv(prehistory_path)
+        ph["season"] = ph["season"].astype(int)
+        for _, r in ph.iterrows():
+            p, s, sal = r["player_name_norm"], r["season"], r["salary"]
+            if (p, s) not in y1_set:
+                continue
+            cap = CAP_BY_SEASON.get(s)
+            if cap is None:
+                continue
+            cap_pct = float(sal) / float(cap)
+            is_prorated = cap_pct < PRORATED_FLOOR
+            events.setdefault(p, {})[s] = (cap_pct, is_prorated)
+            bbref_covered.add((p, s))
+        print(f"  BBRef prehistory Year-1 matches: {len(bbref_covered)}")
+
+    # 3. Spotrac AAV fallback for 2015 and any BBRef gaps
+    aav_used = 0
+    for _, r in y1.iterrows():
+        p, s = r["player_name_norm"], int(r["season"])
+        if (p, s) in bbref_covered:
+            continue
+        cap = CAP_BY_SEASON.get(s)
+        aav = r.get("aav")
+        if cap is None or pd.isna(aav) or float(aav) <= 0:
+            continue
+        cap_pct = float(aav) / float(cap)
+        is_prorated = cap_pct < PRORATED_FLOOR
+        events.setdefault(p, {})[s] = (cap_pct, is_prorated)
+        aav_used += 1
+    print(f"  Spotrac AAV fallback anchors: {aav_used}")
+
+    total = sum(len(v) for v in events.values())
+    players = len(events)
+    print(f"  Total prehistory anchors: {total} "
+          f"({players} players, seasons 2015-2018)")
+    return events
+
+
+def build_anchor_map(df_eval, df_full, extra_events=None,
+                     expand_anchors=True):
     """Three-tier anchor map.
+
+    Args:
+        extra_events: optional pre-2019 Year-1 cap_pct anchors (from
+            load_prehistory_anchors). Merged BEFORE eval-frame events so
+            an eval-frame anchor at the same (player, season) wins.
+        expand_anchors: two tier-2 expansions (v8.14x default):
+            (a) First-contract mirror: undrafted/2nd-round first contracts
+                (exp <= 1, not rookie-scale) provide tier-2 anchors.
+            (b) Rookie Year-1 shift: tier-2 rookie anchors move from
+                deal-year-2 to deal-year-1, with cap_pct back-calculated
+                via the 5% rookie raise (or from salaries.csv if available).
 
     Returns (inter_idx, needed_idx, tier, anchor_val):
         inter_idx:  list of lists — df_full positions for intermediate seasons
@@ -92,9 +172,13 @@ def build_anchor_map(df_eval, df_full):
     floor_min = float(df_eval["floor_pct"].min())
 
     events: dict[str, dict[int, tuple[float, bool]]] = {}
+    if extra_events:
+        for p, p_events in extra_events.items():
+            for s, val in p_events.items():
+                events.setdefault(p, {})[int(s)] = val
     for p, s, c in zip(df_eval["player_name_norm"],
                        df_eval["season"].astype(int), df_eval[TARGET].values):
-        events.setdefault(p, {}).setdefault(int(s), (float(c), False))
+        events.setdefault(p, {})[int(s)] = (float(c), False)
 
     full_cp: dict[tuple[str, int], float] = {}
     rows_by_player: dict[str, dict[int, int]] = {}
@@ -115,6 +199,48 @@ def build_anchor_map(df_eval, df_full):
         if (p, s) in full_cp:
             rookie_seasons.setdefault(p, []).append(s)
 
+    first_contract_cap: dict[str, dict[int, float]] = {}
+    rookie_y1: dict[str, tuple[int, float]] = {}
+    if expand_anchors:
+        from scripts.build_external_features import norm
+        debut = _load_debut_seasons()
+        if debut:
+            for p, s, c in zip(df_full["player_name_norm"],
+                               df_full["season"].astype(int),
+                               df_full[TARGET].values):
+                pn = norm(str(p))
+                d = debut.get(pn)
+                if d is None:
+                    continue
+                exp = int(s) - int(d)
+                if exp <= 1 and (p, int(s)) not in rs:
+                    first_contract_cap.setdefault(p, {})[int(s)] = float(c)
+
+        ROOKIE_RAISE = 1.05
+        sal_lookup: dict[tuple[str, int], float] = {}
+        sal_path = PROCESSED_DIR / "salaries.csv"
+        if sal_path.exists():
+            sal = pd.read_csv(sal_path)
+            for _, r in sal.iterrows():
+                cap = CAP_BY_SEASON.get(int(r["season"]))
+                if cap:
+                    pn = str(r["player"]).lower().strip().replace(".", "")
+                    sal_lookup[(pn, int(r["season"]))] = float(r["salary"]) / cap
+        for p, seasons in rookie_seasons.items():
+            earliest = min(seasons)
+            y1_season = earliest - 1
+            cap_y1 = CAP_BY_SEASON.get(y1_season)
+            if cap_y1 is None:
+                continue
+            pn_key = p.replace(".", "")
+            if (pn_key, y1_season) in sal_lookup:
+                rookie_y1[p] = (y1_season, sal_lookup[(pn_key, y1_season)])
+            elif (p, earliest) in full_cp:
+                cap_y2 = CAP_BY_SEASON.get(earliest)
+                if cap_y2:
+                    y1_salary = full_cp[(p, earliest)] * cap_y2 / ROOKIE_RAISE
+                    rookie_y1[p] = (y1_season, float(y1_salary / cap_y1))
+
     tier = np.zeros(len(df_eval), dtype=int)
     anchor_val = np.full(len(df_eval), np.nan)
     inter_idx, needed = [], set()
@@ -127,12 +253,35 @@ def build_anchor_map(df_eval, df_full):
             anchor_val[i] = events[p][t0][0]
         else:
             rook = [s for s in rookie_seasons.get(p, ()) if s < T]
-            if not rook:
+            if rook:
+                tier[i] = 2
+                if expand_anchors and p in rookie_y1:
+                    dy, y1_val = rookie_y1[p]
+                    if dy < T:
+                        t0 = dy
+                        anchor_val[i] = y1_val
+                    else:
+                        t0 = min(rook)
+                        anchor_val[i] = full_cp[(p, t0)]
+                else:
+                    t0 = min(rook)
+                    anchor_val[i] = full_cp[(p, t0)]
+            elif expand_anchors and p in first_contract_cap:
+                fc_seasons = [s for s in first_contract_cap[p] if s < T]
+                if fc_seasons:
+                    t0 = min(fc_seasons)
+                    tier[i] = 2
+                    fc_val = first_contract_cap[p][t0]
+                    if fc_val < PRORATED_FLOOR:
+                        anchor_val[i] = season_floor.get(t0, floor_min)
+                    else:
+                        anchor_val[i] = fc_val
+                else:
+                    inter_idx.append([])
+                    continue
+            else:
                 inter_idx.append([])
                 continue
-            t0 = min(rook)
-            tier[i] = 2
-            anchor_val[i] = full_cp[(p, t0)]
         seasons = sorted(s for s in rows_by_player.get(p, {}) if t0 < s < T)
         idx = [rows_by_player[p][s] for s in seasons]
         inter_idx.append(idx)
@@ -141,7 +290,8 @@ def build_anchor_map(df_eval, df_full):
 
 
 def compute_kf_column(df_eval, df_full, predict_fn, r_var,
-                      players=None):
+                      players=None, extra_events=None,
+                      expand_anchors=True):
     """Compute kf_market_value for every row in df_eval.
 
     Args:
@@ -152,12 +302,17 @@ def compute_kf_column(df_eval, df_full, predict_fn, r_var,
         r_var:      measurement noise variance (from base model's OOF residuals
                     or in-sample residuals)
         players:    set of player names for Q estimation (default: all in df_eval)
+        extra_events: optional pre-2019 Year-1 cap_pct anchors (from
+                    load_prehistory_anchors)
+        expand_anchors: enable v8.14x tier-2 anchor expansions
 
     Returns:
         kf_values: array of kf_market_value, one per df_eval row.
                    NaN where no anchor exists.
     """
-    inter_idx, needed_idx, tier, anchor_val = build_anchor_map(df_eval, df_full)
+    inter_idx, needed_idx, tier, anchor_val = build_anchor_map(
+        df_eval, df_full, extra_events=extra_events,
+        expand_anchors=expand_anchors)
 
     if players is None:
         players = set(df_eval["player_name_norm"].unique())

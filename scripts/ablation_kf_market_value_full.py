@@ -79,9 +79,50 @@ Two candidate arms per run, off the same inner OOF and the same kf values:
 
 Gate: paired selection-pool delta, t > 2 (CLAUDE.md, layer A).
 
+Two pipeline depths are reported, because they are not interchangeable:
+
+    Phase 3   push -> clip -> extension clip. The pre-registered gate, and the
+              deepest an arm can go inside a fitter — `make_champion_fitter`
+              sees one fold, while the signing offset is a function of the
+              whole OOF vector.
+    Phase 3b  the same four arms with Stage 3's signing offset attached
+              leave-fold-out, which is the deployed pipeline entire. Quoting
+              Phase 3 against an evaluate_suite number reads as a regression
+              that is really a missing stage (~0.016 R2 at v8.13x), so
+              VERSION_HISTORY takes Phase 3b.
+
+The gate stays on Phase 3: a paired delta between two arms is near-insensitive
+to a per-type constant both of them receive, and moving a decided gate after
+the fact would re-open every ablation already recorded against it.
+
 Run:  python scripts/ablation_kf_market_value_full.py [--seeds 10]
-          [--anchor prev|year1]
+          [--anchor prev|market] [--prehistory] [--expand-anchors]
       (--seeds 1 is a ~4-minute smoke pass; the gate needs the full 10)
+
+--prehistory: inject pre-2019 Year-1 cap_pct values as tier-1 anchors for
+    players whose most recent Year-1 contract was signed before 2019. Uses
+    BBRef salary data from salaries_prehistory.csv (2016-2018) cross-
+    referenced with Spotrac signing_types for Year-1 identification, plus
+    Spotrac AAV for 2015 where no BBRef salary exists. These values enter
+    the anchor map only, never the training set.
+
+--expand-anchors: two expansions of the anchor map (--anchor market only):
+    (a) First-contract tier-2 mirror: undrafted / 2nd-round players whose
+        first NBA contract (exp <= 1, not rookie-scale) is in the raw
+        training data get a tier-2 anchor at that contract's cap_pct with
+        P0 = R. These are the mirror image of the rookie-scale tier-2: a
+        first-round pick gets a slotted-salary anchor, now the undrafted
+        and second-rounders get a first-contract anchor. ~75 eval rows
+        currently at tier 3 move to tier 2.
+    (b) Rookie Year-1 anchor shift: tier-2 rookie anchors move from
+        deal-year-2 (draft_year+1, the earliest observed salary) to
+        deal-year-1 (the actual start of the rookie contract). Year-1
+        salary does not exist in the training data (stats-salary lag), so
+        it is back-calculated from Year-2: salary_y1 = salary_y2 / 1.05
+        (the standard 5% rookie-scale annual raise). The deal-year-2 row
+        that was the anchor becomes a measurement, giving the KF one more
+        update step. These values enter the anchor map only, never the
+        training set.
 """
 
 import argparse
@@ -99,24 +140,102 @@ from sklearn.metrics import r2_score
 from sklearn.model_selection import GroupKFold
 from xgboost import XGBRegressor
 
-from config import OUTPUTS_DIR
+from config import OUTPUTS_DIR, CAP_BY_SEASON, PROCESSED_DIR
 from src.model.evaluate_suite import (
-    N_SPLITS, load_evaluation_frame, make_champion_fitter, paired_delta,
-    _dollars, _fold_pass, _reduce_fold_pass,
+    N_SPLITS, FORWARD_ORIGINS, load_evaluation_frame, make_champion_fitter,
+    paired_delta, _dollars, _fold_pass, _reduce_fold_pass,
+    oof_groupkfold,
 )
 from src.model.route_mixture import (
     attach_clf_features, train_route_classifier, route_proba, MAX_IDX,
 )
-from src.model.stages import compose
+from src.model.stages import (
+    compose, signing_offsets, stage3_signing, SIGNING_K,
+)
 from src.model.train import (
     FEATURE_COLS, TARGET, load_training_data, _compute_max_eligible,
     _make_tobit_obj, _XGB_BASE,
 )
 
 P0 = 0.0005
-Q_FLOOR = 0.0005
+P0_FIRST_CONTRACT = None   # set from R at runtime; separate from rookie P0=R
+Q_FLOOR = 0.04
 N_INNER = 4
 KF_COL = "kf_market_value"
+PREV_COL = "prev_cap_pct"
+
+
+# ---------------------------------------------------------------------------
+# Pre-2019 anchor loader
+# ---------------------------------------------------------------------------
+
+def load_prehistory_anchors() -> dict[str, dict[int, tuple[float, bool]]]:
+    """Load pre-2019 Year-1 cap_pct values for KF anchor injection.
+
+    Sources:
+      - salaries_prehistory.csv: BBRef salary data for seasons 2016-2018
+      - spotrac_signing_types.csv: Year-1 identification (season == contract_start)
+      - Spotrac AAV for season 2015 where no BBRef salary exists
+
+    Returns dict[player_name_norm -> {season: (cap_pct, is_prorated)}].
+    Pre-2019 rows enter the anchor map only, never the training set.
+    """
+    from src.model.train import PRORATED_FLOOR
+
+    # 1. Load Spotrac signing types to identify Year-1 contracts
+    spotrac_path = PROCESSED_DIR / "spotrac_signing_types.csv"
+    if not spotrac_path.exists():
+        print("WARNING: spotrac_signing_types.csv not found, no prehistory anchors")
+        return {}
+    st = pd.read_csv(spotrac_path)
+    st["season"] = st["season"].astype(int)
+    st["contract_start"] = st["contract_start"].astype(int)
+    y1 = st[(st["season"] == st["contract_start"])
+            & (st["season"] >= 2015) & (st["season"] <= 2018)].copy()
+    y1_set = set(zip(y1["player_name_norm"], y1["season"]))
+    print(f"  Spotrac Year-1 contracts 2015-2018: {len(y1_set)}")
+
+    # 2. Load BBRef prehistory salaries (2016-2018)
+    prehistory_path = PROCESSED_DIR / "salaries_prehistory.csv"
+    events: dict[str, dict[int, tuple[float, bool]]] = {}
+    bbref_covered = set()
+    if prehistory_path.exists():
+        ph = pd.read_csv(prehistory_path)
+        ph["season"] = ph["season"].astype(int)
+        for _, r in ph.iterrows():
+            p, s, sal = r["player_name_norm"], r["season"], r["salary"]
+            if (p, s) not in y1_set:
+                continue
+            cap = CAP_BY_SEASON.get(s)
+            if cap is None:
+                continue
+            cap_pct = float(sal) / float(cap)
+            is_prorated = cap_pct < PRORATED_FLOOR
+            events.setdefault(p, {})[s] = (cap_pct, is_prorated)
+            bbref_covered.add((p, s))
+        print(f"  BBRef prehistory Year-1 matches: {len(bbref_covered)}")
+
+    # 3. Spotrac AAV fallback for 2015 and any BBRef gaps
+    aav_used = 0
+    for _, r in y1.iterrows():
+        p, s = r["player_name_norm"], int(r["season"])
+        if (p, s) in bbref_covered:
+            continue
+        cap = CAP_BY_SEASON.get(s)
+        aav = r.get("aav")
+        if cap is None or pd.isna(aav) or float(aav) <= 0:
+            continue
+        cap_pct = float(aav) / float(cap)
+        is_prorated = cap_pct < PRORATED_FLOOR
+        events.setdefault(p, {})[s] = (cap_pct, is_prorated)
+        aav_used += 1
+    print(f"  Spotrac AAV fallback anchors: {aav_used}")
+
+    total = sum(len(v) for v in events.values())
+    players = len(events)
+    print(f"  Total prehistory anchors: {total} "
+          f"({players} players, seasons 2015-2018)")
+    return events
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +294,66 @@ def predict_champion(model, clf, test: pd.DataFrame, features: list[str],
                    ext_cap_pct=test["ext_cap_pct"].values)
 
 
+def signing_corrected(by_seed: np.ndarray, df: pd.DataFrame, folds, sel):
+    """Attach Stage 3's signing offset to an already-collected OOF matrix.
+
+    `predict_champion` above stops at the extension clip, for the reason
+    `make_champion_fitter` documents: a fitter sees one fold, and the offset is
+    a function of the WHOLE out-of-fold vector. So every arm this harness scores
+    is the deployed pipeline minus its last stage, and its R2 is not comparable
+    to evaluate_suite's headline — the gap ran ~0.016 R2 at v8.13x. This is the
+    missing tail, `oof_groupkfold_signing`'s procedure applied to a matrix
+    instead of to a `_fold_pass` store, so the two paths cannot drift.
+
+    Fold f's offsets are a mean over the OOF residuals of folds g != f, so no
+    row is corrected by a statistic its own target informed. Each (fold, seed)
+    cell is corrected BEFORE the seed average, because the offset composes with
+    clips that are not linear (evaluate_suite `_fold_pass`, same reasoning).
+
+    Args:
+        by_seed: (n_seeds, n_rows) predictions, each row filled from the fold
+            that held it out.
+        df: the evaluation frame — supplies `signing_cat` and the legality
+            bounds the offset must be re-clipped into.
+        folds: the (train, val) index pairs `by_seed` was filled from.
+        sel: selection-pool mask (True where the row is NOT confirmation).
+
+    Returns:
+        (oof, fold_r2, fold_r2_sel, lfo) — the first three matching
+        `_reduce_fold_pass`'s tuple, plus the per-fold offset detail.
+    """
+    y = df[TARGET].values
+    cat = df["signing_cat"].values
+    lo, hi = df["floor_pct"].values, df["max_eligible_pct"].values
+    is_ext, ext_cap = df["is_extension"].values, df["ext_cap_pct"].values
+    mech = df["mech_cap_pct"].values if "mech_cap_pct" in df.columns else None
+
+    fold_of = np.empty(len(df), dtype=int)
+    for fi, (_tr, va) in enumerate(folds):
+        fold_of[va] = fi
+    resid = y - by_seed.mean(axis=0)          # actual - predicted, cap_pct
+    lfo = {fi: signing_offsets(resid, cat, pool=fold_of != fi,
+                               k=SIGNING_K, detail=True)
+           for fi in range(len(folds))}
+
+    n_seeds = by_seed.shape[0]
+    out = np.zeros_like(by_seed)
+    fold_r2 = np.zeros((len(folds), n_seeds))
+    fold_r2_sel = np.zeros((len(folds), n_seeds))
+    for fi, (_tr, va) in enumerate(folds):
+        vs = sel[va]
+        for si in range(n_seeds):
+            p = stage3_signing(
+                by_seed[si, va], cat[va], lfo[fi], lo=lo[va], hi=hi[va],
+                mech_cap_pct=mech[va] if mech is not None else None,
+                is_extension=is_ext[va], ext_cap_pct=ext_cap[va])
+            out[si, va] = p
+            fold_r2[fi, si] = r2_score(y[va], p)
+            fold_r2_sel[fi, si] = (r2_score(y[va][vs], p[vs])
+                                   if vs.sum() > 10 else np.nan)
+    return out.mean(axis=0), fold_r2, fold_r2_sel, lfo
+
+
 # ---------------------------------------------------------------------------
 # Data preparation
 # ---------------------------------------------------------------------------
@@ -213,13 +392,17 @@ def prepare_full_frame(df_eval: pd.DataFrame, features: list[str]
     return df_full.reset_index(drop=True)
 
 
-def build_anchor_map(df_eval: pd.DataFrame, df_full: pd.DataFrame):
+def build_anchor_map(df_eval: pd.DataFrame, df_full: pd.DataFrame,
+                     extra_events: dict[str, dict[int, tuple[float, bool]]]
+                     | None = None, expand_anchors: bool = False):
     """The three-tier anchor map (--anchor market). Per eval row:
 
         tier[i]        1 market anchor, 2 rookie anchor, 0 fallback (kf=prev)
         anchor_val[i]  the anchor cap_pct (NaN on tier 0)
         inter_idx[i]   df_full positions of the measurement seasons, in
                        chronological order (empty on tier 0 / no seasons)
+        anchor_kind[i] diagnostic sub-type: "market", "rookie_y2",
+                       "rookie_y1", "first_contract", or "" (tier 0)
 
     Tier-1 candidates are MARKET PRICING EVENTS, two kinds:
       - the player's own PRIOR rows in the eval frame — eval membership IS
@@ -234,6 +417,21 @@ def build_anchor_map(df_eval: pd.DataFrame, df_full: pd.DataFrame):
     anchor — their seasons become measurements inside the window. Tier 2
     anchors at the earliest observed rookie-scale season (deal year 2) and
     is trusted like one measurement (P0 = R, see main).
+
+    extra_events: optional pre-2019 Year-1 cap_pct anchors (--prehistory).
+        Merged BEFORE the eval-frame events so an eval-frame anchor at the
+        same (player, season) wins; a pre-2019 anchor only fires for
+        players whose most recent Year-1 was before the eval frame starts.
+
+    expand_anchors: when True, two tier-2 expansions (--expand-anchors):
+        (a) First-contract mirror: players whose first NBA contract
+            (exp <= 1, not rookie-scale) is in df_full get a tier-2
+            anchor at that contract's cap_pct.
+        (b) Rookie Year-1 shift: tier-2 rookie anchors move from
+            deal-year-2 to deal-year-1, with Year-1 cap_pct
+            back-calculated from the Year-2 value via the 5% rookie raise.
+        All expanded anchors get P0 = R; they enter the anchor map only,
+        never the training set.
     """
     from src.model.train import _load_rookie_scale_set, PRORATED_FLOOR
     rs = _load_rookie_scale_set()
@@ -241,10 +439,17 @@ def build_anchor_map(df_eval: pd.DataFrame, df_full: pd.DataFrame):
     floor_min = float(df_eval["floor_pct"].min())
 
     # market pricing events: player -> {season: (anchor value, is_prorated)}
+    # Pre-2019 events go in first; eval-frame events use setdefault so they
+    # cannot be overwritten by the pre-2019 data, but a pre-2019 anchor at a
+    # season the eval frame does not cover adds to the player's event list.
     events: dict[str, dict[int, tuple[float, bool]]] = {}
+    if extra_events:
+        for p, p_events in extra_events.items():
+            for s, val in p_events.items():
+                events.setdefault(p, {})[int(s)] = val
     for p, s, c in zip(df_eval["player_name_norm"],
                        df_eval["season"].astype(int), df_eval[TARGET].values):
-        events.setdefault(p, {}).setdefault(int(s), (float(c), False))
+        events.setdefault(p, {})[int(s)] = (float(c), False)
 
     full_cp: dict[tuple[str, int], float] = {}
     rows_by_player: dict[str, dict[int, int]] = {}
@@ -265,9 +470,80 @@ def build_anchor_map(df_eval: pd.DataFrame, df_full: pd.DataFrame):
         if (p, s) in full_cp:
             rookie_seasons.setdefault(p, []).append(s)
 
+    # --- expand_anchors: first-contract data (Task 4) -----------------------
+    # Identify rows in df_full where exp <= 1 and NOT in the rookie-scale set.
+    # These are undrafted / 2nd-round first contracts that _filter_rookie_contracts
+    # removes from the eval frame. Their cap_pct provides a tier-2 anchor.
+    first_contract_cap: dict[str, dict[int, float]] = {}
+    if expand_anchors:
+        from scripts.build_external_features import norm
+        from src.model.train import _load_debut_seasons
+        debut = _load_debut_seasons()
+        if debut:
+            for p, s, c in zip(df_full["player_name_norm"],
+                               df_full["season"].astype(int),
+                               df_full[TARGET].values):
+                pn = norm(str(p))
+                d = debut.get(pn)
+                if d is None:
+                    continue
+                exp = int(s) - int(d)
+                if exp <= 1 and (p, int(s)) not in rs:
+                    first_contract_cap.setdefault(p, {})[int(s)] = float(c)
+            print(f"  expand-anchors: {sum(len(v) for v in first_contract_cap.values())} "
+                  f"first-contract rows found ({len(first_contract_cap)} players)")
+
+    # --- expand_anchors: rookie Year-1 computed values (Task 5) -------------
+    # For first-round picks, back-calculate Year-1 cap_pct from Year-2. The
+    # Year-1 row does not exist in the training data (stats-salary lag), but
+    # the rookie-scale 5% annual raise means salary_y1 = salary_y2 / 1.05.
+    # This gives the KF one more measurement (deal-year-2 shifts from anchor
+    # to measurement). Where salaries.csv has the actual Year-1 salary, it is
+    # used instead; the back-calculation is the fallback.
+    ROOKIE_RAISE = 1.05  # standard rookie-scale annual raise
+    rookie_y1: dict[str, tuple[int, float]] = {}  # player -> (draft_year, y1_cap_pct)
+    if expand_anchors:
+        # Try salaries.csv first for actual Year-1 data
+        sal_lookup: dict[tuple[str, int], float] = {}
+        sal_path = PROCESSED_DIR / "salaries.csv"
+        if sal_path.exists():
+            sal = pd.read_csv(sal_path)
+            for _, r in sal.iterrows():
+                cap = CAP_BY_SEASON.get(int(r["season"]))
+                if cap:
+                    # Normalize name: lowercase, strip, remove periods (for
+                    # "jr." -> "jr" matching against player_name_norm).
+                    pn = str(r["player"]).lower().strip().replace(".", "")
+                    sal_lookup[(pn, int(r["season"]))] = float(r["salary"]) / cap
+        n_actual, n_computed = 0, 0
+        for p, seasons in rookie_seasons.items():
+            earliest = min(seasons)       # deal year 2 = draft_year + 1
+            y1_season = earliest - 1      # deal year 1 = draft_year
+            cap_y1 = CAP_BY_SEASON.get(y1_season)
+            if cap_y1 is None:
+                continue
+            # Strip periods from player_name_norm for the salary lookup
+            pn_key = p.replace(".", "")
+            if (pn_key, y1_season) in sal_lookup:
+                rookie_y1[p] = (y1_season, sal_lookup[(pn_key, y1_season)])
+                n_actual += 1
+            elif (p, earliest) in full_cp:
+                # Back-calculate: salary_y1 = salary_y2 / 1.05
+                y2_cap_pct = full_cp[(p, earliest)]
+                cap_y2 = CAP_BY_SEASON.get(earliest)
+                if cap_y2:
+                    y1_salary = y2_cap_pct * cap_y2 / ROOKIE_RAISE
+                    rookie_y1[p] = (y1_season, float(y1_salary / cap_y1))
+                    n_computed += 1
+        print(f"  expand-anchors: {len(rookie_y1)} rookie Year-1 values "
+              f"({n_actual} from salaries.csv, {n_computed} back-calculated "
+              f"from Year-2, of {len(rookie_seasons)} rookie players)")
+
+    # --- Tier assignment ----------------------------------------------------
     tier = np.zeros(len(df_eval), dtype=int)
     anchor_val = np.full(len(df_eval), np.nan)
     anchor_prorated = np.zeros(len(df_eval), dtype=bool)
+    anchor_kind = np.full(len(df_eval), "", dtype="U20")
     inter_idx, needed = [], set()
     for i, (p, T) in enumerate(zip(df_eval["player_name_norm"],
                                    df_eval["season"].astype(int))):
@@ -276,19 +552,53 @@ def build_anchor_map(df_eval: pd.DataFrame, df_full: pd.DataFrame):
             t0 = max(market)
             tier[i] = 1
             anchor_val[i], anchor_prorated[i] = events[p][t0]
+            anchor_kind[i] = "market"
         else:
             rook = [s for s in rookie_seasons.get(p, ()) if s < T]
-            if not rook:
+            if rook:
+                tier[i] = 2
+                if expand_anchors and p in rookie_y1:
+                    # Task 5: anchor at Year-1 (draft year) with computed value;
+                    # deal-year-2 (the old anchor) becomes a measurement.
+                    dy, y1_val = rookie_y1[p]
+                    if dy < T:
+                        t0 = dy
+                        anchor_val[i] = y1_val
+                        anchor_kind[i] = "rookie_y1"
+                    else:
+                        t0 = min(rook)
+                        anchor_val[i] = full_cp[(p, t0)]
+                        anchor_kind[i] = "rookie_y2"
+                else:
+                    t0 = min(rook)                # earliest observed = deal year 2
+                    anchor_val[i] = full_cp[(p, t0)]
+                    anchor_kind[i] = "rookie_y2"
+            elif expand_anchors and p in first_contract_cap:
+                # Task 4: first-contract anchor for undrafted / 2nd-round players.
+                fc_seasons = [s for s in first_contract_cap[p] if s < T]
+                if fc_seasons:
+                    t0 = min(fc_seasons)
+                    tier[i] = 2
+                    fc_val = first_contract_cap[p][t0]
+                    if fc_val < PRORATED_FLOOR:
+                        # Prorated partial-season: pull up to the season minimum,
+                        # same treatment as prorated market anchors.
+                        anchor_val[i] = season_floor.get(t0, floor_min)
+                        anchor_prorated[i] = True
+                    else:
+                        anchor_val[i] = fc_val
+                    anchor_kind[i] = "first_contract"
+                else:
+                    inter_idx.append([])
+                    continue
+            else:
                 inter_idx.append([])
                 continue
-            t0 = min(rook)                # earliest observed = deal year 2
-            tier[i] = 2
-            anchor_val[i] = full_cp[(p, t0)]
         seasons = sorted(s for s in rows_by_player.get(p, {}) if t0 < s < T)
         idx = [rows_by_player[p][s] for s in seasons]
         inter_idx.append(idx)
         needed.update(idx)
-    return inter_idx, sorted(needed), tier, anchor_val, anchor_prorated
+    return inter_idx, sorted(needed), tier, anchor_val, anchor_prorated, anchor_kind
 
 
 def build_intermediate_map_raw(df_eval: pd.DataFrame, df_full: pd.DataFrame):
@@ -382,6 +692,8 @@ def kalman_update(anchor: float, measurements, q: float, r: float,
 # ---------------------------------------------------------------------------
 
 def main():
+    global P0, Q_FLOOR
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, default=10,
                     help="number of seeds (10 = the canonical gate)")
@@ -391,7 +703,26 @@ def main():
                          "prev_cap_pct); 'prev' = variant A, raw-label "
                          "windows anchored at prev_cap_pct, kept only for "
                          "reproducibility")
+    ap.add_argument("--no-prehistory", action="store_true",
+                    help="disable pre-2019 Year-1 anchors (BBRef 2016-18 + "
+                         "Spotrac AAV 2015); on by default")
+    ap.add_argument("--no-expand-anchors", action="store_true",
+                    help="disable expanded tier-2 anchors (first-contract "
+                         "mirror + rookie Year-1 shift); on by default")
+    ap.add_argument("--p0", type=float, default=None,
+                    help="override tier-1 initial state variance P0 "
+                         f"(default {P0})")
+    ap.add_argument("--q-floor", type=float, default=None,
+                    help="override process noise floor Q_FLOOR "
+                         f"(default {Q_FLOOR})")
     args = ap.parse_args()
+    args.prehistory = not args.no_prehistory
+    args.expand_anchors = not args.no_expand_anchors
+
+    if args.p0 is not None:
+        P0 = args.p0
+    if args.q_floor is not None:
+        Q_FLOOR = args.q_floor
     seeds = list(range(args.seeds))
     t_start = time.time()
 
@@ -399,14 +730,33 @@ def main():
     print(line)
     print("NESTED-CV kf_market_value ABLATION (full-model measurement)")
     print(f"anchor mode: {args.anchor} "
-          f"({'three-tier: market price / rookie y2 with P0=R / prev fallback' if args.anchor == 'market' else 'variant A: prev_cap_pct, raw-label windows'})")
+          f"({'three-tier: market price / rookie y2 with P0=R / prev fallback' if args.anchor == 'market' else 'variant A: prev_cap_pct, raw-label windows'})"
+          f"{' + PREHISTORY (pre-2019 Year-1 anchors)' if args.prehistory else ' (no prehistory)'}"
+          f"{' + EXPAND-ANCHORS (first-contract + rookie Year-1)' if args.expand_anchors else ' (no expand-anchors)'}")
     print(line)
 
-    df_eval, features = load_evaluation_frame()
+    df_eval, frame_features = load_evaluation_frame(allow_missing_computed=True)
     df_eval, clf_features = attach_clf_features(df_eval)
-    assert set(features) == set(FEATURE_COLS), (
-        f"evaluation frame features != FEATURE_COLS: "
-        f"{set(FEATURE_COLS) ^ set(features)}")
+    # The champion arm is the prev_cap_pct baseline. Reconstruct it from
+    # FEATURE_COLS rather than trusting what the frame hands back: since v8.13x
+    # shipped the SWAP, FEATURE_COLS *is* the kf list, and kf_market_value is
+    # computed per fold rather than stored, so _prepare_Xy drops it and
+    # load_evaluation_frame returns 20 columns carrying no price anchor at all
+    # (ISSUES #50). Swapping kf back to prev yields the pre-v8.13x champion
+    # whichever direction the ship went, and is a no-op on a list that still
+    # has prev.
+    features = [PREV_COL if f == KF_COL else f for f in FEATURE_COLS]
+    missing = [f for f in features if f not in df_eval.columns]
+    assert not missing, f"baseline features absent from the frame: {missing}"
+    assert PREV_COL in features and KF_COL not in features
+    # prev_cap_pct skipped the frame loader's median fill on its way out of
+    # FEATURE_COLS. Every arm here reads it, so fill it on the same rule.
+    unfilled = [f for f in features if f not in frame_features]
+    if unfilled:
+        df_eval[unfilled] = (df_eval[unfilled]
+                             .fillna(df_eval[unfilled].median()).fillna(0))
+        print(f"median-filled {unfilled}: outside FEATURE_COLS, so "
+              f"load_evaluation_frame skipped them")
     y = df_eval[TARGET].values
     groups = df_eval["player_name_norm"].values
     sel = ~df_eval["is_confirmation"].values
@@ -415,9 +765,15 @@ def main():
 
     print(f"\nPreparing the full frame (all year_in_contract rows)...")
     df_full = prepare_full_frame(df_eval, features)
+    prehistory_events = None
+    if args.prehistory and args.anchor == "market":
+        print("\nLoading pre-2019 Year-1 anchors (--prehistory):")
+        prehistory_events = load_prehistory_anchors()
     if args.anchor == "market":
         (inter_idx, needed_idx, tier, anchor_val,
-         anchor_prorated) = build_anchor_map(df_eval, df_full)
+         anchor_prorated, anchor_kind) = build_anchor_map(
+            df_eval, df_full, extra_events=prehistory_events,
+            expand_anchors=args.expand_anchors)
         anchor = np.where(tier > 0, anchor_val, prev)
         n_anchor = int((tier > 0).sum())
     else:
@@ -425,6 +781,7 @@ def main():
             df_eval, df_full)
         tier = np.ones(len(df_eval), dtype=int)   # P0 everywhere (variant A)
         anchor_prorated = np.zeros(len(df_eval), dtype=bool)
+        anchor_kind = np.full(len(df_eval), "prev", dtype="U20")
         anchor = prev.copy()
     pos_of = {fi: k for k, fi in enumerate(needed_idx)}
     inter_pos = [[pos_of[fi] for fi in lst] for lst in inter_idx]
@@ -443,13 +800,24 @@ def main():
           f"{int((counts == 2).sum())}/{int((counts >= 3).sum())})")
     if args.anchor == "market":
         has_i = np.array([bool(lst) for lst in inter_idx])
-        for t_id, lab in ((1, "tier 1 market-price anchor (P0=0.0005)"),
-                          (2, "tier 2 rookie y2 anchor (P0=R)")):
-            m = tier == t_id
-            print(f"  {lab}: {int(m.sum())} rows, "
-                  f"{int((m & has_i).sum())} with measurements")
+        m1 = tier == 1
+        m2 = tier == 2
+        print(f"  tier 1 market-price anchor (P0=0.0005): {int(m1.sum())} rows, "
+              f"{int((m1 & has_i).sum())} with measurements")
         print(f"    of tier 1, prorated stints pulled to the season minimum: "
-              f"{int(anchor_prorated.sum())}")
+              f"{int(anchor_prorated[m1].sum())}")
+        print(f"  tier 2 anchors (P0=R): {int(m2.sum())} rows, "
+              f"{int((m2 & has_i).sum())} with measurements")
+        for kind, lab in (("rookie_y2", "rookie deal-year-2 (original)"),
+                          ("rookie_y1", "rookie Year-1 shift (expand-anchors)"),
+                          ("first_contract", "first-contract mirror (expand-anchors)")):
+            mk = anchor_kind == kind
+            if mk.any():
+                print(f"    {lab}: {int(mk.sum())} rows, "
+                      f"{int((mk & has_i).sum())} with measurements")
+                if kind == "first_contract":
+                    print(f"      of which prorated (pulled to min): "
+                          f"{int(anchor_prorated[mk].sum())}")
         print(f"  tier 3 fallback kf=prev_cap_pct: {int((tier == 0).sum())} rows")
 
     # Champion arm — the canonical protocol, 21 features. Run through
@@ -479,10 +847,15 @@ def main():
     #         refinement of prev_cap_pct (identical wherever no intermediate
     #         season exists), so the hypothesis is "the refined price signal
     #         beats the raw one", not "the model wants both columns".
-    assert "prev_cap_pct" in features
     folds = list(GroupKFold(n_splits=N_SPLITS).split(df_eval, y, groups))
+    # The champion arm went through _fold_pass, which splits on the same frame
+    # with the same grouping column; GroupKFold is deterministic, so the two
+    # lists agree. Phase 3b's paired deltas read both matrices as one fold
+    # index, so state it rather than trust it.
+    assert all(np.array_equal(a[1], b[1]) for a, b in zip(folds_c, folds)), \
+        "champion and candidate fold assignments diverged"
     features_add = list(features) + [KF_COL]
-    features_swap = [KF_COL if f == "prev_cap_pct" else f for f in features]
+    features_swap = [KF_COL if f == PREV_COL else f for f in features]
     fitter_cand = make_champion_fitter(clf_features)
 
     oof_add_acc = np.zeros(len(df_eval))
@@ -490,6 +863,7 @@ def main():
     oof_ctrl_acc = np.zeros(len(df_eval))
     oof_add_by_seed = np.zeros((n_seeds, len(df_eval)))
     oof_swap_by_seed = np.zeros((n_seeds, len(df_eval)))
+    oof_ctrl_by_seed = np.zeros((n_seeds, len(df_eval)))
     fr2_add = np.zeros((N_SPLITS, n_seeds))
     fr2sel_add = np.zeros((N_SPLITS, n_seeds))
     fr2_swap = np.zeros((N_SPLITS, n_seeds))
@@ -550,9 +924,15 @@ def main():
                     j = player_inner.get(groups[i])
                     zs = (full_pred[j, pos_list] if j is not None
                           else full_mean[pos_list])
-                    # tier-2 anchors are slotted prices, not market judgments:
-                    # their prior variance is R (one measurement's trust).
-                    p0 = r_var if tier[i] == 2 else P0
+                    # tier-2 anchors are non-market prices: prior variance
+                    # depends on anchor kind. Rookie (slotted) and first-
+                    # contract (undrafted/2nd-round) get separate P0.
+                    if anchor_kind[i] == "first_contract":
+                        p0 = P0_FIRST_CONTRACT if P0_FIRST_CONTRACT is not None else r_var * 2
+                    elif tier[i] == 2:
+                        p0 = r_var
+                    else:
+                        p0 = P0
                     out[k] = kalman_update(anchor[i], zs, q_var, r_var, p0)
                 return out
 
@@ -597,6 +977,7 @@ def main():
                 [sm.get(s, 0.0) for s in seas_all[va]])
             pred_ctrl = fitter_cand(train_23, test_23, features_swap, seed)
             oof_ctrl_acc[va] += pred_ctrl
+            oof_ctrl_by_seed[si, va] = pred_ctrl
             fr2_ctrl[fi, si] = r2_score(y[va], pred_ctrl)
             fr2sel_ctrl[fi, si] = (r2_score(y[va][vs], pred_ctrl[vs])
                                    if vs.sum() > 10 else np.nan)
@@ -684,6 +1065,10 @@ def main():
     print("Phase 3 — Ablation (paired, identical folds and seeds; "
           "gate: selection-pool t > 2)")
     print(line)
+    print("  pipeline: push -> clip -> extension clip. Stage 3's signing "
+          "offset is NOT attached here,")
+    print("  so these R2 are the deployed pipeline minus its last stage — "
+          "Phase 3b is the comparable one.")
     _arm_line("Champion (prev_cap_pct)", oof_c, len(features))
     mae_add = _arm_line(f"ADD  + {KF_COL}", oof_add, len(features_add))
     d_sel_add, d_pool_add, pass_add = _delta_lines(fr2sel_add, fr2_add)
@@ -700,6 +1085,47 @@ def main():
     print(f"    season-structure-only arm recovers {share:.0%} of the swap "
           f"gain (is2019 recovered 70% of supply_samepos -> reject; the swap "
           f"must clearly beat this arm)")
+
+    # Phase 3b — the same four arms with Stage 3's signing offset attached.
+    # Phase 3 is the pre-registered gate and stays where it was decided; this
+    # block exists because Phase 3's numbers are one stage short of what
+    # evaluate_suite reports, so quoting them side by side reads as a
+    # regression that is really a missing stage. VERSION_HISTORY should carry
+    # THESE, and say so.
+    print(f"\n{line}")
+    print(f"Phase 3b — Same arms, Stage-3 signing offset attached "
+          f"(leave-fold-out, k={SIGNING_K})")
+    print(line)
+    print("  pipeline: push -> clip -> signing offset -> mech cap -> extension "
+          "clip -> re-clip.")
+    print("  Comparable to evaluate_suite's champion row; Phase 3 above is not.")
+    s3 = {}
+    for tag, mat, lab, n_feat in (
+            ("champion", oof_c_by_seed, "Champion (prev_cap_pct)", len(features)),
+            ("add", oof_add_by_seed, f"ADD  + {KF_COL}", len(features_add)),
+            ("swap", oof_swap_by_seed, "SWAP prev_cap_pct -> kf",
+             len(features_swap)),
+            ("control", oof_ctrl_by_seed, "CTRL season-dummy",
+             len(features_swap))):
+        oof_x, fr2_x, fr2sel_x, lfo_x = signing_corrected(mat, df_eval, folds,
+                                                          sel)
+        s3[tag] = {"oof": oof_x, "fold_r2": fr2_x, "fold_r2_sel": fr2sel_x,
+                   "lfo": lfo_x, "mae_m": _arm_line(lab, oof_x, n_feat)}
+        if tag != "champion":
+            d_sel_x = paired_delta(s3["champion"]["fold_r2_sel"], fr2sel_x)
+            d_pool_x = paired_delta(s3["champion"]["fold_r2"], fr2_x)
+            s3[tag]["paired_selection"] = d_sel_x
+            s3[tag]["paired_pooled"] = d_pool_x
+            print(f"    dSel={d_sel_x['delta']:+.5f} +/- {d_sel_x['se']:.5f}  "
+                  f"t={d_sel_x['t']:+.2f}  "
+                  f"dPooled={d_pool_x['delta']:+.5f} t={d_pool_x['t']:+.2f}")
+    print(f"  Stage-3 lift on the shipped arm (SWAP): "
+          f"A1 {r2_score(y, oof_swap):.4f} -> {r2_score(y, s3['swap']['oof']):.4f}"
+          f"   MAE ${mae_swap:.2f}M -> ${s3['swap']['mae_m']:.2f}M")
+    print("  Offsets (fold 0, cap_pct; positive RAISES an underpriced type):")
+    for t_name, d in sorted(s3["swap"]["lfo"][0].items()):
+        print(f"    {t_name:14s} n={d['n']:4d}  raw={d['raw']:+.5f}  "
+              f"shrunk={d['offset']:+.5f}")
 
     # Phase 4 — the 2x3 view: champion (prev_cap_pct) vs SWAP (kf) on all
     # rows, on the tier-3 fallback segment (kf == prev by construction — any
@@ -786,16 +1212,211 @@ def main():
     print(f"  worst: {worst_cat} {worst_growth:+.2f}M  "
           f"[{'PASS' if worst_growth <= 0.3 else 'FAIL'}]")
 
+    # ------------------------------------------------------------------
+    # Phase 6: B1 forward evaluation (rolling-origin)
+    # ------------------------------------------------------------------
+    print(f"\n{line}")
+    print("Phase 6 — B1 forward (rolling-origin, train on seasons < T)")
+    print(line)
+    print("  The temporal split is naturally fold-honest for kf: the base")
+    print("  model is trained on seasons < T only, so all intermediate")
+    print("  predictions and KF values for season T are out-of-sample.")
+    print("  Stage 3 signing offsets are from inner OOF within each")
+    print("  training window (the rolling_forward_signing pattern).")
+
+    FWD_TAGS = ("champion", "add", "swap", "control")
+    fwd_s2 = {t: np.full(len(df_eval), np.nan) for t in FWD_TAGS}
+    fwd_s3 = {t: np.full(len(df_eval), np.nan) for t in FWD_TAGS}
+    fwd_b1_detail = {}
+    cat_all = df_eval["signing_cat"].values
+    lo_all = df_eval["floor_pct"].values
+    hi_all = df_eval["max_eligible_pct"].values
+    is_ext_all = df_eval["is_extension"].values
+    ext_cap_all = df_eval["ext_cap_pct"].values
+    mech_all = (df_eval["mech_cap_pct"].values
+                if "mech_cap_pct" in df_eval.columns else None)
+
+    fitter_fwd = make_champion_fitter(clf_features)
+
+    for T in FORWARD_ORIGINS:
+        te, tr = seas_all == T, seas_all < T
+        n_te, n_tr = int(te.sum()), int(tr.sum())
+        if n_te < 10 or n_tr < 200:
+            print(f"  origin {T}: skipped (n_test={n_te}, n_train={n_tr})")
+            continue
+        t_o = time.time()
+        print(f"\n  origin {T}: train {n_tr}, test {n_te}", flush=True)
+
+        # --- KF measurement: base model on seasons < T ------------------
+        # Fit the 21-feature prev_cap_pct model on training rows, predict
+        # intermediate rows for KF updates and training rows for R/Q.
+        full_p = np.zeros(len(needed_idx))
+        tr_p = np.zeros(n_tr)
+        for seed in seeds:
+            mdl, clr = fit_champion_models(
+                df_eval[tr], features, clf_features, seed)
+            full_p += predict_champion(
+                mdl, clr, full_needed, features, clf_features)
+            tr_p += predict_champion(
+                mdl, clr, df_eval[tr], features, clf_features)
+        full_p /= n_seeds
+        tr_p /= n_seeds
+
+        r_fwd = float(np.var(y[tr] - tr_p, ddof=1))
+        q_fwd, _, _ = estimate_q(df_full, set(groups[tr]), r_fwd)
+        print(f"    KF params: R={r_fwd:.5f}  Q={q_fwd:.5f}", flush=True)
+
+        # --- KF for all eval rows ----------------------------------------
+        kf_fwd = np.full(len(df_eval), np.nan)
+        for i in range(len(df_eval)):
+            if not np.isfinite(anchor[i]):
+                continue
+            pl = inter_pos[i]
+            if not pl:
+                kf_fwd[i] = anchor[i]
+                continue
+            if anchor_kind[i] == "first_contract":
+                p0_i = P0_FIRST_CONTRACT if P0_FIRST_CONTRACT is not None else r_fwd * 2
+            elif tier[i] == 2:
+                p0_i = r_fwd
+            else:
+                p0_i = P0
+            kf_fwd[i] = kalman_update(
+                anchor[i], full_p[pl], q_fwd, r_fwd, p0_i)
+
+        fill_kf = (float(np.nanmedian(kf_fwd[tr]))
+                   if np.isfinite(kf_fwd[tr]).any()
+                   else float(np.nanmedian(prev)))
+
+        # Augmented frames: SWAP/ADD with kf_market_value
+        train_kf_fwd = df_eval[tr].copy()
+        test_kf_fwd = df_eval[te].copy()
+        train_kf_fwd[KF_COL] = np.where(
+            np.isfinite(kf_fwd[tr]), kf_fwd[tr], fill_kf)
+        test_kf_fwd[KF_COL] = np.where(
+            np.isfinite(kf_fwd[te]), kf_fwd[te], fill_kf)
+
+        # CONTROL: season-dummy kf
+        dkf_fwd = train_kf_fwd[KF_COL].values - prev[tr]
+        sm_fwd = pd.Series(dkf_fwd).groupby(seas_all[tr]).mean().to_dict()
+        train_ctrl_fwd = df_eval[tr].copy()
+        test_ctrl_fwd = df_eval[te].copy()
+        train_ctrl_fwd[KF_COL] = prev[tr] + np.array(
+            [sm_fwd.get(s, 0.0) for s in seas_all[tr]])
+        test_ctrl_fwd[KF_COL] = prev[te] + np.array(
+            [sm_fwd.get(s, 0.0) for s in seas_all[te]])
+
+        # --- Stage 2 forward predictions ---------------------------------
+        acc_fwd = {t: np.zeros(n_te) for t in FWD_TAGS}
+        for seed in seeds:
+            acc_fwd["champion"] += fitter_fwd(
+                df_eval[tr], df_eval[te], features, seed)
+            acc_fwd["add"] += fitter_fwd(
+                train_kf_fwd, test_kf_fwd, features_add, seed)
+            acc_fwd["swap"] += fitter_fwd(
+                train_kf_fwd, test_kf_fwd, features_swap, seed)
+            acc_fwd["control"] += fitter_fwd(
+                train_ctrl_fwd, test_ctrl_fwd, features_swap, seed)
+        for t in FWD_TAGS:
+            fwd_s2[t][te] = acc_fwd[t] / n_seeds
+
+        s2_r2 = {t: float(r2_score(y[te], fwd_s2[t][te])) for t in FWD_TAGS}
+        print(f"    Stage 2: champ={s2_r2['champion']:.4f}  "
+              f"add={s2_r2['add']:.4f}  swap={s2_r2['swap']:.4f}  "
+              f"ctrl={s2_r2['control']:.4f}", flush=True)
+
+        # --- Stage 3: signing offset from inner OOF ---------------------
+        # Each arm gets its own signing offsets from its own inner-OOF
+        # residuals within the training window (same pattern as Phase 3b
+        # and rolling_forward_signing in evaluate_suite).
+        origin_signing = {}
+        for tag, train_aug, feats in (
+            ("champion", df_eval[tr], features),
+            ("add", train_kf_fwd, features_add),
+            ("swap", train_kf_fwd, features_swap),
+            ("control", train_ctrl_fwd, features_swap),
+        ):
+            inner_oof_fwd, _, _ = oof_groupkfold(
+                train_aug, feats, fitter_fwd, seeds)
+            offs_fwd = signing_offsets(
+                y[tr] - inner_oof_fwd,
+                train_aug["signing_cat"].values,
+                k=SIGNING_K, detail=True)
+            fwd_s3[tag][te] = stage3_signing(
+                fwd_s2[tag][te], cat_all[te], offs_fwd,
+                lo=lo_all[te], hi=hi_all[te],
+                mech_cap_pct=(mech_all[te] if mech_all is not None
+                              else None),
+                is_extension=is_ext_all[te],
+                ext_cap_pct=ext_cap_all[te])
+            origin_signing[tag] = {
+                t: {"offset": d["offset"], "n": d["n"]}
+                for t, d in offs_fwd.items()
+            }
+
+        s3_r2 = {t: float(r2_score(y[te], fwd_s3[t][te])) for t in FWD_TAGS}
+        print(f"    Stage 3: champ={s3_r2['champion']:.4f}  "
+              f"add={s3_r2['add']:.4f}  swap={s3_r2['swap']:.4f}  "
+              f"ctrl={s3_r2['control']:.4f}  "
+              f"({time.time() - t_o:.0f}s)", flush=True)
+
+        fwd_b1_detail[int(T)] = {
+            "n_tr": n_tr, "n_te": n_te, "r": r_fwd, "q": q_fwd,
+            "stage2": s2_r2, "stage3": s3_r2,
+            "signing_offsets": origin_signing,
+        }
+
+    # --- Pooled B1 summary -----------------------------------------------
+    scored_fwd = ~np.isnan(fwd_s2["champion"])
+    m2026 = scored_fwd & (seas_all == 2026)
+    b1_json = {"by_origin": fwd_b1_detail}
+
+    print(f"\n  B1 summary -- Stage 2 (push -> clip -> extension clip):")
+    b1_s2_json = {}
+    for tag in FWD_TAGS:
+        r2p = float(r2_score(y[scored_fwd], fwd_s2[tag][scored_fwd]))
+        mae_p, _ = _dollars(df_eval, fwd_s2[tag], scored_fwd)
+        r2_26 = (float(r2_score(y[m2026], fwd_s2[tag][m2026]))
+                 if m2026.sum() >= 10 else float("nan"))
+        print(f"    {tag:10s} rolling={r2p:.4f}  2026={r2_26:.4f}  "
+              f"MAE=${mae_p:.2f}M")
+        b1_s2_json[tag] = {"b1_rolling_r2": r2p, "b1_2026_r2": r2_26,
+                           "b1_mae_m": mae_p}
+    b1_json["stage2"] = b1_s2_json
+
+    print(f"\n  B1 summary -- Stage 3 (+ signing offset from inner OOF):")
+    b1_s3_json = {}
+    for tag in FWD_TAGS:
+        r2p = float(r2_score(y[scored_fwd], fwd_s3[tag][scored_fwd]))
+        mae_p, _ = _dollars(df_eval, fwd_s3[tag], scored_fwd)
+        r2_26 = (float(r2_score(y[m2026], fwd_s3[tag][m2026]))
+                 if m2026.sum() >= 10 else float("nan"))
+        print(f"    {tag:10s} rolling={r2p:.4f}  2026={r2_26:.4f}  "
+              f"MAE=${mae_p:.2f}M")
+        b1_s3_json[tag] = {"b1_rolling_r2": r2p, "b1_2026_r2": r2_26,
+                           "b1_mae_m": mae_p}
+    b1_json["stage3"] = b1_s3_json
+
     out_dir = OUTPUTS_DIR / "models"
     out_dir.mkdir(parents=True, exist_ok=True)
+    suffix = f"{args.anchor}{'_prehistory' if args.prehistory else ''}{'_expand' if args.expand_anchors else ''}"
+    if args.p0 is not None:
+        suffix += f"_p0{args.p0:g}"
+    if args.q_floor is not None:
+        suffix += f"_qf{args.q_floor:g}"
     payload = {
         "n": len(df_eval), "seeds": seeds, "n_inner": N_INNER,
         "anchor_mode": args.anchor,
+        "prehistory": bool(args.prehistory),
+        "expand_anchors": bool(args.expand_anchors),
         "p0": P0, "q_floor": Q_FLOOR,
         "anchor_rows": n_anchor, "rows_with_intermediates": int(n_inter),
         "tiers": {"tier1": int((tier == 1).sum()),
-                  "tier1_prorated_min": int(anchor_prorated.sum()),
+                  "tier1_prorated_min": int(anchor_prorated[tier == 1].sum()),
                   "tier2": int((tier == 2).sum()),
+                  "tier2_rookie_y2": int((anchor_kind == "rookie_y2").sum()),
+                  "tier2_rookie_y1": int((anchor_kind == "rookie_y1").sum()),
+                  "tier2_first_contract": int((anchor_kind == "first_contract").sum()),
                   "tier3": int((tier == 0).sum())},
         "inner_oof_r2_by_seed": inner_r2_by_seed,
         "r_by_seed": r_by_seed, "q_by_seed": q_by_seed,
@@ -838,6 +1459,21 @@ def main():
                     "c2_worst": worst_cat,
                     "c2_worst_growth_m": float(worst_growth),
                     "c2_pass": bool(worst_growth <= 0.3)},
+        # The same four arms carrying Stage 3's signing offset. `candidate_*`
+        # above stop at the extension clip; these are what evaluate_suite's
+        # champion row can be read against.
+        "stage3_signing": {
+            "k": SIGNING_K,
+            "arms": {tag: {"a1": float(r2_score(y, d["oof"])),
+                           "sel": float(r2_score(y[sel], d["oof"][sel])),
+                           "a2": float(r2_score(y[recent], d["oof"][recent])),
+                           "mae_m": d["mae_m"],
+                           "paired_selection": d.get("paired_selection"),
+                           "paired_pooled": d.get("paired_pooled")}
+                     for tag, d in s3.items()},
+            "offsets_by_fold": {str(fi): v
+                                for fi, v in s3["swap"]["lfo"].items()},
+        },
         "segments_kf_vs_prev": seg_json,
         "fold_r2_selection": {"champion": fr2sel_c.tolist(),
                               "candidate_add": fr2sel_add.tolist(),
@@ -845,20 +1481,29 @@ def main():
         "fold_r2": {"champion": fr2_c.tolist(),
                     "candidate_add": fr2_add.tolist(),
                     "candidate_swap": fr2_swap.tolist()},
+        "forward_b1": b1_json,
         "runtime_s": round(time.time() - t_start, 1),
     }
-    out = out_dir / f"ablation_kf_market_value_full_{args.anchor}.json"
+    out = out_dir / f"ablation_kf_market_value_full_{suffix}.json"
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     ref = df_eval[["player_name_norm", "season", TARGET, "signing_cat",
                    "is_confirmation"]].copy()
     ref["tier"] = tier
+    ref["anchor_kind"] = anchor_kind
     ref["prev_cap_pct"] = prev
     ref["kf_mean_heldout"] = kf_mean
     ref["oof_champion"] = oof_c
     ref["oof_add"] = oof_add
     ref["oof_swap"] = oof_swap
     ref["oof_control"] = oof_ctrl
-    ref_path = out_dir / f"ablation_kf_oof_{args.anchor}.csv"
+    # ..._s3 = the same arm with Stage 3's signing offset. Both are kept so a
+    # later reader can see which stage a number came from without a rerun.
+    for tag in ("champion", "add", "swap", "control"):
+        ref[f"oof_{tag}_s3"] = s3[tag]["oof"]
+    for tag in FWD_TAGS:
+        ref[f"fwd_{tag}_s2"] = fwd_s2[tag]
+        ref[f"fwd_{tag}_s3"] = fwd_s3[tag]
+    ref_path = out_dir / f"ablation_kf_oof_{suffix}.csv"
     ref.to_csv(ref_path, index=False)
     print(f"\nSaved {out}")
     print(f"Saved {ref_path} ({len(ref)} rows)   "

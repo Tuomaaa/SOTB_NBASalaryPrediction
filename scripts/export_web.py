@@ -494,6 +494,26 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     full = attach_extension_cap(full)
     full = attach_extension_value(full)
 
+    # Stage 3 signing: load mechanism labels, create signing_cat, attach caps.
+    # Must happen before compose() so the signing offset enters the chain in
+    # the correct order: push → clip → signing → mech cap → ext → re-clip.
+    st = _load_signing_types()
+    n_before = len(full)
+    full = full.merge(st, on=["player_name_norm", "season"], how="left")
+    if len(full) != n_before:
+        raise SystemExit("signing_type merge into full changed the row count")
+    _SIGNING_CAT_MAP = {
+        "Bird Rights": "Bird Rights",
+        "Cap Space": "Cap Space",
+        "Early Bird": "Early Bird",
+        "Non-Bird": "Non-Bird",
+        "Sign & Trade": "Bird Rights",
+        "Extend & Trade": "Bird Rights",
+    }
+    full["signing_cat"] = full["signing_type"].map(_SIGNING_CAT_MAP)
+    from src.model.mechanism_cap import attach_mechanism_caps
+    full = attach_mechanism_caps(full, verbose=True)
+
     # Missingness indicator before fill (ISSUES #39).
     if "laker_z" in full.columns and "laker_known" not in full.columns:
         full["laker_known"] = full["laker_z"].notna().astype(int)
@@ -507,16 +527,26 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     # Stage 2 is two-sided in BOTH directions now: the push lifts a max-worthy
     # player the model prices below his ceiling, the clip caps one priced above
     # it, and the floor lifts an at-minimum player to what the CBA guarantees.
-    # Stage 3 then returns an extension row to its own raise cap.
+    # Stage 3 then applies the signing offset, mechanism cap, extension clip,
+    # and re-clip — the full compose chain.
     p_max = stages.deployed_p_max(stages.training_route_frame(train_df), full,
                                   medians=medians)
     is_ext = full["is_extension"].values
     ext_cap = full["ext_cap_pct"].values
+    signing_cat = full["signing_cat"].values
+    mech_cap = (full["mech_cap_pct"].values
+                if "mech_cap_pct" in full.columns else None)
     capped = stages.compose(latent, lo=floor_pct, hi=max_elig, p_max=p_max,
-                            is_extension=is_ext, ext_cap_pct=ext_cap)
+                            is_extension=is_ext, ext_cap_pct=ext_cap,
+                            signing_type=signing_cat,
+                            signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED,
+                            mech_cap_pct=mech_cap)
     flags = stages.bound_flags(latent, capped, lo=floor_pct, hi=max_elig,
                                p_max=p_max, is_extension=is_ext,
-                               ext_cap_pct=ext_cap)
+                               ext_cap_pct=ext_cap,
+                               signing_type=signing_cat,
+                               signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED,
+                               mech_cap_pct=mech_cap)
 
     explainer = shap.TreeExplainer(model)
     shap_vals = explainer.shap_values(X)
@@ -602,10 +632,7 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
                 "award_score_cum"):
         out[col] = full[col] if col in full.columns else np.nan
 
-    st = _load_signing_types()
-    out = out.merge(st, on=["player_name_norm", "season"], how="left")
-    if len(out) != len(full):
-        raise SystemExit("signing_type merge changed the row count")
+    out["signing_type"] = full["signing_type"].values
     # Second-round exception signings are convention-priced ($2.3M), not market-
     # negotiated. The experience filter catches most first contracts (exp<=1), but
     # extending it to exp<=2 for second-round picks would wrongly drop real market
@@ -936,6 +963,8 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
         "tau": stages.TAU,
         "margin": stages.MARGIN,
         "route": "told",
+        "signingOffsets": {t: float(v) for t, v
+                          in stages.SIGNING_OFFSETS_DEPLOYED.items()},
         "nPushed": int(out["is_pushed"].sum()),
         "nExtCapped": int(out["is_ext_capped"].sum()),
         "features": [{"key": f, "label": FEATURE_LABELS.get(f, f)}

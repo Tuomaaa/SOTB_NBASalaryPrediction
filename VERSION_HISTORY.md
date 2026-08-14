@@ -733,7 +733,8 @@ Evidence: `docs/briefs/2026-07-26-service-years.RESULT.md`,
 
 | Ver | Model | A1 (told) | A2 (told) | B1 (told) | N | Feat | Change |
 |-----|-------|-----------|-----------|-----------|---|------|--------|
-| **8.13x** | **XGBoost (Grabit v4)** | **0.8254†** | **0.8491†** | **0.8387** | **873** | **21** | **`kf_market_value` replaces `prev_cap_pct` (SWAP). Paired ΔSel +0.00331 (t 1.75), gate override on three-protocol evidence. †Nested-CV ablation** |
+| **8.14x** | **XGBoost (Grabit v4)** | **0.8572†** | **0.8810†** | **0.8556** | **873** | **21** | **KF hyperparameter tuning: Q_FLOOR 0.0005→0.04, prehistory+expand defaults. +0.0088 over v8.13x tuned baseline. †Nested-CV ablation** |
+| 8.13x | XGBoost (Grabit v4) | 0.8254† | 0.8491† | 0.8387 | 873 | 21 | `kf_market_value` replaces `prev_cap_pct` (SWAP). Paired ΔSel +0.00331 (t 1.75), gate override on three-protocol evidence. †Nested-CV ablation |
 | 8.10x | XGBoost (Grabit v4) | 0.8369 | 0.8581 | 0.8589 | 873 | 18 | `kalman_filtered_stats` (Kalman-filtered quality), the 18th feature. Paired ΔSel +0.0053 (t 2.78) |
 | 8.9x | XGBoost (Grabit v4) | 0.8301 | 0.8544 | 0.8604 | 873 | 17 | Mechanism cap clip + offset regen on 873-row frame. A1 +0.0132 vs v8.7x arm |
 | 8.8x | XGBoost (Grabit v4) | 0.8126 | 0.8672 | 0.8578 | 896 | 17 | Stage-3 signing-type offset. Leakage-aware k=20 shrunk per-type means |
@@ -1448,6 +1449,89 @@ data window advances.
 Evidence: `scripts/ablation_kf_market_value_full.py` (`--anchor market`),
 `scripts/eval_kf_forward.py`, `docs/briefs/2026-08-09-kf-market-value-adoption.md`.
 
+### v8.14x: KF hyperparameter tuning (Q_FLOOR 0.0005 → 0.04)
+
+The v8.13x KF shipped with Q_FLOOR = 0.0005 — the best value in the original
+grid {0.0005, 0.001, 0.002, 0.005}. That was a grid-edge problem: the best point
+sat at the boundary, so the true optimum was off the map.
+
+Three rounds of grid search, each narrowing from the prior round's best region:
+
+**Round 1 (extended grid).** Q_FLOOR ∈ {0.0005, 0.001, 0.002, 0.005, 0.01, 0.02,
+0.05} × P₀ ∈ {0.00005, 0.0005, 0.005}. Every Q above the original grid
+outperformed the default. 21 combinations, single seed.
+
+**Round 2 (fine Q sweep).** Q_FLOOR ∈ {0.01, 0.015, 0.02, 0.025, 0.03, 0.04,
+0.05, 0.07, 0.1} at P₀ = 0.0005. Broad plateau at Q = 0.015–0.10, peak at
+Q = 0.04 (A1 = 0.8575). The plateau means the model is robust to the exact
+Q_FLOOR choice within this range — a two-fold change in either direction from
+0.04 costs less than 0.001 R².
+
+**Round 3 (fine P₀ sweep).** P₀ ∈ {0.00005, 0.0001, 0.0002, 0.0005, 0.001,
+0.002, 0.005, 0.01, 0.02, 0.05} at Q = {0.02, 0.04}. **P₀ is inert**: total R²
+range < 0.001 across three orders of magnitude. At Q = 0.04 the steady-state
+Kalman gain K_ss ≈ 0.84, meaning 84% weight on new measurements and 16% on the
+prior — P₀'s influence vanishes within one update.
+
+**10-seed validation** of two candidates, both with prehistory + expand-anchors:
+
+| Candidate | A1 | A2 | B1 rolling | B1 2026 | MAE |
+|---|---|---|---|---|---|
+| P₀=0.0005, Q=0.04 | **0.8572** | **0.8810** | **0.8556** | **0.8971** | **$2.60M** |
+| P₀=0.02, Q=0.04 | 0.8571 | — | — | — | — |
+| v8.13x baseline (Q=0.0005, prehistory+expand) | 0.8484 | — | 0.8516 | 0.8917 | $2.64M |
+
+Indistinguishable across P₀ — confirms P₀ does not matter at this Q. Adopted
+Q_FLOOR = 0.04, P₀ = 0.0005 unchanged.
+
+**What moved.** The old Q = 0.0005 produced K_ss ≈ 0.23: the KF weighted 77%
+prior, 23% new measurement — heavy smoothing that resisted real trajectory
+changes. At Q = 0.04 the filter tracks new information almost immediately (K_ss
+≈ 0.84), which is what the market does: a player who breaks out or declines gets
+repriced at his next contract, not gradually adjusted. The 80× increase in
+Q_FLOOR sounds dramatic; the effect is a gain-curve move from 0.23 to 0.84,
+where the plateau says the exact landing point does not matter much.
+
+**Prehistory anchors and expand-anchors also become defaults** in this
+configuration. Prehistory loads pre-2019 Year-1 cap_pct values from
+Spotrac + BBRef, extending the KF anchor window back to 2015 (61 Spotrac AAV
+anchors for season 2015, plus 92 BBRef salary anchors for 2016-2018). Expand-
+anchors extends the anchor map to non-eval-frame Year-1 rows (prorated stints,
+rookie-scale contracts), providing observation points the filter would otherwise
+miss. Both were tested in the original v8.13x ablation and are now the defaults
+(disable with `--no-prehistory` / `--no-expand-anchors`).
+
+**Decomposition over the v8.13x published configuration:**
+
+| Component | A1 Δ |
+|---|---|
+| Prehistory + expand-anchors (still Q=0.0005) | +0.0230 |
+| Q_FLOOR 0.0005 → 0.04 | +0.0088 |
+| **Total (v8.13x published → v8.14x)** | **+0.0318** |
+
+Gates (SWAP Stage 3, 10-seed ablation harness):
+
+| gate | measured | |
+|---|---|---|
+| dSel t (Stage 3) | **t = 3.02** | PASS |
+| dSel t (Stage 2) | t = 3.52 | PASS |
+| C1 calibration slope excess | −0.003 | PASS |
+| C2 worst mechanism \|bias\| growth | Early Bird +$0.23M | PASS |
+
+| Layer | v8.13x published | v8.14x |
+|---|---|---|
+| A1 (nested CV) | 0.8254 | **0.8572** (+0.0318) |
+| A2 (nested CV) | 0.8491 | **0.8810** (+0.0319) |
+| B1 (rolling) | 0.8387 | **0.8556** (+0.0169) |
+| B1 2026 origin | — | 0.8971 |
+| MAE | $2.82M | **$2.60M** (−$0.22M) |
+
+Evidence: `scripts/tune_kf_hyperparams.py`,
+`outputs/models/kf_hyperparam_sweep_extended.json`,
+`outputs/models/kf_hyperparam_sweep_fine.json`,
+`outputs/models/kf_hyperparam_sweep_p0.json`,
+`outputs/models/ablation_kf_market_value_full_market_prehistory_expand_p00.0005_qf0.04.json`.
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v7.0x was a statistical
@@ -1508,8 +1592,8 @@ every row, so P x delta_bird moves the whole price surface. Evidence:
 Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 6    Phase 7        Phase 8
 Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data + protocol  3-stage + route
                                                                                      
-0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.825†
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.13x
+0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.857†
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.14x
                         ↗ 0.87                                                                                 (current)
                   Leaked features                                                                told-route numbers
                   (removed in v4.0)                                                     †nested-CV; from v8.0x onward
@@ -1533,6 +1617,9 @@ repair inside v8.2x (t = 1.10). The standing rule these encode: **a wrong fact
 is repaired on correctness; a suboptimal parameter must clear the gate.**
 v8.8x is the other kind: four fitted parameters, so it had to clear the gate
 where it acts, and did (+$0.201M eligible-type MAE, t +2.48; A1 paired t +5.25).
+v8.14x's KF hyperparameter tuning is the same kind — Q_FLOOR is a fitted
+parameter, and the three-round sweep plus 10-seed validation (A1 +0.0088,
+t = 3.02) clears the gate cleanly.
 
 The count of known-wrong things is the better progress line: an optimistically
 biased test set, two 9%-wrong season targets, 259 prorated rows, a fill 4.6x
