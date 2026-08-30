@@ -147,10 +147,17 @@ def load_prehistory_anchors() -> dict[str, dict[int, tuple[float, bool]]]:
 
 
 def build_anchor_map(df_eval, df_full, extra_events=None,
-                     expand_anchors=True):
+                     expand_anchors=True, market_events=None):
     """Three-tier anchor map.
 
     Args:
+        df_eval: rows whose kf_market_value is being computed. At inference
+            these can include escalator and rookie-scale rows that are not
+            themselves fresh market prices.
+        market_events: optional filtered Year-1 frame that supplies historical
+            market anchors. Defaults to df_eval for backwards compatibility.
+            Keeping this separate prevents an inference target from becoming
+            its own market event while still exposing its prior signings.
         extra_events: optional pre-2019 Year-1 cap_pct anchors (from
             load_prehistory_anchors). Merged BEFORE eval-frame events so
             an eval-frame anchor at the same (player, season) wins.
@@ -168,16 +175,20 @@ def build_anchor_map(df_eval, df_full, extra_events=None,
         anchor_val: float array of anchor cap_pct values
     """
     rs = _load_rookie_scale_set()
-    season_floor = df_eval.groupby("season")["floor_pct"].median().to_dict()
-    floor_min = float(df_eval["floor_pct"].min())
+    event_frame = df_eval if market_events is None else market_events
+    if "floor_pct" not in event_frame.columns:
+        raise ValueError("market event frame must contain floor_pct")
+    season_floor = event_frame.groupby("season")["floor_pct"].median().to_dict()
+    floor_min = float(event_frame["floor_pct"].min())
 
     events: dict[str, dict[int, tuple[float, bool]]] = {}
     if extra_events:
         for p, p_events in extra_events.items():
             for s, val in p_events.items():
                 events.setdefault(p, {})[int(s)] = val
-    for p, s, c in zip(df_eval["player_name_norm"],
-                       df_eval["season"].astype(int), df_eval[TARGET].values):
+    for p, s, c in zip(event_frame["player_name_norm"],
+                       event_frame["season"].astype(int),
+                       event_frame[TARGET].values):
         events.setdefault(p, {})[int(s)] = (float(c), False)
 
     full_cp: dict[tuple[str, int], float] = {}
@@ -291,11 +302,12 @@ def build_anchor_map(df_eval, df_full, extra_events=None,
 
 def compute_kf_column(df_eval, df_full, predict_fn, r_var,
                       players=None, extra_events=None,
-                      expand_anchors=True):
+                      expand_anchors=True, market_events=None):
     """Compute kf_market_value for every row in df_eval.
 
     Args:
-        df_eval:    filtered Year-1 frame (rows to compute kf for)
+        df_eval:    target rows to compute kf for. These do not need to be
+                    filtered Year-1 rows when market_events is supplied.
         df_full:    full dataset (all year_in_contract, for intermediate seasons)
         predict_fn: callable(df_subset) → predictions array.
                     Used to price intermediate seasons in df_full.
@@ -305,6 +317,9 @@ def compute_kf_column(df_eval, df_full, predict_fn, r_var,
         extra_events: optional pre-2019 Year-1 cap_pct anchors (from
                     load_prehistory_anchors)
         expand_anchors: enable v8.14x tier-2 anchor expansions
+        market_events: filtered Year-1 frame supplying historical market
+                    anchors. Defaults to df_eval, preserving training-time
+                    and nested-CV behaviour.
 
     Returns:
         kf_values: array of kf_market_value, one per df_eval row.
@@ -312,10 +327,11 @@ def compute_kf_column(df_eval, df_full, predict_fn, r_var,
     """
     inter_idx, needed_idx, tier, anchor_val = build_anchor_map(
         df_eval, df_full, extra_events=extra_events,
-        expand_anchors=expand_anchors)
+        expand_anchors=expand_anchors, market_events=market_events)
 
     if players is None:
-        players = set(df_eval["player_name_norm"].unique())
+        player_frame = df_eval if market_events is None else market_events
+        players = set(player_frame["player_name_norm"].unique())
     q = estimate_q(df_full, players, r_var)
 
     prev = df_eval["prev_cap_pct"].values
@@ -347,7 +363,8 @@ def compute_kf_column(df_eval, df_full, predict_fn, r_var,
 
 
 def attach_kf_inference(df, df_full, base_model, base_features, base_medians,
-                        clf, clf_features):
+                        clf, clf_features, market_events=None,
+                        noise_frame=None):
     """Compute kf_market_value at inference time using a fitted base model.
 
     The base model uses MEASUREMENT_FEATURES (prev_cap_pct, not kf). Its
@@ -362,6 +379,9 @@ def attach_kf_inference(df, df_full, base_model, base_features, base_medians,
         base_medians:   median fill values from the base model's training set
         clf:            fitted route classifier (for compose)
         clf_features:   classifier feature list
+        market_events:  filtered historical Year-1 rows used as market anchors
+        noise_frame:    training/evaluation rows used to estimate measurement
+                        noise. Defaults to market_events, then df.
 
     Returns:
         df with kf_market_value column added.
@@ -373,9 +393,10 @@ def attach_kf_inference(df, df_full, base_model, base_features, base_medians,
     df_full_pred = df_full.copy()
     df_full_pred = _compute_max_eligible(df_full_pred)
     if "floor_pct" not in df_full_pred.columns:
-        season_floor = df.groupby("season")["floor_pct"].median()
+        floor_source = (market_events if market_events is not None else df)
+        season_floor = floor_source.groupby("season")["floor_pct"].median()
         df_full_pred["floor_pct"] = (df_full_pred["season"].map(season_floor)
-                                     .fillna(float(df["floor_pct"].min())))
+                                     .fillna(float(floor_source["floor_pct"].min())))
     df_full_pred["is_extension"] = False
     df_full_pred["ext_cap_pct"] = np.nan
     df_full_pred[base_features] = (df_full_pred[base_features]
@@ -394,11 +415,15 @@ def attach_kf_inference(df, df_full, base_model, base_features, base_medians,
                        is_extension=np.zeros(len(subset), bool),
                        ext_cap_pct=np.full(len(subset), np.nan))
 
-    y_train = df[TARGET].values
-    in_sample = base_model.predict(df[base_features].fillna(base_medians).fillna(0))
+    calibration = (noise_frame if noise_frame is not None
+                   else market_events if market_events is not None else df)
+    y_train = calibration[TARGET].values
+    in_sample = base_model.predict(
+        calibration[base_features].fillna(base_medians).fillna(0))
     r_var = float(np.var(y_train - in_sample, ddof=1))
 
-    kf = compute_kf_column(df, df_full_pred, predict_fn, r_var)
+    kf = compute_kf_column(
+        df, df_full_pred, predict_fn, r_var, market_events=market_events)
     df = df.copy()
     df["kf_market_value"] = kf
     return df

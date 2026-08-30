@@ -66,26 +66,33 @@ def _eval_frame(df: pd.DataFrame) -> pd.DataFrame:
                 _filter_year1(df)))))))))
 
 
-def _attach_kf_to_frame(df_full, eval_df, base_model, base_features, base_medians):
-    """Compute kf_market_value for eval_df rows using the base model."""
+def _attach_kf_to_frame(df_full, eval_df, base_model, base_features,
+                        base_medians, market_events=None, noise_frame=None):
+    """Compute kf_market_value for target rows using historical market events."""
     def predict_fn(subset):
         X = subset.reindex(columns=base_features).fillna(base_medians).fillna(0)
         return base_model.predict(X)
 
-    y = eval_df[TARGET].values
+    calibration = (noise_frame if noise_frame is not None
+                   else market_events if market_events is not None else eval_df)
+    y = calibration[TARGET].values
     in_sample = base_model.predict(
-        eval_df.reindex(columns=base_features).fillna(base_medians).fillna(0))
+        calibration.reindex(columns=base_features)
+                   .fillna(base_medians).fillna(0))
     r_var = float(np.var(y - in_sample, ddof=1))
 
     df_full_prep = _compute_max_eligible(df_full.copy())
     if "floor_pct" not in df_full_prep.columns:
-        season_floor = eval_df.groupby("season")["floor_pct"].median()
+        floor_source = (market_events if market_events is not None else eval_df)
+        season_floor = floor_source.groupby("season")["floor_pct"].median()
         df_full_prep["floor_pct"] = (df_full_prep["season"].map(season_floor)
-                                     .fillna(float(eval_df["floor_pct"].min())))
+                                     .fillna(float(floor_source["floor_pct"].min())))
     df_full_prep[base_features] = (df_full_prep[base_features]
                                    .fillna(base_medians).fillna(0))
 
-    return compute_kf_column(eval_df, df_full_prep, predict_fn, r_var)
+    return compute_kf_column(
+        eval_df, df_full_prep, predict_fn, r_var,
+        market_events=market_events)
 
 
 def predict(target_season: int = 2026) -> pd.DataFrame:
@@ -202,7 +209,9 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     pred_eval = _compute_max_eligible(pred_df.copy())
     pred_eval = _compute_floor(pred_eval)
     kf_pred = _attach_kf_to_frame(train_df, pred_eval, base_model,
-                                   base_features, base_medians)
+                                   base_features, base_medians,
+                                   market_events=eval_df,
+                                   noise_frame=eval_df)
     pred_df["kf_market_value"] = kf_pred
     pred_df.drop(columns=["salary"], errors="ignore", inplace=True)
 

@@ -655,7 +655,9 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
 
 def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
                      features: list[str], medians: pd.Series, expected: float,
-                     df: pd.DataFrame, train_df: pd.DataFrame
+                     df: pd.DataFrame, train_df: pd.DataFrame, *,
+                     kf_full: pd.DataFrame, kf_market_events: pd.DataFrame,
+                     kf_predict_fn, kf_r_var: float
                      ) -> tuple[pd.DataFrame, np.ndarray]:
     """Append holdout-season free agents the salary data does not yet cover.
 
@@ -709,11 +711,6 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         else:
             fa[col] = borrowed
     fa["age_squared"] = fa["age"] ** 2
-    if "kf_market_value" in hist.columns:
-        fa["kf_market_value"] = fa["player_name_norm"].map(hist["kf_market_value"])
-        fa["kf_market_value"] = fa["kf_market_value"].fillna(fa["prev_cap_pct"])
-    else:
-        fa["kf_market_value"] = fa["prev_cap_pct"]
     waiver_as_of = transaction_data_as_of()
     fa = attach_waiver_status_as_of(fa, waiver_as_of)
     print(f"  Waiver feature as of {waiver_as_of.date()}: "
@@ -729,6 +726,13 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
     # Missingness indicator before fill (ISSUES #39).
     if "laker_z" in fa.columns and "laker_known" not in fa.columns:
         fa["laker_known"] = fa["laker_z"].notna().astype(int)
+
+    # The target rows and the historical market events are different frames.
+    # An unsigned FA is not a market event yet, but his earlier Year-1 contracts
+    # remain valid anchors and all intervening seasons remain measurements.
+    fa["kf_market_value"] = compute_kf_column(
+        fa, kf_full, kf_predict_fn, kf_r_var,
+        market_events=kf_market_events)
 
     X = fa.reindex(columns=features).fillna(medians).fillna(0)
     latent = model.predict(X)
@@ -1224,18 +1228,42 @@ def main() -> None:
                                      .fillna(float(eval_all["floor_pct"].min())))
     df_full_prep[base_features] = (df_full_prep[base_features]
                                    .fillna(base_medians).fillna(0))
-    kf_values = compute_kf_column(eval_all, df_full_prep, _kf_predict_fn, r_var)
+    # Compute the trajectory for every row the Value Board will score. The
+    # filtered eval frame supplies market events; rookie-scale, escalator and
+    # other non-eval rows are targets only. This keeps their convention-priced
+    # salaries out of the anchor set while allowing prior seasons to update the
+    # trajectory.
+    kf_values = compute_kf_column(
+        df_full_prep, df_full_prep, _kf_predict_fn, r_var,
+        market_events=eval_all)
+    if len(kf_values) != len(df):
+        raise SystemExit("full-row KF output changed the source row count")
 
-    kf_map = {}
-    for i, (p, s) in enumerate(zip(eval_all["player_name_norm"],
-                                   eval_all["season"].astype(int))):
-        kf_map[(p, int(s))] = float(kf_values[i])
-    df["kf_market_value"] = [
-        kf_map.get((p, int(s)),
-                   df.loc[idx, "prev_cap_pct"] if pd.notna(
-                       df.loc[idx, "prev_cap_pct"]) else np.nan)
-        for idx, (p, s) in zip(df.index,
-                               zip(df["player_name_norm"], df["season"]))]
+    # Separating targets from market events is an inference-only repair. Every
+    # evaluation-row trajectory must remain bit-identical to the original call,
+    # or this has crossed into a model change and needs the full suite.
+    kf_eval_reference = compute_kf_column(
+        eval_all, df_full_prep, _kf_predict_fn, r_var)
+    full_keys = pd.MultiIndex.from_arrays([
+        df_full_prep["player_name_norm"],
+        df_full_prep["season"].astype(int),
+    ])
+    eval_keys = pd.MultiIndex.from_arrays([
+        eval_all["player_name_norm"], eval_all["season"].astype(int),
+    ])
+    if full_keys.has_duplicates:
+        raise SystemExit("full-row KF frame has duplicate player-season keys")
+    eval_pos = full_keys.get_indexer(eval_keys)
+    if (eval_pos < 0).any():
+        raise SystemExit("evaluation-row KF key is absent from the full frame")
+    eval_drift = float(np.max(np.abs(
+        kf_eval_reference - kf_values[eval_pos])))
+    if eval_drift != 0.0:
+        raise SystemExit(
+            f"full-row KF moved evaluation rows by {eval_drift:.2e}; "
+            "run the evaluation suite before exporting")
+    print("Full-row KF: evaluation rows bit-identical")
+    df["kf_market_value"] = kf_values
     train_df = df[df["season"] < HOLDOUT_SEASON].copy()
 
     # Pass 2: final model (kf_market_value replaces prev_cap_pct)
@@ -1249,7 +1277,11 @@ def main() -> None:
 
     out, shap_vals, expected = build_frame(df, model, features, medians, train_df)
     out, shap_vals = _add_free_agents(out, shap_vals, model, features, medians,
-                                      expected, df, train_df)
+                                      expected, df, train_df,
+                                      kf_full=df_full_prep,
+                                      kf_market_events=eval_all,
+                                      kf_predict_fn=_kf_predict_fn,
+                                      kf_r_var=r_var)
 
     # The headline the Signing Board quotes is the forward number: accuracy on
     # the signings the model never saw. Membership is the training filter chain

@@ -733,6 +733,7 @@ Evidence: `docs/briefs/2026-07-26-service-years.RESULT.md`,
 
 | Ver | Model | A1 (told) | A2 (told) | B1 (told) | N | Feat | Change |
 |-----|-------|-----------|-----------|-----------|---|------|--------|
+| **8.15x** | **XGBoost (Grabit v4)** | **0.8572†** | **0.8810†** | **0.8556** | **873** | **21** | **Web inference repair: every Value Board row gets a KF trajectory, while only genuine Year-1 market events can anchor it. Evaluation rows remain bit-identical. †Metrics unchanged from v8.14x** |
 | **8.14x** | **XGBoost (Grabit v4)** | **0.8572†** | **0.8810†** | **0.8556** | **873** | **21** | **KF hyperparameter tuning: Q_FLOOR 0.0005→0.04, prehistory+expand defaults. +0.0088 over v8.13x tuned baseline. †Nested-CV ablation** |
 | 8.13x | XGBoost (Grabit v4) | 0.8254† | 0.8491† | 0.8387 | 873 | 21 | `kf_market_value` replaces `prev_cap_pct` (SWAP). Paired ΔSel +0.00331 (t 1.75), gate override on three-protocol evidence. †Nested-CV ablation |
 | 8.10x | XGBoost (Grabit v4) | 0.8369 | 0.8581 | 0.8589 | 873 | 18 | `kalman_filtered_stats` (Kalman-filtered quality), the 18th feature. Paired ΔSel +0.0053 (t 2.78) |
@@ -1532,6 +1533,39 @@ Evidence: `scripts/tune_kf_hyperparams.py`,
 `outputs/models/kf_hyperparam_sweep_p0.json`,
 `outputs/models/ablation_kf_market_value_full_market_prehistory_expand_p00.0005_qf0.04.json`.
 
+### v8.15x: Web KF inference target/event separation
+
+The Web export computed `kf_market_value` only on the filtered Year-1
+evaluation frame, then mapped those values back to the full Value Board. Rows
+outside that frame fell back to `prev_cap_pct`. That fallback was especially
+wrong for rookie-scale and escalator seasons: they are valid prediction targets
+and trajectory measurements, but their convention-priced salaries are not
+fresh market events. Victor Wembanyama's 2026 row therefore inherited his
+rookie salary history instead of carrying his performance trajectory forward.
+
+The repair separates the two roles explicitly:
+
+- **target rows** are every row being scored by the Value Board;
+- **market events** remain the filtered Year-1 frame that is allowed to supply
+  historical salary anchors;
+- intermediate seasons still receive model-based measurements, so performance
+  can move the trajectory without turning a rookie-scale salary into an anchor;
+- unsigned free agents and `src/model/predict.py` use the same inference path.
+
+This is an inference-only correctness release. A runtime invariant compares the
+old and new KF values on all evaluation rows and aborts the export on any drift;
+the observed maximum difference is exactly zero. Therefore the model, feature
+count, sample count, and A1/A2/B1 headline metrics are unchanged from v8.14x.
+The corrected export prices Wembanyama's latent 2026 value above Evan Mobley's
+2025 value; both final percentages then meet the same 30% CBA maximum.
+
+Verification: 40 tests pass; browser-model parity max absolute delta is
+3.46e-07; export forward R² is 0.6762 versus the 0.6970 suite reference, inside
+the 0.03 tolerance.
+
+Evidence: `tests/test_kf_market_value.py`, `scripts/export_web.py`,
+`src/features/kf_market_value.py`, `src/model/predict.py`.
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v7.0x was a statistical
@@ -1593,7 +1627,7 @@ Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 
 Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data + protocol  3-stage + route
                                                                                      
 0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.857†
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.14x
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.15x
                         ↗ 0.87                                                                                 (current)
                   Leaked features                                                                told-route numbers
                   (removed in v4.0)                                                     †nested-CV; from v8.0x onward
@@ -1610,7 +1644,7 @@ rather than adding modelling complexity.
 
 Phase 8 introduces a convention change (told-route numbers from v8.0x), the
 three-stage pipeline, and the first new feature since v6.2x. The correctness
-thread continues: six of the last nine versions landed on a correctness argument
+thread continues: seven of the last ten versions landed on a correctness argument
 rather than a metric win, and several did not clear t > 2: v7.9x (common-row A1
 -0.0009), v7.13x (t = 0.08), v8.0x (t = 1.11), v8.1x, and the missingness
 repair inside v8.2x (t = 1.10). The standing rule these encode: **a wrong fact
@@ -1619,7 +1653,9 @@ v8.8x is the other kind: four fitted parameters, so it had to clear the gate
 where it acts, and did (+$0.201M eligible-type MAE, t +2.48; A1 paired t +5.25).
 v8.14x's KF hyperparameter tuning is the same kind — Q_FLOOR is a fitted
 parameter, and the three-round sweep plus 10-seed validation (A1 +0.0088,
-t = 3.02) clears the gate cleanly.
+t = 3.02) clears the gate cleanly. v8.15x returns to the correctness rule: it
+changes only which inference rows receive the already-adopted KF feature and
+proves the evaluation frame is bit-identical.
 
 The count of known-wrong things is the better progress line: an optimistically
 biased test set, two 9%-wrong season targets, 259 prorated rows, a fill 4.6x
