@@ -854,7 +854,22 @@ def _compute_max_eligible(df: pd.DataFrame) -> pd.DataFrame:
             prev_pay.get((pn, int(s) - 1), np.nan)
             for pn, s in zip(df["player_name_norm"], df["season"])
         ])
-        vet_floor = np.where(np.isnan(prior), 0.0, prior * 1.08)
+        # The CBA rule is a DOLLAR rule -- "no less than 105% of his previous
+        # SALARY" -- so converting it to a cap_pct ceiling needs the cap ratio.
+        # Without it the allowance is inflated by exactly the cap's growth:
+        # Harden 2022 read 42.57% (=$52.6M) where 1.08 x his $44.31M prior is
+        # $47.9M, because the 2021->2022 cap rose 10%. Ten frame rows took this
+        # path and every one sat above its own tier ceiling by $1.3M-$5.4M,
+        # scaling with cap growth season by season. The existing ceiling audit
+        # is one-sided (it only catches a ceiling BELOW observed pay), so this
+        # never tripped it.
+        prev_cap = np.array([CAP_BY_SEASON.get(int(s) - 1, np.nan)
+                             for s in df["season"]], dtype=float)
+        cur_cap = np.array([CAP_BY_SEASON.get(int(s), np.nan)
+                            for s in df["season"]], dtype=float)
+        ratio = np.where(np.isfinite(prev_cap) & np.isfinite(cur_cap)
+                         & (cur_cap > 0), prev_cap / cur_cap, 1.0)
+        vet_floor = np.where(np.isnan(prior), 0.0, prior * 1.08 * ratio)
         base = np.maximum(base, vet_floor)
 
     df["max_eligible_pct"] = base

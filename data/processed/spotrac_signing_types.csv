@@ -1,4 +1,194 @@
 player_name_norm,season,signing_type,contract_years,total_value,aav,contract_start
+10817,2026,Minimum,1,3876529.0,3876529.0,2026
+10817,2024,cap-space,2,10000000.0,5000000.0,2024
+10817,2025,cap-space,2,10000000.0,5000000.0,2024
+10817,2022,Non-Taxpayer MLE,2,6560000.0,3280000.0,2022
+10817,2023,Non-Taxpayer MLE,2,6560000.0,3280000.0,2022
+10817,2021,Minimum,1,2401537.0,2401537.0,2021
+10817,2020,Minimum,1,794536.0,794536.0,2020
+10817,2016,Bird Rights,5,127171313.0,25434263.0,2016
+10817,2017,Bird Rights,5,127171313.0,25434263.0,2016
+10817,2018,Bird Rights,5,127171313.0,25434263.0,2016
+10817,2019,Bird Rights,5,127171313.0,25434263.0,2016
+10817,2020,Bird Rights,5,127171313.0,25434263.0,2016
+10817,2012,rookie-scale-exception,4,10659170.0,2664793.0,2012
+10817,2013,rookie-scale-exception,4,10659170.0,2664793.0,2012
+10817,2014,rookie-scale-exception,4,10659170.0,2664793.0,2012
+10817,2015,rookie-scale-exception,4,10659170.0,2664793.0,2012
+13318,2025,Minimum,1,3634153.0,3634153.0,2025
+13318,2024,Minimum,1,1177206.0,1177206.0,2024
+13318,2024,Minimum,1,3303771.0,3303771.0,2024
+13318,2023,Minimum,1,3196448.0,3196448.0,2023
+13318,2021,Non-Taxpayer MLE,2,7650600.0,3825300.0,2021
+13318,2022,Non-Taxpayer MLE,2,7650600.0,3825300.0,2021
+13318,2020,Minimum,1,1697755.0,1697755.0,2020
+13318,2020,Non-Taxpayer MLE,1,2258000.0,2258000.0,2020
+13318,2018,room-mid-level-exception,2,8510000.0,4255000.0,2018
+13318,2019,room-mid-level-exception,2,8510000.0,4255000.0,2018
+13318,2017,qualifying-offer,1,4187598.0,4187598.0,2017
+13318,2013,rookie-scale-exception,4,15773381.0,3943345.0,2013
+13318,2014,rookie-scale-exception,4,15773381.0,3943345.0,2013
+13318,2015,rookie-scale-exception,4,15773381.0,3943345.0,2013
+13318,2016,rookie-scale-exception,4,15773381.0,3943345.0,2013
+13344,2016,cap-space,4,74832500.0,18708125.0,2016
+13344,2017,cap-space,4,74832500.0,18708125.0,2016
+13344,2018,cap-space,4,74832500.0,18708125.0,2016
+13344,2019,cap-space,4,74832500.0,18708125.0,2016
+13344,2013,Minimum,3,2634276.0,878092.0,2013
+13344,2014,Minimum,3,2634276.0,878092.0,2013
+13344,2015,Minimum,3,2634276.0,878092.0,2013
+15353,2027,Bird Rights,2,33830356.0,16915178.0,2027
+15353,2028,Bird Rights,2,33830356.0,16915178.0,2027
+15353,2023,Bird Rights,4,109000002.0,27250001.0,2023
+15353,2024,Bird Rights,4,109000002.0,27250001.0,2023
+15353,2025,Bird Rights,4,109000002.0,27250001.0,2023
+15353,2026,Bird Rights,4,109000002.0,27250001.0,2023
+15353,2018,Bird Rights,5,147710050.0,29542010.0,2018
+15353,2019,Bird Rights,5,147710050.0,29542010.0,2018
+15353,2020,Bird Rights,5,147710050.0,29542010.0,2018
+15353,2021,Bird Rights,5,147710050.0,29542010.0,2018
+15353,2022,Bird Rights,5,147710050.0,29542010.0,2018
+15353,2014,rookie-scale-exception,4,24850243.0,6212561.0,2014
+15353,2015,rookie-scale-exception,4,24850243.0,6212561.0,2014
+15353,2016,rookie-scale-exception,4,24850243.0,6212561.0,2014
+15353,2017,rookie-scale-exception,4,24850243.0,6212561.0,2014
+15356,2026,Bird Rights,3,103608840.0,34536280.0,2026
+15356,2027,Bird Rights,3,103608840.0,34536280.0,2026
+15356,2028,Bird Rights,3,103608840.0,34536280.0,2026
+15356,2022,Bird Rights,4,86640001.0,21660000.0,2022
+15356,2023,Bird Rights,4,86640001.0,21660000.0,2022
+15356,2024,Bird Rights,4,86640001.0,21660000.0,2022
+15356,2025,Bird Rights,4,86640001.0,21660000.0,2022
+15356,2018,Bird Rights,4,80000000.0,20000000.0,2018
+15356,2019,Bird Rights,4,80000000.0,20000000.0,2018
+15356,2020,Bird Rights,4,80000000.0,20000000.0,2018
+15356,2021,Bird Rights,4,80000000.0,20000000.0,2018
+15356,2014,rookie-scale-exception,4,18019460.0,4504865.0,2014
+15356,2015,rookie-scale-exception,4,18019460.0,4504865.0,2014
+15356,2016,rookie-scale-exception,4,18019460.0,4504865.0,2014
+15356,2017,rookie-scale-exception,4,18019460.0,4504865.0,2014
+21076,2025,Bird Rights,4,81096960.0,20274240.0,2025
+21076,2026,Bird Rights,4,81096960.0,20274240.0,2025
+21076,2027,Bird Rights,4,81096960.0,20274240.0,2025
+21076,2028,Bird Rights,4,81096960.0,20274240.0,2025
+21076,2021,Non-Taxpayer MLE,4,36980000.0,9245000.0,2021
+21076,2022,Non-Taxpayer MLE,4,36980000.0,9245000.0,2021
+21076,2023,Non-Taxpayer MLE,4,36980000.0,9245000.0,2021
+21076,2024,Non-Taxpayer MLE,4,36980000.0,9245000.0,2021
+21076,2019,room-mid-level-exception,2,5500000.0,2750000.0,2019
+21076,2020,room-mid-level-exception,2,5500000.0,2750000.0,2019
+21076,2016,Minimum,1,543471.0,543471.0,2016
+2199,2026,Non-Bird Rights,2,13985100.0,6992550.0,2026
+2199,2027,Non-Bird Rights,2,13985100.0,6992550.0,2026
+2199,2025,Taxpayer MLE,2,11654250.0,5827125.0,2025
+2199,2026,Taxpayer MLE,2,11654250.0,5827125.0,2025
+2199,2023,Bird Rights,2,19500000.0,9750000.0,2023
+2199,2024,Bird Rights,2,19500000.0,9750000.0,2023
+2199,2019,cap-space,4,109000000.0,27250000.0,2019
+2199,2020,cap-space,4,109000000.0,27250000.0,2019
+2199,2021,cap-space,4,109000000.0,27250000.0,2019
+2199,2022,cap-space,4,109000000.0,27250000.0,2019
+2199,2016,cap-space,4,113326228.0,28331557.0,2016
+2199,2017,cap-space,4,113326228.0,28331557.0,2016
+2199,2018,cap-space,4,113326228.0,28331557.0,2016
+2199,2011,Bird Rights,5,60000000.0,12000000.0,2011
+2199,2012,Bird Rights,5,60000000.0,12000000.0,2011
+2199,2013,Bird Rights,5,60000000.0,12000000.0,2011
+2199,2014,Bird Rights,5,60000000.0,12000000.0,2011
+2199,2015,Bird Rights,5,60000000.0,12000000.0,2011
+2199,2007,rookie-scale-exception,4,17525017.0,4381254.0,2007
+2199,2008,rookie-scale-exception,4,17525017.0,4381254.0,2007
+2199,2009,rookie-scale-exception,4,17525017.0,4381254.0,2007
+2199,2010,rookie-scale-exception,4,17525017.0,4381254.0,2007
+2269,2020,Minimum,1,2564753.0,2564753.0,2020
+2269,2019,Minimum,1,2564753.0,2564753.0,2019
+2269,2015,cap-space,4,16001700.0,4000425.0,2015
+2269,2016,cap-space,4,16001700.0,4000425.0,2015
+2269,2017,cap-space,4,16001700.0,4000425.0,2015
+2269,2018,cap-space,4,16001700.0,4000425.0,2015
+2269,2014,Minimum,4,1302578.0,325645.0,2014
+2269,2011,cap-space,4,18000000.0,4500000.0,2011
+2269,2012,cap-space,4,18000000.0,4500000.0,2011
+2269,2013,cap-space,4,18000000.0,4500000.0,2011
+24106,2021,Minimum,2,3126325.0,1563163.0,2021
+24106,2022,Minimum,2,3126325.0,1563163.0,2021
+24106,2019,Non-Taxpayer MLE,4,7338954.0,1834739.0,2019
+24106,2020,Non-Taxpayer MLE,4,7338954.0,1834739.0,2019
+24106,2021,Non-Taxpayer MLE,4,7338954.0,1834739.0,2019
+24106,2022,Non-Taxpayer MLE,4,7338954.0,1834739.0,2019
+24106,2018,Minimum,2,2937614.0,1468807.0,2018
+24106,2019,Minimum,2,2937614.0,1468807.0,2018
+24106,2018,Minimum,1,1349383.0,1349383.0,2018
+24106,2017,Minimum,2,2193857.0,1096929.0,2017
+24106,2018,Minimum,2,2193857.0,1096929.0,2017
+24422,2020,Minimum,1,1620564.0,1620564.0,2020
+24422,2019,Minimum,2,3282647.0,1641324.0,2019
+24422,2020,Minimum,2,3282647.0,1641324.0,2019
+24422,2017,Minimum,1,4608.0,4608.0,2017
+24422,2017,Minimum,1,815615.0,815615.0,2017
+26989,2025,Minimum,1,3080921.0,3080921.0,2025
+26989,2024,Bi-Annual,2,9569400.0,4784700.0,2024
+26989,2025,Bi-Annual,2,9569400.0,4784700.0,2024
+26989,2023,Minimum,1,2346614.0,2346614.0,2023
+26989,2022,Minimum,1,1968175.0,1968175.0,2022
+26989,2018,rookie-scale-exception,4,10477351.0,2619338.0,2018
+26989,2019,rookie-scale-exception,4,10477351.0,2619338.0,2018
+26989,2020,rookie-scale-exception,4,10477351.0,2619338.0,2018
+26989,2021,rookie-scale-exception,4,10477351.0,2619338.0,2018
+26990,2026,Non-Taxpayer MLE,2,12247178.0,6123589.0,2026
+26990,2027,Non-Taxpayer MLE,2,12247178.0,6123589.0,2026
+26990,2022,Bird Rights,4,100000000.0,25000000.0,2022
+26990,2023,Bird Rights,4,100000000.0,25000000.0,2022
+26990,2024,Bird Rights,4,100000000.0,25000000.0,2022
+26990,2025,Bird Rights,4,100000000.0,25000000.0,2022
+26990,2018,rookie-scale-exception,4,10175938.0,2543985.0,2018
+26990,2019,rookie-scale-exception,4,10175938.0,2543985.0,2018
+26990,2020,rookie-scale-exception,4,10175938.0,2543985.0,2018
+26990,2021,rookie-scale-exception,4,10175938.0,2543985.0,2018
+27606,2018,Bi-Annual,2,6933100.0,3466550.0,2018
+32198,2025,Minimum,1,2874436.0,2874436.0,2025
+32198,2022,Bird Rights,3,11000000.0,3666667.0,2022
+32198,2023,Bird Rights,3,11000000.0,3666667.0,2022
+32198,2024,Bird Rights,3,11000000.0,3666667.0,2022
+32198,2021,Minimum,1,153488.0,153488.0,2021
+70656,2027,Bird Rights,2,40389440.0,20194720.0,2027
+70656,2028,Bird Rights,2,40389440.0,20194720.0,2027
+70656,2024,Bird Rights,3,33000000.0,11000000.0,2024
+70656,2025,Bird Rights,3,33000000.0,11000000.0,2024
+70656,2026,Bird Rights,3,33000000.0,11000000.0,2024
+70656,2020,rookie-scale-exception,4,16528217.0,4132054.0,2020
+70656,2021,rookie-scale-exception,4,16528217.0,4132054.0,2020
+70656,2022,rookie-scale-exception,4,16528217.0,4132054.0,2020
+70656,2023,rookie-scale-exception,4,16528217.0,4132054.0,2020
+74162,2024,Bird Rights,5,45000000.0,9000000.0,2024
+74162,2025,Bird Rights,5,45000000.0,9000000.0,2024
+74162,2026,Bird Rights,5,45000000.0,9000000.0,2024
+74162,2027,Bird Rights,5,45000000.0,9000000.0,2024
+74162,2028,Bird Rights,5,45000000.0,9000000.0,2024
+74162,2021,cap-space,4,6388212.0,1597053.0,2021
+74162,2022,cap-space,4,6388212.0,1597053.0,2021
+74162,2023,cap-space,4,6388212.0,1597053.0,2021
+78137,2025,Bird Rights,3,58650480.0,19550160.0,2025
+78137,2026,Bird Rights,3,58650480.0,19550160.0,2025
+78137,2027,Bird Rights,3,58650480.0,19550160.0,2025
+78137,2022,cap-space,4,8583166.0,2145792.0,2022
+78137,2023,cap-space,4,8583166.0,2145792.0,2022
+78137,2024,cap-space,4,8583166.0,2145792.0,2022
+78137,2025,cap-space,4,8583166.0,2145792.0,2022
+8063,2024,Minimum,1,3303771.0,3303771.0,2024
+8063,2021,cap-space,3,30038400.0,10012800.0,2021
+8063,2022,cap-space,3,30038400.0,10012800.0,2021
+8063,2023,cap-space,3,30038400.0,10012800.0,2021
+8063,2020,cap-space,1,6000000.0,6000000.0,2020
+8063,2019,Minimum,1,2320044.0,2320044.0,2019
+8063,2015,Bird Rights,4,42000000.0,10500000.0,2015
+8063,2016,Bird Rights,4,42000000.0,10500000.0,2015
+8063,2017,Bird Rights,4,42000000.0,10500000.0,2015
+8063,2018,Bird Rights,4,42000000.0,10500000.0,2015
+8063,2011,rookie-scale-exception,4,9367716.0,2341929.0,2011
+8063,2012,rookie-scale-exception,4,9367716.0,2341929.0,2011
+8063,2013,rookie-scale-exception,4,9367716.0,2341929.0,2011
+8063,2014,rookie-scale-exception,4,9367716.0,2341929.0,2011
 aaron gordon,2026,Bird Rights,3,103608840.0,34536280.0,2026
 aaron gordon,2027,Bird Rights,3,103608840.0,34536280.0,2026
 aaron gordon,2028,Bird Rights,3,103608840.0,34536280.0,2026
@@ -45,10 +235,23 @@ abdel nader,2022,Bird Rights,2,4160000.0,2080000.0,2021
 abdel nader,2017,cap-space,3,4164095.0,1388032.0,2017
 abdel nader,2018,cap-space,3,4164095.0,1388032.0,2017
 abdel nader,2019,cap-space,3,4164095.0,1388032.0,2017
+ace bailey,2025,rookie-scale-exception,4,41209782.0,10302446.0,2025
+ace bailey,2026,rookie-scale-exception,4,41209782.0,10302446.0,2025
+ace bailey,2027,rookie-scale-exception,4,41209782.0,10302446.0,2025
+ace bailey,2028,rookie-scale-exception,4,41209782.0,10302446.0,2025
 adem bona,2024,second-round-exception,4,7895796.0,1973949.0,2024
 adem bona,2025,second-round-exception,4,7895796.0,1973949.0,2024
 adem bona,2026,second-round-exception,4,7895796.0,1973949.0,2024
 adem bona,2027,second-round-exception,4,7895796.0,1973949.0,2024
+admiral schofield,2022,Minimum,2,2503746.0,1251873.0,2022
+admiral schofield,2023,Minimum,2,2503746.0,1251873.0,2022
+admiral schofield,2021,Minimum,1,1489065.0,1489065.0,2021
+admiral schofield,2019,Non-Taxpayer MLE,3,4300602.0,1433534.0,2019
+admiral schofield,2020,Non-Taxpayer MLE,3,4300602.0,1433534.0,2019
+admiral schofield,2021,Non-Taxpayer MLE,3,4300602.0,1433534.0,2019
+adou thiero,2025,second-round-exception,3,5949688.0,1983229.0,2025
+adou thiero,2026,second-round-exception,3,5949688.0,1983229.0,2025
+adou thiero,2027,second-round-exception,3,5949688.0,1983229.0,2025
 a.j. green,2026,Bird Rights,4,45000000.0,11250000.0,2026
 a.j. green,2027,Bird Rights,4,45000000.0,11250000.0,2026
 a.j. green,2028,Bird Rights,4,45000000.0,11250000.0,2026
@@ -56,6 +259,27 @@ a.j. green,2029,Bird Rights,4,45000000.0,11250000.0,2026
 a.j. green,2023,Non-Bird Rights,3,6324049.0,2108016.0,2023
 a.j. green,2024,Non-Bird Rights,3,6324049.0,2108016.0,2023
 a.j. green,2025,Non-Bird Rights,3,6324049.0,2108016.0,2023
+aj griffin,2022,rookie-scale-exception,4,17106137.0,4276534.0,2022
+aj griffin,2023,rookie-scale-exception,4,17106137.0,4276534.0,2022
+aj griffin,2024,rookie-scale-exception,4,17106137.0,4276534.0,2022
+aj griffin,2025,rookie-scale-exception,4,17106137.0,4276534.0,2022
+aj johnson,2024,rookie-scale-exception,4,14616288.0,3654072.0,2024
+aj johnson,2025,rookie-scale-exception,4,14616288.0,3654072.0,2024
+aj johnson,2026,rookie-scale-exception,4,14616288.0,3654072.0,2024
+aj johnson,2027,rookie-scale-exception,4,14616288.0,3654072.0,2024
+a.j. lawson,2025,Minimum,1,27343.0,27343.0,2025
+a.j. lawson,2024,Minimum,2,2370735.0,1185368.0,2024
+a.j. lawson,2025,Minimum,2,2370735.0,1185368.0,2024
+a.j. lawson,2023,Non-Taxpayer MLE,4,7912022.0,1978006.0,2023
+a.j. lawson,2024,Non-Taxpayer MLE,4,7912022.0,1978006.0,2023
+a.j. lawson,2025,Non-Taxpayer MLE,4,7912022.0,1978006.0,2023
+a.j. lawson,2026,Non-Taxpayer MLE,4,7912022.0,1978006.0,2023
+a.j. lawson,2021,Minimum,1,925258.0,925258.0,2021
+ajay mitchell,2025,Non-Bird Rights,3,8700000.0,2900000.0,2025
+ajay mitchell,2026,Non-Bird Rights,3,8700000.0,2900000.0,2025
+ajay mitchell,2027,Non-Bird Rights,3,8700000.0,2900000.0,2025
+ajay mitchell,2024,room-mid-level-exception,2,6000000.0,3000000.0,2024
+ajay mitchell,2025,room-mid-level-exception,2,6000000.0,3000000.0,2024
 al-farouq aminu,2019,Non-Taxpayer MLE,3,29162700.0,9720900.0,2019
 al-farouq aminu,2020,Non-Taxpayer MLE,3,29162700.0,9720900.0,2019
 al-farouq aminu,2021,Non-Taxpayer MLE,3,29162700.0,9720900.0,2019
@@ -101,6 +325,12 @@ alec burks,2011,rookie-scale-exception,4,9367716.0,2341929.0,2011
 alec burks,2012,rookie-scale-exception,4,9367716.0,2341929.0,2011
 alec burks,2013,rookie-scale-exception,4,9367716.0,2341929.0,2011
 alec burks,2014,rookie-scale-exception,4,9367716.0,2341929.0,2011
+aleksej pokusevski,2023,Minimum,2,2838428.0,1419214.0,2023
+aleksej pokusevski,2024,Minimum,2,2838428.0,1419214.0,2023
+aleksej pokusevski,2020,rookie-scale-exception,4,14349113.0,3587278.0,2020
+aleksej pokusevski,2021,rookie-scale-exception,4,14349113.0,3587278.0,2020
+aleksej pokusevski,2022,rookie-scale-exception,4,14349113.0,3587278.0,2020
+aleksej pokusevski,2023,rookie-scale-exception,4,14349113.0,3587278.0,2020
 alex caruso,2025,Bird Rights,4,81096960.0,20274240.0,2025
 alex caruso,2026,Bird Rights,4,81096960.0,20274240.0,2025
 alex caruso,2027,Bird Rights,4,81096960.0,20274240.0,2025
@@ -127,6 +357,10 @@ alex len,2013,rookie-scale-exception,4,15773381.0,3943345.0,2013
 alex len,2014,rookie-scale-exception,4,15773381.0,3943345.0,2013
 alex len,2015,rookie-scale-exception,4,15773381.0,3943345.0,2013
 alex len,2016,rookie-scale-exception,4,15773381.0,3943345.0,2013
+alex sarr,2024,rookie-scale-exception,4,51036398.0,12759100.0,2024
+alex sarr,2025,rookie-scale-exception,4,51036398.0,12759100.0,2024
+alex sarr,2026,rookie-scale-exception,4,51036398.0,12759100.0,2024
+alex sarr,2027,rookie-scale-exception,4,51036398.0,12759100.0,2024
 alfonzo mckinnie,2021,Minimum,2,3126325.0,1563163.0,2021
 alfonzo mckinnie,2022,Minimum,2,3126325.0,1563163.0,2021
 alfonzo mckinnie,2019,Non-Taxpayer MLE,4,7338954.0,1834739.0,2019
@@ -140,6 +374,16 @@ alfonzo mckinnie,2017,Minimum,2,2193857.0,1096929.0,2017
 alfonzo mckinnie,2018,Minimum,2,2193857.0,1096929.0,2017
 alijah martin,2026,Minimum,2,4757011.0,2378506.0,2026
 alijah martin,2027,Minimum,2,4757011.0,2378506.0,2026
+alize johnson,2025,Minimum,1,2667947.0,2667947.0,2025
+alize johnson,2022,Minimum,1,1493098.0,1493098.0,2022
+alize johnson,2022,Minimum,1,1968175.0,1968175.0,2022
+alize johnson,2021,Minimum,2,3607937.0,1803969.0,2021
+alize johnson,2020,Taxpayer MLE,3,4073247.0,1357749.0,2020
+alize johnson,2021,Taxpayer MLE,3,4073247.0,1357749.0,2020
+alize johnson,2022,Taxpayer MLE,3,4073247.0,1357749.0,2020
+alize johnson,2020,Minimum,1,1620564.0,1620564.0,2020
+alize johnson,2018,Minimum,2,2255316.0,1127658.0,2018
+alize johnson,2019,Minimum,2,2255316.0,1127658.0,2018
 allen crabbe,2016,cap-space,4,74832500.0,18708125.0,2016
 allen crabbe,2017,cap-space,4,74832500.0,18708125.0,2016
 allen crabbe,2018,cap-space,4,74832500.0,18708125.0,2016
@@ -148,9 +392,16 @@ allen crabbe,2013,Minimum,3,2634276.0,878092.0,2013
 allen crabbe,2014,Minimum,3,2634276.0,878092.0,2013
 allen crabbe,2015,Minimum,3,2634276.0,878092.0,2013
 allonzo trier,2018,Bi-Annual,2,6933100.0,3466550.0,2018
+alondes williams,2025,Minimum,1,2378870.0,2378870.0,2025
+alondes williams,2024,Minimum,1,2087519.0,2087519.0,2024
+alondes williams,2023,Minimum,1,1119563.0,1119563.0,2023
 amari williams,2026,Minimum,1,679042.0,679042.0,2026
 amari williams,2025,Minimum,2,2641045.0,1320523.0,2025
 amari williams,2026,Minimum,2,2641045.0,1320523.0,2025
+amen thompson,2023,rookie-scale-exception,4,40008489.0,10002122.0,2023
+amen thompson,2024,rookie-scale-exception,4,40008489.0,10002122.0,2023
+amen thompson,2025,rookie-scale-exception,4,40008489.0,10002122.0,2023
+amen thompson,2026,rookie-scale-exception,4,40008489.0,10002122.0,2023
 amile jefferson,2020,Minimum,1,1620564.0,1620564.0,2020
 amile jefferson,2019,Minimum,2,3282647.0,1641324.0,2019
 amile jefferson,2020,Minimum,2,3282647.0,1641324.0,2019
@@ -232,6 +483,10 @@ anfernee simons,2018,rookie-scale-exception,4,10175938.0,2543985.0,2018
 anfernee simons,2019,rookie-scale-exception,4,10175938.0,2543985.0,2018
 anfernee simons,2020,rookie-scale-exception,4,10175938.0,2543985.0,2018
 anfernee simons,2021,rookie-scale-exception,4,10175938.0,2543985.0,2018
+anthony black,2023,rookie-scale-exception,4,32929836.0,8232459.0,2023
+anthony black,2024,rookie-scale-exception,4,32929836.0,8232459.0,2023
+anthony black,2025,rookie-scale-exception,4,32929836.0,8232459.0,2023
+anthony black,2026,rookie-scale-exception,4,32929836.0,8232459.0,2023
 anthony davis,2025,Bird Rights,3,175369698.0,58456566.0,2025
 anthony davis,2026,Bird Rights,3,175369698.0,58456566.0,2025
 anthony davis,2027,Bird Rights,3,175369698.0,58456566.0,2025
@@ -265,6 +520,24 @@ anthony gill,2022,Minimum,2,3833328.0,1916664.0,2022
 anthony gill,2023,Minimum,2,3833328.0,1916664.0,2022
 anthony gill,2020,Minimum,2,2416291.0,1208146.0,2020
 anthony gill,2021,Minimum,2,2416291.0,1208146.0,2020
+anthony lamb,2022,Minimum,1,253254.0,253254.0,2022
+anthony lamb,2022,Minimum,1,1836090.0,1836090.0,2022
+anthony lamb,2020,Minimum,1,898310.0,898310.0,2020
+anthony tolliver,2020,Minimum,2,2956493.0,1478247.0,2020
+anthony tolliver,2021,Minimum,2,2956493.0,1478247.0,2020
+anthony tolliver,2019,Minimum,1,289803.0,289803.0,2019
+anthony tolliver,2019,Minimum,1,2564753.0,2564753.0,2019
+anthony tolliver,2018,Non-Taxpayer MLE,1,5750000.0,5750000.0,2018
+anthony tolliver,2017,Bi-Annual,1,3290000.0,3290000.0,2017
+anthony tolliver,2016,cap-space,2,16000000.0,8000000.0,2016
+anthony tolliver,2017,cap-space,2,16000000.0,8000000.0,2016
+anthony tolliver,2014,cap-space,2,6000000.0,3000000.0,2014
+anthony tolliver,2015,cap-space,2,6000000.0,3000000.0,2014
+anthony tolliver,2013,Minimum,1,1027424.0,1027424.0,2013
+anthony tolliver,2012,Minimum,1,915852.0,915852.0,2012
+anthony tolliver,2010,cap-space,2,4250000.0,2125000.0,2010
+anthony tolliver,2011,cap-space,2,4250000.0,2125000.0,2010
+anthony tolliver,2009,Minimum,1,335055.0,335055.0,2009
 antonio blakeney,2018,Minimum,2,2937614.0,1468807.0,2018
 antonio blakeney,2019,Minimum,2,2937614.0,1468807.0,2018
 ariel hukporti,2026,Bi-Annual,1,3400000.0,3400000.0,2026
@@ -290,6 +563,14 @@ aron baynes,2017,cap-space,3,19500000.0,6500000.0,2015
 aron baynes,2014,Non-Taxpayer MLE,1,2077000.0,2077000.0,2014
 aron baynes,2012,Minimum,2,1028460.0,514230.0,2012
 aron baynes,2013,Minimum,2,1028460.0,514230.0,2012
+asa newell,2025,rookie-scale-exception,4,16240654.0,4060164.0,2025
+asa newell,2026,rookie-scale-exception,4,16240654.0,4060164.0,2025
+asa newell,2027,rookie-scale-exception,4,16240654.0,4060164.0,2025
+asa newell,2028,rookie-scale-exception,4,16240654.0,4060164.0,2025
+ausar thompson,2023,rookie-scale-exception,4,36246405.0,9061601.0,2023
+ausar thompson,2024,rookie-scale-exception,4,36246405.0,9061601.0,2023
+ausar thompson,2025,rookie-scale-exception,4,36246405.0,9061601.0,2023
+ausar thompson,2026,rookie-scale-exception,4,36246405.0,9061601.0,2023
 austin reaves,2026,Bird Rights,4,184756320.0,46189080.0,2026
 austin reaves,2027,Bird Rights,4,184756320.0,46189080.0,2026
 austin reaves,2028,Bird Rights,4,184756320.0,46189080.0,2026
@@ -352,6 +633,10 @@ bam adebayo,2017,rookie-scale-exception,4,14015772.0,3503943.0,2017
 bam adebayo,2018,rookie-scale-exception,4,14015772.0,3503943.0,2017
 bam adebayo,2019,rookie-scale-exception,4,14015772.0,3503943.0,2017
 bam adebayo,2020,rookie-scale-exception,4,14015772.0,3503943.0,2017
+baylor scheierman,2024,rookie-scale-exception,4,12810353.0,3202588.0,2024
+baylor scheierman,2025,rookie-scale-exception,4,12810353.0,3202588.0,2024
+baylor scheierman,2026,rookie-scale-exception,4,12810353.0,3202588.0,2024
+baylor scheierman,2027,rookie-scale-exception,4,12810353.0,3202588.0,2024
 ben mclemore,2021,Minimum,1,2389641.0,2389641.0,2021
 ben mclemore,2020,Minimum,1,610596.0,610596.0,2020
 ben mclemore,2019,Minimum,2,4311628.0,2155814.0,2019
@@ -362,6 +647,14 @@ ben mclemore,2013,rookie-scale-exception,4,13087722.0,3271931.0,2013
 ben mclemore,2014,rookie-scale-exception,4,13087722.0,3271931.0,2013
 ben mclemore,2015,rookie-scale-exception,4,13087722.0,3271931.0,2013
 ben mclemore,2016,rookie-scale-exception,4,13087722.0,3271931.0,2013
+ben saraf,2025,rookie-scale-exception,4,14806816.0,3701704.0,2025
+ben saraf,2026,rookie-scale-exception,4,14806816.0,3701704.0,2025
+ben saraf,2027,rookie-scale-exception,4,14806816.0,3701704.0,2025
+ben saraf,2028,rookie-scale-exception,4,14806816.0,3701704.0,2025
+ben sheppard,2023,rookie-scale-exception,4,13023429.0,3255857.0,2023
+ben sheppard,2024,rookie-scale-exception,4,13023429.0,3255857.0,2023
+ben sheppard,2025,rookie-scale-exception,4,13023429.0,3255857.0,2023
+ben sheppard,2026,rookie-scale-exception,4,13023429.0,3255857.0,2023
 ben simmons,2024,Minimum,1,1082061.0,1082061.0,2024
 ben simmons,2020,Bird Rights,5,177243360.0,35448672.0,2020
 ben simmons,2021,Bird Rights,5,177243360.0,35448672.0,2020
@@ -372,6 +665,16 @@ ben simmons,2016,rookie-scale-exception,4,26620450.0,6655113.0,2016
 ben simmons,2017,rookie-scale-exception,4,26620450.0,6655113.0,2016
 ben simmons,2018,rookie-scale-exception,4,26620450.0,6655113.0,2016
 ben simmons,2019,rookie-scale-exception,4,26620450.0,6655113.0,2016
+bennedict mathurin,2026,Non-Taxpayer MLE,2,16000000.0,8000000.0,2026
+bennedict mathurin,2027,Non-Taxpayer MLE,2,16000000.0,8000000.0,2026
+bennedict mathurin,2022,rookie-scale-exception,4,29936173.0,7484043.0,2022
+bennedict mathurin,2023,rookie-scale-exception,4,29936173.0,7484043.0,2022
+bennedict mathurin,2024,rookie-scale-exception,4,29936173.0,7484043.0,2022
+bennedict mathurin,2025,rookie-scale-exception,4,29936173.0,7484043.0,2022
+bilal coulibaly,2023,rookie-scale-exception,4,30075132.0,7518783.0,2023
+bilal coulibaly,2024,rookie-scale-exception,4,30075132.0,7518783.0,2023
+bilal coulibaly,2025,rookie-scale-exception,4,30075132.0,7518783.0,2023
+bilal coulibaly,2026,rookie-scale-exception,4,30075132.0,7518783.0,2023
 bismack biyombo,2025,Minimum,1,3634153.0,3634153.0,2025
 bismack biyombo,2024,Minimum,1,797462.0,797462.0,2024
 bismack biyombo,2023,Minimum,1,1194075.0,1194075.0,2023
@@ -406,6 +709,11 @@ blake griffin,2009,rookie-scale-exception,4,23298682.0,5824671.0,2009
 blake griffin,2010,rookie-scale-exception,4,23298682.0,5824671.0,2009
 blake griffin,2011,rookie-scale-exception,4,23298682.0,5824671.0,2009
 blake griffin,2012,rookie-scale-exception,4,23298682.0,5824671.0,2009
+blake wesley,2025,Minimum,1,2378870.0,2378870.0,2025
+blake wesley,2022,rookie-scale-exception,4,12240728.0,3060182.0,2022
+blake wesley,2023,rookie-scale-exception,4,12240728.0,3060182.0,2022
+blake wesley,2024,rookie-scale-exception,4,12240728.0,3060182.0,2022
+blake wesley,2025,rookie-scale-exception,4,12240728.0,3060182.0,2022
 bobby portis,2025,Bird Rights,3,43564242.0,14521414.0,2025
 bobby portis,2026,Bird Rights,3,43564242.0,14521414.0,2025
 bobby portis,2027,Bird Rights,3,43564242.0,14521414.0,2025
@@ -473,6 +781,10 @@ bradley beal,2014,rookie-scale-exception,4,18652514.0,4663129.0,2012
 bradley beal,2015,rookie-scale-exception,4,18652514.0,4663129.0,2012
 branden carlson,2026,Minimum,1,2449421.0,2449421.0,2026
 branden carlson,2024,Minimum,1,990895.0,990895.0,2024
+brandin podziemski,2023,rookie-scale-exception,4,16239819.0,4059955.0,2023
+brandin podziemski,2024,rookie-scale-exception,4,16239819.0,4059955.0,2023
+brandin podziemski,2025,rookie-scale-exception,4,16239819.0,4059955.0,2023
+brandin podziemski,2026,rookie-scale-exception,4,16239819.0,4059955.0,2023
 brandon clarke,2023,Bird Rights,4,50000000.0,12500000.0,2023
 brandon clarke,2024,Bird Rights,4,50000000.0,12500000.0,2023
 brandon clarke,2025,Bird Rights,4,50000000.0,12500000.0,2023
@@ -509,9 +821,21 @@ brandon knight,2011,rookie-scale-exception,4,11589837.0,2897459.0,2011
 brandon knight,2012,rookie-scale-exception,4,11589837.0,2897459.0,2011
 brandon knight,2013,rookie-scale-exception,4,11589837.0,2897459.0,2011
 brandon knight,2014,rookie-scale-exception,4,11589837.0,2897459.0,2011
+brandon miller,2023,rookie-scale-exception,4,49378426.0,12344607.0,2023
+brandon miller,2024,rookie-scale-exception,4,49378426.0,12344607.0,2023
+brandon miller,2025,rookie-scale-exception,4,49378426.0,12344607.0,2023
+brandon miller,2026,rookie-scale-exception,4,49378426.0,12344607.0,2023
 brandon williams,2024,Minimum,2,2318724.0,1159362.0,2024
 brandon williams,2025,Minimum,2,2318724.0,1159362.0,2024
 brandon williams,2023,Minimum,1,1801769.0,1801769.0,2023
+braxton key,2025,Minimum,1,2461463.0,2461463.0,2025
+braxton key,2024,Minimum,1,11997.0,11997.0,2024
+braxton key,2024,Minimum,1,2162606.0,2162606.0,2024
+braxton key,2021,Minimum,1,925258.0,925258.0,2021
+brice sensabaugh,2023,rookie-scale-exception,4,12576077.0,3144019.0,2023
+brice sensabaugh,2024,rookie-scale-exception,4,12576077.0,3144019.0,2023
+brice sensabaugh,2025,rookie-scale-exception,4,12576077.0,3144019.0,2023
+brice sensabaugh,2026,rookie-scale-exception,4,12576077.0,3144019.0,2023
 bronny james,2024,second-round-exception,4,7895796.0,1973949.0,2024
 bronny james,2025,second-round-exception,4,7895796.0,1973949.0,2024
 bronny james,2026,second-round-exception,4,7895796.0,1973949.0,2024
@@ -531,6 +855,15 @@ brook lopez,2017,Bird Rights,3,63497025.0,21165675.0,2015
 brook lopez,2012,Bird Rights,4,60825938.0,15206485.0,2012
 brook lopez,2013,Bird Rights,4,60825938.0,15206485.0,2012
 brook lopez,2014,Bird Rights,4,60825938.0,15206485.0,2012
+bruce brown jr,2025,Minimum,1,3080921.0,3080921.0,2025
+bruce brown jr,2023,cap-space,2,45000000.0,22500000.0,2023
+bruce brown jr,2024,cap-space,2,45000000.0,22500000.0,2023
+bruce brown jr,2022,Taxpayer MLE,2,13281950.0,6640975.0,2022
+bruce brown jr,2023,Taxpayer MLE,2,13281950.0,6640975.0,2022
+bruce brown jr,2021,qualifying-offer,1,4736102.0,4736102.0,2021
+bruce brown jr,2018,Non-Taxpayer MLE,3,3919177.0,1306392.0,2018
+bruce brown jr,2019,Non-Taxpayer MLE,3,3919177.0,1306392.0,2018
+bruce brown jr,2020,Non-Taxpayer MLE,3,3919177.0,1306392.0,2018
 bruce brown,2025,Minimum,1,3080921.0,3080921.0,2025
 bruce brown,2023,cap-space,2,45000000.0,22500000.0,2023
 bruce brown,2024,cap-space,2,45000000.0,22500000.0,2023
@@ -556,6 +889,10 @@ bryce mcgowens,2022,Non-Taxpayer MLE,4,7002014.0,1750504.0,2022
 bryce mcgowens,2023,Non-Taxpayer MLE,4,7002014.0,1750504.0,2022
 bryce mcgowens,2024,Non-Taxpayer MLE,4,7002014.0,1750504.0,2022
 bryce mcgowens,2025,Non-Taxpayer MLE,4,7002014.0,1750504.0,2022
+bub carrington,2024,rookie-scale-exception,4,21290770.0,5322693.0,2024
+bub carrington,2025,rookie-scale-exception,4,21290770.0,5322693.0,2024
+bub carrington,2026,rookie-scale-exception,4,21290770.0,5322693.0,2024
+bub carrington,2027,rookie-scale-exception,4,21290770.0,5322693.0,2024
 buddy hield,2024,Bird Rights,4,37756096.0,9439024.0,2024
 buddy hield,2025,Bird Rights,4,37756096.0,9439024.0,2024
 buddy hield,2026,Bird Rights,4,37756096.0,9439024.0,2024
@@ -577,6 +914,12 @@ cade cunningham,2021,rookie-scale-exception,4,45599089.0,11399772.0,2021
 cade cunningham,2022,rookie-scale-exception,4,45599089.0,11399772.0,2021
 cade cunningham,2023,rookie-scale-exception,4,45599089.0,11399772.0,2021
 cade cunningham,2024,rookie-scale-exception,4,45599089.0,11399772.0,2021
+caleb houstan,2026,Minimum,1,2625627.0,2625627.0,2026
+caleb houstan,2025,Minimum,1,724598.0,724598.0,2025
+caleb houstan,2025,Minimum,1,2378870.0,2378870.0,2025
+caleb houstan,2022,Non-Taxpayer MLE,4,8207398.0,2051850.0,2022
+caleb houstan,2023,Non-Taxpayer MLE,4,8207398.0,2051850.0,2022
+caleb houstan,2024,Non-Taxpayer MLE,4,8207398.0,2051850.0,2022
 caleb martin,2024,cap-space,4,35040704.0,8760176.0,2024
 caleb martin,2025,cap-space,4,35040704.0,8760176.0,2024
 caleb martin,2026,cap-space,4,35040704.0,8760176.0,2024
@@ -602,6 +945,10 @@ cam thomas,2021,rookie-scale-exception,4,10455849.0,2613962.0,2021
 cam thomas,2022,rookie-scale-exception,4,10455849.0,2613962.0,2021
 cam thomas,2023,rookie-scale-exception,4,10455849.0,2613962.0,2021
 cam thomas,2024,rookie-scale-exception,4,10455849.0,2613962.0,2021
+cam whitmore,2023,rookie-scale-exception,4,15595310.0,3898828.0,2023
+cam whitmore,2024,rookie-scale-exception,4,15595310.0,3898828.0,2023
+cam whitmore,2025,rookie-scale-exception,4,15595310.0,3898828.0,2023
+cam whitmore,2026,rookie-scale-exception,4,15595310.0,3898828.0,2023
 cameron johnson,2023,Bird Rights,4,94500000.0,23625000.0,2023
 cameron johnson,2024,Bird Rights,4,94500000.0,23625000.0,2023
 cameron johnson,2025,Bird Rights,4,94500000.0,23625000.0,2023
@@ -636,6 +983,18 @@ caris levert,2016,rookie-scale-exception,4,7523278.0,1880820.0,2016
 caris levert,2017,rookie-scale-exception,4,7523278.0,1880820.0,2016
 caris levert,2018,rookie-scale-exception,4,7523278.0,1880820.0,2016
 caris levert,2019,rookie-scale-exception,4,7523278.0,1880820.0,2016
+carter bryant,2025,rookie-scale-exception,4,23419859.0,5854965.0,2025
+carter bryant,2026,rookie-scale-exception,4,23419859.0,5854965.0,2025
+carter bryant,2027,rookie-scale-exception,4,23419859.0,5854965.0,2025
+carter bryant,2028,rookie-scale-exception,4,23419859.0,5854965.0,2025
+cason wallace,2023,rookie-scale-exception,4,24088326.0,6022082.0,2023
+cason wallace,2024,rookie-scale-exception,4,24088326.0,6022082.0,2023
+cason wallace,2025,rookie-scale-exception,4,24088326.0,6022082.0,2023
+cason wallace,2026,rookie-scale-exception,4,24088326.0,6022082.0,2023
+cedric coward,2025,rookie-scale-exception,4,26345863.0,6586466.0,2025
+cedric coward,2026,rookie-scale-exception,4,26345863.0,6586466.0,2025
+cedric coward,2027,rookie-scale-exception,4,26345863.0,6586466.0,2025
+cedric coward,2028,rookie-scale-exception,4,26345863.0,6586466.0,2025
 chaney johnson,2025,Minimum,1,1272870.0,1272870.0,2025
 charles bassey,2026,Minimum,1,2845883.0,2845883.0,2026
 charles bassey,2025,Minimum,1,113171.0,113171.0,2025
@@ -648,6 +1007,10 @@ charles bassey,2025,cap-space,4,10200000.0,2550000.0,2022
 charles bassey,2021,Non-Taxpayer MLE,3,4324872.0,1441624.0,2021
 charles bassey,2022,Non-Taxpayer MLE,3,4324872.0,1441624.0,2021
 charles bassey,2023,Non-Taxpayer MLE,3,4324872.0,1441624.0,2021
+chaz lanier,2025,second-round-exception,4,8685386.0,2171347.0,2025
+chaz lanier,2026,second-round-exception,4,8685386.0,2171347.0,2025
+chaz lanier,2027,second-round-exception,4,8685386.0,2171347.0,2025
+chaz lanier,2028,second-round-exception,4,8685386.0,2171347.0,2025
 chet holmgren,2026,Bird Rights,5,239193450.0,47838690.0,2026
 chet holmgren,2027,Bird Rights,5,239193450.0,47838690.0,2026
 chet holmgren,2028,Bird Rights,5,239193450.0,47838690.0,2026
@@ -740,6 +1103,10 @@ coby white,2019,rookie-scale-exception,4,24131515.0,6032879.0,2019
 coby white,2020,rookie-scale-exception,4,24131515.0,6032879.0,2019
 coby white,2021,rookie-scale-exception,4,24131515.0,6032879.0,2019
 coby white,2022,rookie-scale-exception,4,24131515.0,6032879.0,2019
+cody williams,2024,rookie-scale-exception,4,24897090.0,6224273.0,2024
+cody williams,2025,rookie-scale-exception,4,24897090.0,6224273.0,2024
+cody williams,2026,rookie-scale-exception,4,24897090.0,6224273.0,2024
+cody williams,2027,rookie-scale-exception,4,24897090.0,6224273.0,2024
 cole anthony,2025,Minimum,1,2667947.0,2667947.0,2025
 cole anthony,2024,Bird Rights,3,39100000.0,13033333.0,2024
 cole anthony,2025,Bird Rights,3,39100000.0,13033333.0,2024
@@ -756,6 +1123,10 @@ collin gillespie,2027,Early Bird Rights,4,48000000.0,12000000.0,2026
 collin gillespie,2028,Early Bird Rights,4,48000000.0,12000000.0,2026
 collin gillespie,2029,Early Bird Rights,4,48000000.0,12000000.0,2026
 collin gillespie,2025,Minimum,1,2378870.0,2378870.0,2025
+collin murray-boyles,2025,rookie-scale-exception,4,28822764.0,7205691.0,2025
+collin murray-boyles,2026,rookie-scale-exception,4,28822764.0,7205691.0,2025
+collin murray-boyles,2027,rookie-scale-exception,4,28822764.0,7205691.0,2025
+collin murray-boyles,2028,rookie-scale-exception,4,28822764.0,7205691.0,2025
 collin sexton,2026,room-mid-level-exception,2,19200300.0,9600150.0,2026
 collin sexton,2027,room-mid-level-exception,2,19200300.0,9600150.0,2026
 collin sexton,2022,Bird Rights,4,70950000.0,17737500.0,2022
@@ -766,6 +1137,10 @@ collin sexton,2018,rookie-scale-exception,4,20175111.0,5043778.0,2018
 collin sexton,2019,rookie-scale-exception,4,20175111.0,5043778.0,2018
 collin sexton,2020,rookie-scale-exception,4,20175111.0,5043778.0,2018
 collin sexton,2021,rookie-scale-exception,4,20175111.0,5043778.0,2018
+cooper flagg,2025,rookie-scale-exception,4,62730226.0,15682557.0,2025
+cooper flagg,2026,rookie-scale-exception,4,62730226.0,15682557.0,2025
+cooper flagg,2027,rookie-scale-exception,4,62730226.0,15682557.0,2025
+cooper flagg,2028,rookie-scale-exception,4,62730226.0,15682557.0,2025
 corey kispert,2025,Bird Rights,4,54000000.0,13500000.0,2025
 corey kispert,2026,Bird Rights,4,54000000.0,13500000.0,2025
 corey kispert,2027,Bird Rights,4,54000000.0,13500000.0,2025
@@ -796,6 +1171,10 @@ dalen terry,2022,rookie-scale-exception,4,15451758.0,3862940.0,2022
 dalen terry,2023,rookie-scale-exception,4,15451758.0,3862940.0,2022
 dalen terry,2024,rookie-scale-exception,4,15451758.0,3862940.0,2022
 dalen terry,2025,rookie-scale-exception,4,15451758.0,3862940.0,2022
+dalton knecht,2024,rookie-scale-exception,4,18483220.0,4620805.0,2024
+dalton knecht,2025,rookie-scale-exception,4,18483220.0,4620805.0,2024
+dalton knecht,2026,rookie-scale-exception,4,18483220.0,4620805.0,2024
+dalton knecht,2027,rookie-scale-exception,4,18483220.0,4620805.0,2024
 damian lillard,2025,Non-Taxpayer MLE,3,41606000.0,13868667.0,2025
 damian lillard,2026,Non-Taxpayer MLE,3,41606000.0,13868667.0,2025
 damian lillard,2027,Non-Taxpayer MLE,3,41606000.0,13868667.0,2025
@@ -890,6 +1269,23 @@ danny green,2011,Minimum,1,984411.0,984411.0,2011
 danny green,2010,Minimum,2,1616584.0,808292.0,2010
 danny green,2011,Minimum,2,1616584.0,808292.0,2010
 danny green,2009,Minimum,2,1219783.0,609892.0,2009
+danny wolf,2025,rookie-scale-exception,4,14384200.0,3596050.0,2025
+danny wolf,2026,rookie-scale-exception,4,14384200.0,3596050.0,2025
+danny wolf,2027,rookie-scale-exception,4,14384200.0,3596050.0,2025
+danny wolf,2028,rookie-scale-exception,4,14384200.0,3596050.0,2025
+dariq whitehead,2025,Minimum,1,2296274.0,2296274.0,2025
+dariq whitehead,2023,rookie-scale-exception,4,14709752.0,3677438.0,2023
+dariq whitehead,2024,rookie-scale-exception,4,14709752.0,3677438.0,2023
+dariq whitehead,2025,rookie-scale-exception,4,14709752.0,3677438.0,2023
+dariq whitehead,2026,rookie-scale-exception,4,14709752.0,3677438.0,2023
+darius bazley,2023,room-mid-level-exception,3,5744999.0,1915000.0,2023
+darius bazley,2024,room-mid-level-exception,3,5744999.0,1915000.0,2023
+darius bazley,2025,room-mid-level-exception,3,5744999.0,1915000.0,2023
+darius bazley,2023,Minimum,1,2165000.0,2165000.0,2023
+darius bazley,2019,rookie-scale-exception,4,11461629.0,2865407.0,2019
+darius bazley,2020,rookie-scale-exception,4,11461629.0,2865407.0,2019
+darius bazley,2021,rookie-scale-exception,4,11461629.0,2865407.0,2019
+darius bazley,2022,rookie-scale-exception,4,11461629.0,2865407.0,2019
 darius garland,2023,Bird Rights,5,197230450.0,39446090.0,2023
 darius garland,2024,Bird Rights,5,197230450.0,39446090.0,2023
 darius garland,2025,Bird Rights,5,197230450.0,39446090.0,2023
@@ -918,6 +1314,10 @@ david nwaba,2020,Minimum,2,3502857.0,1751429.0,2019
 david nwaba,2018,Minimum,1,1512601.0,1512601.0,2018
 david nwaba,2016,Minimum,2,1386139.0,693070.0,2016
 david nwaba,2017,Minimum,2,1386139.0,693070.0,2016
+david roddy,2025,Minimum,1,2378870.0,2378870.0,2025
+david roddy,2022,rookie-scale-exception,4,12985886.0,3246472.0,2022
+david roddy,2023,rookie-scale-exception,4,12985886.0,3246472.0,2022
+david roddy,2024,rookie-scale-exception,4,12985886.0,3246472.0,2022
 davion mitchell,2025,Bird Rights,2,24000000.0,12000000.0,2025
 davion mitchell,2026,Bird Rights,2,24000000.0,12000000.0,2025
 davion mitchell,2021,rookie-scale-exception,4,20951517.0,5237879.0,2021
@@ -1097,6 +1497,12 @@ demarre carroll,2011,Minimum,2,1422558.0,711279.0,2011
 demarre carroll,2012,Minimum,2,1422558.0,711279.0,2011
 demarre carroll,2011,Minimum,1,854389.0,854389.0,2011
 demarre carroll,2009,rookie-scale-exception,2,2095080.0,1047540.0,2009
+demetrius jackson,2019,Taxpayer MLE,1,1620564.0,1620564.0,2019
+demetrius jackson,2017,Minimum,1,74159.0,74159.0,2017
+demetrius jackson,2016,cap-space,4,5473750.0,1368438.0,2016
+demetrius jackson,2017,cap-space,4,5473750.0,1368438.0,2016
+demetrius jackson,2018,cap-space,4,5473750.0,1368438.0,2016
+demetrius jackson,2019,cap-space,4,5473750.0,1368438.0,2016
 deni avdija,2024,Bird Rights,4,55000000.0,13750000.0,2024
 deni avdija,2025,Bird Rights,4,55000000.0,13750000.0,2024
 deni avdija,2026,Bird Rights,4,55000000.0,13750000.0,2024
@@ -1114,6 +1520,14 @@ denzel valentine,2018,rookie-scale-exception,4,9936769.0,2484192.0,2016
 denzel valentine,2019,rookie-scale-exception,4,9936769.0,2484192.0,2016
 deonte burton,2015,Minimum,1,525093.0,525093.0,2015
 deonte burton,2014,Minimum,1,507336.0,507336.0,2014
+dereck lively ii,2023,rookie-scale-exception,4,22282691.0,5570673.0,2023
+dereck lively ii,2024,rookie-scale-exception,4,22282691.0,5570673.0,2023
+dereck lively ii,2025,rookie-scale-exception,4,22282691.0,5570673.0,2023
+dereck lively ii,2026,rookie-scale-exception,4,22282691.0,5570673.0,2023
+derik queen,2025,rookie-scale-exception,4,24355798.0,6088950.0,2025
+derik queen,2026,rookie-scale-exception,4,24355798.0,6088950.0,2025
+derik queen,2027,rookie-scale-exception,4,24355798.0,6088950.0,2025
+derik queen,2028,rookie-scale-exception,4,24355798.0,6088950.0,2025
 derrick favors,2023,Minimum,1,3196448.0,3196448.0,2023
 derrick favors,2020,Non-Taxpayer MLE,3,29162700.0,9720900.0,2020
 derrick favors,2021,Non-Taxpayer MLE,3,29162700.0,9720900.0,2020
@@ -1196,6 +1610,17 @@ devin booker,2015,rookie-scale-exception,4,9985165.0,2496291.0,2015
 devin booker,2016,rookie-scale-exception,4,9985165.0,2496291.0,2015
 devin booker,2017,rookie-scale-exception,4,9985165.0,2496291.0,2015
 devin booker,2018,rookie-scale-exception,4,9985165.0,2496291.0,2015
+devin cannady,2023,Minimum,1,2019706.0,2019706.0,2023
+devin cannady,2021,Non-Taxpayer MLE,3,3754775.0,1251592.0,2021
+devin cannady,2022,Non-Taxpayer MLE,3,3754775.0,1251592.0,2021
+devin cannady,2023,Non-Taxpayer MLE,3,3754775.0,1251592.0,2021
+devin cannady,2021,Minimum,1,1489065.0,1489065.0,2021
+devin cannady,2020,Minimum,1,898310.0,898310.0,2020
+devin cannady,2019,Minimum,1,898310.0,898310.0,2019
+devin carter,2024,rookie-scale-exception,4,22141697.0,5535424.0,2024
+devin carter,2025,rookie-scale-exception,4,22141697.0,5535424.0,2024
+devin carter,2026,rookie-scale-exception,4,22141697.0,5535424.0,2024
+devin carter,2027,rookie-scale-exception,4,22141697.0,5535424.0,2024
 devin vassell,2024,Bird Rights,5,135000000.0,27000000.0,2024
 devin vassell,2025,Bird Rights,5,135000000.0,27000000.0,2024
 devin vassell,2026,Bird Rights,5,135000000.0,27000000.0,2024
@@ -1205,6 +1630,11 @@ devin vassell,2020,rookie-scale-exception,4,18593499.0,4648375.0,2020
 devin vassell,2021,rookie-scale-exception,4,18593499.0,4648375.0,2020
 devin vassell,2022,rookie-scale-exception,4,18593499.0,4648375.0,2020
 devin vassell,2023,rookie-scale-exception,4,18593499.0,4648375.0,2020
+devontae cacok,2022,Minimum,1,1902133.0,1902133.0,2022
+devontae cacok,2022,Minimum,1,1902133.0,1902133.0,2022
+devontae cacok,2021,Minimum,1,364533.0,364533.0,2021
+devontae cacok,2021,Minimum,1,1669178.0,1669178.0,2021
+devontae cacok,2019,Minimum,1,898310.0,898310.0,2019
 devonte' graham,2024,Minimum,1,2613120.0,2613120.0,2024
 devonte' graham,2021,sign-and-trade,4,47300000.0,11825000.0,2021
 devonte' graham,2022,sign-and-trade,4,47300000.0,11825000.0,2021
@@ -1243,6 +1673,10 @@ dillon brooks,2022,Bird Rights,3,35000000.0,11666667.0,2020
 dillon brooks,2017,Non-Taxpayer MLE,3,3812377.0,1270792.0,2017
 dillon brooks,2018,Non-Taxpayer MLE,3,3812377.0,1270792.0,2017
 dillon brooks,2019,Non-Taxpayer MLE,3,3812377.0,1270792.0,2017
+dillon jones,2024,rookie-scale-exception,4,13460726.0,3365182.0,2024
+dillon jones,2025,rookie-scale-exception,4,13460726.0,3365182.0,2024
+dillon jones,2026,rookie-scale-exception,4,13460726.0,3365182.0,2024
+dillon jones,2027,rookie-scale-exception,4,13460726.0,3365182.0,2024
 dion waiters,2019,Minimum,1,503656.0,503656.0,2019
 dion waiters,2017,cap-space,4,52000000.0,13000000.0,2017
 dion waiters,2018,cap-space,4,52000000.0,13000000.0,2017
@@ -1270,6 +1704,10 @@ dominick barlow,2025,Taxpayer MLE,2,6830000.0,3415000.0,2025
 dominick barlow,2026,Taxpayer MLE,2,6830000.0,3415000.0,2025
 dominick barlow,2024,Minimum,2,2762622.0,1381311.0,2024
 dominick barlow,2023,Minimum,1,455620.0,455620.0,2023
+donovan clingan,2024,rookie-scale-exception,4,31085018.0,7771255.0,2024
+donovan clingan,2025,rookie-scale-exception,4,31085018.0,7771255.0,2024
+donovan clingan,2026,rookie-scale-exception,4,31085018.0,7771255.0,2024
+donovan clingan,2027,rookie-scale-exception,4,31085018.0,7771255.0,2024
 donovan mitchell,2027,Bird Rights,4,272885312.0,68221328.0,2027
 donovan mitchell,2028,Bird Rights,4,272885312.0,68221328.0,2027
 donovan mitchell,2029,Bird Rights,4,272885312.0,68221328.0,2027
@@ -1286,6 +1724,8 @@ donovan mitchell,2017,rookie-scale-exception,4,14564021.0,3641005.0,2017
 donovan mitchell,2018,rookie-scale-exception,4,14564021.0,3641005.0,2017
 donovan mitchell,2019,rookie-scale-exception,4,14564021.0,3641005.0,2017
 donovan mitchell,2020,rookie-scale-exception,4,14564021.0,3641005.0,2017
+donta hall,2019,Minimum,1,101504.0,101504.0,2019
+donta hall,2019,Minimum,1,898310.0,898310.0,2019
 donte divincenzo,2023,Non-Taxpayer MLE,4,46870000.0,11717500.0,2023
 donte divincenzo,2024,Non-Taxpayer MLE,4,46870000.0,11717500.0,2023
 donte divincenzo,2025,Non-Taxpayer MLE,4,46870000.0,11717500.0,2023
@@ -1321,6 +1761,15 @@ doug mcdermott,2014,rookie-scale-exception,4,10436434.0,2609109.0,2014
 doug mcdermott,2015,rookie-scale-exception,4,10436434.0,2609109.0,2014
 doug mcdermott,2016,rookie-scale-exception,4,10436434.0,2609109.0,2014
 doug mcdermott,2017,rookie-scale-exception,4,10436434.0,2609109.0,2014
+dragan bender,2019,Minimum,2,3502857.0,1751429.0,2019
+dragan bender,2020,Minimum,2,3502857.0,1751429.0,2019
+dragan bender,2016,rookie-scale-exception,4,19302919.0,4825730.0,2016
+dragan bender,2017,rookie-scale-exception,4,19302919.0,4825730.0,2016
+dragan bender,2018,rookie-scale-exception,4,19302919.0,4825730.0,2016
+drake powell,2025,rookie-scale-exception,4,16723992.0,4180998.0,2025
+drake powell,2026,rookie-scale-exception,4,16723992.0,4180998.0,2025
+drake powell,2027,rookie-scale-exception,4,16723992.0,4180998.0,2025
+drake powell,2028,rookie-scale-exception,4,16723992.0,4180998.0,2025
 draymond green,2026,Bird Rights,1,27678571.0,27678571.0,2026
 draymond green,2023,Bird Rights,4,100000000.0,25000000.0,2023
 draymond green,2024,Bird Rights,4,100000000.0,25000000.0,2023
@@ -1369,6 +1818,12 @@ duncan robinson,2024,Bird Rights,5,90000000.0,18000000.0,2021
 duncan robinson,2018,Non-Taxpayer MLE,3,3090187.0,1030062.0,2018
 duncan robinson,2019,Non-Taxpayer MLE,3,3090187.0,1030062.0,2018
 duncan robinson,2020,Non-Taxpayer MLE,3,3090187.0,1030062.0,2018
+duop reath,2023,Non-Taxpayer MLE,3,6221677.0,2073892.0,2023
+duop reath,2024,Non-Taxpayer MLE,3,6221677.0,2073892.0,2023
+duop reath,2025,Non-Taxpayer MLE,3,6221677.0,2073892.0,2023
+duop reath,2023,Minimum,1,1119563.0,1119563.0,2023
+dusty hannahs,2022,Minimum,1,1836090.0,1836090.0,2022
+dusty hannahs,2019,Minimum,1,1445697.0,1445697.0,2019
 dwayne bacon,2022,Minimum,1,1968175.0,1968175.0,2022
 dwayne bacon,2021,Minimum,1,1789256.0,1789256.0,2021
 dwayne bacon,2020,Minimum,2,3502857.0,1751429.0,2020
@@ -1400,6 +1855,10 @@ dwight powell,2018,cap-space,4,37268750.0,9317188.0,2016
 dwight powell,2019,cap-space,4,37268750.0,9317188.0,2016
 dwight powell,2014,Minimum,2,1352395.0,676198.0,2014
 dwight powell,2015,Minimum,2,1352395.0,676198.0,2014
+dylan harper,2025,rookie-scale-exception,4,56140114.0,14035029.0,2025
+dylan harper,2026,rookie-scale-exception,4,56140114.0,14035029.0,2025
+dylan harper,2027,rookie-scale-exception,4,56140114.0,14035029.0,2025
+dylan harper,2028,rookie-scale-exception,4,56140114.0,14035029.0,2025
 dylan windler,2023,Minimum,1,2165000.0,2165000.0,2023
 dylan windler,2019,rookie-scale-exception,4,10449718.0,2612430.0,2019
 dylan windler,2020,rookie-scale-exception,4,10449718.0,2612430.0,2019
@@ -1456,6 +1915,11 @@ elie okobo,2019,cap-space,3,4319177.0,1439726.0,2018
 elie okobo,2020,cap-space,3,4319177.0,1439726.0,2018
 elijah harkless,2024,Minimum,1,1157153.0,1157153.0,2024
 elijah harkless,2024,Minimum,1,1157153.0,1157153.0,2024
+elijah hughes,2024,Minimum,1,2087519.0,2087519.0,2024
+elijah hughes,2023,Minimum,1,2019706.0,2019706.0,2023
+elijah hughes,2022,Minimum,1,1836090.0,1836090.0,2022
+elijah hughes,2020,Minimum,2,2416291.0,1208146.0,2020
+elijah hughes,2021,Minimum,2,2416291.0,1208146.0,2020
 emmanuel mudiay,2022,Minimum,1,2298385.0,2298385.0,2022
 emmanuel mudiay,2019,Minimum,1,1737145.0,1737145.0,2019
 emmanuel mudiay,2015,rookie-scale-exception,4,14020000.0,3505000.0,2015
@@ -1518,6 +1982,13 @@ e'twaun moore,2015,Minimum,2,1963584.0,981792.0,2014
 e'twaun moore,2012,Minimum,2,1646488.0,823244.0,2012
 e'twaun moore,2013,Minimum,2,1646488.0,823244.0,2012
 e'twaun moore,2011,Minimum,2,1235799.0,617900.0,2011
+eugene omoruyi,2024,Minimum,1,2162606.0,2162606.0,2024
+eugene omoruyi,2023,Non-Taxpayer MLE,2,3096970.0,1548485.0,2023
+eugene omoruyi,2024,Non-Taxpayer MLE,2,3096970.0,1548485.0,2023
+eugene omoruyi,2022,room-mid-level-exception,2,2197341.0,1098671.0,2022
+eugene omoruyi,2023,room-mid-level-exception,2,2197341.0,1098671.0,2022
+eugene omoruyi,2022,Minimum,2,2273006.0,1136503.0,2022
+eugene omoruyi,2023,Minimum,2,2273006.0,1136503.0,2022
 evan fournier,2021,sign-and-trade,4,73000000.0,18250000.0,2021
 evan fournier,2022,sign-and-trade,4,73000000.0,18250000.0,2021
 evan fournier,2023,sign-and-trade,4,73000000.0,18250000.0,2021
@@ -1550,6 +2021,8 @@ evan turner,2010,rookie-scale-exception,4,21523507.0,5380877.0,2010
 evan turner,2011,rookie-scale-exception,4,21523507.0,5380877.0,2010
 evan turner,2012,rookie-scale-exception,4,21523507.0,5380877.0,2010
 evan turner,2013,rookie-scale-exception,4,21523507.0,5380877.0,2010
+facundo campazzo,2020,Bi-Annual,2,6400000.0,3200000.0,2020
+facundo campazzo,2021,Bi-Annual,2,6400000.0,3200000.0,2020
 frank jackson,2022,Minimum,1,2133278.0,2133278.0,2022
 frank jackson,2022,Minimum,1,2133278.0,2133278.0,2022
 frank jackson,2021,cap-space,2,6150000.0,3075000.0,2021
@@ -1596,6 +2069,9 @@ fred vanvleet,2018,Early Bird Rights,2,18000000.0,9000000.0,2018
 fred vanvleet,2019,Early Bird Rights,2,18000000.0,9000000.0,2018
 fred vanvleet,2016,Minimum,2,1448720.0,724360.0,2016
 fred vanvleet,2017,Minimum,2,1448720.0,724360.0,2016
+freddie gillespie,2020,Minimum,2,3721360.0,1860680.0,2020
+freddie gillespie,2021,Minimum,2,3721360.0,1860680.0,2020
+freddie gillespie,2020,Minimum,1,898310.0,898310.0,2020
 furkan korkmaz,2021,Bird Rights,3,15000000.0,5000000.0,2021
 furkan korkmaz,2022,Bird Rights,3,15000000.0,5000000.0,2021
 furkan korkmaz,2023,Bird Rights,3,15000000.0,5000000.0,2021
@@ -1772,6 +2248,10 @@ gorgui dieng,2013,rookie-scale-exception,4,6589343.0,1647336.0,2013
 gorgui dieng,2014,rookie-scale-exception,4,6589343.0,1647336.0,2013
 gorgui dieng,2015,rookie-scale-exception,4,6589343.0,1647336.0,2013
 gorgui dieng,2016,rookie-scale-exception,4,6589343.0,1647336.0,2013
+gradey dick,2023,rookie-scale-exception,4,21422551.0,5355638.0,2023
+gradey dick,2024,rookie-scale-exception,4,21422551.0,5355638.0,2023
+gradey dick,2025,rookie-scale-exception,4,21422551.0,5355638.0,2023
+gradey dick,2026,rookie-scale-exception,4,21422551.0,5355638.0,2023
 grant williams,2023,Bird Rights,4,53341500.0,13335375.0,2023
 grant williams,2024,Bird Rights,4,53341500.0,13335375.0,2023
 grant williams,2025,Bird Rights,4,53341500.0,13335375.0,2023
@@ -1841,6 +2321,22 @@ haywood highsmith,2022,Non-Taxpayer MLE,3,3945742.0,1315247.0,2021
 haywood highsmith,2023,Non-Taxpayer MLE,3,3945742.0,1315247.0,2021
 haywood highsmith,2021,Minimum,1,1489065.0,1489065.0,2021
 haywood highsmith,2019,Minimum,1,1445697.0,1445697.0,2019
+henry ellenson,2024,Minimum,1,2425403.0,2425403.0,2024
+henry ellenson,2020,Minimum,2,3714156.0,1857078.0,2020
+henry ellenson,2021,Minimum,2,3714156.0,1857078.0,2020
+henry ellenson,2018,Minimum,2,1987188.0,993594.0,2018
+henry ellenson,2019,Minimum,2,1987188.0,993594.0,2018
+henry ellenson,2016,rookie-scale-exception,4,8199204.0,2049801.0,2016
+henry ellenson,2017,rookie-scale-exception,4,8199204.0,2049801.0,2016
+henry ellenson,2018,rookie-scale-exception,4,8199204.0,2049801.0,2016
+henry ellenson,2019,rookie-scale-exception,4,8199204.0,2049801.0,2016
+herb jones,2023,Early Bird Rights,4,53827872.0,13456968.0,2023
+herb jones,2024,Early Bird Rights,4,53827872.0,13456968.0,2023
+herb jones,2025,Early Bird Rights,4,53827872.0,13456968.0,2023
+herb jones,2026,Early Bird Rights,4,53827872.0,13456968.0,2023
+herb jones,2021,Non-Taxpayer MLE,3,5321096.0,1773699.0,2021
+herb jones,2022,Non-Taxpayer MLE,3,5321096.0,1773699.0,2021
+herb jones,2023,Non-Taxpayer MLE,3,5321096.0,1773699.0,2021
 herbert jones,2023,Early Bird Rights,4,53827872.0,13456968.0,2023
 herbert jones,2024,Early Bird Rights,4,53827872.0,13456968.0,2023
 herbert jones,2025,Early Bird Rights,4,53827872.0,13456968.0,2023
@@ -1848,6 +2344,10 @@ herbert jones,2026,Early Bird Rights,4,53827872.0,13456968.0,2023
 herbert jones,2021,Non-Taxpayer MLE,3,5321096.0,1773699.0,2021
 herbert jones,2022,Non-Taxpayer MLE,3,5321096.0,1773699.0,2021
 herbert jones,2023,Non-Taxpayer MLE,3,5321096.0,1773699.0,2021
+hugo gonzalez,2025,rookie-scale-exception,4,14298145.0,3574536.0,2025
+hugo gonzalez,2026,rookie-scale-exception,4,14298145.0,3574536.0,2025
+hugo gonzalez,2027,rookie-scale-exception,4,14298145.0,3574536.0,2025
+hugo gonzalez,2028,rookie-scale-exception,4,14298145.0,3574536.0,2025
 hunter tyson,2023,second-round-exception,4,7639302.0,1909826.0,2023
 hunter tyson,2024,second-round-exception,4,7639302.0,1909826.0,2023
 hunter tyson,2025,second-round-exception,4,7639302.0,1909826.0,2023
@@ -1860,6 +2360,19 @@ ian mahinmi,2012,Early Bird Rights,4,16000000.0,4000000.0,2012
 ian mahinmi,2013,Early Bird Rights,4,16000000.0,4000000.0,2012
 ian mahinmi,2014,Early Bird Rights,4,16000000.0,4000000.0,2012
 ian mahinmi,2015,Early Bird Rights,4,16000000.0,4000000.0,2012
+ignas brazdeikis,2020,Minimum,1,49510.0,49510.0,2020
+ignas brazdeikis,2019,cap-space,2,2416291.0,1208146.0,2019
+ignas brazdeikis,2020,cap-space,2,2416291.0,1208146.0,2019
+iman shumpert,2020,Minimum,1,1708770.0,1708770.0,2020
+iman shumpert,2019,Taxpayer MLE,1,2031677.0,2031677.0,2019
+iman shumpert,2015,Bird Rights,4,40000000.0,10000000.0,2015
+iman shumpert,2016,Bird Rights,4,40000000.0,10000000.0,2015
+iman shumpert,2017,Bird Rights,4,40000000.0,10000000.0,2015
+iman shumpert,2018,Bird Rights,4,40000000.0,10000000.0,2015
+iman shumpert,2011,rookie-scale-exception,4,7517295.0,1879324.0,2011
+iman shumpert,2012,rookie-scale-exception,4,7517295.0,1879324.0,2011
+iman shumpert,2013,rookie-scale-exception,4,7517295.0,1879324.0,2011
+iman shumpert,2014,rookie-scale-exception,4,7517295.0,1879324.0,2011
 immanuel quickley,2024,Bird Rights,5,162500000.0,32500000.0,2024
 immanuel quickley,2025,Bird Rights,5,162500000.0,32500000.0,2024
 immanuel quickley,2026,Bird Rights,5,162500000.0,32500000.0,2024
@@ -1875,6 +2388,17 @@ isaac bonga,2019,cap-space,3,4080713.0,1360238.0,2018
 isaac bonga,2020,cap-space,3,4080713.0,1360238.0,2018
 isaac jones,2024,Minimum,2,2108334.0,1054167.0,2024
 isaac jones,2025,Minimum,2,2108334.0,1054167.0,2024
+isaac okoro,2024,Bird Rights,3,33000000.0,11000000.0,2024
+isaac okoro,2025,Bird Rights,3,33000000.0,11000000.0,2024
+isaac okoro,2026,Bird Rights,3,33000000.0,11000000.0,2024
+isaac okoro,2020,rookie-scale-exception,4,29083315.0,7270829.0,2020
+isaac okoro,2021,rookie-scale-exception,4,29083315.0,7270829.0,2020
+isaac okoro,2022,rookie-scale-exception,4,29083315.0,7270829.0,2020
+isaac okoro,2023,rookie-scale-exception,4,29083315.0,7270829.0,2020
+isaiah collier,2024,rookie-scale-exception,4,12903788.0,3225947.0,2024
+isaiah collier,2025,rookie-scale-exception,4,12903788.0,3225947.0,2024
+isaiah collier,2026,rookie-scale-exception,4,12903788.0,3225947.0,2024
+isaiah collier,2027,rookie-scale-exception,4,12903788.0,3225947.0,2024
 isaiah crawford,2026,Non-Bird Rights,4,11274781.0,2818695.0,2026
 isaiah crawford,2027,Non-Bird Rights,4,11274781.0,2818695.0,2026
 isaiah crawford,2028,Non-Bird Rights,4,11274781.0,2818695.0,2026
@@ -1912,6 +2436,7 @@ isaiah joe,2022,Non-Taxpayer MLE,3,4198912.0,1399637.0,2020
 isaiah livers,2021,cap-space,3,4456874.0,1485625.0,2021
 isaiah livers,2022,cap-space,3,4456874.0,1485625.0,2021
 isaiah livers,2023,cap-space,3,4456874.0,1485625.0,2021
+isaiah mobley,2024,Minimum,1,2087519.0,2087519.0,2024
 isaiah roby,2025,Minimum,1,2461463.0,2461463.0,2025
 isaiah roby,2023,Minimum,1,2165000.0,2165000.0,2023
 isaiah roby,2022,room-mid-level-exception,2,2466585.0,1233293.0,2022
@@ -1961,6 +2486,22 @@ ish wainright,2023,Non-Taxpayer MLE,2,2402747.0,1201374.0,2022
 ish wainright,2021,Minimum,1,8558.0,8558.0,2021
 ish wainright,2021,Minimum,2,2488776.0,1244388.0,2021
 ish wainright,2022,Minimum,2,2488776.0,1244388.0,2021
+ishmael smith,2023,Minimum,1,3196448.0,3196448.0,2023
+ishmael smith,2021,room-mid-level-exception,2,9225000.0,4612500.0,2021
+ishmael smith,2022,room-mid-level-exception,2,9225000.0,4612500.0,2021
+ishmael smith,2019,Non-Taxpayer MLE,2,12000000.0,6000000.0,2019
+ishmael smith,2020,Non-Taxpayer MLE,2,12000000.0,6000000.0,2019
+ishmael smith,2016,cap-space,3,18000000.0,6000000.0,2016
+ishmael smith,2017,cap-space,3,18000000.0,6000000.0,2016
+ishmael smith,2018,cap-space,3,18000000.0,6000000.0,2016
+ishmael smith,2015,Minimum,1,1100602.0,1100602.0,2015
+ishmael smith,2014,Minimum,1,923373.0,923373.0,2014
+ishmael smith,2012,Non-Bird Rights,3,2854389.0,951463.0,2012
+ishmael smith,2013,Non-Bird Rights,3,2854389.0,951463.0,2012
+ishmael smith,2010,Minimum,2,1262276.0,631138.0,2010
+ivan rabb,2017,Non-Taxpayer MLE,3,3946762.0,1315587.0,2017
+ivan rabb,2018,Non-Taxpayer MLE,3,3946762.0,1315587.0,2017
+ivan rabb,2019,Non-Taxpayer MLE,3,3946762.0,1315587.0,2017
 ivica zubac,2025,Bird Rights,3,58650480.0,19550160.0,2025
 ivica zubac,2026,Bird Rights,3,58650480.0,19550160.0,2025
 ivica zubac,2027,Bird Rights,3,58650480.0,19550160.0,2025
@@ -2005,12 +2546,21 @@ jabari walker,2026,Minimum,2,3309137.0,1654569.0,2025
 jabari walker,2022,Non-Taxpayer MLE,3,4757344.0,1585781.0,2022
 jabari walker,2023,Non-Taxpayer MLE,3,4757344.0,1585781.0,2022
 jabari walker,2024,Non-Taxpayer MLE,3,4757344.0,1585781.0,2022
+jack white,2023,Minimum,2,3922463.0,1961232.0,2023
+jack white,2024,Minimum,2,3922463.0,1961232.0,2023
+jacob evans,2018,rookie-scale-exception,4,9228703.0,2307176.0,2018
+jacob evans,2019,rookie-scale-exception,4,9228703.0,2307176.0,2018
+jacob evans,2020,rookie-scale-exception,4,9228703.0,2307176.0,2018
 jaden hardy,2025,Early Bird Rights,3,18000000.0,6000000.0,2025
 jaden hardy,2026,Early Bird Rights,3,18000000.0,6000000.0,2025
 jaden hardy,2027,Early Bird Rights,3,18000000.0,6000000.0,2025
 jaden hardy,2022,Taxpayer MLE,3,4757344.0,1585781.0,2022
 jaden hardy,2023,Taxpayer MLE,3,4757344.0,1585781.0,2022
 jaden hardy,2024,Taxpayer MLE,3,4757344.0,1585781.0,2022
+jaden ivey,2022,rookie-scale-exception,4,32951083.0,8237771.0,2022
+jaden ivey,2023,rookie-scale-exception,4,32951083.0,8237771.0,2022
+jaden ivey,2024,rookie-scale-exception,4,32951083.0,8237771.0,2022
+jaden ivey,2025,rookie-scale-exception,4,32951083.0,8237771.0,2022
 jaden mcdaniels,2024,Bird Rights,5,131000000.0,26200000.0,2024
 jaden mcdaniels,2025,Bird Rights,5,131000000.0,26200000.0,2024
 jaden mcdaniels,2026,Bird Rights,5,131000000.0,26200000.0,2024
@@ -2020,6 +2570,14 @@ jaden mcdaniels,2020,rookie-scale-exception,4,10090879.0,2522720.0,2020
 jaden mcdaniels,2021,rookie-scale-exception,4,10090879.0,2522720.0,2020
 jaden mcdaniels,2022,rookie-scale-exception,4,10090879.0,2522720.0,2020
 jaden mcdaniels,2023,rookie-scale-exception,4,10090879.0,2522720.0,2020
+jaden springer,2025,Minimum,1,2461463.0,2461463.0,2025
+jaden springer,2024,room-mid-level-exception,3,5651959.0,1883986.0,2024
+jaden springer,2025,room-mid-level-exception,3,5651959.0,1883986.0,2024
+jaden springer,2026,room-mid-level-exception,3,5651959.0,1883986.0,2024
+jaden springer,2021,rookie-scale-exception,4,10393483.0,2598371.0,2021
+jaden springer,2022,rookie-scale-exception,4,10393483.0,2598371.0,2021
+jaden springer,2023,rookie-scale-exception,4,10393483.0,2598371.0,2021
+jaden springer,2024,rookie-scale-exception,4,10393483.0,2598371.0,2021
 jae crowder,2024,Minimum,1,2620232.0,2620232.0,2024
 jae crowder,2023,Minimum,1,3196448.0,3196448.0,2023
 jae crowder,2020,Non-Taxpayer MLE,3,29162700.0,9720900.0,2020
@@ -2049,12 +2607,16 @@ jahlil okafor,2019,Minimum,2,3269493.0,1634747.0,2018
 jahlil okafor,2015,rookie-scale-exception,3,14366640.0,4788880.0,2015
 jahlil okafor,2016,rookie-scale-exception,3,14366640.0,4788880.0,2015
 jahlil okafor,2017,rookie-scale-exception,3,14366640.0,4788880.0,2015
-jahmi'us ramsey,2024,Minimum,1,2162606.0,2162606.0,2024
-jahmi'us ramsey,2023,Minimum,1,2019706.0,2019706.0,2023
-jahmi'us ramsey,2022,Minimum,1,1836090.0,1836090.0,2022
-jahmi'us ramsey,2020,Non-Taxpayer MLE,3,4300602.0,1433534.0,2020
-jahmi'us ramsey,2021,Non-Taxpayer MLE,3,4300602.0,1433534.0,2020
-jahmi'us ramsey,2022,Non-Taxpayer MLE,3,4300602.0,1433534.0,2020
+jahmius ramsey,2024,Minimum,1,2162606.0,2162606.0,2024
+jahmius ramsey,2023,Minimum,1,2019706.0,2019706.0,2023
+jahmius ramsey,2022,Minimum,1,1836090.0,1836090.0,2022
+jahmius ramsey,2020,Non-Taxpayer MLE,3,4300602.0,1433534.0,2020
+jahmius ramsey,2021,Non-Taxpayer MLE,3,4300602.0,1433534.0,2020
+jahmius ramsey,2022,Non-Taxpayer MLE,3,4300602.0,1433534.0,2020
+jaime jaquez jr.,2023,rookie-scale-exception,4,16997141.0,4249285.0,2023
+jaime jaquez jr.,2024,rookie-scale-exception,4,16997141.0,4249285.0,2023
+jaime jaquez jr.,2025,rookie-scale-exception,4,16997141.0,4249285.0,2023
+jaime jaquez jr.,2026,rookie-scale-exception,4,16997141.0,4249285.0,2023
 jakarr sampson,2020,Minimum,1,1882867.0,1882867.0,2020
 jakarr sampson,2019,Minimum,1,1737145.0,1737145.0,2019
 jakarr sampson,2018,Minimum,1,1567007.0,1567007.0,2018
@@ -2064,6 +2626,11 @@ jakarr sampson,2016,Minimum,2,1238920.0,619460.0,2015
 jakarr sampson,2014,cap-space,3,2332826.0,777609.0,2014
 jakarr sampson,2015,cap-space,3,2332826.0,777609.0,2014
 jakarr sampson,2016,cap-space,3,2332826.0,777609.0,2014
+jake laravia,2025,Non-Taxpayer MLE,2,12000000.0,6000000.0,2025
+jake laravia,2026,Non-Taxpayer MLE,2,12000000.0,6000000.0,2025
+jake laravia,2022,rookie-scale-exception,4,14763367.0,3690842.0,2022
+jake laravia,2023,rookie-scale-exception,4,14763367.0,3690842.0,2022
+jake laravia,2024,rookie-scale-exception,4,14763367.0,3690842.0,2022
 jake layman,2022,Minimum,1,2298385.0,2298385.0,2022
 jake layman,2019,sign-and-trade,3,11283255.0,3761085.0,2019
 jake layman,2020,sign-and-trade,3,11283255.0,3761085.0,2019
@@ -2085,6 +2652,10 @@ jakob poeltl,2016,rookie-scale-exception,4,12231806.0,3057952.0,2016
 jakob poeltl,2017,rookie-scale-exception,4,12231806.0,3057952.0,2016
 jakob poeltl,2018,rookie-scale-exception,4,12231806.0,3057952.0,2016
 jakob poeltl,2019,rookie-scale-exception,4,12231806.0,3057952.0,2016
+ja'kobe walter,2024,rookie-scale-exception,4,16785132.0,4196283.0,2024
+ja'kobe walter,2025,rookie-scale-exception,4,16785132.0,4196283.0,2024
+ja'kobe walter,2026,rookie-scale-exception,4,16785132.0,4196283.0,2024
+ja'kobe walter,2027,rookie-scale-exception,4,16785132.0,4196283.0,2024
 jalen brunson,2025,Bird Rights,4,156549124.0,39137281.0,2025
 jalen brunson,2026,Bird Rights,4,156549124.0,39137281.0,2025
 jalen brunson,2027,Bird Rights,4,156549124.0,39137281.0,2025
@@ -2097,6 +2668,10 @@ jalen brunson,2018,cap-space,4,6112770.0,1528193.0,2018
 jalen brunson,2019,cap-space,4,6112770.0,1528193.0,2018
 jalen brunson,2020,cap-space,4,6112770.0,1528193.0,2018
 jalen brunson,2021,cap-space,4,6112770.0,1528193.0,2018
+jalen duren,2022,rookie-scale-exception,4,19474944.0,4868736.0,2022
+jalen duren,2023,rookie-scale-exception,4,19474944.0,4868736.0,2022
+jalen duren,2024,rookie-scale-exception,4,19474944.0,4868736.0,2022
+jalen duren,2025,rookie-scale-exception,4,19474944.0,4868736.0,2022
 jalen green,2025,Bird Rights,3,105333333.0,35111111.0,2025
 jalen green,2026,Bird Rights,3,105333333.0,35111111.0,2025
 jalen green,2027,Bird Rights,3,105333333.0,35111111.0,2025
@@ -2104,6 +2679,8 @@ jalen green,2021,rookie-scale-exception,4,40808448.0,10202112.0,2021
 jalen green,2022,rookie-scale-exception,4,40808448.0,10202112.0,2021
 jalen green,2023,rookie-scale-exception,4,40808448.0,10202112.0,2021
 jalen green,2024,rookie-scale-exception,4,40808448.0,10202112.0,2021
+jalen hood-schifino,2023,rookie-scale-exception,4,17882808.0,4470702.0,2023
+jalen hood-schifino,2024,rookie-scale-exception,4,17882808.0,4470702.0,2023
 jalen johnson,2025,Bird Rights,5,150000000.0,30000000.0,2025
 jalen johnson,2026,Bird Rights,5,150000000.0,30000000.0,2025
 jalen johnson,2027,Bird Rights,5,150000000.0,30000000.0,2025
@@ -2159,6 +2736,17 @@ jalen williams,2025,rookie-scale-exception,4,20256917.0,5064229.0,2022
 jalen wilson,2023,Non-Taxpayer MLE,3,4963534.0,1654511.0,2023
 jalen wilson,2024,Non-Taxpayer MLE,3,4963534.0,1654511.0,2023
 jalen wilson,2025,Non-Taxpayer MLE,3,4963534.0,1654511.0,2023
+jamal crawford,2019,Minimum,1,289803.0,289803.0,2019
+jamal crawford,2018,Minimum,1,2393887.0,2393887.0,2018
+jamal crawford,2017,room-mid-level-exception,2,8872400.0,4436200.0,2017
+jamal crawford,2018,room-mid-level-exception,2,8872400.0,4436200.0,2017
+jamal crawford,2016,cap-space,3,42000000.0,14000000.0,2016
+jamal crawford,2017,cap-space,3,42000000.0,14000000.0,2016
+jamal crawford,2018,cap-space,3,42000000.0,14000000.0,2016
+jamal crawford,2012,Non-Taxpayer MLE,4,21350000.0,5337500.0,2012
+jamal crawford,2013,Non-Taxpayer MLE,4,21350000.0,5337500.0,2012
+jamal crawford,2014,Non-Taxpayer MLE,4,21350000.0,5337500.0,2012
+jamal crawford,2015,Non-Taxpayer MLE,4,21350000.0,5337500.0,2012
 jamal murray,2025,Bird Rights,4,207845568.0,51961392.0,2025
 jamal murray,2026,Bird Rights,4,207845568.0,51961392.0,2025
 jamal murray,2027,Bird Rights,4,207845568.0,51961392.0,2025
@@ -2180,6 +2768,11 @@ jamaree bouyea,2026,Minimum,2,3158749.0,1579375.0,2025
 jamaree bouyea,2025,Minimum,1,2378870.0,2378870.0,2025
 jamaree bouyea,2024,Minimum,1,2087519.0,2087519.0,2024
 jamaree bouyea,2022,Minimum,1,1017781.0,1017781.0,2022
+james bouknight,2024,Minimum,1,2162606.0,2162606.0,2024
+james bouknight,2021,rookie-scale-exception,4,19151217.0,4787804.0,2021
+james bouknight,2022,rookie-scale-exception,4,19151217.0,4787804.0,2021
+james bouknight,2023,rookie-scale-exception,4,19151217.0,4787804.0,2021
+james bouknight,2024,rookie-scale-exception,4,19151217.0,4787804.0,2021
 james harden,2025,Bird Rights,2,81500000.0,40750000.0,2025
 james harden,2024,Bird Rights,2,70000000.0,35000000.0,2024
 james harden,2025,Bird Rights,2,70000000.0,35000000.0,2024
@@ -2246,6 +2839,17 @@ jamychal green,2015,cap-space,3,1959785.0,653262.0,2014
 jamychal green,2016,cap-space,3,1959785.0,653262.0,2014
 jamychal green,2014,Minimum,2,1352395.0,676198.0,2014
 jamychal green,2015,Minimum,2,1352395.0,676198.0,2014
+jarace walker,2023,rookie-scale-exception,4,27566102.0,6891526.0,2023
+jarace walker,2024,rookie-scale-exception,4,27566102.0,6891526.0,2023
+jarace walker,2025,rookie-scale-exception,4,27566102.0,6891526.0,2023
+jarace walker,2026,rookie-scale-exception,4,27566102.0,6891526.0,2023
+jared butler,2025,Minimum,1,2461463.0,2461463.0,2025
+jared butler,2024,Minimum,2,3095304.0,1547652.0,2024
+jared butler,2023,Non-Taxpayer MLE,3,5828471.0,1942824.0,2023
+jared butler,2024,Non-Taxpayer MLE,3,5828471.0,1942824.0,2023
+jared butler,2025,Non-Taxpayer MLE,3,5828471.0,1942824.0,2023
+jared butler,2021,Minimum,2,2488776.0,1244388.0,2021
+jared butler,2022,Minimum,2,2488776.0,1244388.0,2021
 jared dudley,2020,Minimum,1,2564753.0,2564753.0,2020
 jared dudley,2019,Minimum,1,2564753.0,2564753.0,2019
 jared dudley,2016,cap-space,3,30000000.0,10000000.0,2016
@@ -2260,6 +2864,11 @@ jared dudley,2007,rookie-scale-exception,4,5818028.0,1454507.0,2007
 jared dudley,2008,rookie-scale-exception,4,5818028.0,1454507.0,2007
 jared dudley,2009,rookie-scale-exception,4,5818028.0,1454507.0,2007
 jared dudley,2010,rookie-scale-exception,4,5818028.0,1454507.0,2007
+jared harper,2021,Minimum,1,1669178.0,1669178.0,2021
+jared mccain,2024,rookie-scale-exception,4,19448588.0,4862147.0,2024
+jared mccain,2025,rookie-scale-exception,4,19448588.0,4862147.0,2024
+jared mccain,2026,rookie-scale-exception,4,19448588.0,4862147.0,2024
+jared mccain,2027,rookie-scale-exception,4,19448588.0,4862147.0,2024
 jaren jackson jr.,2026,Bird Rights,4,205000000.0,51250000.0,2026
 jaren jackson jr.,2027,Bird Rights,4,205000000.0,51250000.0,2026
 jaren jackson jr.,2028,Bird Rights,4,205000000.0,51250000.0,2026
@@ -2282,6 +2891,7 @@ jarred vanderbilt,2023,Bird Rights,3,13122000.0,4374000.0,2021
 jarred vanderbilt,2018,cap-space,3,3919177.0,1306392.0,2018
 jarred vanderbilt,2019,cap-space,3,3919177.0,1306392.0,2018
 jarred vanderbilt,2020,cap-space,3,3919177.0,1306392.0,2018
+jarrell brantley,2021,qualifying-offer,1,1669178.0,1669178.0,2021
 jarrett allen,2026,Bird Rights,3,90720000.0,30240000.0,2026
 jarrett allen,2027,Bird Rights,3,90720000.0,30240000.0,2026
 jarrett allen,2028,Bird Rights,3,90720000.0,30240000.0,2026
@@ -2294,6 +2904,14 @@ jarrett allen,2017,rookie-scale-exception,4,10034582.0,2508646.0,2017
 jarrett allen,2018,rookie-scale-exception,4,10034582.0,2508646.0,2017
 jarrett allen,2019,rookie-scale-exception,4,10034582.0,2508646.0,2017
 jarrett allen,2020,rookie-scale-exception,4,10034582.0,2508646.0,2017
+jarrett culver,2024,Minimum,1,2237691.0,2237691.0,2024
+jarrett culver,2019,rookie-scale-exception,4,26422143.0,6605536.0,2019
+jarrett culver,2020,rookie-scale-exception,4,26422143.0,6605536.0,2019
+jarrett culver,2021,rookie-scale-exception,4,26422143.0,6605536.0,2019
+jase richardson,2025,rookie-scale-exception,4,15308562.0,3827141.0,2025
+jase richardson,2026,rookie-scale-exception,4,15308562.0,3827141.0,2025
+jase richardson,2027,rookie-scale-exception,4,15308562.0,3827141.0,2025
+jase richardson,2028,rookie-scale-exception,4,15308562.0,3827141.0,2025
 jason preston,2025,Minimum,1,2378870.0,2378870.0,2025
 jason preston,2023,Minimum,1,2019706.0,2019706.0,2023
 jason preston,2021,Taxpayer MLE,3,4461917.0,1487306.0,2021
@@ -2339,6 +2957,10 @@ jay huff,2026,Non-Taxpayer MLE,4,10110640.0,2527660.0,2024
 jay huff,2027,Non-Taxpayer MLE,4,10110640.0,2527660.0,2024
 jay huff,2022,Minimum,1,1637966.0,1637966.0,2022
 jay huff,2021,Minimum,1,925258.0,925258.0,2021
+jaylen adams,2019,Minimum,1,163356.0,163356.0,2019
+jaylen adams,2019,Minimum,1,1445697.0,1445697.0,2019
+jaylen adams,2018,Minimum,2,1682551.0,841276.0,2018
+jaylen adams,2019,Minimum,2,1682551.0,841276.0,2018
 jaylen brown,2024,Bird Rights,5,285393640.0,57078728.0,2024
 jaylen brown,2025,Bird Rights,5,285393640.0,57078728.0,2024
 jaylen brown,2026,Bird Rights,5,285393640.0,57078728.0,2024
@@ -2357,6 +2979,7 @@ jaylen clark,2027,Bird Rights,3,10000000.0,3333333.0,2026
 jaylen clark,2028,Bird Rights,3,10000000.0,3333333.0,2026
 jaylen clark,2024,Minimum,2,2684220.0,1342110.0,2024
 jaylen clark,2025,Minimum,2,2684220.0,1342110.0,2024
+jaylen hoard,2021,Minimum,1,1669178.0,1669178.0,2021
 jaylen nowell,2024,Minimum,1,2258134.0,2258134.0,2024
 jaylen nowell,2024,Minimum,1,2425403.0,2425403.0,2024
 jaylen nowell,2023,Minimum,1,2165000.0,2165000.0,2023
@@ -2374,6 +2997,10 @@ jaylin williams,2022,Non-Taxpayer MLE,4,8207398.0,2051850.0,2022
 jaylin williams,2023,Non-Taxpayer MLE,4,8207398.0,2051850.0,2022
 jaylin williams,2024,Non-Taxpayer MLE,4,8207398.0,2051850.0,2022
 jaylin williams,2025,Non-Taxpayer MLE,4,8207398.0,2051850.0,2022
+jaylon tyson,2024,rookie-scale-exception,4,16118700.0,4029675.0,2024
+jaylon tyson,2025,rookie-scale-exception,4,16118700.0,4029675.0,2024
+jaylon tyson,2026,rookie-scale-exception,4,16118700.0,4029675.0,2024
+jaylon tyson,2027,rookie-scale-exception,4,16118700.0,4029675.0,2024
 jayson tatum,2025,Bird Rights,5,313933410.0,62786682.0,2025
 jayson tatum,2026,Bird Rights,5,313933410.0,62786682.0,2025
 jayson tatum,2027,Bird Rights,5,313933410.0,62786682.0,2025
@@ -2392,6 +3019,15 @@ jd davison,2025,Minimum,2,2666569.0,1333285.0,2025
 jd davison,2026,Minimum,2,2666569.0,1333285.0,2025
 jd davison,2024,Minimum,2,2282732.0,1141366.0,2024
 jd davison,2025,Minimum,2,2282732.0,1141366.0,2024
+jeenathan williams,2025,Minimum,1,2378870.0,2378870.0,2025
+jeenathan williams,2024,Non-Taxpayer MLE,4,8037293.0,2009323.0,2024
+jeenathan williams,2025,Non-Taxpayer MLE,4,8037293.0,2009323.0,2024
+jeenathan williams,2026,Non-Taxpayer MLE,4,8037293.0,2009323.0,2024
+jeenathan williams,2027,Non-Taxpayer MLE,4,8037293.0,2009323.0,2024
+jeenathan williams,2023,Minimum,1,1801769.0,1801769.0,2023
+jeenathan williams,2022,Minimum,2,1772508.0,886254.0,2022
+jeenathan williams,2023,Minimum,2,1772508.0,886254.0,2022
+jeenathan williams,2022,Minimum,1,1017781.0,1017781.0,2022
 jeff dowtin,2023,Minimum,2,2324653.0,1162327.0,2023
 jeff dowtin,2024,Minimum,2,2324653.0,1162327.0,2023
 jeff dowtin,2023,Minimum,1,2019706.0,2019706.0,2023
@@ -2443,6 +3079,10 @@ jerami grant,2020,Bird Rights,3,27346153.0,9115384.0,2018
 jerami grant,2014,cap-space,4,4234674.0,1058669.0,2014
 jerami grant,2015,cap-space,4,4234674.0,1058669.0,2014
 jerami grant,2016,cap-space,4,4234674.0,1058669.0,2014
+jeremiah fears,2025,rookie-scale-exception,4,34193629.0,8548407.0,2025
+jeremiah fears,2026,rookie-scale-exception,4,34193629.0,8548407.0,2025
+jeremiah fears,2027,rookie-scale-exception,4,34193629.0,8548407.0,2025
+jeremiah fears,2028,rookie-scale-exception,4,34193629.0,8548407.0,2025
 jeremiah robinson-earl,2025,Minimum,2,4824272.0,2412136.0,2025
 jeremiah robinson-earl,2026,Minimum,2,4824272.0,2412136.0,2025
 jeremiah robinson-earl,2025,Minimum,1,2461463.0,2461463.0,2025
@@ -2469,11 +3109,25 @@ jeremy sochan,2022,rookie-scale-exception,4,23046751.0,5761688.0,2022
 jeremy sochan,2023,rookie-scale-exception,4,23046751.0,5761688.0,2022
 jeremy sochan,2024,rookie-scale-exception,4,23046751.0,5761688.0,2022
 jeremy sochan,2025,rookie-scale-exception,4,23046751.0,5761688.0,2022
+jerian grant,2020,Minimum,2,4012890.0,2006445.0,2020
+jerian grant,2021,Minimum,2,4012890.0,2006445.0,2020
+jerian grant,2019,Minimum,1,196288.0,196288.0,2019
+jerian grant,2015,rookie-scale-exception,4,7568554.0,1892139.0,2015
+jerian grant,2016,rookie-scale-exception,4,7568554.0,1892139.0,2015
+jerian grant,2017,rookie-scale-exception,4,7568554.0,1892139.0,2015
+jerian grant,2018,rookie-scale-exception,4,7568554.0,1892139.0,2015
 jericho sims,2025,Minimum,2,5262809.0,2631405.0,2025
 jericho sims,2026,Minimum,2,5262809.0,2631405.0,2025
 jericho sims,2022,cap-space,3,5658206.0,1886069.0,2022
 jericho sims,2023,cap-space,3,5658206.0,1886069.0,2022
 jericho sims,2024,cap-space,3,5658206.0,1886069.0,2022
+jerome robinson,2022,Minimum,1,1902133.0,1902133.0,2022
+jerome robinson,2018,rookie-scale-exception,4,15692356.0,3923089.0,2018
+jerome robinson,2019,rookie-scale-exception,4,15692356.0,3923089.0,2018
+jerome robinson,2020,rookie-scale-exception,4,15692356.0,3923089.0,2018
+jett howard,2023,rookie-scale-exception,4,23172779.0,5793195.0,2023
+jett howard,2024,rookie-scale-exception,4,23172779.0,5793195.0,2023
+jett howard,2025,rookie-scale-exception,4,23172779.0,5793195.0,2023
 jevon carter,2026,Minimum,1,3506659.0,3506659.0,2026
 jevon carter,2025,Minimum,1,1168625.0,1168625.0,2025
 jevon carter,2023,Non-Taxpayer MLE,3,19500000.0,6500000.0,2023
@@ -2526,6 +3180,10 @@ joakim noah,2012,Bird Rights,5,60000000.0,12000000.0,2011
 joakim noah,2013,Bird Rights,5,60000000.0,12000000.0,2011
 joakim noah,2014,Bird Rights,5,60000000.0,12000000.0,2011
 joakim noah,2015,Bird Rights,5,60000000.0,12000000.0,2011
+joan beringer,2025,rookie-scale-exception,4,20331643.0,5082911.0,2025
+joan beringer,2026,rookie-scale-exception,4,20331643.0,5082911.0,2025
+joan beringer,2027,rookie-scale-exception,4,20331643.0,5082911.0,2025
+joan beringer,2028,rookie-scale-exception,4,20331643.0,5082911.0,2025
 jock landale,2026,Non-Taxpayer MLE,1,14100000.0,14100000.0,2026
 jock landale,2025,Minimum,1,2461463.0,2461463.0,2025
 jock landale,2023,cap-space,4,32000000.0,8000000.0,2023
@@ -2534,6 +3192,8 @@ jock landale,2025,cap-space,4,32000000.0,8000000.0,2023
 jock landale,2026,cap-space,4,32000000.0,8000000.0,2023
 jock landale,2021,Minimum,2,2488776.0,1244388.0,2021
 jock landale,2022,Minimum,2,2488776.0,1244388.0,2021
+joe chealey,2019,Minimum,1,1445697.0,1445697.0,2019
+joe chealey,2018,Minimum,1,838464.0,838464.0,2018
 joe harris,2020,Bird Rights,4,75000000.0,18750000.0,2020
 joe harris,2021,Bird Rights,4,75000000.0,18750000.0,2020
 joe harris,2022,Bird Rights,4,75000000.0,18750000.0,2020
@@ -2621,6 +3281,16 @@ john wall,2010,rookie-scale-exception,4,24050164.0,6012541.0,2010
 john wall,2011,rookie-scale-exception,4,24050164.0,6012541.0,2010
 john wall,2012,rookie-scale-exception,4,24050164.0,6012541.0,2010
 john wall,2013,rookie-scale-exception,4,24050164.0,6012541.0,2010
+johnathan williams,2019,Hardship,1,914791.0,914791.0,2019
+johnathan williams,2018,Minimum,1,838464.0,838464.0,2018
+johni broome,2025,second-round-exception,4,8685386.0,2171347.0,2025
+johni broome,2026,second-round-exception,4,8685386.0,2171347.0,2025
+johni broome,2027,second-round-exception,4,8685386.0,2171347.0,2025
+johni broome,2028,second-round-exception,4,8685386.0,2171347.0,2025
+johnny davis,2025,Minimum,1,2378870.0,2378870.0,2025
+johnny davis,2022,rookie-scale-exception,4,21898509.0,5474627.0,2022
+johnny davis,2023,rookie-scale-exception,4,21898509.0,5474627.0,2022
+johnny davis,2024,rookie-scale-exception,4,21898509.0,5474627.0,2022
 johnny furphy,2024,second-round-exception,4,8589485.0,2147371.0,2024
 johnny furphy,2025,second-round-exception,4,8589485.0,2147371.0,2024
 johnny furphy,2026,second-round-exception,4,8589485.0,2147371.0,2024
@@ -2664,12 +3334,25 @@ jonathan kuminga,2023,rookie-scale-exception,4,24855347.0,6213837.0,2021
 jonathan kuminga,2024,rookie-scale-exception,4,24855347.0,6213837.0,2021
 jonathan mogbo,2024,second-round-exception,3,6113913.0,2037971.0,2024
 jonathan mogbo,2025,second-round-exception,3,6113913.0,2037971.0,2024
+jonathon simmons,2017,cap-space,3,20000000.0,6666667.0,2017
+jonathon simmons,2018,cap-space,3,20000000.0,6666667.0,2017
+jonathon simmons,2019,cap-space,3,20000000.0,6666667.0,2017
+jonathon simmons,2015,Minimum,2,1399729.0,699865.0,2015
+jonathon simmons,2016,Minimum,2,1399729.0,699865.0,2015
 jontay porter,2023,Minimum,1,2019706.0,2019706.0,2023
 jontay porter,2022,Minimum,1,1836090.0,1836090.0,2022
 jontay porter,2020,Non-Taxpayer MLE,3,5850000.0,1950000.0,2020
 jontay porter,2021,Non-Taxpayer MLE,3,5850000.0,1950000.0,2020
 jontay porter,2022,Non-Taxpayer MLE,3,5850000.0,1950000.0,2020
 jontay porter,2019,Minimum,1,197933.0,197933.0,2019
+jordan bell,2023,Minimum,1,2346614.0,2346614.0,2023
+jordan bell,2021,Minimum,1,1789256.0,1789256.0,2021
+jordan bell,2020,Minimum,1,1678854.0,1678854.0,2020
+jordan bell,2019,Minimum,2,2012796.0,1006398.0,2019
+jordan bell,2020,Minimum,2,2012796.0,1006398.0,2019
+jordan bell,2019,Minimum,1,1620564.0,1620564.0,2019
+jordan bell,2017,Minimum,2,2193857.0,1096929.0,2017
+jordan bell,2018,Minimum,2,2193857.0,1096929.0,2017
 jordan clarkson,2026,Minimum,1,3876529.0,3876529.0,2026
 jordan clarkson,2025,Minimum,1,3634153.0,3634153.0,2025
 jordan clarkson,2024,Bird Rights,2,28378291.0,14189146.0,2024
@@ -2695,6 +3378,10 @@ jordan goodwin,2023,Non-Taxpayer MLE,3,4920240.0,1640080.0,2022
 jordan goodwin,2024,Non-Taxpayer MLE,3,4920240.0,1640080.0,2022
 jordan goodwin,2022,Minimum,1,1637966.0,1637966.0,2022
 jordan goodwin,2021,Minimum,1,925258.0,925258.0,2021
+jordan hawkins,2023,rookie-scale-exception,4,20599055.0,5149764.0,2023
+jordan hawkins,2024,rookie-scale-exception,4,20599055.0,5149764.0,2023
+jordan hawkins,2025,rookie-scale-exception,4,20599055.0,5149764.0,2023
+jordan hawkins,2026,rookie-scale-exception,4,20599055.0,5149764.0,2023
 jordan mclaughlin,2026,Minimum,1,3286399.0,3286399.0,2026
 jordan mclaughlin,2026,Minimum,1,3286399.0,3286399.0,2026
 jordan mclaughlin,2025,Minimum,1,2874436.0,2874436.0,2025
@@ -2742,6 +3429,10 @@ jose alvarado,2021,Non-Taxpayer MLE,4,6888212.0,1722053.0,2021
 jose alvarado,2022,Non-Taxpayer MLE,4,6888212.0,1722053.0,2021
 jose alvarado,2023,Non-Taxpayer MLE,4,6888212.0,1722053.0,2021
 jose alvarado,2024,Non-Taxpayer MLE,4,6888212.0,1722053.0,2021
+josh christopher,2021,rookie-scale-exception,4,11463215.0,2865804.0,2021
+josh christopher,2022,rookie-scale-exception,4,11463215.0,2865804.0,2021
+josh christopher,2023,rookie-scale-exception,4,11463215.0,2865804.0,2021
+josh christopher,2024,rookie-scale-exception,4,11463215.0,2865804.0,2021
 josh giddey,2025,Bird Rights,4,100000000.0,25000000.0,2025
 josh giddey,2026,Bird Rights,4,100000000.0,25000000.0,2025
 josh giddey,2027,Bird Rights,4,100000000.0,25000000.0,2025
@@ -2798,6 +3489,13 @@ josh richardson,2021,Bird Rights,4,41965056.0,10491264.0,2018
 josh richardson,2015,Taxpayer MLE,3,2414475.0,804825.0,2015
 josh richardson,2016,Taxpayer MLE,3,2414475.0,804825.0,2015
 josh richardson,2017,Taxpayer MLE,3,2414475.0,804825.0,2015
+joshua primo,2024,Minimum,1,2162606.0,2162606.0,2024
+joshua primo,2023,Minimum,2,3961311.0,1980656.0,2023
+joshua primo,2021,rookie-scale-exception,4,18415445.0,4603861.0,2021
+joshua primo,2022,rookie-scale-exception,4,18415445.0,4603861.0,2021
+joshua primo,2023,rookie-scale-exception,4,18415445.0,4603861.0,2021
+joshua primo,2024,rookie-scale-exception,4,18415445.0,4603861.0,2021
+jp macura,2019,Minimum,1,1445697.0,1445697.0,2019
 jrue holiday,2024,Bird Rights,4,134400000.0,33600000.0,2024
 jrue holiday,2025,Bird Rights,4,134400000.0,33600000.0,2024
 jrue holiday,2026,Bird Rights,4,134400000.0,33600000.0,2024
@@ -2839,6 +3537,10 @@ julian phillips,2026,Minimum,1,2537526.0,2537526.0,2026
 julian phillips,2023,second-round-exception,4,8119739.0,2029935.0,2023
 julian phillips,2024,second-round-exception,4,8119739.0,2029935.0,2023
 julian phillips,2025,second-round-exception,4,8119739.0,2029935.0,2023
+julian strawther,2023,rookie-scale-exception,4,12484731.0,3121183.0,2023
+julian strawther,2024,rookie-scale-exception,4,12484731.0,3121183.0,2023
+julian strawther,2025,rookie-scale-exception,4,12484731.0,3121183.0,2023
+julian strawther,2026,rookie-scale-exception,4,12484731.0,3121183.0,2023
 julius randle,2025,Bird Rights,3,100000000.0,33333333.0,2025
 julius randle,2026,Bird Rights,3,100000000.0,33333333.0,2025
 julius randle,2027,Bird Rights,3,100000000.0,33333333.0,2025
@@ -2854,6 +3556,16 @@ julius randle,2014,rookie-scale-exception,4,13545962.0,3386491.0,2014
 julius randle,2015,rookie-scale-exception,4,13545962.0,3386491.0,2014
 julius randle,2016,rookie-scale-exception,4,13545962.0,3386491.0,2014
 julius randle,2017,rookie-scale-exception,4,13545962.0,3386491.0,2014
+justin anderson,2022,Minimum,1,2298385.0,2298385.0,2022
+justin anderson,2021,Minimum,1,1939350.0,1939350.0,2021
+justin anderson,2020,Minimum,2,4012890.0,2006445.0,2020
+justin anderson,2021,Minimum,2,4012890.0,2006445.0,2020
+justin anderson,2019,Minimum,1,196288.0,196288.0,2019
+justin anderson,2019,Minimum,1,1737145.0,1737145.0,2019
+justin anderson,2015,rookie-scale-exception,4,7058648.0,1764662.0,2015
+justin anderson,2016,rookie-scale-exception,4,7058648.0,1764662.0,2015
+justin anderson,2017,rookie-scale-exception,4,7058648.0,1764662.0,2015
+justin anderson,2018,rookie-scale-exception,4,7058648.0,1764662.0,2015
 justin champagnie,2024,Non-Taxpayer MLE,4,9822607.0,2455652.0,2024
 justin champagnie,2025,Non-Taxpayer MLE,4,9822607.0,2455652.0,2024
 justin champagnie,2026,Non-Taxpayer MLE,4,9822607.0,2455652.0,2024
@@ -2890,6 +3602,18 @@ justin james,2021,Minimum,1,1669178.0,1669178.0,2021
 justin james,2019,cap-space,3,4198912.0,1399637.0,2019
 justin james,2020,cap-space,3,4198912.0,1399637.0,2019
 justin james,2021,cap-space,3,4198912.0,1399637.0,2019
+justin patton,2020,Minimum,1,1678854.0,1678854.0,2020
+justin patton,2019,Minimum,1,183115.0,183115.0,2019
+justin patton,2019,Taxpayer MLE,2,,,2019
+justin patton,2020,Taxpayer MLE,2,,,2019
+justin patton,2017,rookie-scale-exception,4,12814166.0,3203542.0,2017
+justin patton,2018,rookie-scale-exception,4,12814166.0,3203542.0,2017
+justin patton,2019,rookie-scale-exception,4,12814166.0,3203542.0,2017
+justin patton,2020,rookie-scale-exception,4,12814166.0,3203542.0,2017
+justin robinson,2020,Minimum,1,898310.0,898310.0,2020
+justin robinson,2019,Non-Taxpayer MLE,3,4198912.0,1399637.0,2019
+justin robinson,2020,Non-Taxpayer MLE,3,4198912.0,1399637.0,2019
+justin robinson,2021,Non-Taxpayer MLE,3,4198912.0,1399637.0,2019
 justise winslow,2024,Minimum,1,3003427.0,3003427.0,2024
 justise winslow,2023,Minimum,1,2891467.0,2891467.0,2023
 justise winslow,2021,Taxpayer MLE,2,8000000.0,4000000.0,2021
@@ -2913,6 +3637,20 @@ jusuf nurkic,2021,Bird Rights,4,48000000.0,12000000.0,2018
 jusuf nurkic,2014,rookie-scale-exception,4,8473305.0,2118326.0,2014
 jusuf nurkic,2015,rookie-scale-exception,4,8473305.0,2118326.0,2014
 jusuf nurkic,2016,rookie-scale-exception,4,8473305.0,2118326.0,2014
+juwan morgan,2022,Minimum,1,1902133.0,1902133.0,2022
+juwan morgan,2021,Minimum,2,1834863.0,917432.0,2021
+juwan morgan,2022,Minimum,2,1834863.0,917432.0,2021
+juwan morgan,2021,Minimum,1,1669178.0,1669178.0,2021
+juwan morgan,2019,Minimum,2,2264035.0,1132018.0,2019
+juwan morgan,2020,Minimum,2,2264035.0,1132018.0,2019
+juwan morgan,2019,Minimum,1,898310.0,898310.0,2019
+kai jones,2024,Minimum,1,,,2024
+kai jones,2023,Minimum,2,2208578.0,1104289.0,2023
+kai jones,2024,Minimum,2,2208578.0,1104289.0,2023
+kai jones,2021,rookie-scale-exception,4,13421215.0,3355304.0,2021
+kai jones,2022,rookie-scale-exception,4,13421215.0,3355304.0,2021
+kai jones,2023,rookie-scale-exception,4,13421215.0,3355304.0,2021
+kai jones,2024,rookie-scale-exception,4,13421215.0,3355304.0,2021
 karl-anthony towns,2024,Bird Rights,4,220441984.0,55110496.0,2024
 karl-anthony towns,2025,Bird Rights,4,220441984.0,55110496.0,2024
 karl-anthony towns,2026,Bird Rights,4,220441984.0,55110496.0,2024
@@ -2926,6 +3664,10 @@ karl-anthony towns,2015,rookie-scale-exception,4,25720035.0,6430009.0,2015
 karl-anthony towns,2016,rookie-scale-exception,4,25720035.0,6430009.0,2015
 karl-anthony towns,2017,rookie-scale-exception,4,25720035.0,6430009.0,2015
 karl-anthony towns,2018,rookie-scale-exception,4,25720035.0,6430009.0,2015
+kasparas jakucionis,2025,rookie-scale-exception,4,17730607.0,4432652.0,2025
+kasparas jakucionis,2026,rookie-scale-exception,4,17730607.0,4432652.0,2025
+kasparas jakucionis,2027,rookie-scale-exception,4,17730607.0,4432652.0,2025
+kasparas jakucionis,2028,rookie-scale-exception,4,17730607.0,4432652.0,2025
 kawhi leonard,2024,Bird Rights,3,149505800.0,49835267.0,2024
 kawhi leonard,2025,Bird Rights,3,149505800.0,49835267.0,2024
 kawhi leonard,2026,Bird Rights,3,149505800.0,49835267.0,2024
@@ -2963,6 +3705,7 @@ keita bates-diop,2022,Minimum,2,3607937.0,1803969.0,2021
 keita bates-diop,2018,Non-Taxpayer MLE,3,3919177.0,1306392.0,2018
 keita bates-diop,2019,Non-Taxpayer MLE,3,3919177.0,1306392.0,2018
 keita bates-diop,2020,Non-Taxpayer MLE,3,3919177.0,1306392.0,2018
+kelan martin,2022,Minimum,1,1902133.0,1902133.0,2022
 keldon johnson,2023,Bird Rights,4,74000000.0,18500000.0,2023
 keldon johnson,2024,Bird Rights,4,74000000.0,18500000.0,2023
 keldon johnson,2025,Bird Rights,4,74000000.0,18500000.0,2023
@@ -2971,6 +3714,10 @@ keldon johnson,2019,rookie-scale-exception,4,10017385.0,2504346.0,2019
 keldon johnson,2020,rookie-scale-exception,4,10017385.0,2504346.0,2019
 keldon johnson,2021,rookie-scale-exception,4,10017385.0,2504346.0,2019
 keldon johnson,2022,rookie-scale-exception,4,10017385.0,2504346.0,2019
+kel'el ware,2024,rookie-scale-exception,4,20466072.0,5116518.0,2024
+kel'el ware,2025,rookie-scale-exception,4,20466072.0,5116518.0,2024
+kel'el ware,2026,rookie-scale-exception,4,20466072.0,5116518.0,2024
+kel'el ware,2027,rookie-scale-exception,4,20466072.0,5116518.0,2024
 kelly olynyk,2024,Bird Rights,2,26250000.0,13125000.0,2024
 kelly olynyk,2025,Bird Rights,2,26250000.0,13125000.0,2024
 kelly olynyk,2021,cap-space,3,37195122.0,12398374.0,2021
@@ -3012,6 +3759,10 @@ kemba walker,2011,rookie-scale-exception,4,10659171.0,2664793.0,2011
 kemba walker,2012,rookie-scale-exception,4,10659171.0,2664793.0,2011
 kemba walker,2013,rookie-scale-exception,4,10659171.0,2664793.0,2011
 kemba walker,2014,rookie-scale-exception,4,10659171.0,2664793.0,2011
+kendall brown,2025,Minimum,1,2378870.0,2378870.0,2025
+kendall brown,2023,room-mid-level-exception,3,5522280.0,1840760.0,2023
+kendall brown,2024,room-mid-level-exception,3,5522280.0,1840760.0,2023
+kendall brown,2025,room-mid-level-exception,3,5522280.0,1840760.0,2023
 kendrick nunn,2021,Taxpayer MLE,2,10250000.0,5125000.0,2021
 kendrick nunn,2022,Taxpayer MLE,2,10250000.0,5125000.0,2021
 kendrick nunn,2018,Minimum,3,3085450.0,1028483.0,2018
@@ -3066,6 +3817,12 @@ keon ellis,2027,cap-space,2,18000000.0,9000000.0,2026
 keon ellis,2023,room-mid-level-exception,3,5105710.0,1701903.0,2023
 keon ellis,2024,room-mid-level-exception,3,5105710.0,1701903.0,2023
 keon ellis,2025,room-mid-level-exception,3,5105710.0,1701903.0,2023
+keon johnson,2024,Minimum,2,4512184.0,2256092.0,2024
+keon johnson,2025,Minimum,2,4512184.0,2256092.0,2024
+keon johnson,2021,rookie-scale-exception,4,12517291.0,3129323.0,2021
+keon johnson,2022,rookie-scale-exception,4,12517291.0,3129323.0,2021
+keon johnson,2023,rookie-scale-exception,4,12517291.0,3129323.0,2021
+keon johnson,2024,rookie-scale-exception,4,12517291.0,3129323.0,2021
 keshad johnson,2024,Minimum,2,2680260.0,1340130.0,2024
 keshad johnson,2025,Minimum,2,2680260.0,1340130.0,2024
 kessler edwards,2025,Minimum,1,2461463.0,2461463.0,2025
@@ -3147,6 +3904,8 @@ kevin porter jr.,2019,rookie-scale-exception,4,8009193.0,2002298.0,2019
 kevin porter jr.,2020,rookie-scale-exception,4,8009193.0,2002298.0,2019
 kevin porter jr.,2021,rookie-scale-exception,4,8009193.0,2002298.0,2019
 kevin porter jr.,2022,rookie-scale-exception,4,8009193.0,2002298.0,2019
+kevon harris,2024,Minimum,1,2087519.0,2087519.0,2024
+kevon harris,2020,Minimum,1,898310.0,898310.0,2020
 kevon looney,2026,Taxpayer MLE,1,3876529.0,3876529.0,2026
 kevon looney,2025,Non-Taxpayer MLE,2,16000000.0,8000000.0,2025
 kevon looney,2022,Bird Rights,3,22500000.0,7500000.0,2022
@@ -3159,6 +3918,14 @@ kevon looney,2018,Minimum,1,1567007.0,1567007.0,2018
 kevon looney,2015,rookie-scale-exception,3,3548640.0,1182880.0,2015
 kevon looney,2016,rookie-scale-exception,3,3548640.0,1182880.0,2015
 kevon looney,2017,rookie-scale-exception,3,3548640.0,1182880.0,2015
+keyonte george,2023,rookie-scale-exception,4,18816885.0,4704221.0,2023
+keyonte george,2024,rookie-scale-exception,4,18816885.0,4704221.0,2023
+keyonte george,2025,rookie-scale-exception,4,18816885.0,4704221.0,2023
+keyonte george,2026,rookie-scale-exception,4,18816885.0,4704221.0,2023
+khaman maluach,2025,rookie-scale-exception,4,27386800.0,6846700.0,2025
+khaman maluach,2026,rookie-scale-exception,4,27386800.0,6846700.0,2025
+khaman maluach,2027,rookie-scale-exception,4,27386800.0,6846700.0,2025
+khaman maluach,2028,rookie-scale-exception,4,27386800.0,6846700.0,2025
 khem birch,2021,Non-Taxpayer MLE,3,20002500.0,6667500.0,2021
 khem birch,2022,Non-Taxpayer MLE,3,20002500.0,6667500.0,2021
 khem birch,2023,Non-Taxpayer MLE,3,20002500.0,6667500.0,2021
@@ -3185,6 +3952,19 @@ khris middleton,2018,Bird Rights,5,70000000.0,14000000.0,2015
 khris middleton,2012,Non-Taxpayer MLE,3,2177719.0,725906.0,2012
 khris middleton,2013,Non-Taxpayer MLE,3,2177719.0,725906.0,2012
 khris middleton,2014,Non-Taxpayer MLE,3,2177719.0,725906.0,2012
+khyri thomas,2020,Non-Taxpayer MLE,3,3923656.0,1307885.0,2020
+khyri thomas,2021,Non-Taxpayer MLE,3,3923656.0,1307885.0,2020
+khyri thomas,2020,Minimum,1,1620564.0,1620564.0,2020
+khyri thomas,2018,Non-Taxpayer MLE,3,3919177.0,1306392.0,2018
+khyri thomas,2019,Non-Taxpayer MLE,3,3919177.0,1306392.0,2018
+khyri thomas,2020,Non-Taxpayer MLE,3,3919177.0,1306392.0,2018
+killian hayes,2025,Minimum,2,3462816.0,1731408.0,2025
+killian hayes,2025,Minimum,1,2667947.0,2667947.0,2025
+killian hayes,2024,Minimum,1,2237691.0,2237691.0,2024
+killian hayes,2020,rookie-scale-exception,4,24131515.0,6032879.0,2020
+killian hayes,2021,rookie-scale-exception,4,24131515.0,6032879.0,2020
+killian hayes,2022,rookie-scale-exception,4,24131515.0,6032879.0,2020
+killian hayes,2023,rookie-scale-exception,4,24131515.0,6032879.0,2020
 killian tillie,2021,room-mid-level-exception,2,3803250.0,1901625.0,2021
 killian tillie,2022,room-mid-level-exception,2,3803250.0,1901625.0,2021
 killian tillie,2021,Minimum,1,,,2021
@@ -3213,12 +3993,27 @@ klay thompson,2014,rookie-scale-exception,4,9742480.0,2435620.0,2011
 kobe brown,2023,rookie-scale-exception,4,12394179.0,3098545.0,2023
 kobe brown,2024,rookie-scale-exception,4,12394179.0,3098545.0,2023
 kobe brown,2025,rookie-scale-exception,4,12394179.0,3098545.0,2023
+kobe bufkin,2026,Minimum,1,2537526.0,2537526.0,2026
+kobe bufkin,2025,Minimum,2,3342419.0,1671210.0,2025
+kobe bufkin,2026,Minimum,2,3342419.0,1671210.0,2025
+kobe bufkin,2023,rookie-scale-exception,4,19801203.0,4950301.0,2023
+kobe bufkin,2024,rookie-scale-exception,4,19801203.0,4950301.0,2023
+kobe bufkin,2025,rookie-scale-exception,4,19801203.0,4950301.0,2023
+kobe bufkin,2026,rookie-scale-exception,4,19801203.0,4950301.0,2023
 kobe sanders,2026,Non-Bird Rights,4,11279212.0,2819803.0,2026
 kobe sanders,2027,Non-Bird Rights,4,11279212.0,2819803.0,2026
 kobe sanders,2028,Non-Bird Rights,4,11279212.0,2819803.0,2026
 kobe sanders,2029,Non-Bird Rights,4,11279212.0,2819803.0,2026
 kobe sanders,2025,Minimum,2,2626393.0,1313197.0,2025
 kobe sanders,2026,Minimum,2,2626393.0,1313197.0,2025
+kobi simmons,2022,Minimum,2,2099380.0,1049690.0,2022
+kobi simmons,2023,Minimum,2,2099380.0,1049690.0,2022
+kobi simmons,2019,Minimum,1,1620564.0,1620564.0,2019
+kobi simmons,2018,Minimum,1,1349383.0,1349383.0,2018
+kon knueppel,2025,rookie-scale-exception,4,45487014.0,11371754.0,2025
+kon knueppel,2026,rookie-scale-exception,4,45487014.0,11371754.0,2025
+kon knueppel,2027,rookie-scale-exception,4,45487014.0,11371754.0,2025
+kon knueppel,2028,rookie-scale-exception,4,45487014.0,11371754.0,2025
 kris dunn,2024,Early Bird Rights,3,16279200.0,5426400.0,2024
 kris dunn,2025,Early Bird Rights,3,16279200.0,5426400.0,2024
 kris dunn,2026,Early Bird Rights,3,16279200.0,5426400.0,2024
@@ -3230,6 +4025,10 @@ kris dunn,2016,rookie-scale-exception,4,17488287.0,4372072.0,2016
 kris dunn,2017,rookie-scale-exception,4,17488287.0,4372072.0,2016
 kris dunn,2018,rookie-scale-exception,4,17488287.0,4372072.0,2016
 kris dunn,2019,rookie-scale-exception,4,17488287.0,4372072.0,2016
+kris murray,2023,rookie-scale-exception,4,14284524.0,3571131.0,2023
+kris murray,2024,rookie-scale-exception,4,14284524.0,3571131.0,2023
+kris murray,2025,rookie-scale-exception,4,14284524.0,3571131.0,2023
+kris murray,2026,rookie-scale-exception,4,14284524.0,3571131.0,2023
 kyle anderson,2026,Minimum,1,3876529.0,3876529.0,2026
 kyle anderson,2025,Minimum,1,898095.0,898095.0,2025
 kyle anderson,2024,Bird Rights,3,27658536.0,9219512.0,2024
@@ -3244,6 +4043,12 @@ kyle anderson,2021,Non-Taxpayer MLE,4,37156300.0,9289075.0,2018
 kyle anderson,2014,rookie-scale-exception,3,3428640.0,1142880.0,2014
 kyle anderson,2015,rookie-scale-exception,3,3428640.0,1142880.0,2014
 kyle anderson,2016,rookie-scale-exception,3,3428640.0,1142880.0,2014
+kyle filipowski,2024,Minimum,4,12000000.0,3000000.0,2024
+kyle filipowski,2025,Minimum,4,12000000.0,3000000.0,2024
+kyle filipowski,2026,Minimum,4,12000000.0,3000000.0,2024
+kyle filipowski,2027,Minimum,4,12000000.0,3000000.0,2024
+kyle guy,2025,Minimum,1,2378870.0,2378870.0,2025
+kyle guy,2021,Minimum,1,1669178.0,1669178.0,2021
 kyle korver,2019,Minimum,1,2564753.0,2564753.0,2019
 kyle korver,2017,Bird Rights,3,22060000.0,7353333.0,2017
 kyle korver,2018,Bird Rights,3,22060000.0,7353333.0,2017
@@ -3321,6 +4126,10 @@ kyrie irving,2011,rookie-scale-exception,4,23198010.0,5799503.0,2011
 kyrie irving,2012,rookie-scale-exception,4,23198010.0,5799503.0,2011
 kyrie irving,2013,rookie-scale-exception,4,23198010.0,5799503.0,2011
 kyrie irving,2014,rookie-scale-exception,4,23198010.0,5799503.0,2011
+kyshawn george,2024,rookie-scale-exception,4,14336172.0,3584043.0,2024
+kyshawn george,2025,rookie-scale-exception,4,14336172.0,3584043.0,2024
+kyshawn george,2026,rookie-scale-exception,4,14336172.0,3584043.0,2024
+kyshawn george,2027,rookie-scale-exception,4,14336172.0,3584043.0,2024
 kz okpala,2022,Minimum,2,3968718.0,1984359.0,2022
 kz okpala,2023,Minimum,2,3968718.0,1984359.0,2022
 kz okpala,2019,Non-Taxpayer MLE,3,4198912.0,1399637.0,2019
@@ -3357,6 +4166,15 @@ lamelo ball,2020,rookie-scale-exception,4,35596275.0,8899069.0,2020
 lamelo ball,2021,rookie-scale-exception,4,35596275.0,8899069.0,2020
 lamelo ball,2022,rookie-scale-exception,4,35596275.0,8899069.0,2020
 lamelo ball,2023,rookie-scale-exception,4,35596275.0,8899069.0,2020
+lance thomas,2019,Minimum,1,262152.0,262152.0,2019
+lance thomas,2019,Minimum,1,2320044.0,2320044.0,2019
+lance thomas,2016,Early Bird Rights,4,27549950.0,6887488.0,2016
+lance thomas,2017,Early Bird Rights,4,27549950.0,6887488.0,2016
+lance thomas,2018,Early Bird Rights,4,27549950.0,6887488.0,2016
+lance thomas,2019,Early Bird Rights,4,27549950.0,6887488.0,2016
+lance thomas,2015,cap-space,1,1636842.0,1636842.0,2015
+lance thomas,2014,Minimum,1,423885.0,423885.0,2014
+lance thomas,2014,Minimum,1,948163.0,948163.0,2014
 landry shamet,2026,Early Bird Rights,4,23978467.0,5994617.0,2026
 landry shamet,2027,Early Bird Rights,4,23978467.0,5994617.0,2026
 landry shamet,2028,Early Bird Rights,4,23978467.0,5994617.0,2026
@@ -3406,6 +4224,10 @@ lauri markkanen,2017,rookie-scale-exception,4,20389668.0,5097417.0,2017
 lauri markkanen,2018,rookie-scale-exception,4,20389668.0,5097417.0,2017
 lauri markkanen,2019,rookie-scale-exception,4,20389668.0,5097417.0,2017
 lauri markkanen,2020,rookie-scale-exception,4,20389668.0,5097417.0,2017
+leandro bolmaro,2021,rookie-scale-exception,4,11805395.0,2951349.0,2021
+leandro bolmaro,2022,rookie-scale-exception,4,11805395.0,2951349.0,2021
+leandro bolmaro,2023,rookie-scale-exception,4,11805395.0,2951349.0,2021
+leandro bolmaro,2024,rookie-scale-exception,4,11805395.0,2951349.0,2021
 lebron james,2026,Minimum,2,7946884.0,3973442.0,2026
 lebron james,2027,Minimum,2,7946884.0,3973442.0,2026
 lebron james,2024,Bird Rights,2,101355998.0,50677999.0,2024
@@ -3427,6 +4249,12 @@ leonard miller,2023,second-round-exception,4,8319739.0,2079935.0,2023
 leonard miller,2024,second-round-exception,4,8319739.0,2079935.0,2023
 leonard miller,2025,second-round-exception,4,8319739.0,2079935.0,2023
 leonard miller,2026,second-round-exception,4,8319739.0,2079935.0,2023
+lester quinones,2025,Minimum,1,2378870.0,2378870.0,2025
+lester quinones,2023,Minimum,1,548815.0,548815.0,2023
+liam mcneeley,2025,rookie-scale-exception,4,14194138.0,3548535.0,2025
+liam mcneeley,2026,rookie-scale-exception,4,14194138.0,3548535.0,2025
+liam mcneeley,2027,rookie-scale-exception,4,14194138.0,3548535.0,2025
+liam mcneeley,2028,rookie-scale-exception,4,14194138.0,3548535.0,2025
 lindy waters iii,2025,Minimum,1,2461463.0,2461463.0,2025
 lindy waters iii,2023,Minimum,2,2963065.0,1481533.0,2023
 lindy waters iii,2024,Minimum,2,2963065.0,1481533.0,2023
@@ -3456,6 +4284,36 @@ lou williams,2008,Bird Rights,5,25000000.0,5000000.0,2008
 lou williams,2009,Bird Rights,5,25000000.0,5000000.0,2008
 lou williams,2010,Bird Rights,5,25000000.0,5000000.0,2008
 lou williams,2011,Bird Rights,5,25000000.0,5000000.0,2008
+louis williams,2021,Bird Rights,1,5000000.0,5000000.0,2021
+louis williams,2018,Bird Rights,3,24000000.0,8000000.0,2018
+louis williams,2019,Bird Rights,3,24000000.0,8000000.0,2018
+louis williams,2020,Bird Rights,3,24000000.0,8000000.0,2018
+louis williams,2015,cap-space,3,21000000.0,7000000.0,2015
+louis williams,2016,cap-space,3,21000000.0,7000000.0,2015
+louis williams,2017,cap-space,3,21000000.0,7000000.0,2015
+louis williams,2012,Non-Taxpayer MLE,3,15675000.0,5225000.0,2012
+louis williams,2013,Non-Taxpayer MLE,3,15675000.0,5225000.0,2012
+louis williams,2014,Non-Taxpayer MLE,3,15675000.0,5225000.0,2012
+louis williams,2008,Bird Rights,5,25000000.0,5000000.0,2008
+louis williams,2009,Bird Rights,5,25000000.0,5000000.0,2008
+louis williams,2010,Bird Rights,5,25000000.0,5000000.0,2008
+louis williams,2011,Bird Rights,5,25000000.0,5000000.0,2008
+luc richard mbah a moute,2019,Minimum,1,289803.0,289803.0,2019
+luc richard mbah a moute,2018,Non-Taxpayer MLE,1,4320500.0,4320500.0,2018
+luc richard mbah a moute,2017,Minimum,1,2116955.0,2116955.0,2017
+luc richard mbah a moute,2016,Bi-Annual,2,4505135.0,2252568.0,2016
+luc richard mbah a moute,2017,Bi-Annual,2,4505135.0,2252568.0,2016
+luc richard mbah a moute,2015,Minimum,1,1270964.0,1270964.0,2015
+luc richard mbah a moute,2011,Bird Rights,4,18765152.0,4691288.0,2011
+luc richard mbah a moute,2012,Bird Rights,4,18765152.0,4691288.0,2011
+luc richard mbah a moute,2013,Bird Rights,4,18765152.0,4691288.0,2011
+luc richard mbah a moute,2014,Bird Rights,4,18765152.0,4691288.0,2011
+luca vildoza,2022,Minimum,1,1836090.0,1836090.0,2022
+luca vildoza,2021,Minimum,2,1795427.0,897714.0,2021
+luca vildoza,2022,Minimum,2,1795427.0,897714.0,2021
+luca vildoza,2020,cap-space,3,9975000.0,3325000.0,2020
+luca vildoza,2021,cap-space,3,9975000.0,3325000.0,2020
+luca vildoza,2022,cap-space,3,9975000.0,3325000.0,2020
 luguentz dort,2022,Bird Rights,5,82500000.0,16500000.0,2022
 luguentz dort,2023,Bird Rights,5,82500000.0,16500000.0,2022
 luguentz dort,2024,Bird Rights,5,82500000.0,16500000.0,2022
@@ -3516,6 +4374,23 @@ luol deng,2018,cap-space,4,72000000.0,18000000.0,2016
 luol deng,2019,cap-space,4,72000000.0,18000000.0,2016
 luol deng,2014,cap-space,2,19866073.0,9933037.0,2014
 luol deng,2015,cap-space,2,19866073.0,9933037.0,2014
+mac mcclung,2025,Minimum,2,4867707.0,2433854.0,2025
+mac mcclung,2026,Minimum,2,4867707.0,2433854.0,2025
+mac mcclung,2025,Minimum,1,2378870.0,2378870.0,2025
+mac mcclung,2024,Minimum,1,2087519.0,2087519.0,2024
+mac mcclung,2023,Minimum,1,2019706.0,2019706.0,2023
+mac mcclung,2022,Minimum,1,1637966.0,1637966.0,2022
+mac mcclung,2022,Minimum,1,1637966.0,1637966.0,2022
+mac mcclung,2021,Minimum,1,925258.0,925258.0,2021
+malachi flynn,2024,Minimum,1,2237691.0,2237691.0,2024
+malachi flynn,2020,rookie-scale-exception,4,10017385.0,2504346.0,2020
+malachi flynn,2021,rookie-scale-exception,4,10017385.0,2504346.0,2020
+malachi flynn,2022,rookie-scale-exception,4,10017385.0,2504346.0,2020
+malachi flynn,2023,rookie-scale-exception,4,10017385.0,2504346.0,2020
+malaki branham,2022,rookie-scale-exception,4,14177433.0,3544358.0,2022
+malaki branham,2023,rookie-scale-exception,4,14177433.0,3544358.0,2022
+malaki branham,2024,rookie-scale-exception,4,14177433.0,3544358.0,2022
+malaki branham,2025,rookie-scale-exception,4,14177433.0,3544358.0,2022
 malcolm brogdon,2025,Minimum,1,3303774.0,3303774.0,2025
 malcolm brogdon,2023,Bird Rights,2,45000000.0,22500000.0,2023
 malcolm brogdon,2024,Bird Rights,2,45000000.0,22500000.0,2023
@@ -3526,6 +4401,9 @@ malcolm brogdon,2022,sign-and-trade,4,85000000.0,21250000.0,2019
 malcolm brogdon,2016,cap-space,3,3782562.0,1260854.0,2016
 malcolm brogdon,2017,cap-space,3,3782562.0,1260854.0,2016
 malcolm brogdon,2018,cap-space,3,3782562.0,1260854.0,2016
+malcolm hill,2025,Minimum,1,2378870.0,2378870.0,2025
+malcolm hill,2023,Minimum,1,1801769.0,1801769.0,2023
+malcolm hill,2021,Minimum,1,925258.0,925258.0,2021
 malcolm miller,2020,Minimum,1,1678854.0,1678854.0,2020
 malcolm miller,2018,Minimum,2,2045649.0,1022825.0,2018
 malcolm miller,2019,Minimum,2,2045649.0,1022825.0,2018
@@ -3541,6 +4419,12 @@ malik beasley,2016,rookie-scale-exception,4,7833514.0,1958379.0,2016
 malik beasley,2017,rookie-scale-exception,4,7833514.0,1958379.0,2016
 malik beasley,2018,rookie-scale-exception,4,7833514.0,1958379.0,2016
 malik beasley,2019,rookie-scale-exception,4,7833514.0,1958379.0,2016
+malik fitts,2023,Minimum,1,2019706.0,2019706.0,2023
+malik fitts,2022,Minimum,1,1836090.0,1836090.0,2022
+malik fitts,2021,Minimum,2,1983700.0,991850.0,2021
+malik fitts,2022,Minimum,2,1983700.0,991850.0,2021
+malik fitts,2021,Minimum,1,1489065.0,1489065.0,2021
+malik fitts,2020,Minimum,1,898310.0,898310.0,2020
 malik monk,2024,Early Bird Rights,4,77975308.0,19493827.0,2024
 malik monk,2025,Early Bird Rights,4,77975308.0,19493827.0,2024
 malik monk,2026,Early Bird Rights,4,77975308.0,19493827.0,2024
@@ -3552,6 +4436,14 @@ malik monk,2017,rookie-scale-exception,4,15726047.0,3931512.0,2017
 malik monk,2018,rookie-scale-exception,4,15726047.0,3931512.0,2017
 malik monk,2019,rookie-scale-exception,4,15726047.0,3931512.0,2017
 malik monk,2020,rookie-scale-exception,4,15726047.0,3931512.0,2017
+mamadi diakite,2024,Minimum,1,2425403.0,2425403.0,2024
+mamadi diakite,2023,Minimum,2,2525777.0,1262889.0,2023
+mamadi diakite,2024,Minimum,2,2525777.0,1262889.0,2023
+mamadi diakite,2023,Minimum,1,2092354.0,2092354.0,2023
+mamadi diakite,2022,Minimum,1,1836090.0,1836090.0,2022
+mamadi diakite,2020,Non-Taxpayer MLE,3,3460775.0,1153592.0,2020
+mamadi diakite,2021,Non-Taxpayer MLE,3,3460775.0,1153592.0,2020
+mamadi diakite,2022,Non-Taxpayer MLE,3,3460775.0,1153592.0,2020
 marc gasol,2020,Minimum,2,5257744.0,2628872.0,2020
 marc gasol,2021,Minimum,2,5257744.0,2628872.0,2020
 marc gasol,2015,Bird Rights,5,113211750.0,22642350.0,2015
@@ -3571,6 +4463,21 @@ marco belinelli,2016,cap-space,3,19000000.0,6333333.0,2015
 marco belinelli,2017,cap-space,3,19000000.0,6333333.0,2015
 marco belinelli,2013,Non-Taxpayer MLE,2,5623750.0,2811875.0,2013
 marco belinelli,2014,Non-Taxpayer MLE,2,5623750.0,2811875.0,2013
+marcus morris sr,2024,Minimum,1,3303771.0,3303771.0,2024
+marcus morris sr,2023,Minimum,1,312297.0,312297.0,2023
+marcus morris sr,2020,Non-Bird Rights,4,64000000.0,16000000.0,2020
+marcus morris sr,2021,Non-Bird Rights,4,64000000.0,16000000.0,2020
+marcus morris sr,2022,Non-Bird Rights,4,64000000.0,16000000.0,2020
+marcus morris sr,2023,Non-Bird Rights,4,64000000.0,16000000.0,2020
+marcus morris sr,2019,cap-space,1,15000000.0,15000000.0,2019
+marcus morris sr,2015,Bird Rights,4,20000000.0,5000000.0,2015
+marcus morris sr,2016,Bird Rights,4,20000000.0,5000000.0,2015
+marcus morris sr,2017,Bird Rights,4,20000000.0,5000000.0,2015
+marcus morris sr,2018,Bird Rights,4,20000000.0,5000000.0,2015
+marcus morris sr,2011,rookie-scale-exception,4,8659181.0,2164795.0,2011
+marcus morris sr,2012,rookie-scale-exception,4,8659181.0,2164795.0,2011
+marcus morris sr,2013,rookie-scale-exception,4,8659181.0,2164795.0,2011
+marcus morris sr,2014,rookie-scale-exception,4,8659181.0,2164795.0,2011
 marcus morris,2024,Minimum,1,3303771.0,3303771.0,2024
 marcus morris,2023,Minimum,1,312297.0,312297.0,2023
 marcus morris,2020,Non-Bird Rights,4,64000000.0,16000000.0,2020
@@ -3586,6 +4493,10 @@ marcus morris,2011,rookie-scale-exception,4,8659181.0,2164795.0,2011
 marcus morris,2012,rookie-scale-exception,4,8659181.0,2164795.0,2011
 marcus morris,2013,rookie-scale-exception,4,8659181.0,2164795.0,2011
 marcus morris,2014,rookie-scale-exception,4,8659181.0,2164795.0,2011
+marcus sasser,2023,rookie-scale-exception,4,13464823.0,3366206.0,2023
+marcus sasser,2024,rookie-scale-exception,4,13464823.0,3366206.0,2023
+marcus sasser,2025,rookie-scale-exception,4,13464823.0,3366206.0,2023
+marcus sasser,2026,rookie-scale-exception,4,13464823.0,3366206.0,2023
 marcus smart,2026,Non-Taxpayer MLE,2,12431200.0,6215600.0,2026
 marcus smart,2027,Non-Taxpayer MLE,2,12431200.0,6215600.0,2026
 marcus smart,2025,Bi-Annual,2,10524700.0,5262350.0,2025
@@ -3607,6 +4518,11 @@ mario hezonja,2018,Non-Taxpayer MLE,1,6500000.0,6500000.0,2018
 mario hezonja,2015,rookie-scale-exception,3,11729640.0,3909880.0,2015
 mario hezonja,2016,rookie-scale-exception,3,11729640.0,3909880.0,2015
 mario hezonja,2017,rookie-scale-exception,3,11729640.0,3909880.0,2015
+marjon beauchamp,2025,Minimum,1,2378870.0,2378870.0,2025
+marjon beauchamp,2025,Minimum,1,2378870.0,2378870.0,2025
+marjon beauchamp,2022,rookie-scale-exception,4,12609596.0,3152399.0,2022
+marjon beauchamp,2023,rookie-scale-exception,4,12609596.0,3152399.0,2022
+marjon beauchamp,2024,rookie-scale-exception,4,12609596.0,3152399.0,2022
 mark williams,2026,Bird Rights,3,38000000.0,12666667.0,2026
 mark williams,2027,Bird Rights,3,38000000.0,12666667.0,2026
 mark williams,2028,Bird Rights,3,38000000.0,12666667.0,2026
@@ -3638,6 +4554,11 @@ markieff morris,2011,rookie-scale-exception,4,9005799.0,2251450.0,2011
 markieff morris,2012,rookie-scale-exception,4,9005799.0,2251450.0,2011
 markieff morris,2013,rookie-scale-exception,4,9005799.0,2251450.0,2011
 markieff morris,2014,rookie-scale-exception,4,9005799.0,2251450.0,2011
+marko guduric,2019,Bi-Annual,2,5375000.0,2687500.0,2019
+marko guduric,2020,Bi-Annual,2,5375000.0,2687500.0,2019
+marko simonovic,2021,Non-Taxpayer MLE,3,4324872.0,1441624.0,2021
+marko simonovic,2022,Non-Taxpayer MLE,3,4324872.0,1441624.0,2021
+marko simonovic,2023,Non-Taxpayer MLE,3,4324872.0,1441624.0,2021
 marquese chriss,2021,Minimum,2,3152449.0,1576225.0,2021
 marquese chriss,2022,Minimum,2,3152449.0,1576225.0,2021
 marquese chriss,2021,Minimum,1,1789256.0,1789256.0,2021
@@ -3686,6 +4607,10 @@ mason plumlee,2013,rookie-scale-exception,4,6399770.0,1599943.0,2013
 mason plumlee,2014,rookie-scale-exception,4,6399770.0,1599943.0,2013
 mason plumlee,2015,rookie-scale-exception,4,6399770.0,1599943.0,2013
 mason plumlee,2016,rookie-scale-exception,4,6399770.0,1599943.0,2013
+matas buzelis,2024,rookie-scale-exception,4,23950723.0,5987681.0,2024
+matas buzelis,2025,rookie-scale-exception,4,23950723.0,5987681.0,2024
+matas buzelis,2026,rookie-scale-exception,4,23950723.0,5987681.0,2024
+matas buzelis,2027,rookie-scale-exception,4,23950723.0,5987681.0,2024
 matisse thybulle,2026,Minimum,1,3286399.0,3286399.0,2026
 matisse thybulle,2023,Bird Rights,3,33075000.0,11025000.0,2023
 matisse thybulle,2024,Bird Rights,3,33075000.0,11025000.0,2023
@@ -3694,6 +4619,14 @@ matisse thybulle,2019,rookie-scale-exception,4,12513127.0,3128282.0,2019
 matisse thybulle,2020,rookie-scale-exception,4,12513127.0,3128282.0,2019
 matisse thybulle,2021,rookie-scale-exception,4,12513127.0,3128282.0,2019
 matisse thybulle,2022,rookie-scale-exception,4,12513127.0,3128282.0,2019
+matt ryan,2025,Minimum,1,2461463.0,2461463.0,2025
+matt ryan,2024,Minimum,1,1988603.0,1988603.0,2024
+matt ryan,2024,Minimum,1,2162606.0,2162606.0,2024
+matt ryan,2023,Non-Taxpayer MLE,3,6078471.0,2026157.0,2023
+matt ryan,2024,Non-Taxpayer MLE,3,6078471.0,2026157.0,2023
+matt ryan,2025,Non-Taxpayer MLE,3,6078471.0,2026157.0,2023
+matt ryan,2022,Minimum,1,1637966.0,1637966.0,2022
+matt ryan,2021,Minimum,1,925258.0,925258.0,2021
 matt thomas,2021,Minimum,1,1669178.0,1669178.0,2021
 matt thomas,2019,Non-Taxpayer MLE,3,4198912.0,1399637.0,2019
 matt thomas,2020,Non-Taxpayer MLE,3,4198912.0,1399637.0,2019
@@ -3742,6 +4675,9 @@ maxi kleber,2021,Early Bird Rights,4,35600000.0,8900000.0,2019
 maxi kleber,2022,Early Bird Rights,4,35600000.0,8900000.0,2019
 maxi kleber,2017,Minimum,2,2193857.0,1096929.0,2017
 maxi kleber,2018,Minimum,2,2193857.0,1096929.0,2017
+maxime raynaud,2025,second-round-exception,3,5949689.0,1983230.0,2025
+maxime raynaud,2026,second-round-exception,3,5949689.0,1983230.0,2025
+maxime raynaud,2027,second-round-exception,3,5949689.0,1983230.0,2025
 maxwell lewis,2023,second-round-exception,4,7639302.0,1909826.0,2023
 maxwell lewis,2024,second-round-exception,4,7639302.0,1909826.0,2023
 maxwell lewis,2025,second-round-exception,4,7639302.0,1909826.0,2023
@@ -3756,6 +4692,12 @@ meyers leonard,2012,rookie-scale-exception,4,9742479.0,2435620.0,2012
 meyers leonard,2013,rookie-scale-exception,4,9742479.0,2435620.0,2012
 meyers leonard,2014,rookie-scale-exception,4,9742479.0,2435620.0,2012
 meyers leonard,2015,rookie-scale-exception,4,9742479.0,2435620.0,2012
+mfiondu kabengele,2021,Minimum,1,1669178.0,1669178.0,2021
+mfiondu kabengele,2020,Non-Taxpayer MLE,3,3706764.0,1235588.0,2020
+mfiondu kabengele,2021,Non-Taxpayer MLE,3,3706764.0,1235588.0,2020
+mfiondu kabengele,2022,Non-Taxpayer MLE,3,3706764.0,1235588.0,2020
+mfiondu kabengele,2019,rookie-scale-exception,4,10151244.0,2537811.0,2019
+mfiondu kabengele,2020,rookie-scale-exception,4,10151244.0,2537811.0,2019
 micah peavy,2025,second-round-exception,4,8685386.0,2171347.0,2025
 micah peavy,2026,second-round-exception,4,8685386.0,2171347.0,2025
 micah peavy,2027,second-round-exception,4,8685386.0,2171347.0,2025
@@ -3895,6 +4837,17 @@ mo bamba,2023,Bird Rights,2,20600000.0,10300000.0,2022
 mo bamba,2018,rookie-scale-exception,4,24100423.0,6025106.0,2018
 mo bamba,2019,rookie-scale-exception,4,24100423.0,6025106.0,2018
 mo bamba,2020,rookie-scale-exception,4,24100423.0,6025106.0,2018
+mohamed bamba,2026,Minimum,2,7206979.0,3603490.0,2026
+mohamed bamba,2027,Minimum,2,7206979.0,3603490.0,2026
+mohamed bamba,2025,Minimum,1,1859176.0,1859176.0,2025
+mohamed bamba,2025,Minimum,1,3080921.0,3080921.0,2025
+mohamed bamba,2024,Minimum,1,2613120.0,2613120.0,2024
+mohamed bamba,2023,Minimum,1,2346614.0,2346614.0,2023
+mohamed bamba,2022,Bird Rights,2,20600000.0,10300000.0,2022
+mohamed bamba,2023,Bird Rights,2,20600000.0,10300000.0,2022
+mohamed bamba,2018,rookie-scale-exception,4,24100423.0,6025106.0,2018
+mohamed bamba,2019,rookie-scale-exception,4,24100423.0,6025106.0,2018
+mohamed bamba,2020,rookie-scale-exception,4,24100423.0,6025106.0,2018
 mohamed diawara,2026,Non-Bird Rights,4,11278738.0,2819685.0,2026
 mohamed diawara,2027,Non-Bird Rights,4,11278738.0,2819685.0,2026
 mohamed diawara,2028,Non-Bird Rights,4,11278738.0,2819685.0,2026
@@ -3948,10 +4901,12 @@ moses moody,2021,rookie-scale-exception,4,17024109.0,4256027.0,2021
 moses moody,2022,rookie-scale-exception,4,17024109.0,4256027.0,2021
 moses moody,2023,rookie-scale-exception,4,17024109.0,4256027.0,2021
 moses moody,2024,rookie-scale-exception,4,17024109.0,4256027.0,2021
-mouhamadou gueye,2023,second-round-exception,4,7639302.0,1909826.0,2023
-mouhamadou gueye,2024,second-round-exception,4,7639302.0,1909826.0,2023
-mouhamadou gueye,2025,second-round-exception,4,7639302.0,1909826.0,2023
-mouhamadou gueye,2026,second-round-exception,4,7639302.0,1909826.0,2023
+mouhamadou gueye,2025,Minimum,2,2458182.0,1229091.0,2025
+mouhamadou gueye,2026,Minimum,2,2458182.0,1229091.0,2025
+mouhamadou gueye,2025,Minimum,1,2048494.0,2048494.0,2025
+mouhamadou gueye,2024,Minimum,1,1862265.0,1862265.0,2024
+mouhamadou gueye,2023,Minimum,1,1119563.0,1119563.0,2023
+mouhamadou gueye,2022,Minimum,1,1017781.0,1017781.0,2022
 mouhamed gueye,2023,second-round-exception,4,7639302.0,1909826.0,2023
 mouhamed gueye,2024,second-round-exception,4,7639302.0,1909826.0,2023
 mouhamed gueye,2025,second-round-exception,4,7639302.0,1909826.0,2023
@@ -3979,6 +4934,10 @@ myles turner,2015,rookie-scale-exception,4,10801804.0,2700451.0,2015
 myles turner,2016,rookie-scale-exception,4,10801804.0,2700451.0,2015
 myles turner,2017,rookie-scale-exception,4,10801804.0,2700451.0,2015
 myles turner,2018,rookie-scale-exception,4,10801804.0,2700451.0,2015
+myron gardner,2025,Minimum,3,5505469.0,1835156.0,2025
+myron gardner,2026,Minimum,3,5505469.0,1835156.0,2025
+myron gardner,2027,Minimum,3,5505469.0,1835156.0,2025
+myron gardner,2024,Minimum,1,1157153.0,1157153.0,2024
 nae'qwan tomlin,2025,Minimum,2,3129240.0,1564620.0,2025
 nae'qwan tomlin,2026,Minimum,2,3129240.0,1564620.0,2025
 nae'qwan tomlin,2024,Minimum,1,1157153.0,1157153.0,2024
@@ -4004,6 +4963,11 @@ nassir little,2019,rookie-scale-exception,4,10803948.0,2700987.0,2019
 nassir little,2020,rookie-scale-exception,4,10803948.0,2700987.0,2019
 nassir little,2021,rookie-scale-exception,4,10803948.0,2700987.0,2019
 nassir little,2022,rookie-scale-exception,4,10803948.0,2700987.0,2019
+nate hinton,2025,Minimum,1,2378870.0,2378870.0,2025
+nate hinton,2024,Minimum,1,2162606.0,2162606.0,2024
+nate hinton,2023,Minimum,1,2019706.0,2019706.0,2023
+nate hinton,2022,Minimum,1,1836090.0,1836090.0,2022
+nate hinton,2021,Minimum,1,1489065.0,1489065.0,2021
 nathan knight,2022,Minimum,2,3833328.0,1916664.0,2022
 nathan knight,2023,Minimum,2,3833328.0,1916664.0,2022
 naz reid,2025,Bird Rights,5,125000000.0,25000000.0,2025
@@ -4049,9 +5013,9 @@ nerlens noel,2013,rookie-scale-exception,4,14329730.0,3582433.0,2013
 nerlens noel,2014,rookie-scale-exception,4,14329730.0,3582433.0,2013
 nerlens noel,2015,rookie-scale-exception,4,14329730.0,3582433.0,2013
 nerlens noel,2016,rookie-scale-exception,4,14329730.0,3582433.0,2013
-n'faly dante,2025,Minimum,2,4459584.0,2229792.0,2025
-n'faly dante,2026,Minimum,2,4459584.0,2229792.0,2025
-n'faly dante,2024,Minimum,1,,,2024
+nfaly dante,2025,Minimum,2,4459584.0,2229792.0,2025
+nfaly dante,2026,Minimum,2,4459584.0,2229792.0,2025
+nfaly dante,2024,Minimum,1,,,2024
 nic claxton,2024,Bird Rights,4,97000000.0,24250000.0,2024
 nic claxton,2025,Bird Rights,4,97000000.0,24250000.0,2024
 nic claxton,2026,Bird Rights,4,97000000.0,24250000.0,2024
@@ -4067,6 +5031,11 @@ nick richards,2025,Early Bird Rights,3,15000000.0,5000000.0,2023
 nick richards,2020,cap-space,3,4300602.0,1433534.0,2020
 nick richards,2021,cap-space,3,4300602.0,1433534.0,2020
 nick richards,2022,cap-space,3,4300602.0,1433534.0,2020
+nick smith jr.,2025,Minimum,2,2511009.0,1255505.0,2025
+nick smith jr.,2023,rookie-scale-exception,4,12651907.0,3162977.0,2023
+nick smith jr.,2024,rookie-scale-exception,4,12651907.0,3162977.0,2023
+nick smith jr.,2025,rookie-scale-exception,4,12651907.0,3162977.0,2023
+nick smith jr.,2026,rookie-scale-exception,4,12651907.0,3162977.0,2023
 nickeil alexander-walker,2025,Bird Rights,4,60647200.0,15161800.0,2025
 nickeil alexander-walker,2026,Bird Rights,4,60647200.0,15161800.0,2025
 nickeil alexander-walker,2027,Bird Rights,4,60647200.0,15161800.0,2025
@@ -4098,6 +5067,25 @@ nicolas batum,2008,rookie-scale-exception,4,5178439.0,1294610.0,2008
 nicolas batum,2009,rookie-scale-exception,4,5178439.0,1294610.0,2008
 nicolas batum,2010,rookie-scale-exception,4,5178439.0,1294610.0,2008
 nicolas batum,2011,rookie-scale-exception,4,5178439.0,1294610.0,2008
+nicolas claxton,2024,Bird Rights,4,97000000.0,24250000.0,2024
+nicolas claxton,2025,Bird Rights,4,97000000.0,24250000.0,2024
+nicolas claxton,2026,Bird Rights,4,97000000.0,24250000.0,2024
+nicolas claxton,2027,Bird Rights,4,97000000.0,24250000.0,2024
+nicolas claxton,2022,Bird Rights,2,17250000.0,8625000.0,2022
+nicolas claxton,2023,Bird Rights,2,17250000.0,8625000.0,2022
+nicolas claxton,2019,cap-space,3,4198912.0,1399637.0,2019
+nicolas claxton,2020,cap-space,3,4198912.0,1399637.0,2019
+nicolas claxton,2021,cap-space,3,4198912.0,1399637.0,2019
+nik stauskas,2021,Minimum,2,2617456.0,1308728.0,2021
+nik stauskas,2022,Minimum,2,2617456.0,1308728.0,2021
+nik stauskas,2021,Minimum,1,2089448.0,2089448.0,2021
+nik stauskas,2020,Minimum,1,2028594.0,2028594.0,2020
+nik stauskas,2018,Minimum,1,540472.0,540472.0,2018
+nik stauskas,2018,Minimum,1,1621415.0,1621415.0,2018
+nik stauskas,2014,rookie-scale-exception,4,12415467.0,3103867.0,2014
+nik stauskas,2015,rookie-scale-exception,4,12415467.0,3103867.0,2014
+nik stauskas,2016,rookie-scale-exception,4,12415467.0,3103867.0,2014
+nik stauskas,2017,rookie-scale-exception,4,12415467.0,3103867.0,2014
 nikola jokic,2023,Bird Rights,5,276122630.0,55224526.0,2023
 nikola jokic,2024,Bird Rights,5,276122630.0,55224526.0,2023
 nikola jokic,2025,Bird Rights,5,276122630.0,55224526.0,2023
@@ -4127,6 +5115,22 @@ nikola vucevic,2011,rookie-scale-exception,4,7909700.0,1977425.0,2011
 nikola vucevic,2012,rookie-scale-exception,4,7909700.0,1977425.0,2011
 nikola vucevic,2013,rookie-scale-exception,4,7909700.0,1977425.0,2011
 nikola vucevic,2014,rookie-scale-exception,4,7909700.0,1977425.0,2011
+nique clifford,2025,rookie-scale-exception,4,15769801.0,3942450.0,2025
+nique clifford,2026,rookie-scale-exception,4,15769801.0,3942450.0,2025
+nique clifford,2027,rookie-scale-exception,4,15769801.0,3942450.0,2025
+nique clifford,2028,rookie-scale-exception,4,15769801.0,3942450.0,2025
+noa essengue,2025,rookie-scale-exception,4,25333944.0,6333486.0,2025
+noa essengue,2026,rookie-scale-exception,4,25333944.0,6333486.0,2025
+noa essengue,2027,rookie-scale-exception,4,25333944.0,6333486.0,2025
+noa essengue,2028,rookie-scale-exception,4,25333944.0,6333486.0,2025
+noah clowney,2023,rookie-scale-exception,4,15146274.0,3786569.0,2023
+noah clowney,2024,rookie-scale-exception,4,15146274.0,3786569.0,2023
+noah clowney,2025,rookie-scale-exception,4,15146274.0,3786569.0,2023
+noah clowney,2026,rookie-scale-exception,4,15146274.0,3786569.0,2023
+noah penda,2025,second-round-exception,4,8685387.0,2171347.0,2025
+noah penda,2026,second-round-exception,4,8685387.0,2171347.0,2025
+noah penda,2027,second-round-exception,4,8685387.0,2171347.0,2025
+noah penda,2028,second-round-exception,4,8685387.0,2171347.0,2025
 noah vonleh,2022,Minimum,1,2463490.0,2463490.0,2022
 noah vonleh,2020,Minimum,1,1361659.0,1361659.0,2020
 noah vonleh,2020,Minimum,1,2028594.0,2028594.0,2020
@@ -4136,6 +5140,10 @@ noah vonleh,2014,rookie-scale-exception,4,11418513.0,2854628.0,2014
 noah vonleh,2015,rookie-scale-exception,4,11418513.0,2854628.0,2014
 noah vonleh,2016,rookie-scale-exception,4,11418513.0,2854628.0,2014
 noah vonleh,2017,rookie-scale-exception,4,11418513.0,2854628.0,2014
+nolan traore,2025,rookie-scale-exception,4,18463882.0,4615971.0,2025
+nolan traore,2026,rookie-scale-exception,4,18463882.0,4615971.0,2025
+nolan traore,2027,rookie-scale-exception,4,18463882.0,4615971.0,2025
+nolan traore,2028,rookie-scale-exception,4,18463882.0,4615971.0,2025
 norman powell,2026,cap-space,2,44075000.0,22037500.0,2026
 norman powell,2027,cap-space,2,44075000.0,22037500.0,2026
 norman powell,2021,Bird Rights,5,90000000.0,18000000.0,2021
@@ -4150,6 +5158,14 @@ norman powell,2021,Early Bird Rights,4,41965056.0,10491264.0,2018
 norman powell,2015,cap-space,3,2539382.0,846461.0,2015
 norman powell,2016,cap-space,3,2539382.0,846461.0,2015
 norman powell,2017,cap-space,3,2539382.0,846461.0,2015
+norvel pelle,2022,Minimum,1,1902133.0,1902133.0,2022
+norvel pelle,2022,Minimum,1,1902133.0,1902133.0,2022
+norvel pelle,2020,cap-space,2,2201593.0,1100797.0,2020
+norvel pelle,2021,cap-space,2,2201593.0,1100797.0,2020
+norvel pelle,2020,Minimum,1,1079322.0,1079322.0,2020
+norvel pelle,2020,Minimum,1,1445697.0,1445697.0,2020
+norvel pelle,2019,Minimum,2,1868170.0,934085.0,2019
+norvel pelle,2018,Minimum,1,838464.0,838464.0,2018
 obi toppin,2024,Bird Rights,4,58000000.0,14500000.0,2024
 obi toppin,2025,Bird Rights,4,58000000.0,14500000.0,2024
 obi toppin,2026,Bird Rights,4,58000000.0,14500000.0,2024
@@ -4158,6 +5174,10 @@ obi toppin,2020,rookie-scale-exception,4,22118492.0,5529623.0,2020
 obi toppin,2021,rookie-scale-exception,4,22118492.0,5529623.0,2020
 obi toppin,2022,rookie-scale-exception,4,22118492.0,5529623.0,2020
 obi toppin,2023,rookie-scale-exception,4,22118492.0,5529623.0,2020
+ochai agbaji,2022,rookie-scale-exception,4,18726365.0,4681591.0,2022
+ochai agbaji,2023,rookie-scale-exception,4,18726365.0,4681591.0,2022
+ochai agbaji,2024,rookie-scale-exception,4,18726365.0,4681591.0,2022
+ochai agbaji,2025,rookie-scale-exception,4,18726365.0,4681591.0,2022
 og anunoby,2024,Bird Rights,5,212500000.0,42500000.0,2024
 og anunoby,2025,Bird Rights,5,212500000.0,42500000.0,2024
 og anunoby,2026,Bird Rights,5,212500000.0,42500000.0,2024
@@ -4170,6 +5190,15 @@ og anunoby,2017,rookie-scale-exception,4,9751975.0,2437994.0,2017
 og anunoby,2018,rookie-scale-exception,4,9751975.0,2437994.0,2017
 og anunoby,2019,rookie-scale-exception,4,9751975.0,2437994.0,2017
 og anunoby,2020,rookie-scale-exception,4,9751975.0,2437994.0,2017
+olivier-maxence prosper,2025,Minimum,2,3025691.0,1512846.0,2025
+olivier-maxence prosper,2026,Minimum,2,3025691.0,1512846.0,2025
+olivier-maxence prosper,2023,rookie-scale-exception,4,13870583.0,3467646.0,2023
+olivier-maxence prosper,2024,rookie-scale-exception,4,13870583.0,3467646.0,2023
+olivier-maxence prosper,2025,rookie-scale-exception,4,13870583.0,3467646.0,2023
+olivier-maxence prosper,2026,rookie-scale-exception,4,13870583.0,3467646.0,2023
+omari spellman,2018,rookie-scale-exception,4,9095405.0,2273851.0,2018
+omari spellman,2019,rookie-scale-exception,4,9095405.0,2273851.0,2018
+omari spellman,2020,rookie-scale-exception,4,9095405.0,2273851.0,2018
 omer yurtseven,2023,cap-space,2,5460000.0,2730000.0,2023
 omer yurtseven,2024,cap-space,2,5460000.0,2730000.0,2023
 omer yurtseven,2021,Minimum,2,3241703.0,1620852.0,2021
@@ -4244,6 +5273,11 @@ pat connaughton,2016,cap-space,3,2514475.0,838158.0,2015
 pat connaughton,2017,cap-space,3,2514475.0,838158.0,2015
 pat spencer,2024,Minimum,1,438810.0,438810.0,2024
 pat spencer,2022,Minimum,1,1017781.0,1017781.0,2022
+patrick baldwin jr.,2025,Minimum,1,,,2025
+patrick baldwin jr.,2025,Minimum,1,2378870.0,2378870.0,2025
+patrick baldwin jr.,2022,rookie-scale-exception,4,13993276.0,3498319.0,2022
+patrick baldwin jr.,2023,rookie-scale-exception,4,13993276.0,3498319.0,2022
+patrick baldwin jr.,2024,rookie-scale-exception,4,13993276.0,3498319.0,2022
 patrick beverley,2023,Minimum,1,3196448.0,3196448.0,2023
 patrick beverley,2022,Minimum,1,801614.0,801614.0,2022
 patrick beverley,2022,Bird Rights,1,13000000.0,13000000.0,2022
@@ -4304,6 +5338,23 @@ patty mills,2013,Non-Bird Rights,2,2219070.0,1109535.0,2012
 patty mills,2011,Minimum,1,261829.0,261829.0,2011
 patty mills,2010,Minimum,1,937195.0,937195.0,2010
 patty mills,2009,Minimum,1,457588.0,457588.0,2009
+pau gasol,2019,Minimum,1,2564753.0,2564753.0,2019
+pau gasol,2018,Minimum,1,527467.0,527467.0,2018
+pau gasol,2017,Non-Bird Rights,3,48000000.0,16000000.0,2017
+pau gasol,2018,Non-Bird Rights,3,48000000.0,16000000.0,2017
+pau gasol,2019,Non-Bird Rights,3,48000000.0,16000000.0,2017
+pau gasol,2016,cap-space,2,31697500.0,15848750.0,2016
+pau gasol,2017,cap-space,2,31697500.0,15848750.0,2016
+pau gasol,2014,cap-space,3,22346280.0,7448760.0,2014
+pau gasol,2015,cap-space,3,22346280.0,7448760.0,2014
+pau gasol,2016,cap-space,3,22346280.0,7448760.0,2014
+pau gasol,2011,Bird Rights,3,57000000.0,19000000.0,2011
+pau gasol,2012,Bird Rights,3,57000000.0,19000000.0,2011
+pau gasol,2013,Bird Rights,3,57000000.0,19000000.0,2011
+pau gasol,2001,rookie-scale-exception,4,13101396.0,3275349.0,2001
+pau gasol,2002,rookie-scale-exception,4,13101396.0,3275349.0,2001
+pau gasol,2003,rookie-scale-exception,4,13101396.0,3275349.0,2001
+pau gasol,2004,rookie-scale-exception,4,13101396.0,3275349.0,2001
 paul george,2024,cap-space,4,211584940.0,52896235.0,2024
 paul george,2025,cap-space,4,211584940.0,52896235.0,2024
 paul george,2026,cap-space,4,211584940.0,52896235.0,2024
@@ -4369,6 +5420,14 @@ pete nance,2026,room-mid-level-exception,3,5805424.0,1935141.0,2025
 pete nance,2027,room-mid-level-exception,3,5805424.0,1935141.0,2025
 pete nance,2024,Minimum,1,1862265.0,1862265.0,2024
 pete nance,2023,Minimum,1,1119563.0,1119563.0,2023
+peyton watson,2026,Bird Rights,4,88000000.0,22000000.0,2026
+peyton watson,2027,Bird Rights,4,88000000.0,22000000.0,2026
+peyton watson,2028,Bird Rights,4,88000000.0,22000000.0,2026
+peyton watson,2029,Bird Rights,4,88000000.0,22000000.0,2026
+peyton watson,2022,rookie-scale-exception,4,11267516.0,2816879.0,2022
+peyton watson,2023,rookie-scale-exception,4,11267516.0,2816879.0,2022
+peyton watson,2024,rookie-scale-exception,4,11267516.0,2816879.0,2022
+peyton watson,2025,rookie-scale-exception,4,11267516.0,2816879.0,2022
 pj dozier,2024,Minimum,1,2613120.0,2613120.0,2024
 pj dozier,2022,Minimum,2,2952754.0,1476377.0,2022
 pj dozier,2023,Minimum,2,2952754.0,1476377.0,2022
@@ -4435,6 +5494,8 @@ quinn cook,2016,Minimum,2,1328595.0,664298.0,2016
 quinn cook,2017,Minimum,2,1328595.0,664298.0,2016
 quinn cook,2016,Minimum,1,543471.0,543471.0,2016
 quinn cook,2015,Minimum,1,525093.0,525093.0,2015
+quinndary weatherspoon,2023,Minimum,1,2092354.0,2092354.0,2023
+quinndary weatherspoon,2021,Minimum,1,1669178.0,1669178.0,2021
 quinten post,2026,Non-Taxpayer MLE,3,26100000.0,8700000.0,2026
 quinten post,2027,Non-Taxpayer MLE,3,26100000.0,8700000.0,2026
 quinten post,2028,Non-Taxpayer MLE,3,26100000.0,8700000.0,2026
@@ -4455,6 +5516,10 @@ rajon rondo,2011,Bird Rights,5,55000001.0,11000000.0,2010
 rajon rondo,2012,Bird Rights,5,55000001.0,11000000.0,2010
 rajon rondo,2013,Bird Rights,5,55000001.0,11000000.0,2010
 rajon rondo,2014,Bird Rights,5,55000001.0,11000000.0,2010
+rasheer fleming,2025,second-round-exception,4,8685386.0,2171347.0,2025
+rasheer fleming,2026,second-round-exception,4,8685386.0,2171347.0,2025
+rasheer fleming,2027,second-round-exception,4,8685386.0,2171347.0,2025
+rasheer fleming,2028,second-round-exception,4,8685386.0,2171347.0,2025
 raul neto,2022,Minimum,1,2463490.0,2463490.0,2022
 raul neto,2021,Minimum,1,2089448.0,2089448.0,2021
 raul neto,2020,Minimum,1,1882867.0,1882867.0,2020
@@ -4467,6 +5532,19 @@ raul neto,2017,cap-space,3,2732546.0,910849.0,2015
 rayan rupert,2023,second-round-exception,3,5233097.0,1744366.0,2023
 rayan rupert,2024,second-round-exception,3,5233097.0,1744366.0,2023
 rayan rupert,2025,second-round-exception,3,5233097.0,1744366.0,2023
+rayjon tucker,2022,Minimum,1,1902133.0,1902133.0,2022
+rayjon tucker,2021,Non-Taxpayer MLE,3,3812638.0,1270879.0,2021
+rayjon tucker,2022,Non-Taxpayer MLE,3,3812638.0,1270879.0,2021
+rayjon tucker,2023,Non-Taxpayer MLE,3,3812638.0,1270879.0,2021
+rayjon tucker,2021,Minimum,1,1669178.0,1669178.0,2021
+rayjon tucker,2020,Minimum,1,1445697.0,1445697.0,2020
+rayjon tucker,2019,Minimum,2,2096554.0,1048277.0,2019
+rayjon tucker,2020,Minimum,2,2096554.0,1048277.0,2019
+rayjon tucker,2019,Minimum,1,898310.0,898310.0,2019
+reed sheppard,2024,rookie-scale-exception,4,45853025.0,11463256.0,2024
+reed sheppard,2025,rookie-scale-exception,4,45853025.0,11463256.0,2024
+reed sheppard,2026,rookie-scale-exception,4,45853025.0,11463256.0,2024
+reed sheppard,2027,rookie-scale-exception,4,45853025.0,11463256.0,2024
 reggie bullock,2023,Minimum,1,3196448.0,3196448.0,2023
 reggie bullock,2021,Non-Taxpayer MLE,3,30038400.0,10012800.0,2021
 reggie bullock,2022,Non-Taxpayer MLE,3,30038400.0,10012800.0,2021
@@ -4496,6 +5574,9 @@ reggie jackson,2011,rookie-scale-exception,4,5829450.0,1457363.0,2011
 reggie jackson,2012,rookie-scale-exception,4,5829450.0,1457363.0,2011
 reggie jackson,2013,rookie-scale-exception,4,5829450.0,1457363.0,2011
 reggie jackson,2014,rookie-scale-exception,4,5829450.0,1457363.0,2011
+reggie perry,2022,Minimum,1,1836090.0,1836090.0,2022
+reggie perry,2021,Minimum,1,1489065.0,1489065.0,2021
+reggie perry,2020,Minimum,1,898310.0,898310.0,2020
 richaun holmes,2024,Bird Rights,2,25929058.0,12964529.0,2024
 richaun holmes,2025,Bird Rights,2,25929058.0,12964529.0,2024
 richaun holmes,2021,Early Bird Rights,4,46522560.0,11630640.0,2021
@@ -4530,6 +5611,15 @@ rj barrett,2019,rookie-scale-exception,4,35596275.0,8899069.0,2019
 rj barrett,2020,rookie-scale-exception,4,35596275.0,8899069.0,2019
 rj barrett,2021,rookie-scale-exception,4,35596275.0,8899069.0,2019
 rj barrett,2022,rookie-scale-exception,4,35596275.0,8899069.0,2019
+r.j. hampton,2022,Minimum,2,2482641.0,1241321.0,2022
+r.j. hampton,2023,Minimum,2,2482641.0,1241321.0,2022
+r.j. hampton,2020,rookie-scale-exception,4,11129417.0,2782354.0,2020
+r.j. hampton,2021,rookie-scale-exception,4,11129417.0,2782354.0,2020
+r.j. hampton,2022,rookie-scale-exception,4,11129417.0,2782354.0,2020
+rob dillingham,2024,rookie-scale-exception,4,28491576.0,7122894.0,2024
+rob dillingham,2025,rookie-scale-exception,4,28491576.0,7122894.0,2024
+rob dillingham,2026,rookie-scale-exception,4,28491576.0,7122894.0,2024
+rob dillingham,2027,rookie-scale-exception,4,28491576.0,7122894.0,2024
 robert covington,2022,Bird Rights,2,24000000.0,12000000.0,2022
 robert covington,2023,Bird Rights,2,24000000.0,12000000.0,2022
 robert covington,2018,cap-space,4,46879127.0,11719782.0,2018
@@ -4543,6 +5633,7 @@ robert covington,2017,cap-space,4,4592926.0,1148232.0,2014
 robert covington,2013,cap-space,3,2253938.0,751313.0,2013
 robert covington,2014,cap-space,3,2253938.0,751313.0,2013
 robert covington,2015,cap-space,3,2253938.0,751313.0,2013
+robert franks,2020,Minimum,1,1445697.0,1445697.0,2020
 robin lopez,2023,Minimum,1,3196448.0,3196448.0,2023
 robin lopez,2022,Minimum,1,2905865.0,2905865.0,2022
 robin lopez,2021,Non-Taxpayer MLE,1,5000000.0,5000000.0,2021
@@ -4578,6 +5669,12 @@ rodney mcgruder,2021,cap-space,3,15000000.0,5000000.0,2019
 rodney mcgruder,2016,cap-space,3,3401033.0,1133678.0,2016
 rodney mcgruder,2017,cap-space,3,3401033.0,1133678.0,2016
 rodney mcgruder,2018,cap-space,3,3401033.0,1133678.0,2016
+romeo langford,2025,Minimum,1,2461463.0,2461463.0,2025
+romeo langford,2023,Minimum,1,2165000.0,2165000.0,2023
+romeo langford,2019,rookie-scale-exception,4,16528217.0,4132054.0,2019
+romeo langford,2020,rookie-scale-exception,4,16528217.0,4132054.0,2019
+romeo langford,2021,rookie-scale-exception,4,16528217.0,4132054.0,2019
+romeo langford,2022,rookie-scale-exception,4,16528217.0,4132054.0,2019
 ron harper jr,2026,Non-Bird Rights,4,13704229.0,3426057.0,2026
 ron harper jr,2027,Non-Bird Rights,4,13704229.0,3426057.0,2026
 ron harper jr,2028,Non-Bird Rights,4,13704229.0,3426057.0,2026
@@ -4682,6 +5779,18 @@ ryan arcidiacono,2020,cap-space,2,6000000.0,3000000.0,2019
 ryan arcidiacono,2018,Minimum,1,1349383.0,1349383.0,2018
 ryan arcidiacono,2016,Minimum,2,1448720.0,724360.0,2016
 ryan arcidiacono,2017,Minimum,2,1448720.0,724360.0,2016
+ryan broekhoff,2020,Minimum,1,1620564.0,1620564.0,2020
+ryan broekhoff,2019,Minimum,1,163356.0,163356.0,2019
+ryan broekhoff,2018,cap-space,2,2255316.0,1127658.0,2018
+ryan broekhoff,2019,cap-space,2,2255316.0,1127658.0,2018
+ryan dunn,2024,rookie-scale-exception,4,12998353.0,3249588.0,2024
+ryan dunn,2025,rookie-scale-exception,4,12998353.0,3249588.0,2024
+ryan dunn,2026,rookie-scale-exception,4,12998353.0,3249588.0,2024
+ryan dunn,2027,rookie-scale-exception,4,12998353.0,3249588.0,2024
+ryan kalkbrenner,2025,second-round-exception,4,9968963.0,2492241.0,2025
+ryan kalkbrenner,2026,second-round-exception,4,9968963.0,2492241.0,2025
+ryan kalkbrenner,2027,second-round-exception,4,9968963.0,2492241.0,2025
+ryan kalkbrenner,2028,second-round-exception,4,9968963.0,2492241.0,2025
 ryan rollins,2025,Early Bird Rights,3,12000000.0,4000000.0,2025
 ryan rollins,2026,Early Bird Rights,3,12000000.0,4000000.0,2025
 ryan rollins,2027,Early Bird Rights,3,12000000.0,4000000.0,2025
@@ -4736,6 +5845,10 @@ santi aldama,2021,rookie-scale-exception,4,10243371.0,2560843.0,2021
 santi aldama,2022,rookie-scale-exception,4,10243371.0,2560843.0,2021
 santi aldama,2023,rookie-scale-exception,4,10243371.0,2560843.0,2021
 santi aldama,2024,rookie-scale-exception,4,10243371.0,2560843.0,2021
+scoot henderson,2023,rookie-scale-exception,4,44363603.0,11090901.0,2023
+scoot henderson,2024,rookie-scale-exception,4,44363603.0,11090901.0,2023
+scoot henderson,2025,rookie-scale-exception,4,44363603.0,11090901.0,2023
+scoot henderson,2026,rookie-scale-exception,4,44363603.0,11090901.0,2023
 scottie barnes,2025,Bird Rights,5,224238150.0,44847630.0,2025
 scottie barnes,2026,Bird Rights,5,224238150.0,44847630.0,2025
 scottie barnes,2027,Bird Rights,5,224238150.0,44847630.0,2025
@@ -4750,6 +5863,11 @@ scotty pippen jr.,2025,Non-Taxpayer MLE,4,9608931.0,2402233.0,2024
 scotty pippen jr.,2026,Non-Taxpayer MLE,4,9608931.0,2402233.0,2024
 scotty pippen jr.,2027,Non-Taxpayer MLE,4,9608931.0,2402233.0,2024
 scotty pippen jr.,2023,Minimum,1,1801769.0,1801769.0,2023
+sekou doumbouya,2022,Minimum,1,1902133.0,1902133.0,2022
+sekou doumbouya,2019,rookie-scale-exception,4,15887971.0,3971993.0,2019
+sekou doumbouya,2020,rookie-scale-exception,4,15887971.0,3971993.0,2019
+sekou doumbouya,2021,rookie-scale-exception,4,15887971.0,3971993.0,2019
+sekou doumbouya,2022,rookie-scale-exception,4,15887971.0,3971993.0,2019
 semi ojeleye,2021,Minimum,1,1789256.0,1789256.0,2021
 semi ojeleye,2017,cap-space,3,4288654.0,1429551.0,2017
 semi ojeleye,2018,cap-space,3,4288654.0,1429551.0,2017
@@ -4817,6 +5935,25 @@ shake milton,2024,Non-Taxpayer MLE,2,10000000.0,5000000.0,2023
 shake milton,2019,cap-space,3,4994028.0,1664676.0,2019
 shake milton,2020,cap-space,3,4994028.0,1664676.0,2019
 shake milton,2021,cap-space,3,4994028.0,1664676.0,2019
+shaquille harrison,2023,Minimum,1,2528233.0,2528233.0,2023
+shaquille harrison,2022,Minimum,2,2425564.0,1212782.0,2022
+shaquille harrison,2022,Minimum,1,2133278.0,2133278.0,2022
+shaquille harrison,2021,Minimum,1,1789256.0,1789256.0,2021
+shaquille harrison,2020,Minimum,1,1678854.0,1678854.0,2020
+shaquille harrison,2019,Minimum,1,898310.0,898310.0,2019
+shaquille harrison,2018,Minimum,2,2899495.0,1449748.0,2018
+shaquille harrison,2019,Minimum,2,2899495.0,1449748.0,2018
+shaquille harrison,2017,Minimum,2,1516482.0,758241.0,2017
+shaquille harrison,2018,Minimum,2,1516482.0,758241.0,2017
+shaquille harrison,2016,Minimum,1,543471.0,543471.0,2016
+shaun livingston,2017,Bird Rights,3,23692308.0,7897436.0,2017
+shaun livingston,2018,Bird Rights,3,23692308.0,7897436.0,2017
+shaun livingston,2019,Bird Rights,3,23692308.0,7897436.0,2017
+shaun livingston,2014,Non-Taxpayer MLE,3,16631175.0,5543725.0,2014
+shaun livingston,2015,Non-Taxpayer MLE,3,16631175.0,5543725.0,2014
+shaun livingston,2016,Non-Taxpayer MLE,3,16631175.0,5543725.0,2014
+shaun livingston,2013,Minimum,1,1272279.0,1272279.0,2013
+shaun livingston,2012,Minimum,1,1108044.0,1108044.0,2012
 sidy cissoko,2025,Minimum,2,3184055.0,1592028.0,2025
 sidy cissoko,2026,Minimum,2,3184055.0,1592028.0,2025
 sidy cissoko,2023,cap-space,3,5233097.0,1744366.0,2023
@@ -4827,6 +5964,16 @@ simone fontecchio,2024,Early Bird Rights,2,16000000.0,8000000.0,2024
 simone fontecchio,2025,Early Bird Rights,2,16000000.0,8000000.0,2024
 simone fontecchio,2022,Non-Taxpayer MLE,2,6250000.0,3125000.0,2022
 simone fontecchio,2023,Non-Taxpayer MLE,2,6250000.0,3125000.0,2022
+sindarius thornwell,2020,Minimum,1,1678854.0,1678854.0,2020
+sindarius thornwell,2019,Minimum,1,183115.0,183115.0,2019
+sindarius thornwell,2019,Minimum,1,1620564.0,1620564.0,2019
+sindarius thornwell,2017,Non-Taxpayer MLE,3,3812377.0,1270792.0,2017
+sindarius thornwell,2018,Non-Taxpayer MLE,3,3812377.0,1270792.0,2017
+sindarius thornwell,2019,Non-Taxpayer MLE,3,3812377.0,1270792.0,2017
+sion james,2025,second-round-exception,4,9968963.0,2492241.0,2025
+sion james,2026,second-round-exception,4,9968963.0,2492241.0,2025
+sion james,2027,second-round-exception,4,9968963.0,2492241.0,2025
+sion james,2028,second-round-exception,4,9968963.0,2492241.0,2025
 skylar mays,2024,Minimum,1,2237691.0,2237691.0,2024
 skylar mays,2023,Minimum,1,1863879.0,1863879.0,2023
 skylar mays,2022,Minimum,1,1836090.0,1836090.0,2022
@@ -4870,6 +6017,34 @@ stanley johnson,2015,rookie-scale-exception,4,12850042.0,3212511.0,2015
 stanley johnson,2016,rookie-scale-exception,4,12850042.0,3212511.0,2015
 stanley johnson,2017,rookie-scale-exception,4,12850042.0,3212511.0,2015
 stanley johnson,2018,rookie-scale-exception,4,12850042.0,3212511.0,2015
+stanley umude,2025,Minimum,1,2378870.0,2378870.0,2025
+stanley umude,2023,Minimum,2,2659153.0,1329577.0,2023
+stanley umude,2024,Minimum,2,2659153.0,1329577.0,2023
+stanley umude,2023,Minimum,1,,,2023
+stanley umude,2023,Minimum,1,1801769.0,1801769.0,2023
+stanley umude,2022,Minimum,1,1017781.0,1017781.0,2022
+stephen curry,2026,Bird Rights,1,62587158.0,62587158.0,2026
+stephen curry,2022,Bird Rights,4,215353664.0,53838416.0,2022
+stephen curry,2023,Bird Rights,4,215353664.0,53838416.0,2022
+stephen curry,2024,Bird Rights,4,215353664.0,53838416.0,2022
+stephen curry,2025,Bird Rights,4,215353664.0,53838416.0,2022
+stephen curry,2017,Bird Rights,5,201158790.0,40231758.0,2017
+stephen curry,2018,Bird Rights,5,201158790.0,40231758.0,2017
+stephen curry,2019,Bird Rights,5,201158790.0,40231758.0,2017
+stephen curry,2020,Bird Rights,5,201158790.0,40231758.0,2017
+stephen curry,2021,Bird Rights,5,201158790.0,40231758.0,2017
+stephen curry,2013,Bird Rights,4,44000000.0,11000000.0,2013
+stephen curry,2014,Bird Rights,4,44000000.0,11000000.0,2013
+stephen curry,2015,Bird Rights,4,44000000.0,11000000.0,2013
+stephen curry,2016,Bird Rights,4,44000000.0,11000000.0,2013
+stephen curry,2009,rookie-scale-exception,4,12700262.0,3175066.0,2009
+stephen curry,2010,rookie-scale-exception,4,12700262.0,3175066.0,2009
+stephen curry,2011,rookie-scale-exception,4,12700262.0,3175066.0,2009
+stephen curry,2012,rookie-scale-exception,4,12700262.0,3175066.0,2009
+stephon castle,2024,rookie-scale-exception,4,41351699.0,10337925.0,2024
+stephon castle,2025,rookie-scale-exception,4,41351699.0,10337925.0,2024
+stephon castle,2026,rookie-scale-exception,4,41351699.0,10337925.0,2024
+stephon castle,2027,rookie-scale-exception,4,41351699.0,10337925.0,2024
 sterling brown,2021,Bi-Annual,2,6000000.0,3000000.0,2021
 sterling brown,2022,Bi-Annual,2,6000000.0,3000000.0,2021
 sterling brown,2020,Minimum,1,1678854.0,1678854.0,2020
@@ -4902,6 +6077,17 @@ svi mykhailiuk,2022,Minimum,2,3607937.0,1803969.0,2021
 svi mykhailiuk,2018,cap-space,3,4568407.0,1522802.0,2018
 svi mykhailiuk,2019,cap-space,3,4568407.0,1522802.0,2018
 svi mykhailiuk,2020,cap-space,3,4568407.0,1522802.0,2018
+sviatoslav mykhailiuk,2024,cap-space,4,15050000.0,3762500.0,2024
+sviatoslav mykhailiuk,2025,cap-space,4,15050000.0,3762500.0,2024
+sviatoslav mykhailiuk,2026,cap-space,4,15050000.0,3762500.0,2024
+sviatoslav mykhailiuk,2027,cap-space,4,15050000.0,3762500.0,2024
+sviatoslav mykhailiuk,2023,Minimum,1,2346614.0,2346614.0,2023
+sviatoslav mykhailiuk,2022,Minimum,1,1968175.0,1968175.0,2022
+sviatoslav mykhailiuk,2021,Minimum,2,3607937.0,1803969.0,2021
+sviatoslav mykhailiuk,2022,Minimum,2,3607937.0,1803969.0,2021
+sviatoslav mykhailiuk,2018,cap-space,3,4568407.0,1522802.0,2018
+sviatoslav mykhailiuk,2019,cap-space,3,4568407.0,1522802.0,2018
+sviatoslav mykhailiuk,2020,cap-space,3,4568407.0,1522802.0,2018
 taj gibson,2025,Minimum,2,4776614.0,2388307.0,2025
 taj gibson,2026,Minimum,2,4776614.0,2388307.0,2025
 taj gibson,2024,Minimum,1,3303771.0,3303771.0,2024
@@ -4951,6 +6137,10 @@ taurean prince,2016,rookie-scale-exception,4,10749666.0,2687417.0,2016
 taurean prince,2017,rookie-scale-exception,4,10749666.0,2687417.0,2016
 taurean prince,2018,rookie-scale-exception,4,10749666.0,2687417.0,2016
 taurean prince,2019,rookie-scale-exception,4,10749666.0,2687417.0,2016
+taylor hendricks,2023,rookie-scale-exception,4,25351580.0,6337895.0,2023
+taylor hendricks,2024,rookie-scale-exception,4,25351580.0,6337895.0,2023
+taylor hendricks,2025,rookie-scale-exception,4,25351580.0,6337895.0,2023
+taylor hendricks,2026,rookie-scale-exception,4,25351580.0,6337895.0,2023
 terance mann,2023,Bird Rights,2,22000000.0,11000000.0,2023
 terance mann,2024,Bird Rights,2,22000000.0,11000000.0,2023
 terance mann,2019,Minimum,3,4300602.0,1433534.0,2019
@@ -4964,6 +6154,10 @@ terence davis,2021,Early Bird Rights,2,8000000.0,4000000.0,2021
 terence davis,2022,Early Bird Rights,2,8000000.0,4000000.0,2021
 terence davis,2019,Minimum,2,2416291.0,1208146.0,2019
 terence davis,2020,Minimum,2,2416291.0,1208146.0,2019
+terrance ferguson,2017,rookie-scale-exception,4,10323693.0,2580923.0,2017
+terrance ferguson,2018,rookie-scale-exception,4,10323693.0,2580923.0,2017
+terrance ferguson,2019,rookie-scale-exception,4,10323693.0,2580923.0,2017
+terrance ferguson,2020,rookie-scale-exception,4,10323693.0,2580923.0,2017
 terrence ross,2022,Minimum,1,918516.0,918516.0,2022
 terrence ross,2019,Bird Rights,4,54000000.0,13500000.0,2019
 terrence ross,2020,Bird Rights,4,54000000.0,13500000.0,2019
@@ -4976,6 +6170,10 @@ terrence ross,2012,rookie-scale-exception,4,11589837.0,2897459.0,2012
 terrence ross,2013,rookie-scale-exception,4,11589837.0,2897459.0,2012
 terrence ross,2014,rookie-scale-exception,4,11589837.0,2897459.0,2012
 terrence ross,2015,rookie-scale-exception,4,11589837.0,2897459.0,2012
+terrence shannon jr.,2024,rookie-scale-exception,4,13076519.0,3269130.0,2024
+terrence shannon jr.,2025,rookie-scale-exception,4,13076519.0,3269130.0,2024
+terrence shannon jr.,2026,rookie-scale-exception,4,13076519.0,3269130.0,2024
+terrence shannon jr.,2027,rookie-scale-exception,4,13076519.0,3269130.0,2024
 terry rozier,2022,Bird Rights,4,96258694.0,24064674.0,2022
 terry rozier,2023,Bird Rights,4,96258694.0,24064674.0,2022
 terry rozier,2024,Bird Rights,4,96258694.0,24064674.0,2022
@@ -5045,6 +6243,16 @@ thomas bryant,2020,Early Bird Rights,3,25000000.0,8333333.0,2019
 thomas bryant,2021,Early Bird Rights,3,25000000.0,8333333.0,2019
 thomas bryant,2017,Minimum,2,2193857.0,1096929.0,2017
 thomas bryant,2018,Minimum,2,2193857.0,1096929.0,2017
+thomas sorber,2025,rookie-scale-exception,4,22512733.0,5628183.0,2025
+thomas sorber,2026,rookie-scale-exception,4,22512733.0,5628183.0,2025
+thomas sorber,2027,rookie-scale-exception,4,22512733.0,5628183.0,2025
+thomas sorber,2028,rookie-scale-exception,4,22512733.0,5628183.0,2025
+thon maker,2024,Minimum,1,2425403.0,2425403.0,2024
+thon maker,2020,Minimum,1,1737145.0,1737145.0,2020
+thon maker,2016,rookie-scale-exception,4,11622123.0,2905531.0,2016
+thon maker,2017,rookie-scale-exception,4,11622123.0,2905531.0,2016
+thon maker,2018,rookie-scale-exception,4,11622123.0,2905531.0,2016
+thon maker,2019,rookie-scale-exception,4,11622123.0,2905531.0,2016
 tim frazier,2020,Minimum,1,296616.0,296616.0,2020
 tim frazier,2019,Minimum,1,1882867.0,1882867.0,2019
 tim frazier,2018,Minimum,1,210692.0,210692.0,2018
@@ -5171,6 +6379,10 @@ trayce jackson-davis,2023,second-round-exception,4,7639302.0,1909826.0,2023
 trayce jackson-davis,2024,second-round-exception,4,7639302.0,1909826.0,2023
 trayce jackson-davis,2025,second-round-exception,4,7639302.0,1909826.0,2023
 trayce jackson-davis,2026,second-round-exception,4,7639302.0,1909826.0,2023
+tre johnson,2025,rookie-scale-exception,4,37439131.0,9359783.0,2025
+tre johnson,2026,rookie-scale-exception,4,37439131.0,9359783.0,2025
+tre johnson,2027,rookie-scale-exception,4,37439131.0,9359783.0,2025
+tre johnson,2028,rookie-scale-exception,4,37439131.0,9359783.0,2025
 tre jones,2025,Bird Rights,3,24000000.0,8000000.0,2025
 tre jones,2026,Bird Rights,3,24000000.0,8000000.0,2025
 tre jones,2027,Bird Rights,3,24000000.0,8000000.0,2025
@@ -5186,6 +6398,7 @@ tre mann,2021,rookie-scale-exception,4,14047213.0,3511803.0,2021
 tre mann,2022,rookie-scale-exception,4,14047213.0,3511803.0,2021
 tre mann,2023,rookie-scale-exception,4,14047213.0,3511803.0,2021
 tre mann,2024,rookie-scale-exception,4,14047213.0,3511803.0,2021
+tremont waters,2021,Minimum,1,1669178.0,1669178.0,2021
 trendon watford,2025,Minimum,2,5262809.0,2631405.0,2025
 trendon watford,2024,Bird Rights,1,2726603.0,2726603.0,2024
 trendon watford,2023,Minimum,1,2019706.0,2019706.0,2023
@@ -5193,6 +6406,13 @@ trendon watford,2021,Non-Taxpayer MLE,4,5824694.0,1456174.0,2021
 trendon watford,2022,Non-Taxpayer MLE,4,5824694.0,1456174.0,2021
 trendon watford,2023,Non-Taxpayer MLE,4,5824694.0,1456174.0,2021
 trendon watford,2024,Non-Taxpayer MLE,4,5824694.0,1456174.0,2021
+trent forrest,2023,Minimum,1,553151.0,553151.0,2023
+trent forrest,2021,Minimum,1,8558.0,8558.0,2021
+trevelin queen,2023,Minimum,1,2019706.0,2019706.0,2023
+trevelin queen,2022,Minimum,2,3565862.0,1782931.0,2022
+trevelin queen,2023,Minimum,2,3565862.0,1782931.0,2022
+trevelin queen,2021,Minimum,1,925258.0,925258.0,2021
+trevelin queen,2020,Minimum,1,898310.0,898310.0,2020
 treveon graham,2023,Minimum,1,2165000.0,2165000.0,2023
 treveon graham,2020,Minimum,1,1737145.0,1737145.0,2020
 treveon graham,2018,Minimum,2,3157958.0,1578979.0,2018
@@ -5249,6 +6469,10 @@ trey murphy iii,2021,rookie-scale-exception,4,14779415.0,3694854.0,2021
 trey murphy iii,2022,rookie-scale-exception,4,14779415.0,3694854.0,2021
 trey murphy iii,2023,rookie-scale-exception,4,14779415.0,3694854.0,2021
 trey murphy iii,2024,rookie-scale-exception,4,14779415.0,3694854.0,2021
+tristan da silva,2024,rookie-scale-exception,4,17567626.0,4391907.0,2024
+tristan da silva,2025,rookie-scale-exception,4,17567626.0,4391907.0,2024
+tristan da silva,2026,rookie-scale-exception,4,17567626.0,4391907.0,2024
+tristan da silva,2027,rookie-scale-exception,4,17567626.0,4391907.0,2024
 tristan thompson,2024,Minimum,1,3303771.0,3303771.0,2024
 tristan thompson,2023,Minimum,1,3196448.0,3196448.0,2023
 tristan thompson,2022,Minimum,1,16700.0,16700.0,2022
@@ -5264,6 +6488,24 @@ tristan thompson,2011,rookie-scale-exception,4,16821270.0,4205318.0,2011
 tristan thompson,2012,rookie-scale-exception,4,16821270.0,4205318.0,2011
 tristan thompson,2013,rookie-scale-exception,4,16821270.0,4205318.0,2011
 tristan thompson,2014,rookie-scale-exception,4,16821270.0,4205318.0,2011
+troy daniels,2019,Minimum,1,384541.0,384541.0,2019
+troy daniels,2019,Minimum,1,2028594.0,2028594.0,2019
+troy daniels,2016,cap-space,3,10000009.0,3333336.0,2016
+troy daniels,2017,cap-space,3,10000009.0,3333336.0,2016
+troy daniels,2018,cap-space,3,10000009.0,3333336.0,2016
+troy daniels,2014,Minimum,2,1763758.0,881879.0,2014
+troy daniels,2015,Minimum,2,1763758.0,881879.0,2014
+troy daniels,2013,Minimum,1,158588.0,158588.0,2013
+troy williams,2019,Minimum,1,1620564.0,1620564.0,2019
+troy williams,2018,Minimum,1,1512601.0,1512601.0,2018
+troy williams,2017,Minimum,2,1767427.0,883714.0,2017
+troy williams,2018,Minimum,2,1767427.0,883714.0,2017
+troy williams,2017,cap-space,3,4693068.0,1564356.0,2017
+troy williams,2018,cap-space,3,4693068.0,1564356.0,2017
+troy williams,2019,cap-space,3,4693068.0,1564356.0,2017
+troy williams,2016,Minimum,1,76725.0,76725.0,2016
+troy williams,2016,Minimum,2,1448720.0,724360.0,2016
+troy williams,2017,Minimum,2,1448720.0,724360.0,2016
 ty jerome,2025,room-mid-level-exception,3,27660150.0,9220050.0,2025
 ty jerome,2026,room-mid-level-exception,3,27660150.0,9220050.0,2025
 ty jerome,2027,room-mid-level-exception,3,27660150.0,9220050.0,2025
@@ -5274,6 +6516,12 @@ ty jerome,2019,rookie-scale-exception,4,11129417.0,2782354.0,2019
 ty jerome,2020,rookie-scale-exception,4,11129417.0,2782354.0,2019
 ty jerome,2021,rookie-scale-exception,4,11129417.0,2782354.0,2019
 ty jerome,2022,rookie-scale-exception,4,11129417.0,2782354.0,2019
+tyler cook,2022,Minimum,1,1902133.0,1902133.0,2022
+tyler cook,2021,Minimum,1,1669178.0,1669178.0,2021
+tyler cook,2020,Minimum,2,2097674.0,1048837.0,2020
+tyler cook,2021,Minimum,2,2097674.0,1048837.0,2020
+tyler cook,2020,Minimum,1,1445697.0,1445697.0,2020
+tyler cook,2019,Minimum,1,527821.0,527821.0,2019
 tyler herro,2023,Bird Rights,4,120000000.0,30000000.0,2023
 tyler herro,2024,Bird Rights,4,120000000.0,30000000.0,2023
 tyler herro,2025,Bird Rights,4,120000000.0,30000000.0,2023
@@ -5290,10 +6538,38 @@ tyler johnson,2018,cap-space,4,50000000.0,12500000.0,2016
 tyler johnson,2019,cap-space,4,50000000.0,12500000.0,2016
 tyler johnson,2014,Minimum,2,1045009.0,522505.0,2014
 tyler johnson,2015,Minimum,2,1045009.0,522505.0,2014
+tyler kolek,2024,second-round-exception,4,9062682.0,2265671.0,2024
+tyler kolek,2025,second-round-exception,4,9062682.0,2265671.0,2024
+tyler kolek,2026,second-round-exception,4,9062682.0,2265671.0,2024
+tyler kolek,2027,second-round-exception,4,9062682.0,2265671.0,2024
+tyler lydon,2019,Minimum,2,3383360.0,1691680.0,2019
+tyler lydon,2020,Minimum,2,3383360.0,1691680.0,2019
+tyler lydon,2017,rookie-scale-exception,4,9476369.0,2369092.0,2017
+tyler lydon,2018,rookie-scale-exception,4,9476369.0,2369092.0,2017
+tyler lydon,2019,rookie-scale-exception,4,9476369.0,2369092.0,2017
+tyler lydon,2020,rookie-scale-exception,4,9476369.0,2369092.0,2017
 tyler smith,2024,second-round-exception,4,7895796.0,1973949.0,2024
 tyler smith,2025,second-round-exception,4,7895796.0,1973949.0,2024
 tyler smith,2026,second-round-exception,4,7895796.0,1973949.0,2024
 tyler smith,2027,second-round-exception,4,7895796.0,1973949.0,2024
+tyler ulis,2019,Minimum,1,1620564.0,1620564.0,2019
+tyler ulis,2018,Minimum,1,1512601.0,1512601.0,2018
+tyler ulis,2016,cap-space,4,4000000.0,1000000.0,2016
+tyler ulis,2017,cap-space,4,4000000.0,1000000.0,2016
+tyler ulis,2018,cap-space,4,4000000.0,1000000.0,2016
+tyler ulis,2019,cap-space,4,4000000.0,1000000.0,2016
+tyler zeller,2019,Minimum,2,2681732.0,1340866.0,2019
+tyler zeller,2020,Minimum,2,2681732.0,1340866.0,2019
+tyler zeller,2019,Minimum,1,2174318.0,2174318.0,2019
+tyler zeller,2018,Minimum,1,64185.0,64185.0,2018
+tyler zeller,2017,cap-space,2,3643479.0,1821740.0,2017
+tyler zeller,2018,cap-space,2,3643479.0,1821740.0,2017
+tyler zeller,2016,cap-space,2,16000000.0,8000000.0,2016
+tyler zeller,2017,cap-space,2,16000000.0,8000000.0,2016
+tyler zeller,2012,rookie-scale-exception,4,7517295.0,1879324.0,2012
+tyler zeller,2013,rookie-scale-exception,4,7517295.0,1879324.0,2012
+tyler zeller,2014,rookie-scale-exception,4,7517295.0,1879324.0,2012
+tyler zeller,2015,rookie-scale-exception,4,7517295.0,1879324.0,2012
 tyrell terry,2020,Non-Taxpayer MLE,4,6521129.0,1630282.0,2020
 tyrell terry,2021,Non-Taxpayer MLE,4,6521129.0,1630282.0,2020
 tyrell terry,2022,Non-Taxpayer MLE,4,6521129.0,1630282.0,2020
@@ -5322,6 +6598,13 @@ tyrese maxey,2020,rookie-scale-exception,4,12152560.0,3038140.0,2020
 tyrese maxey,2021,rookie-scale-exception,4,12152560.0,3038140.0,2020
 tyrese maxey,2022,rookie-scale-exception,4,12152560.0,3038140.0,2020
 tyrese maxey,2023,rookie-scale-exception,4,12152560.0,3038140.0,2020
+tyrese proctor,2025,second-round-exception,4,8685387.0,2171347.0,2025
+tyrese proctor,2026,second-round-exception,4,8685387.0,2171347.0,2025
+tyrese proctor,2027,second-round-exception,4,8685387.0,2171347.0,2025
+tyrese proctor,2028,second-round-exception,4,8685387.0,2171347.0,2025
+tyrone wallace,2018,Minimum,2,2969947.0,1484974.0,2018
+tyrone wallace,2019,Minimum,2,2969947.0,1484974.0,2018
+tyrone wallace,2017,Minimum,1,815615.0,815615.0,2017
 tyson chandler,2019,Minimum,1,2564753.0,2564753.0,2019
 tyson chandler,2018,Minimum,1,2109867.0,2109867.0,2018
 tyson chandler,2015,cap-space,4,52000000.0,13000000.0,2015
@@ -5345,6 +6628,9 @@ tyus jones,2015,rookie-scale-exception,4,6537195.0,1634299.0,2015
 tyus jones,2016,rookie-scale-exception,4,6537195.0,1634299.0,2015
 tyus jones,2017,rookie-scale-exception,4,6537195.0,1634299.0,2015
 tyus jones,2018,rookie-scale-exception,4,6537195.0,1634299.0,2015
+udoka azubuike,2020,rookie-scale-exception,4,10151244.0,2537811.0,2020
+udoka azubuike,2021,rookie-scale-exception,4,10151244.0,2537811.0,2020
+udoka azubuike,2022,rookie-scale-exception,4,10151244.0,2537811.0,2020
 udonis haslem,2022,Minimum,1,2905851.0,2905851.0,2022
 udonis haslem,2021,Minimum,1,2641691.0,2641691.0,2021
 udonis haslem,2020,Minimum,1,2564753.0,2564753.0,2020
@@ -5358,6 +6644,11 @@ udonis haslem,2010,cap-space,5,20300000.0,4060000.0,2010
 udonis haslem,2011,cap-space,5,20300000.0,4060000.0,2010
 udonis haslem,2012,cap-space,5,20300000.0,4060000.0,2010
 udonis haslem,2013,cap-space,5,20300000.0,4060000.0,2010
+usman garuba,2023,Minimum,1,,,2023
+usman garuba,2021,rookie-scale-exception,4,11805395.0,2951349.0,2021
+usman garuba,2022,rookie-scale-exception,4,11805395.0,2951349.0,2021
+usman garuba,2023,rookie-scale-exception,4,11805395.0,2951349.0,2021
+usman garuba,2024,rookie-scale-exception,4,11805395.0,2951349.0,2021
 victor oladipo,2022,Bird Rights,2,18200000.0,9100000.0,2022
 victor oladipo,2023,Bird Rights,2,18200000.0,9100000.0,2022
 victor oladipo,2021,Minimum,1,2389641.0,2389641.0,2021
@@ -5369,6 +6660,15 @@ victor oladipo,2013,rookie-scale-exception,4,21487440.0,5371860.0,2013
 victor oladipo,2014,rookie-scale-exception,4,21487440.0,5371860.0,2013
 victor oladipo,2015,rookie-scale-exception,4,21487440.0,5371860.0,2013
 victor oladipo,2016,rookie-scale-exception,4,21487440.0,5371860.0,2013
+victor wembanyama,2027,Bird Rights,5,252300000.0,50460000.0,2027
+victor wembanyama,2028,Bird Rights,5,252300000.0,50460000.0,2027
+victor wembanyama,2029,Bird Rights,5,252300000.0,50460000.0,2027
+victor wembanyama,2030,Bird Rights,5,252300000.0,50460000.0,2027
+victor wembanyama,2031,Bird Rights,5,252300000.0,50460000.0,2027
+victor wembanyama,2023,rookie-scale-exception,4,55174766.0,13793692.0,2023
+victor wembanyama,2024,rookie-scale-exception,4,55174766.0,13793692.0,2023
+victor wembanyama,2025,rookie-scale-exception,4,55174766.0,13793692.0,2023
+victor wembanyama,2026,rookie-scale-exception,4,55174766.0,13793692.0,2023
 vince carter,2019,Minimum,1,2564753.0,2564753.0,2019
 vince carter,2018,Minimum,1,2393887.0,2393887.0,2018
 vince carter,2017,cap-space,1,8000000.0,8000000.0,2017
@@ -5382,6 +6682,16 @@ vince carter,1998,rookie-scale-exception,4,9525752.0,2381438.0,1998
 vince carter,1999,rookie-scale-exception,4,9525752.0,2381438.0,1998
 vince carter,2000,rookie-scale-exception,4,9525752.0,2381438.0,1998
 vince carter,2001,rookie-scale-exception,4,9525752.0,2381438.0,1998
+vincent poirier,2019,cap-space,2,5125000.0,2562500.0,2019
+vincent poirier,2020,cap-space,2,5125000.0,2562500.0,2019
+vincent williams jr,2023,Non-Taxpayer MLE,4,9144340.0,2286085.0,2023
+vincent williams jr,2024,Non-Taxpayer MLE,4,9144340.0,2286085.0,2023
+vincent williams jr,2025,Non-Taxpayer MLE,4,9144340.0,2286085.0,2023
+vincent williams jr,2026,Non-Taxpayer MLE,4,9144340.0,2286085.0,2023
+vj edgecombe,2025,rookie-scale-exception,4,50438478.0,12609620.0,2025
+vj edgecombe,2026,rookie-scale-exception,4,50438478.0,12609620.0,2025
+vj edgecombe,2027,rookie-scale-exception,4,50438478.0,12609620.0,2025
+vj edgecombe,2028,rookie-scale-exception,4,50438478.0,12609620.0,2025
 walker kessler,2026,Bird Rights,4,129467930.0,32366983.0,2026
 walker kessler,2027,Bird Rights,4,129467930.0,32366983.0,2026
 walker kessler,2028,Bird Rights,4,129467930.0,32366983.0,2026
@@ -5460,6 +6770,14 @@ will barton,2017,Bird Rights,3,10599999.0,3533333.0,2015
 will barton,2012,rookie-scale-exception,3,2254115.0,751372.0,2012
 will barton,2013,rookie-scale-exception,3,2254115.0,751372.0,2012
 will barton,2014,rookie-scale-exception,3,2254115.0,751372.0,2012
+will richard,2025,second-round-exception,4,8685386.0,2171347.0,2025
+will richard,2026,second-round-exception,4,8685386.0,2171347.0,2025
+will richard,2027,second-round-exception,4,8685386.0,2171347.0,2025
+will richard,2028,second-round-exception,4,8685386.0,2171347.0,2025
+will riley,2025,rookie-scale-exception,4,17220192.0,4305048.0,2025
+will riley,2026,rookie-scale-exception,4,17220192.0,4305048.0,2025
+will riley,2027,rookie-scale-exception,4,17220192.0,4305048.0,2025
+will riley,2028,rookie-scale-exception,4,17220192.0,4305048.0,2025
 willie cauley-stein,2022,Minimum,1,14158.0,14158.0,2022
 willie cauley-stein,2022,Minimum,1,2463490.0,2463490.0,2022
 willie cauley-stein,2020,Non-Taxpayer MLE,1,4100000.0,4100000.0,2020
@@ -5483,6 +6801,17 @@ xavier cooks,2022,Non-Taxpayer MLE,4,6067398.0,1516850.0,2022
 xavier cooks,2023,Non-Taxpayer MLE,4,6067398.0,1516850.0,2022
 xavier cooks,2024,Non-Taxpayer MLE,4,6067398.0,1516850.0,2022
 xavier cooks,2025,Non-Taxpayer MLE,4,6067398.0,1516850.0,2022
+xavier sneed,2022,Minimum,1,1637966.0,1637966.0,2022
+xavier sneed,2021,Minimum,1,925258.0,925258.0,2021
+xavier sneed,2020,Minimum,1,898310.0,898310.0,2020
+yang hansen,2025,rookie-scale-exception,4,21393588.0,5348397.0,2025
+yang hansen,2026,rookie-scale-exception,4,21393588.0,5348397.0,2025
+yang hansen,2027,rookie-scale-exception,4,21393588.0,5348397.0,2025
+yang hansen,2028,rookie-scale-exception,4,21393588.0,5348397.0,2025
+yante maten,2019,Minimum,1,1445697.0,1445697.0,2019
+yante maten,2018,Minimum,3,3094924.0,1031641.0,2018
+yante maten,2019,Minimum,3,3094924.0,1031641.0,2018
+yante maten,2020,Minimum,3,3094924.0,1031641.0,2018
 yogi ferrell,2020,Minimum,2,2191180.0,1095590.0,2020
 yogi ferrell,2021,Minimum,2,2191180.0,1095590.0,2020
 yogi ferrell,2020,Minimum,1,1737145.0,1737145.0,2020
@@ -5492,11 +6821,21 @@ yogi ferrell,2016,Minimum,1,207798.0,207798.0,2016
 yogi ferrell,2016,Minimum,2,1400767.0,700384.0,2016
 yogi ferrell,2017,Minimum,2,1400767.0,700384.0,2016
 yogi ferrell,2016,Minimum,1,543471.0,543471.0,2016
+yuki kawamura,2026,Minimum,1,2449421.0,2449421.0,2026
+yuki kawamura,2024,Minimum,1,1157153.0,1157153.0,2024
 yuta watanabe,2023,Minimum,2,5001258.0,2500629.0,2023
 yuta watanabe,2022,Minimum,1,1968175.0,1968175.0,2022
 yuta watanabe,2020,Minimum,2,2084689.0,1042345.0,2020
 yuta watanabe,2021,Minimum,2,2084689.0,1042345.0,2020
 yuta watanabe,2020,Minimum,1,1620564.0,1620564.0,2020
+yves missi,2024,rookie-scale-exception,4,15654827.0,3913707.0,2024
+yves missi,2025,rookie-scale-exception,4,15654827.0,3913707.0,2024
+yves missi,2026,rookie-scale-exception,4,15654827.0,3913707.0,2024
+yves missi,2027,rookie-scale-exception,4,15654827.0,3913707.0,2024
+zaccharie risacher,2024,rookie-scale-exception,4,57027437.0,14256859.0,2024
+zaccharie risacher,2025,rookie-scale-exception,4,57027437.0,14256859.0,2024
+zaccharie risacher,2026,rookie-scale-exception,4,57027437.0,14256859.0,2024
+zaccharie risacher,2027,rookie-scale-exception,4,57027437.0,14256859.0,2024
 zach collins,2026,Bird Rights,2,17000000.0,8500000.0,2026
 zach collins,2027,Bird Rights,2,17000000.0,8500000.0,2026
 zach collins,2024,Bird Rights,2,34821696.0,17410848.0,2024
@@ -5508,6 +6847,10 @@ zach collins,2017,rookie-scale-exception,4,16332615.0,4083154.0,2017
 zach collins,2018,rookie-scale-exception,4,16332615.0,4083154.0,2017
 zach collins,2019,rookie-scale-exception,4,16332615.0,4083154.0,2017
 zach collins,2020,rookie-scale-exception,4,16332615.0,4083154.0,2017
+zach edey,2024,rookie-scale-exception,4,26202577.0,6550644.0,2024
+zach edey,2025,rookie-scale-exception,4,26202577.0,6550644.0,2024
+zach edey,2026,rookie-scale-exception,4,26202577.0,6550644.0,2024
+zach edey,2027,rookie-scale-exception,4,26202577.0,6550644.0,2024
 zach lavine,2022,Bird Rights,5,215159700.0,43031940.0,2022
 zach lavine,2023,Bird Rights,5,215159700.0,43031940.0,2022
 zach lavine,2024,Bird Rights,5,215159700.0,43031940.0,2022
@@ -5529,6 +6872,13 @@ zeke nnaji,2020,rookie-scale-exception,4,11802681.0,2950670.0,2020
 zeke nnaji,2021,rookie-scale-exception,4,11802681.0,2950670.0,2020
 zeke nnaji,2022,rookie-scale-exception,4,11802681.0,2950670.0,2020
 zeke nnaji,2023,rookie-scale-exception,4,11802681.0,2950670.0,2020
+zhaire smith,2025,Minimum,1,2378870.0,2378870.0,2025
+zhaire smith,2024,Minimum,1,2162606.0,2162606.0,2024
+zhaire smith,2023,Minimum,1,2019706.0,2019706.0,2023
+zhaire smith,2020,Minimum,1,1620564.0,1620564.0,2020
+zhaire smith,2018,rookie-scale-exception,4,13791056.0,3447764.0,2018
+zhaire smith,2019,rookie-scale-exception,4,13791056.0,3447764.0,2018
+zhaire smith,2020,rookie-scale-exception,4,13791056.0,3447764.0,2018
 ziaire williams,2026,Minimum,1,2845883.0,2845883.0,2026
 ziaire williams,2025,Bird Rights,2,12500000.0,6250000.0,2025
 ziaire williams,2026,Bird Rights,2,12500000.0,6250000.0,2025

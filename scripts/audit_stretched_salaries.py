@@ -44,7 +44,9 @@ STRETCH_LOOKBACK_YEARS = 5
 
 def load_frame() -> pd.DataFrame:
     from src.model.evaluate_suite import load_evaluation_frame
-    df, _ = load_evaluation_frame(verbose=False)
+    df, _ = load_evaluation_frame(
+        verbose=False, allow_missing_computed=True
+    )
     return df
 
 

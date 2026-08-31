@@ -82,12 +82,11 @@ class ImpactIdentityTests(unittest.TestCase):
         self.assertEqual(result.loc[0, "usage_pct"], 18.0)
         self.assertEqual(result.loc[0, "ast_pct"], 14.0)
 
-    def test_repaired_floor_crash_rows_have_observed_identity_and_workload(self):
+    def test_active_floor_crash_rows_have_observed_identity_and_workload(self):
         frame = pd.read_csv("data/processed/training_data_v2.csv").set_index(
             ["player_name_norm", "season"]
         )
         expected = {
-            ("montrezl harrell", 2023): (29.0, 11.9),
             ("demarcus cousins", 2020): (29.0, 0.0),
             ("bol bol", 2023): (23.0, 21.5),
             ("malik beasley", 2023): (26.0, 25.8),
@@ -104,6 +103,10 @@ class ImpactIdentityTests(unittest.TestCase):
             * CAP_BY_SEASON[2022]
         )
         self.assertAlmostEqual(beverley_prior, 13_000_000, places=0)
+
+        # Spotrac reports only retained dead money for this season. The salary
+        # migration deliberately removes it before identity repair.
+        self.assertNotIn(("montrezl harrell", 2023), frame.index)
 
 
 class ContractStructureCorrectionTests(unittest.TestCase):
@@ -134,7 +137,9 @@ class ContractStructureCorrectionTests(unittest.TestCase):
     def test_nunn_2020_excluded_from_evaluation_frame(self):
         """Kendrick Nunn 2020 does not appear in load_evaluation_frame()."""
         from src.model.evaluate_suite import load_evaluation_frame
-        frame, _ = load_evaluation_frame(verbose=False)
+        frame, _ = load_evaluation_frame(
+            verbose=False, allow_missing_computed=True
+        )
         nunn_2020 = frame[(frame["player_name_norm"] == "kendrick nunn")
                           & (frame["season"] == 2020)]
         self.assertEqual(len(nunn_2020), 0,

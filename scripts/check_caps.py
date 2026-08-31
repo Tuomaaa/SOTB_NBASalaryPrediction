@@ -32,6 +32,10 @@ TOLERANCE = 5e-5
 MIN_ROWS = 4
 # Share of near-max rows that must land on a tier for the cap to be believable.
 MIN_HIT_RATE = 0.4
+# Contract salaries are rounded to whole dollars. Dividing one rounded salary
+# by a max tier can therefore imply a cap a few dollars away from the published
+# integer without identifying a different cap.
+CAP_ROUNDING_TOLERANCE_USD = 5
 
 
 def _near_max(df: pd.DataFrame, cap: int) -> pd.DataFrame:
@@ -106,7 +110,12 @@ def _implied_cap(rows: pd.DataFrame, current: int) -> int | None:
             )
             if hits > best_hits:
                 best_cap, best_hits = candidate, hits
-    return best_cap if best_cap and best_cap != current else None
+    return (
+        best_cap
+        if best_cap
+        and abs(best_cap - current) > CAP_ROUNDING_TOLERANCE_USD
+        else None
+    )
 
 
 if __name__ == "__main__":

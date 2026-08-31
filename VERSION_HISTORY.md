@@ -1566,6 +1566,62 @@ the 0.03 tolerance.
 Evidence: `tests/test_kf_market_value.py`, `scripts/export_web.py`,
 `src/features/kf_market_value.py`, `src/model/predict.py`.
 
+### v8.16x: Spotrac cap-hit salary migration
+
+The training salary source now passes through a Spotrac merge layer before
+feature construction. Basketball Reference remains the base identity table and
+the explicit fallback when Spotrac cannot answer; Spotrac `Cap Hit` supplies
+the current contract value, retained-only dead money is removed, and sourced
+salary overrides win over ambiguous computed branches.
+
+The migration also closes the source defects that blocked a production
+rebuild:
+
+- current Spotrac-only contracts are admitted when a BBRef player identity
+  exists, recovering the genuine 2026 signings omitted by the BBRef team
+  pages;
+- cached pages must match the requested Spotrac player id or slug, preventing
+  same-name and wrong-sport cache contamination;
+- veteran-minimum paid amounts are converted to the cap-charge convention;
+- Danilo Gallinari 2022 and Gary Payton II 2022 carry sourced resolutions for
+  the otherwise ambiguous `Active;Retained` label;
+- Clint Capela 2019 and Kevin Durant 2019 are exempted from the blanket COVID
+  inversion because their Spotrac career rows already contain the unreduced
+  salary;
+- 2026 maximum extensions now use the official $164.961M cap values instead
+  of the stale $166M projection.
+- veteran maximum eligibility converts the previous-salary guarantee through
+  the previous/current cap ratio before expressing it as `cap_pct`, removing a
+  cap-growth inflation from that legal floor.
+
+This is a source-correction release, not a feature adoption. A1/A2/B1 are the
+new baseline and were not used as a veto. The rebuilt evaluation frame has 870
+rows and 21 features:
+
+| Metric | v8.16x |
+|---|---:|
+| A1 pooled CV R2 | **0.8423** |
+| A2 2024-26 CV R2 | **0.8576** |
+| B1 rolling-origin R2 | **0.8259** |
+| B1 2024 / 2025 / 2026 | 0.8607 / 0.8120 / 0.7928 |
+| MAE | $2.71M |
+| Calibration slope | 0.959 |
+
+The deployed k=20 signing offsets were regenerated on the migrated frame:
+Bird Rights +0.01514, Cap Space +0.00830, Early Bird +0.00443, and Non-Bird
+-0.00577. Legality and bit-identity guards pass. The fixed-row migration
+comparison remains diagnostic evidence only because correcting target data is
+not subject to the feature gate.
+
+Verification: `tests/test_salary_migration.py` passes 12/12; the formal
+evaluation suite writes 870 OOF rows; `scripts/eval_stage3_signing.py` passes
+its legality and bit-identity guards.
+
+Evidence: `scripts/build_merged_salaries.py`,
+`data/processed/merged_salaries.csv`, `data/processed/training_data_v2.csv`,
+`tests/test_salary_migration.py`, `tests/test_spotrac_scraper.py`, and
+`outputs/diagnostics/stage3_signing_offset_eval.csv`.
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v7.0x was a statistical
@@ -1627,7 +1683,7 @@ Phase 1    Phase 2 (leaked)     Phase 3         Phase 4        Phase 5    Phase 
 Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit     Data + protocol  3-stage + route
                                                                                      
 0.43 ─→ 0.62 ─→ 0.68 ─→ ···    0.65 ─→ 0.73    0.75 ─→ 0.75   0.76       0.76       0.758 → 0.787    0.799 → 0.857†
- v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.15x
+ v1.0     v2.2    v3.1  ···      v4.0    v4.2x    v5.0x   v5.3x   v6.2x    v7.0x      v7.1x    v7.13x   v8.0x    v8.16x
                         ↗ 0.87                                                                                 (current)
                   Leaked features                                                                told-route numbers
                   (removed in v4.0)                                                     †nested-CV; from v8.0x onward

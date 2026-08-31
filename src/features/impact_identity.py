@@ -119,8 +119,16 @@ def apply_impact_corrections(df: pd.DataFrame) -> pd.DataFrame:
     return indexed.reset_index(drop=True)
 
 
-def apply_player_identity_corrections(df: pd.DataFrame) -> pd.DataFrame:
-    """Apply sourced zero-game and identity facts after all source merges."""
+def apply_player_identity_corrections(
+    df: pd.DataFrame,
+    allowed_missing: set[tuple[str, int]] | None = None,
+) -> pd.DataFrame:
+    """Apply sourced identity facts after all source merges.
+
+    ``allowed_missing`` contains salary rows deliberately removed before the
+    impact merge, such as retained-only dead money. Other missing correction
+    keys remain a hard failure.
+    """
     if not IDENTITY_CORRECTIONS.exists():
         return df.copy()
     corrections = pd.read_csv(IDENTITY_CORRECTIONS)
@@ -139,8 +147,12 @@ def apply_player_identity_corrections(df: pd.DataFrame) -> pd.DataFrame:
             value = getattr(correction, column)
             if pd.notna(value):
                 out.loc[key, column] = value
-    if missing:
-        raise ValueError(f"player identity corrections did not match rows: {missing}")
+    allowed = allowed_missing or set()
+    unexpected = [key for key in missing if key not in allowed]
+    if unexpected:
+        raise ValueError(
+            f"player identity corrections did not match rows: {unexpected}"
+        )
     return out.reset_index(drop=True)
 
 

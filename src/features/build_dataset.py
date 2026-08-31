@@ -78,6 +78,86 @@ def _normalize_name(name: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
+def _apply_spotrac_salary_migration(salaries: pd.DataFrame) -> pd.DataFrame:
+    """Replace BBRef salaries with the audited Spotrac/BBRef merged values.
+
+    `rebuild_training_data.py` regenerates the migration table immediately
+    before this function runs. Full key coverage is mandatory for configured
+    training seasons: a stale table must fail loudly, because silently keeping
+    BBRef would reintroduce the future-option and stretched-dead-money defects
+    the migration exists to remove.
+    """
+    path = PROCESSED_DIR / "merged_salaries.csv"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} is required; run scripts/rebuild_training_data.py"
+        )
+
+    # Preserve the literal normalized key "nan". One legacy BBRef salary row
+    # has a missing player name, which `_normalize_name` represents as that
+    # string; pandas otherwise converts the same key in the CSV back to NaN and
+    # makes the freshly generated overlay fail its full-coverage guard.
+    merged = pd.read_csv(path, keep_default_na=False, na_values=[""])
+    key = ["player_name_norm", "season"]
+    if merged.duplicated(key).any():
+        raise RuntimeError("merged_salaries.csv has duplicate player-season keys")
+    overlay = merged[key + ["salary", "source", "branch"]].rename(columns={
+        "salary": "_merged_salary",
+        "source": "salary_source",
+        "branch": "salary_branch",
+    })
+    out = salaries.merge(
+        overlay, on=key, how="left", validate="one_to_one", indicator=True
+    )
+    required = out["season"].isin(SEASONS)
+    missing = required & out["_merge"].ne("both")
+    if missing.any():
+        sample = out.loc[missing, key].head(20).to_dict("records")
+        raise RuntimeError(
+            f"merged_salaries.csv is stale: {int(missing.sum())} configured "
+            f"salary keys are missing; sample={sample}"
+        )
+
+    retained_only = required & out["salary_branch"].eq("retained_only")
+    dropped_salary_keys = set(
+        zip(
+            out.loc[retained_only, "player_name_norm"],
+            out.loc[retained_only, "season"].astype(int),
+        )
+    )
+    if retained_only.any():
+        print(f"Spotrac salary migration: dropped {int(retained_only.sum())} "
+              "retained/dead-money-only rows")
+        out = out.loc[~retained_only].copy()
+        required = out["season"].isin(SEASONS)
+    invalid = required & out["_merged_salary"].isna()
+    if invalid.any():
+        sample = out.loc[invalid, key + ["salary_branch"]].head(20)
+        raise RuntimeError(
+            "merged_salaries.csv has unresolved configured salaries:\n"
+            + sample.to_string(index=False)
+        )
+
+    # Spotrac can publish fractional-dollar prorations. Promote the BBRef
+    # integer column before overlaying them; pandas 3 rejects lossy float-into-
+    # int assignment instead of silently upcasting the destination column.
+    out["salary"] = pd.to_numeric(out["salary"], errors="raise").astype(float)
+    out["_merged_salary"] = pd.to_numeric(
+        out["_merged_salary"], errors="raise"
+    ).astype(float)
+    changed = required & ~np.isclose(
+        out["salary"], out["_merged_salary"],
+        equal_nan=True,
+    )
+    out.loc[required, "salary"] = out.loc[required, "_merged_salary"]
+    out["cap_pct"] = out["salary"] / out["season"].map(CAP_BY_SEASON)
+    out = out.drop(columns=["_merged_salary", "_merge"])
+    out.attrs["salary_migration_dropped_keys"] = dropped_salary_keys
+    print(f"Spotrac salary migration: {int(required.sum())} rows covered, "
+          f"{int(changed.sum())} salaries changed")
+    return out
+
+
 def _resolve_merged_age(df: pd.DataFrame) -> pd.Series:
     """Prefer season-specific impact age, then one latest salary-page anchor.
 
@@ -116,6 +196,10 @@ def build_dataset() -> pd.DataFrame:
     print(f"Impact:   {len(impact)} rows, {impact['player_name_norm'].nunique()} players")
 
     salaries["player_name_norm"] = salaries["player"].apply(_normalize_name)
+    salaries = _apply_spotrac_salary_migration(salaries)
+    salary_migration_dropped_keys = salaries.attrs.get(
+        "salary_migration_dropped_keys", set()
+    )
     salaries = _apply_min_cap_charge_corrections(salaries)
     salary_keys = set(zip(salaries["player_name_norm"], salaries["season"].astype(int)))
     before = len(impact)
@@ -175,7 +259,9 @@ def build_dataset() -> pd.DataFrame:
             df = df.merge(heights[["player_name_norm", "height_inches"]], on="player_name_norm", how="left")
         print(f"Heights: matched {df['height_inches'].notna().sum()}/{len(df)} rows")
 
-    df = apply_player_identity_corrections(df)
+    df = apply_player_identity_corrections(
+        df, allowed_missing=salary_migration_dropped_keys
+    )
     # Salary pages or corrections sometimes carry the only observed age for a
     # player. Infer every other season from that player-specific anchor.
     df = fill_age_from_player_history(df)

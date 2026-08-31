@@ -1,8 +1,9 @@
 """Rebuild training_data_v2.csv through the full three-stage chain.
 
-The chain was previously undocumented and split across three files, one of them
-an experiment script:
+The chain was previously undocumented and split across several files, one of
+them an experiment script:
 
+    0. scripts/build_merged_salaries.py     audited Spotrac salary migration
     1. src/features/build_dataset.py        base merge (salaries x metrics x
                                             heights x contract structure)
     2. scripts/build_external_features.py   awards, draft, injuries, team value
@@ -35,11 +36,26 @@ TRAINING = PROCESSED_DIR / "training_data_v2.csv"
 # cap correction legitimately moves them; prev_cap_pct's first-contract fill is
 # a median over the dataset and shifts whenever rows are added.
 STABLE_FEATURES = [
-    "darko_dpm_z", "lebron_z", "laker_z", "age", "age_squared", "mpg",
+    "darko_dpm", "lebron", "laker", "age", "age_squared", "mpg",
     "availability_3yr", "usage_pct", "height_inches", "cba_era", "ast_pct",
     "is_waived", "is_waived_known",
     "award_score_cum", "draft_pick", "year_in_contract", "contract_years",
 ]
+
+# These are deterministically re-standardized within season. Adding or
+# removing one priced row legitimately moves every z-score in that season,
+# while seasons whose membership did not change must still reproduce exactly.
+SEASON_NORMALIZED_FEATURES = ["darko_dpm_z", "lebron_z", "laker_z"]
+
+
+def stage0_salaries() -> None:
+    """Regenerate and audit the salary table consumed by the feature build."""
+    from scripts.build_merged_salaries import OUT, audit, build, output_table
+    df = build()
+    audit(df)
+    out = output_table(df)
+    out.to_csv(OUT, index=False)
+    print(f"\nstage 0 done: {len(out)} rows -> {OUT.name}")
 
 
 def stage1_base() -> None:
@@ -74,12 +90,27 @@ def validate(old: pd.DataFrame, new: pd.DataFrame) -> None:
     n = new.drop_duplicates(key).set_index(key).sort_index()
 
     lost = o.index.difference(n.index)
-    if len(lost):
-        for k in list(lost)[:10]:
+    allowed_lost = pd.MultiIndex.from_tuples([], names=key)
+    merged_path = PROCESSED_DIR / "merged_salaries.csv"
+    if merged_path.exists():
+        sm = pd.read_csv(merged_path)
+        dead = sm[sm["branch"].eq("retained_only")]
+        allowed_lost = pd.MultiIndex.from_frame(dead[key])
+    unexpected_lost = lost.difference(allowed_lost)
+    if len(unexpected_lost):
+        for k in list(unexpected_lost)[:10]:
             print(f"  LOST row: {k}")
-        raise SystemExit(f"{len(lost)} rows disappeared during rebuild — aborting")
+        raise SystemExit(
+            f"{len(unexpected_lost)} rows disappeared during rebuild — aborting"
+        )
+    if len(lost):
+        print(f"  expected removal: {len(lost)} retained/dead-money-only rows")
 
     shared = o.index.intersection(n.index)
+    added = n.index.difference(o.index)
+    membership_changed_seasons = {
+        int(k[1]) for k in list(added) + list(lost)
+    }
     print(f"\nvalidating {len(shared)} rows shared with the previous build")
     bad = []
     for col in STABLE_FEATURES:
@@ -93,6 +124,32 @@ def validate(old: pd.DataFrame, new: pd.DataFrame) -> None:
         pct = float(np.mean(ok)) * 100
         mark = "" if pct > 99.9 else "   <-- REGRESSION"
         print(f"  {col:20s} {pct:7.2f}%{mark}")
+        if pct <= 99.9:
+            bad.append(col)
+
+    for col in SEASON_NORMALIZED_FEATURES:
+        if col not in o.columns or col not in n.columns:
+            continue
+        strict_rows = [
+            k for k in shared if int(k[1]) not in membership_changed_seasons
+        ]
+        if strict_rows:
+            ok = np.isclose(
+                pd.to_numeric(n.loc[strict_rows, col], errors="coerce")
+                .astype(float),
+                pd.to_numeric(o.loc[strict_rows, col], errors="coerce")
+                .astype(float),
+                rtol=1e-6,
+                equal_nan=True,
+            )
+            pct = float(np.mean(ok)) * 100
+        else:
+            pct = 100.0
+        changed = ",".join(map(str, sorted(membership_changed_seasons)))
+        note = (f"; re-normalized season(s) {changed}"
+                if changed else "")
+        mark = "" if pct > 99.9 else "   <-- REGRESSION"
+        print(f"  {col:20s} {pct:7.2f}%{note}{mark}")
         if pct <= 99.9:
             bad.append(col)
 
@@ -122,6 +179,7 @@ def validate(old: pd.DataFrame, new: pd.DataFrame) -> None:
 
 def main() -> None:
     previous = pd.read_csv(TRAINING)
+    stage0_salaries()
     stage1_base()
     stage2_external()
     rebuilt = stage3_prev_cap_pct()

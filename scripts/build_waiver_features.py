@@ -9,7 +9,6 @@ reproducible artifact is data/processed/spotrac_transactions.csv.
 
 import argparse
 import sys
-import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -17,7 +16,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 import pandas as pd
 
-from config import PROCESSED_DIR, SCRAPE_DELAY_SECONDS
+from config import PROCESSED_DIR
 from scripts.scrape_spotrac_players import (
     PLAYER_CACHE,
     scrape_player,
@@ -37,7 +36,9 @@ def _players(scope: str = "evaluation") -> list[str]:
     """Players needed for model training, or the complete scoring table."""
     if scope == "evaluation":
         from src.model.evaluate_suite import load_evaluation_frame
-        df, _ = load_evaluation_frame(verbose=False)
+        df, _ = load_evaluation_frame(
+            verbose=False, allow_missing_computed=True
+        )
     else:
         df = pd.read_csv(PROCESSED_DIR / "training_data_v2.csv")
     return sorted(df["player_name_norm"].dropna().astype(str).unique())
@@ -57,7 +58,7 @@ def _save_urls(urls: dict[str, str]) -> None:
 
 
 def fetch_missing(players: list[str], limit: int | None = None) -> None:
-    """Fetch uncached player pages with a delay after every live request."""
+    """Fetch uncached player pages through the scraper's guarded request path."""
     urls = _load_urls()
     missing = [
         player for player in players
@@ -79,7 +80,6 @@ def fetch_missing(players: list[str], limit: int | None = None) -> None:
             print("Rerun the same command after the source recovers.")
             break
         print(f"[{i}/{len(missing)}] {player}: OK")
-        time.sleep(SCRAPE_DELAY_SECONDS)
 
 
 def build() -> pd.DataFrame:

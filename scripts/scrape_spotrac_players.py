@@ -12,6 +12,18 @@ from config import CACHE_DIR, USER_AGENT, PROCESSED_DIR, SCRAPE_DELAY_SECONDS
 
 PLAYER_CACHE = CACHE_DIR / "spotrac_players"
 PLAYER_CACHE.mkdir(parents=True, exist_ok=True)
+_LAST_SPOTRAC_REQUEST_AT = None
+
+
+def _wait_for_spotrac_request() -> None:
+    """Keep every Spotrac request at least the configured delay apart."""
+    global _LAST_SPOTRAC_REQUEST_AT
+    now = time.monotonic()
+    if _LAST_SPOTRAC_REQUEST_AT is not None:
+        remaining = SCRAPE_DELAY_SECONDS - (now - _LAST_SPOTRAC_REQUEST_AT)
+        if remaining > 0:
+            time.sleep(remaining)
+    _LAST_SPOTRAC_REQUEST_AT = time.monotonic()
 
 
 def norm(name):
@@ -52,6 +64,7 @@ def search_spotrac_player(name):
     """Try Spotrac search API to find player URL."""
     search_url = "https://www.spotrac.com/search"
     try:
+        _wait_for_spotrac_request()
         resp = requests.get(
             search_url,
             params={"q": name, "sport": "nba"},
@@ -61,13 +74,16 @@ def search_spotrac_player(name):
         if resp.status_code == 200:
             soup = BeautifulSoup(resp.text, "html.parser")
             wanted = norm(name)
+            redirect_match = False
             for a in soup.find_all("a", href=True):
                 href = a.get("href", "")
                 label = re.sub(r"\s*\([^)]*\).*$", "", a.get_text(" ", strip=True))
-                if "/redirect/player/" in href and norm(label) == wanted:
-                    return href
                 if "/nba/player/" in href and norm(label) == wanted:
                     return href
+                if "/redirect/player/" in href and norm(label) == wanted:
+                    redirect_match = True
+            if redirect_match:
+                return f"https://www.spotrac.com/nba/player/{slugify(name)}"
     except Exception:
         pass
     return None
@@ -75,31 +91,52 @@ def search_spotrac_player(name):
 
 # ─── Step 3: Scrape player pages ────────────────────────────────────
 def scrape_player(url, slug, retries=3):
-    """Fetch and cache a player page."""
+    """Fetch, validate, and cache a player page with rate-limited retries."""
     cache_path = PLAYER_CACHE / f"{slug}.html"
     if cache_path.exists():
-        return cache_path
+        defect = page_defect(cache_path, expected_url=url)
+        if defect is None:
+            return cache_path
+        print(f"    Invalid cached page for {slug}: {defect}; refetching")
+        cache_path.unlink()
 
     for attempt in range(retries):
         try:
+            _wait_for_spotrac_request()
             resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
             if resp.status_code == 200:
                 cache_path.write_text(resp.text, encoding="utf-8")
-                return cache_path
-            elif resp.status_code == 403:
-                print(f"    403 for {slug}, skipping")
-                return None
+                defect = page_defect(cache_path, expected_url=url)
+                if defect is None:
+                    return cache_path
+                print(f"    Invalid page for {slug}: {defect}")
+                cache_path.unlink()
+            elif resp.status_code in (403, 429):
+                print(f"    HTTP {resp.status_code} for {slug}; "
+                      f"retry {attempt + 1}/{retries}")
+                if attempt + 1 < retries:
+                    time.sleep(SCRAPE_DELAY_SECONDS * (2 ** (attempt + 1)))
+            else:
+                print(f"    HTTP {resp.status_code} for {slug}; "
+                      f"retry {attempt + 1}/{retries}")
         except requests.exceptions.RequestException as e:
             print(f"    Retry {attempt+1}/{retries} for {slug}: {e}")
-            time.sleep(5)
     return None
 
 
 SEASON_SPAN_RE = re.compile(r"^\s*(\d{4})\s*[-–]\s*(\d{4})\b")
 NBA_PLAYER_URL_RE = re.compile(r"spotrac\.com/nba/player/", re.I)
+PLAYER_ID_RE = re.compile(r"/id/(\d+)(?:/|$)", re.I)
 
 
-def page_defect(html_path):
+def _player_slug(url: str) -> str:
+    """Trailing player slug from a direct Spotrac player URL."""
+    if not NBA_PLAYER_URL_RE.search(url or "") or "/redirect/player/" in url:
+        return ""
+    return url.split("?")[0].rstrip("/").rsplit("/", 1)[-1].lower()
+
+
+def page_defect(html_path, expected_url: str | None = None):
     """Why a cached player page is not usable, or None if it is fine.
 
     A fetch that lands somewhere other than the NBA player page it asked for
@@ -122,6 +159,21 @@ def page_defect(html_path):
         return "no canonical URL"
     if not NBA_PLAYER_URL_RE.search(url):
         return f"canonical URL is not an NBA player page: {url}"
+    if expected_url and NBA_PLAYER_URL_RE.search(expected_url):
+        expected_id = PLAYER_ID_RE.search(expected_url)
+        actual_id = PLAYER_ID_RE.search(url)
+        if expected_id and actual_id:
+            if expected_id.group(1) != actual_id.group(1):
+                return ("canonical player id does not match requested URL: "
+                        f"expected {expected_id.group(1)}, got "
+                        f"{actual_id.group(1)}")
+        else:
+            expected_slug = _player_slug(expected_url)
+            actual_slug = _player_slug(url)
+            if (expected_slug and actual_slug
+                    and expected_slug != actual_slug):
+                return ("canonical player slug does not match requested URL: "
+                        f"expected {expected_slug}, got {actual_slug}")
     return None
 
 
@@ -346,7 +398,6 @@ def main():
             failed += 1
         if (scraped + failed) % 25 == 0:
             print(f"  Progress: {scraped + failed}/{total} (scraped={scraped}, failed={failed})")
-        time.sleep(SCRAPE_DELAY_SECONDS)
 
     # Try search for missing players
     print(f"\nSearching for {len(missing)} missing players...")
@@ -372,7 +423,6 @@ def main():
 
         if (i + 1) % 25 == 0:
             print(f"  Search progress: {i+1}/{len(missing)} (found={search_found})")
-        time.sleep(SCRAPE_DELAY_SECONDS)
 
     print(f"\nScraping complete: {scraped} scraped, {failed} failed")
 
