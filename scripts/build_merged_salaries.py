@@ -70,6 +70,22 @@ THE MERGE POLICY
   separates the two populations, so the majority rule is applied and the
   minority is reported by `audit`.
 
+  signing_contract  A season whose cell holds more than one amount (a trade,
+               a waiver, or a buyout and re-signing) is priced by the contract
+               that STARTS that season, not by the season's cash. A training
+               row is one signing, so summing the season across teams prices a
+               waived player's old deal as his new one: Dion Waiters 2019 read
+               $13.44M for a rest-of-season minimum. The contract comes from
+               the Spotrac contract blocks (`spotrac_signing_types.csv`,
+               `contract_start == season`); when several start, the largest
+               AAV wins, because a rest-of-season minimum is never the
+               offseason deal. A one-year contract is priced at its total. A
+               longer one takes the cell amount, or the cell sum, closest to
+               its AAV, and is left to the branches below when none is within
+               `SIGNING_AAV_TOL`. A rest-of-season deal keeps its prorated
+               amount so the prorated filter drops the row, as it did under
+               BBRef. See ISSUES #50 and the migration queue item.
+
   Anything the above cannot resolve falls back to the BBRef value, branch
   `fallback_bbref`. A missing Spotrac page degrades to stale BBRef, never to a
   missing salary.
@@ -137,6 +153,11 @@ MIN_MATCH_TOL_USD = 5_000
 # trade, and the label cannot tell them apart, so the transaction log decides.
 # Worth +138 rows against -10 on the status_active branch (70% -> 79%).
 PAGE_TRADED: set[tuple[str, int]] = set()
+
+# How far a multi-year contract's year-1 amount may sit from its AAV. Raises
+# are at most 8% a year under the CBA, so a five-year deal's first year sits
+# at most about 15% below its AAV; the wider band absorbs likely bonuses.
+SIGNING_AAV_TOL = 0.35
 
 
 def _normalize_name(name: str) -> str:
@@ -394,9 +415,70 @@ def _status_base_candidate(
     return None, "retained_only", None
 
 
-def resolve_row(row, waived_keys: set, min_labels: set
-                ) -> tuple[float | None, str]:
+def _signing_starts() -> dict:
+    """(player, season) -> contracts whose first season is that season.
+
+    Each contract is a dict with `signing_type`, `contract_years`,
+    `total_value` and `aav`, read from the Spotrac contract blocks.
+    """
+    if not SIGNING_TYPES.exists():
+        return {}
+    st = pd.read_csv(SIGNING_TYPES)
+    if "contract_start" not in st.columns:
+        return {}
+    st = st[st["season"] == st["contract_start"]]
+    starts: dict = {}
+    for r in st.itertuples():
+        starts.setdefault((r.player_name_norm, int(r.season)), []).append({
+            "signing_type": r.signing_type,
+            "contract_years": r.contract_years,
+            "total_value": r.total_value,
+            "aav": r.aav,
+        })
+    return starts
+
+
+def _has_multiple_amounts(row) -> bool:
+    """Does the season cell carry more than one contract's money?"""
+    n_teams = pd.to_numeric(row.get("n_teams"), errors="coerce")
+    extra = row.get("extra_amounts")
+    has_extra = pd.notna(extra) and bool(str(extra).strip())
+    return (pd.notna(n_teams) and n_teams > 1) or has_extra
+
+
+def _signing_year1_amount(row, season: int, contracts: list
+                          ) -> tuple[float, float] | None:
+    """Year-1 amount of the contract that starts this season, and its length.
+
+    Returns None when no amount can be tied to the contract; the caller then
+    falls through to the season-cash branches.
+    """
+    usable = [c for c in contracts
+              if pd.notna(c.get("aav")) and float(c["aav"]) > 0]
+    if not usable:
+        return None
+    c = max(usable, key=lambda c: float(c["aav"]))
+    years = pd.to_numeric(c.get("contract_years"), errors="coerce")
+    total = pd.to_numeric(c.get("total_value"), errors="coerce")
+    if pd.notna(years) and int(years) == 1 and pd.notna(total):
+        return float(total), 1.0
+    aav = float(c["aav"])
+    amounts = _all_amounts(row, season)
+    if not amounts:
+        return None
+    candidates = amounts + ([sum(amounts)] if len(amounts) > 1 else [])
+    best = min(candidates, key=lambda a: abs(a - aav))
+    if abs(best - aav) > SIGNING_AAV_TOL * aav:
+        return None
+    return float(best), (float(years) if pd.notna(years) else np.nan)
+
+
+def resolve_row(row, waived_keys: set, min_labels: set,
+                starts: dict | None = None) -> tuple[float | None, str]:
     """The merged salary for one player-season, and the branch that made it.
+
+    `starts` maps (player, season) to the contracts that begin that season
+    (`_signing_starts`). When it is omitted, the signing_contract branch is off.
 
     Returns (None, branch) when Spotrac cannot answer and the caller must fall
     back to BBRef.
@@ -429,6 +511,20 @@ def resolve_row(row, waived_keys: set, min_labels: set
         return float(cap_hit), "spotrac_cap_hit"
 
     key = (row["player_name_norm"], season)
+
+    # A multi-amount season is priced by the contract that starts in it. This
+    # runs before the dead-money and trade-sum readings below, because those
+    # answer "what was he paid this season", and a training row asks "what did
+    # this signing cost".
+    signing = (starts or {}).get(key)
+    if signing and season < 2026 and _has_multiple_amounts(row):
+        picked = _signing_year1_amount(row, season, signing)
+        if picked is not None:
+            amount, years = picked
+            if _is_min_amount(amount, season):
+                return _min_cap_charge(amount, season, years), "vet_min"
+            return amount, "signing_contract"
+
     status_value, status_branch, status_live_value = _status_base_candidate(row)
     if status_branch == "retained_only":
         return np.nan, status_branch
@@ -573,10 +669,13 @@ def build() -> pd.DataFrame:
                                      "event_type"]))
     waived_keys = _waived_in_season(tx)
     min_labels = _minimum_labelled()
+    starts = _signing_starts()
 
-    salaries, branches = [], []
+    salaries, branches, season_cash = [], [], []
     for row in df.to_dict("records"):
-        val, branch = resolve_row(row, waived_keys, min_labels)
+        val, branch = resolve_row(row, waived_keys, min_labels, starts)
+        # The pre-signing_contract reading, kept for the audit only.
+        season_cash.append(resolve_row(row, waived_keys, min_labels)[0])
         key = (str(row["player_name_norm"]), int(row["season"]))
         if key in salary_override_map:
             # A sourced correction is authoritative over every computed
@@ -599,6 +698,10 @@ def build() -> pd.DataFrame:
         branches.append((branch, source))
 
     df["salary_merged"] = salaries
+    df["salary_season_cash"] = season_cash
+    df["has_signing_start"] = [
+        (str(k), int(s)) in starts
+        for k, s in zip(df["player_name_norm"], df["season"])]
     df["branch"] = [b for b, _ in branches]
     df["source"] = [s for _, s in branches]
     df["cap"] = df["season"].map(CAP_BY_SEASON)
@@ -636,8 +739,9 @@ def audit(df: pd.DataFrame) -> None:
     frame = _eval_frame()[["player_name_norm", "season", "salary"]]
     frame = frame.rename(columns={"salary": "bbref"})
     m = frame.merge(df[["player_name_norm", "season", "salary_merged",
-                        "branch", "source", "n_teams", "extra_amounts",
-                        "cap", "cap_hit"]],
+                        "salary_season_cash", "has_signing_start",
+                        "branch", "source", "n_teams",
+                        "extra_amounts", "cap", "cap_hit"]],
                     on=["player_name_norm", "season"], how="left")
     print(f"\n{'='*72}\nEVALUATION FRAME: {len(m)} rows\n{'='*72}")
 
@@ -715,6 +819,26 @@ def audit(df: pd.DataFrame) -> None:
               f"{int((cap_exact & ~car_exact).sum())}")
         print(f"  career right where cap hit wrong : "
               f"{int((car_exact & ~cap_exact).sum())}")
+
+    # Every frame row the signing_contract branch moves, beside the season-cash
+    # reading it replaced. A human must check these against the contract block.
+    moved = m[(m["salary_merged"] - m["salary_season_cash"]).abs() > 1.0]
+    print(f"\nsigning_contract branch moves {len(moved)} frame rows "
+          f"(season cash -> signing year 1):")
+    print(f"{'player':26s} {'szn':>5s} {'bbref':>14s} {'season cash':>14s} "
+          f"{'signing':>14s} {'branch':>16s}")
+    for r in moved.sort_values(["season", "player_name_norm"]).itertuples():
+        cash = r.salary_season_cash
+        cash_s = f"{cash:14,.0f}" if pd.notna(cash) else f"{'bbref':>14s}"
+        print(f"{r.player_name_norm:26s} {r.season:5d} {r.bbref:14,.0f} "
+              f"{cash_s} {r.salary_merged:14,.0f} {r.branch:>16s}")
+    multi = m[(m["n_teams"] > 1) & (m["season"] < 2026)]
+    no_start = multi[~multi["has_signing_start"].fillna(False).astype(bool)]
+    print(f"\nmulti-team frame rows with no Spotrac contract starting that "
+          f"season: {len(no_start)} of {len(multi)} (reported, not acted on; "
+          "such a row may not be a signing)")
+    print(no_start[["player_name_norm", "season", "branch"]]
+          .to_string(index=False, max_rows=40))
 
     unres = m[m["branch"].isin(["fallback_bbref", "waived"])]
     print(f"\nunreconciled (no Spotrac answer, BBRef kept): {len(unres)} "

@@ -10,13 +10,25 @@ work in `VERSION_HISTORY.md`.
 
 ### Finish the Spotrac salary migration
 
-- Resolve the 2019 COVID salary treatment, rebuild the frame, and compare it
-  with HEAD on fixed rows. The current `split` branch recovered 61.4% of 57
-  ambiguous rows against a documented 68% ceiling; taking the first Spotrac
-  amount performed better.
-- Complete when A1, A2, and B1 are remeasured against the v8.17x baseline
-  0.8422, 0.8595, and 0.8273; `SIGNING_OFFSETS_DEPLOYED`, `career_earnings.csv`,
-  and `rings_thru_prev.csv` are regenerated from the final salary frame.
+The 2019 COVID rule and the `career_earnings.csv` and `rings_thru_prev.csv`
+regeneration need no action: 104 of 127 frame rows for 2019 match BBRef with no
+over-corrected row, and neither file reads `salaries.csv`.
+
+The remaining defect is multi-amount seasons. The merge summed a season's cash
+across teams, so a waived player's old contract priced his new signing (Dion
+Waiters 2019 read $13.44M for a rest-of-season minimum). 26 frame rows differ
+from BBRef by more than $0.5M. `build_merged_salaries.py` now has the
+`signing_contract` branch: price the contract that starts that season.
+
+- Run on a machine with `data/raw/html_cache/`. Dry-run
+  `python scripts/build_merged_salaries.py` and check the "signing_contract
+  branch moves" block against these expected values: Waiters 2019 $503,656,
+  Beverley 2022 $13,000,000, Love 2022 $3,114,138, Bradley 2020 $5,635,000,
+  Adams 2023 $12,600,000.
+- Then run `python scripts/rebuild_training_data.py`, the suite, and
+  `scripts/eval_stage3_signing.py`.
+- Complete when the rebuilt frame is remeasured against the v8.17x baseline
+  0.8422, 0.8595, and 0.8273 and the offsets are regenerated.
 
 ### Decide the ring-chasing discount
 
