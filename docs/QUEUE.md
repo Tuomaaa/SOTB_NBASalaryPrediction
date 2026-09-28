@@ -48,8 +48,9 @@ The earnings-only gain is LeBron James 2026 alone; 23 of 50 moved rows get
 worse (Butler 2023 -$6.3M, Durant 2026 -$6.1M, Paul 2021 -$5.9M). Absolute
 age cannot separate discounters from full-price veterans.
 
-- Next: replace age with a career-horizon estimate, P(retire within 1-2
-  years | age, BPM, minutes), fitted on completed careers. Scrape
+- Next: gate on the probability that this is the player's last contract,
+  estimated as P(retire within 1-2 years | age, BPM, minutes) and fitted on
+  completed careers. Scrape
   `python scripts/scrape_advanced_history.py` (1997-2018) on a machine that
   Basketball Reference has not jailed; 2019-2026 alone gives every
   good veteran P(retire) near 0, LeBron included.
@@ -65,12 +66,13 @@ age cannot separate discounters from full-price veterans.
 - Kevin Durant 2026 signed $30M under his maximum (ESPN, 2025-10), but the
   champion already priced it ($43.3M against $43.9M). The pull must not
   discount a row twice; report rows the champion already prices within $2M.
-- DeMar DeRozan 2024 traded salary for years (three years at 35); a horizon
-  gate will not explain him.
-- Forward check: Stephen Curry's September 2026 extension (two years, $116M,
-  year 1 $55.7M in repo season 2027, about $20M under his maximum; ESPN,
-  2026-09) is outside the frame. Score it with the frozen gate before the
-  2027 refresh adds the row.
+- DeMar DeRozan 2024 traded salary for years (three years at 35) on a
+  contract that was not his last; the gate will not explain that row.
+- Forward checks, both outside the frame: Stephen Curry's September 2026
+  extension (two years, $116M, year 1 $55.7M in repo season 2027, about $20M
+  under his maximum; ESPN) and DeRozan's August 2026 one-year minimum with
+  Denver after Sacramento waived him (AP). Score both with the frozen gate
+  before the refresh adds the rows.
 - Complete when the retire gate is adopted or rejected with paired metrics and
   per-row gain and damage; reject all three gates if it fails.
 
