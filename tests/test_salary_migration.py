@@ -410,3 +410,51 @@ def test_signing_contract_falls_through_when_no_amount_matches_aav():
     value, branch = merged.resolve_row(_row(), set(), set(), starts)
     assert value == 10_000_000
     assert branch == "status_active"
+
+
+def test_signing_contract_ignores_nba_cup_money():
+    # Austin Reaves 2023: one salary plus a $500,000 Cup bonus is one contract.
+    row = _row(player_name_norm="austin reaves", season=2023,
+               base=12_015_150, extra_amounts="500000",
+               statuses="Active;NBA Cup", n_teams=1, split_total=12_515_150,
+               contract_years=4)
+    starts = {("austin reaves", 2023): [
+        _contract("Bird Rights", 4, 53_827_872)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 12_015_150
+    assert branch != "signing_contract"
+
+
+def test_signing_contract_cup_money_is_not_added_to_a_traded_sum():
+    row = _row(season=2024, base=2_086_207, extra_amounts="3413793;530933",
+               statuses="Retained;Active;NBA Cup", n_teams=2,
+               split_total=6_030_933)
+    starts = {("player", 2024): [_contract("Cap Space", 2, 11_000_000)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 5_500_000
+    assert branch == "signing_contract"
+
+
+def test_signing_contract_prefers_the_deal_that_was_paid():
+    # Kevin Knox 2023: unused camp minimum beside the rest-of-season deal.
+    row = _row(player_name_norm="kevin knox", season=2023,
+               base=2_144_320, extra_amounts="120000",
+               statuses="Active;Waived", n_teams=2, split_total=2_264_320,
+               contract_years=1)
+    starts = {("kevin knox", 2023): [_contract("Minimum", 1, 2_346_614),
+                                     _contract("Minimum", 1, 2_144_320)]}
+    value, _ = merged.resolve_row(row, set(), set(), starts)
+    assert value == 2_144_320
+
+
+def test_signing_contract_rejects_price_above_exception_limit():
+    # Markieff Morris 2019: "1 yr / $6.56M" Bi-Annual exceeds the $3.623M limit.
+    row = _row(player_name_norm="markieff morris", season=2019,
+               base=1_750_000, extra_amounts="116667", n_teams=2,
+               split_total=1_866_667, statuses=np.nan)
+    starts = {("markieff morris", 2019): [
+        _contract("Bi-Annual", 1, 6_560_000),
+        _contract("disabled-player-exception", 1, 1_750_000)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert branch != "signing_contract"
+    assert value == merged.resolve_row(row, set(), set())[0]
