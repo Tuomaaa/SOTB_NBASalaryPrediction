@@ -66,8 +66,13 @@ age cannot separate discounters from full-price veterans.
 - Kevin Durant 2026 signed $30M under his maximum (ESPN, 2025-10), but the
   champion already priced it ($43.3M against $43.9M). The pull must not
   discount a row twice; report rows the champion already prices within $2M.
-- DeMar DeRozan 2024 traded salary for years (three years at 35) on a
-  contract that was not his last; the gate will not explain that row.
+- The gate estimates the belief at signing, not the realized outcome.
+  DeMar DeRozan 2024 (three years at 35) may have been expected to be his last
+  deal before he played on. Select the window (P(retire within 2 or 3 years))
+  inside the pool, like the age threshold.
+- The belief must come from the hazard, never from a narrative fitted after
+  the fact. Check it: DeRozan 2024 must score clearly above Butler 2023 and
+  Paul 2021 for the reading to help.
 - Forward checks, both outside the frame: Stephen Curry's September 2026
   extension (two years, $116M, year 1 $55.7M in repo season 2027, about $20M
   under his maximum; ESPN) and DeRozan's August 2026 one-year minimum with
