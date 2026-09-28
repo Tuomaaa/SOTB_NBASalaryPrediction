@@ -733,6 +733,7 @@ Evidence: `docs/briefs/2026-07-26-service-years.RESULT.md`,
 
 | Ver | Model | A1 (told) | A2 (told) | B1 (told) | N | Feat | Change |
 |-----|-------|-----------|-----------|-----------|---|------|--------|
+| **8.16x** | **XGBoost (Grabit v4)** | **0.8423** | **0.8576** | **0.8259** | **870** | **21** | **Spotrac cap-hit salary migration. Source correction and new baseline; not comparable with v8.15x because rows and targets changed** |
 | **8.15x** | **XGBoost (Grabit v4)** | **0.8572†** | **0.8810†** | **0.8556** | **873** | **21** | **Web inference repair: every Value Board row gets a KF trajectory, while only genuine Year-1 market events can anchor it. Evaluation rows remain bit-identical. †Metrics unchanged from v8.14x** |
 | **8.14x** | **XGBoost (Grabit v4)** | **0.8572†** | **0.8810†** | **0.8556** | **873** | **21** | **KF hyperparameter tuning: Q_FLOOR 0.0005→0.04, prehistory+expand defaults. +0.0088 over v8.13x tuned baseline. †Nested-CV ablation** |
 | 8.13x | XGBoost (Grabit v4) | 0.8254† | 0.8491† | 0.8387 | 873 | 21 | `kf_market_value` replaces `prev_cap_pct` (SWAP). Paired ΔSel +0.00331 (t 1.75), gate override on three-protocol evidence. †Nested-CV ablation |

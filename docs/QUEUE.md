@@ -1,6 +1,6 @@
 # Work queue
 
-Last updated 2026-08-31 after rejecting the Spotrac injury feature.
+Last updated 2026-09-28 after the public accuracy views.
 
 Keep only active work here. Each item needs an action and a completion check.
 Use a dated brief for additional detail. Put defects in `ISSUES.md` and landed
@@ -14,9 +14,9 @@ work in `VERSION_HISTORY.md`.
   with HEAD on fixed rows. The current `split` branch recovered 61.4% of 57
   ambiguous rows against a documented 68% ceiling; taking the first Spotrac
   amount performed better.
-- Complete when A1, A2, and B1 are remeasured against HEAD's 0.856, 0.881, and
-  0.858; `SIGNING_OFFSETS_DEPLOYED`, `career_earnings.csv`, and
-  `rings_thru_prev.csv` are regenerated from the final salary frame.
+- Complete when A1, A2, and B1 are remeasured against the v8.16x baseline
+  0.8423, 0.8576, and 0.8259; `SIGNING_OFFSETS_DEPLOYED`, `career_earnings.csv`,
+  and `rings_thru_prev.csv` are regenerated from the final salary frame.
 
 ### Decide the ring-chasing discount
 
@@ -37,6 +37,10 @@ multiplicative pull on the latent before the clip).
   top-dollar signers alike. Jimmy Butler 2023 (33, $218M banked, no ring)
   signed $45.2M and the pull deepened his error by $4.19M, while gains of the
   same size land on Conley and Horford. Report gain and damage by named row.
+- LeBron James 2026 (41, PHI minimum) is the largest forward miss: $40.98M
+  over-prediction, and the 2026 origin reads 0.885 without him against 0.793
+  with him. Report his row and the 2026 origin with and without the pull. See
+  `docs/briefs/2026-09-28-public-accuracy-views.RESULT.md`.
 - Complete when it is adopted or rejected with paired metrics, a fixed subset
   definition, and per-row gain/damage reported.
 
@@ -52,7 +56,8 @@ buyout.
 - Add `kf_market_value_x_waived = is_waived * kf_market_value` as a challenger.
   Build this interaction inside each CV fold after nested KF inference.
 - Report paired A1, A2, B1, C1, and C2. Report named-row effects for Kemba
-  Walker 2021 and Damian Lillard 2025.
+  Walker 2021 and Damian Lillard 2025. Lillard 2025 is the second-largest
+  forward miss ($37.21M, 0.025 of B1 R-squared).
 - Complete when the audit is clean and each challenger passes the gates or has
   a recorded rejection.
 
@@ -97,6 +102,34 @@ clip makes that objective monotone in it. `TAU = 0.52`, `SIGNING_K = 20` and
   headline CV. Define completion checks in the brief.
 
 ## Ready
+
+### Publish the accuracy panel
+
+Build the public accuracy panel from
+`docs/briefs/2026-09-28-public-accuracy-views.RESULT.md`.
+
+- Headline: share of B1 signings within $0.5M, $2M, and $8M, with cap points
+  as the secondary unit. Do not publish the zero-error share or the 10-point
+  tier.
+- Show unmodified A1 and B1 R-squared first, with the trim curve beside them.
+- List the top five forward misses by name with a one-line reason each.
+- Source every number from `oof_reference.csv` through
+  `scripts/public_accuracy_views.py`, never from the `export_web` refit.
+- Decide the destination first: the Value Board through `export_web`, or a
+  static README section.
+- Complete when the panel shows the three tiers, the trim curve, and the named
+  misses, and its numbers match `public_accuracy_views.csv` for the current
+  champion.
+
+### Push version tags
+
+`git ls-remote --tags origin` returns no tags. `VERSION_HISTORY.md` cites
+`pre-tidy-2026-09-28`, and `CLAUDE.md` requires a tag for each version bump.
+
+- From the machine that holds the tags, run `git push origin --tags`. Tag any
+  missing v8.x release commit with its headline metrics.
+- Complete when `git ls-remote --tags origin` lists `pre-tidy-2026-09-28` and
+  v8.16x.
 
 ### Add P(max) to the Value Board
 
