@@ -35,29 +35,29 @@ from BBRef by more than $0.5M. `build_merged_salaries.py` now has the
 
 ### Decide the ring-chasing discount
 
-Four shapes measured on the pre-migration frame; the best is the gated
-Stage-2 form in `scripts/eval_ringchase_gated.py` (hard age gate, P-weighted
-multiplicative pull on the latent before the clip).
+`scripts/eval_ringchase_gated.py` pulls the Stage-2 latent down for gated
+rows. The earlier +0.93 screen scored a pre-v8.14x champion (wrong KF setup,
+fixed 2026-09-28). Three-seed screens on v8.17x:
 
-| shape | paired dSel t |
-|---|---|
-| two columns added to `FEATURE_COLS` | +1.22 |
-| Stage-3 additive group offset | -3.03 |
-| Stage-2 multiplicative, hard cell | -1.17 |
-| Stage-2 multiplicative, gated + P-weighted | **+0.93** |
+| gate | n | paired dSel t | A1 without LeBron 2026 |
+|---|---:|---:|---|
+| age, earnings >= P75, no ring | 50 | +0.19 | 0.8367 -> 0.8369 |
+| age, earnings >= P75 | 82 | +1.30 | 0.8367 -> 0.8360 |
 
-- Rerun the gated arm on the migrated frame. The age threshold is selected
-  in-pool because 35 was reached by scanning and is not pre-registered.
-- The blocker is not the shape: the profile scores discounters and
-  top-dollar signers alike. Jimmy Butler 2023 (33, $218M banked, no ring)
-  signed $45.2M and the pull deepened his error by $4.19M, while gains of the
-  same size land on Conley and Horford. Report gain and damage by named row.
-- LeBron James 2026 (41, two-year PHI minimum) is the largest forward miss:
-  about $39.5M over-prediction on v8.17x. On v8.16x the 2026 origin read 0.885
-  without him against 0.793 with him. Report his row and the 2026 origin with and without the pull. See
-  `docs/briefs/2026-09-28-public-accuracy-views.RESULT.md`.
-- Complete when it is adopted or rejected with paired metrics, a fixed subset
-  definition, and per-row gain/damage reported.
+The earnings-only gain is LeBron James 2026 alone; 23 of 50 moved rows get
+worse (Butler 2023 -$6.3M, Durant 2026 -$6.1M, Paul 2021 -$5.9M). Absolute
+age cannot separate discounters from full-price veterans.
+
+- Next: replace age with a career-horizon estimate, P(retire within 1-2
+  years | age, BPM, minutes), fitted on completed careers. Scrape
+  `python scripts/scrape_advanced_history.py` (1997-2018) on a machine that
+  Basketball Reference has not jailed; 2019-2026 alone gives every
+  good veteran P(retire) near 0, LeBron included.
+- Fit the hazard on seasons <= 2016 with lookahead to 2018, freeze it, add a
+  `--gate retire` arm, and report the 2026 origin and A1 with and without
+  LeBron 2026 plus the named rows above.
+- Complete when the retire gate is adopted or rejected with paired metrics and
+  per-row gain and damage; reject all three gates if it fails.
 
 ### Improve the waiver features
 
