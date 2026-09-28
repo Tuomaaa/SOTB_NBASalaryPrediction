@@ -432,9 +432,11 @@ reads MIL.
 minimum deals the Spotrac contract block states a different length. Oshae
 Brissett 2023 is a two-year minimum stored as one year, so his $2,165,000 is
 wrongly charged at $2,019,706. Bol Bol 2023 is a one-year minimum stored as two
-years, so his charge is wrongly left at $2,165,000. In the 2026-09-28 merge
-dump, taking the length from the starting Spotrac minimum block moved 18 more
-frame rows, among them Marc Gasol 2020, Derrick Rose 2023 and Kyle Lowry 2024.
+years, so his charge is wrongly left at $2,165,000. On v8.17x, 44 of the 232
+Minimum frame rows with a starting Spotrac minimum block disagree on length;
+24 are two-year blocks stored as one year (Marc Gasol 2020, Rajon Rondo 2019)
+and so carry the one-year charge. The candidate list is
+`outputs/experiments/issue56/length_candidates.csv`.
 
 **Reproduce:** For each frame row labelled Minimum, compare `contract_years`
 with the `contract_years` of the Spotrac Minimum block whose `contract_start`

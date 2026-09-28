@@ -580,7 +580,7 @@ def prepare_full_frame(df_eval: pd.DataFrame,
 
 
 def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
-                       prehistory: bool = False,
+                       prehistory: bool = True,
                        expand_anchors: bool = True,
                        n_inner: int = N_INNER,
                        verbose: bool = True) -> KFContext:
@@ -594,7 +594,9 @@ def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
         df_eval:       the evaluation frame from load_evaluation_frame.
         base_features: the feature list returned by load_evaluation_frame
                        (20 features, without kf_market_value).
-        prehistory:    inject pre-2019 Year-1 cap_pct as tier-1 anchors.
+        prehistory:    inject pre-2019 Year-1 cap_pct as tier-1 anchors. On
+                       by default, as in production since v8.14x; a caller
+                       that left it off scored a pre-v8.14x champion.
         expand_anchors: enable v8.14x tier-2 anchor expansions.
         n_inner:       inner folds for nested CV (default 4).
     """

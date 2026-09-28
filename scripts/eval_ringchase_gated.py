@@ -58,7 +58,7 @@ parameter. On the latent, before push and clip, saturation falls out of the
 existing clip instead of corrupting the estimate.
 
 Usage:
-    python scripts/eval_ringchase_gated.py --seeds 3
+    python scripts/eval_ringchase_gated.py --seeds 3 [--gate earnings]
 """
 
 import argparse
@@ -99,10 +99,20 @@ DSEL_T_BAR = 2.0
 OUT = OUTPUTS_DIR / "models"
 
 
+# "ringless" is the original cell: no ring yet. "earnings" drops the ring
+# condition, because the handoff's own evidence says the ring leg is weak or
+# wrong-signed: Marc Gasol took a minimum the summer after his ring, and LeBron
+# James holds four. Under "ringless" he can never enter the gate.
+GATE_MODE = "ringless"
+
+
 def gate(sub, age_min, p75):
-    return ((sub["age"].values.astype(float) >= age_min)
-            & (np.nan_to_num(sub["rings_thru_prev"].values, nan=-1) == 0)
-            & (sub["career_earnings_thru_prev_cap_pct"].values >= p75))
+    """Rows the pull may touch: old, well paid, and (ringless) without a ring."""
+    member = ((sub["age"].values.astype(float) >= age_min)
+              & (sub["career_earnings_thru_prev_cap_pct"].values >= p75))
+    if GATE_MODE == "ringless":
+        member &= np.nan_to_num(sub["rings_thru_prev"].values, nan=-1) == 0
+    return member
 
 
 def best_delta(latent, p, y, member, *, lo, hi, p_max, is_ext, ext_cap):
@@ -127,10 +137,15 @@ def best_delta(latent, p, y, member, *, lo, hi, p_max, is_ext, ext_cap):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, default=3)
+    ap.add_argument("--gate", choices=["ringless", "earnings"],
+                    default="ringless")
     args = ap.parse_args()
+    global GATE_MODE
+    GATE_MODE = args.gate
     seeds = tuple(DEFAULT_SEEDS[:args.seeds])
 
-    df, _ = load_evaluation_frame(verbose=False, allow_missing_computed=True)
+    df, base_features = load_evaluation_frame(verbose=False,
+                                              allow_missing_computed=True)
     df = attach_extension_cap(df, verbose=False)
     df, clf_features = rm.attach_clf_features(df)
     ce = pd.read_csv(PROCESSED_DIR / "career_earnings.csv")
@@ -155,7 +170,12 @@ def main():
     for a in AGE_GRID:
         print(f"  gate age>={a}: n = {int(gate(df, a, p75).sum())}")
 
-    kf_ctx = prepare_kf_context(df, clf_features)
+    # Same KF configuration as the production suite (prehistory anchors on,
+    # v8.14x). The function's own default is prehistory=False, which silently
+    # scores a pre-v8.14x champion: 231 rows fell back to kf = prev_cap_pct
+    # against the suite's 15.
+    kf_ctx = prepare_kf_context(df, base_features, prehistory=True,
+                                expand_anchors=True)
     features = list(FEATURE_COLS)
     base_feats = [c if c != "kf_market_value" else "prev_cap_pct" for c in features]
     base_feats = [c for c in base_feats if c in df.columns]
@@ -281,10 +301,10 @@ def main():
         "in_gate": mem_all, "moved": moved, "p_ring": p_oof,
         "actual_m": y*cap_m, "champ_m": champ_oof*cap_m, "cand_m": cand_oof*cap_m,
         "err_champ_m": (champ_oof-y)*cap_m, "err_cand_m": (cand_oof-y)*cap_m,
-    }).to_csv(OUT / "ringchase_gated_oof.csv", index=False)
-    (OUT / "ringchase_gated_eval.json").write_text(json.dumps({
+    }).to_csv(OUT / f"ringchase_gated_{GATE_MODE}_oof.csv", index=False)
+    (OUT / f"ringchase_gated_{GATE_MODE}_eval.json").write_text(json.dumps({
         "PROVISIONAL": "migration will move ~15% of frame rows",
-        "adopted": False, "age_grid": list(AGE_GRID), "k_shrink": K_SHRINK,
+        "adopted": False, "gate": GATE_MODE, "age_grid": list(AGE_GRID), "k_shrink": K_SHRINK,
         "selected_ages": ch["age"].value_counts().to_dict(),
         "mean_delta": float(ch["delta"].mean()),
         "dSel": {"delta": float(fr["d"].mean()), "t": float(t), "p": float(pv)},
@@ -293,7 +313,7 @@ def main():
         "c2_worst": float(worst),
         "pass": bool(t > DSEL_T_BAR and worst <= C2_BAR),
     }, indent=2), encoding="utf-8")
-    print(f"\nwrote {OUT/'ringchase_gated_eval.json'}")
+    print(f"\nwrote {OUT / f'ringchase_gated_{GATE_MODE}_eval.json'}")
 
 
 if __name__ == "__main__":
