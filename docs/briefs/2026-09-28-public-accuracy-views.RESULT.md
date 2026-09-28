@@ -72,6 +72,11 @@ different rows, so this is not an exact attribution. LeBron was admitted by
 the v8.16x Spotrac backfill and was not in the v8.14x frame. Lillard 2025 is
 the main cost in the 2025 origin.
 
+LeBron's $2.45M target comes from the one-year cap-charge normalization. His
+contract is two years at the minimum with a year-2 player option, so the
+correct target is $3.88M; see ISSUES #55. The correction reduces his error by
+$1.43M and does not change the conclusions here.
+
 ## Decision
 
 - Publish dollar tiers as the headline: within $0.5M, within $2M, and within

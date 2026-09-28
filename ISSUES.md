@@ -4,8 +4,8 @@ This file contains active defects only. Each issue must include a problem,
 reproduction, fix, and completion check. Delete fixed entries and record the
 landed change in `VERSION_HISTORY.md`.
 
-Issue numbers are permanent. The highest assigned number is 54, so the next
-issue is 55. Keep entries in numeric order because code and historical reports
+Issue numbers are permanent. The highest assigned number is 55, so the next
+issue is 56. Keep entries in numeric order because code and historical reports
 refer to them by number.
 
 ## Retired references still used in code
@@ -421,3 +421,30 @@ target change.
 
 **Done:** Resolved training rows agree with `player_teams.csv` and Lillard 2023
 reads MIL.
+
+## 55. Multi-year minimum contracts receive the one-year cap charge
+
+**Severity:** medium. This changes target values.
+
+**Problem:** `_normalize_vetmin_caphold` rewrites every Minimum row at or below
+2.5% of cap to the base cap charge. The CBA gives that reduced charge only to
+one-year minimum contracts; a multi-year minimum contract counts its full
+salary. On the v8.16x evaluation frame, 39 of the 100 normalized rows have
+`contract_years >= 2`. LeBron James 2026 is a two-year minimum contract with a
+year-2 player option (ESPN, CBS Sports, 2026-07), but
+`contract_structure_v2.csv` records `contract_years = 1`, so a length rule
+alone would still normalize him from $3.88M to $2.45M.
+
+**Reproduce:** Join `outputs/models/oof_reference.csv` to the raw `cap_pct` in
+`training_data_v2.csv` and to `contract_structure_v2.csv`. Count Minimum rows
+whose target changed, by `contract_years`. Inspect LeBron James 2026.
+
+**Fix:** Normalize only one-year minimum contracts. Count option years in
+`contract_years` for the Spotrac cap-hit branch, or add a sourced
+`contract_structure_corrections.csv` row for LeBron James 2026. Apply the rule
+in all five paths listed in the v8.11x entry, then rerun the paired gate and the
+#48 offset regeneration.
+
+**Done:** Multi-year minimum rows keep their full salary, LeBron James 2026
+reads `contract_years = 2` and $3.88M, and the number-moving rebuild has a
+version entry.
