@@ -56,6 +56,17 @@ age cannot separate discounters from full-price veterans.
 - Fit the hazard on seasons <= 2016 with lookahead to 2018, freeze it, add a
   `--gate retire` arm, and report the 2026 origin and A1 with and without
   LeBron 2026 plus the named rows above.
+- Public reporting supports the horizon reading: the seven veteran stars with
+  two or fewer seasons left at signing all took less than the market (Paul
+  2025, Gasol 2020, LeBron 2026, Curry 2027, Durant 2026, Harden 2025, Horford
+  2025); the four with three or more took full price (Paul 2021, Lowry 2021,
+  Conley 2021, Butler 2023). This uses realized careers, so it checks the
+  assumption, not the ex-ante estimate.
+- Kevin Durant 2026 signed $30M under his maximum (ESPN, 2025-10), but the
+  champion already priced it ($43.3M against $43.9M). The pull must not
+  discount a row twice; report rows the champion already prices within $2M.
+- DeMar DeRozan 2024 traded salary for years (three years at 35); a horizon
+  gate will not explain him.
 - Forward check: Stephen Curry's September 2026 extension (two years, $116M,
   year 1 $55.7M in repo season 2027, about $20M under his maximum; ESPN,
   2026-09) is outside the frame. Score it with the frozen gate before the
