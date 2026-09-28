@@ -4,8 +4,8 @@ This file contains active defects only. Each issue must include a problem,
 reproduction, fix, and completion check. Delete fixed entries and record the
 landed change in `VERSION_HISTORY.md`.
 
-Issue numbers are permanent. The highest assigned number is 55, so the next
-issue is 56. Keep entries in numeric order because code and historical reports
+Issue numbers are permanent. The highest assigned number is 56, so the next
+issue is 57. Keep entries in numeric order because code and historical reports
 refer to them by number.
 
 ## Retired references still used in code
@@ -422,3 +422,28 @@ target change.
 
 **Done:** Resolved training rows agree with `player_teams.csv` and Lillard 2023
 reads MIL.
+
+## 56. Minimum-contract lengths disagree with Spotrac
+
+**Severity:** low-medium. This changes some minimum-row targets.
+
+**Problem:** The one-year cap-charge rule (#55) reads `contract_years` from
+`contract_structure_v2.csv`, which counts consecutive salary seasons. For some
+minimum deals the Spotrac contract block states a different length. Oshae
+Brissett 2023 is a two-year minimum stored as one year, so his $2,165,000 is
+wrongly charged at $2,019,706. Bol Bol 2023 is a one-year minimum stored as two
+years, so his charge is wrongly left at $2,165,000. In the 2026-09-28 merge
+dump, taking the length from the starting Spotrac minimum block moved 18 more
+frame rows, among them Marc Gasol 2020, Derrick Rose 2023 and Kyle Lowry 2024.
+
+**Reproduce:** For each frame row labelled Minimum, compare `contract_years`
+with the `contract_years` of the Spotrac Minimum block whose `contract_start`
+equals the row's season in `spotrac_signing_types.csv`.
+
+**Fix:** Add a sourced `contract_structure_corrections.csv` row wherever the
+Spotrac block and the table disagree, after checking each block on its page.
+Do not change the length in the merge layer alone: `_normalize_vetmin_caphold`
+reads the corrected table at load time and would override it.
+
+**Done:** Every Minimum frame row's `contract_years` matches its Spotrac block
+or has a documented reason, and the number-moving rebuild has a version entry.

@@ -20,13 +20,16 @@ Waiters 2019 read $13.44M for a rest-of-season minimum). 26 frame rows differ
 from BBRef by more than $0.5M. `build_merged_salaries.py` now has the
 `signing_contract` branch: price the contract that starts that season.
 
-- Run on a machine with `data/raw/html_cache/`. Dry-run
-  `python scripts/build_merged_salaries.py` and check the "signing_contract
-  branch moves" block against these expected values: Waiters 2019 $503,656,
-  Beverley 2022 $13,000,000, Love 2022 $3,114,138, Bradley 2020 $5,635,000,
-  Adams 2023 $12,600,000.
-- Then run `python scripts/rebuild_training_data.py`, the suite, and
+- The branch was fixed against the 2026-09-28 dry-run dump in
+  `outputs/experiments/merge_debug/`: 49 of 52 verified rows match. Austin
+  Rivers 2020 reads the page cell sum $3,476,027 against a remembered $3.5M;
+  Oshae Brissett and Bol Bol 2023 are ISSUES #56.
+- Run on a machine with `data/raw/html_cache/`: dry-run
+  `python scripts/build_merged_salaries.py`, confirm the moved rows match
+  `merge_debug/expected_values.csv`, then run
+  `python scripts/rebuild_training_data.py`, the suite, and
   `scripts/eval_stage3_signing.py`.
+- Delete `outputs/experiments/merge_debug/` once the rebuild lands.
 - Complete when the rebuilt frame is remeasured against the v8.17x baseline
   0.8422, 0.8595, and 0.8273 and the offsets are regenerated.
 

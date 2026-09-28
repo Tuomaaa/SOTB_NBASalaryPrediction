@@ -352,7 +352,7 @@ def test_signing_contract_prices_rest_of_season_deal_not_season_cash():
     starts = {("dion waiters", 2019): [_contract("Minimum", 1, 503_656)]}
     value, branch = merged.resolve_row(row, set(), set(), starts)
     assert value == 503_656
-    assert branch == "signing_contract"
+    assert branch == "vet_min"
 
 
 def test_signing_contract_prefers_offseason_deal_over_rest_of_season():
@@ -435,16 +435,36 @@ def test_signing_contract_cup_money_is_not_added_to_a_traded_sum():
     assert branch == "signing_contract"
 
 
-def test_signing_contract_prefers_the_deal_that_was_paid():
-    # Kevin Knox 2023: unused camp minimum beside the rest-of-season deal.
-    row = _row(player_name_norm="kevin knox", season=2023,
-               base=2_144_320, extra_amounts="120000",
-               statuses="Active;Waived", n_teams=2, split_total=2_264_320,
-               contract_years=1)
-    starts = {("kevin knox", 2023): [_contract("Minimum", 1, 2_346_614),
-                                     _contract("Minimum", 1, 2_144_320)]}
-    value, _ = merged.resolve_row(row, set(), set(), starts)
-    assert value == 2_144_320
+def test_signing_contract_multi_year_takes_subset_nearest_aav():
+    # Shake Milton 2023: NT-MLE halves plus a rest-of-season minimum.
+    row = _row(player_name_norm="shake milton", season=2023,
+               base=1_925_287, extra_amounts="3074713;552938",
+               statuses="Retained;Retained;Active", n_teams=3,
+               split_total=5_552_938, contract_years=1)
+    starts = {("shake milton", 2023): [
+        _contract("Minimum", 1, 552_938),
+        _contract("Non-Taxpayer MLE", 2, 10_000_000)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 5_000_000
+    assert branch == "signing_contract"
+
+
+def test_signing_contract_drops_unlabelled_cup_prize_by_amount():
+    # Austin Reaves 2023 has no status labels; $500,000 is a 2023 Cup tier.
+    assert merged._salary_amounts(
+        _row(season=2023, base=12_015_150, extra_amounts="500000",
+             statuses=np.nan), 2023) == [12_015_150]
+
+
+def test_signing_contract_minimum_label_takes_cap_charge():
+    # Isaiah Thomas 2019: a one-year minimum whose total misses the scale.
+    row = _row(player_name_norm="isaiah thomas", season=2019,
+               base=917_532, extra_amounts="1402512",
+               statuses="Retained;Retained", n_teams=2, contract_years=1)
+    starts = {("isaiah thomas", 2019): [_contract("Minimum", 1, 2_320_044)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 1_620_564
+    assert branch == "vet_min"
 
 
 def test_signing_contract_rejects_price_above_exception_limit():
