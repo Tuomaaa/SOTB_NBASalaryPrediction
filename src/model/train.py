@@ -623,9 +623,12 @@ def _normalize_vetmin_caphold(df: pd.DataFrame) -> pd.DataFrame:
     """Normalize vet-min salaries from paid-salary to cap-hold convention.
 
     BBRef reports paid salary for some vet-min players and cap hold for others.
-    The CBA says the cap charge is the base minimum regardless of experience;
-    the league reimburses the tier differential. Since cap_pct should reflect
-    team cap cost, all vet-min rows are standardized to the base.
+    The CBA says the cap charge of a ONE-year minimum contract is the base
+    minimum regardless of experience; the league reimburses the tier
+    differential. A multi-year minimum contract is charged what it pays, so
+    rows with ``contract_years`` other than 1 keep their salary (ISSUES #55).
+    This is the same rule as ``build_merged_salaries._min_cap_charge``; an
+    unknown length is treated as one year, as there.
     """
     from scripts.diagnostics import attach_signing_labels
     from src.model.mechanism_cap import _get_vet_min_usd
@@ -640,9 +643,15 @@ def _normalize_vetmin_caphold(df: pd.DataFrame) -> pd.DataFrame:
         exp_for_base = 2 if s < CBA_NEW_ERA_SEASON else 3
         caphold[s] = _get_vet_min_usd(int(s), exp_for_base) / CAP_BY_SEASON[int(s)]
 
+    if "contract_years" in df.columns:
+        cy = pd.to_numeric(df["contract_years"], errors="coerce")
+        multi_year = cy.notna() & (cy != 1)
+    else:
+        multi_year = pd.Series(False, index=df.index)
     mask = ((df["signing_cat"] == "Minimum")
             & (df[TARGET] <= 0.025)
-            & (df[TARGET] > df["season"].map(caphold) + 1e-4))
+            & (df[TARGET] > df["season"].map(caphold) + 1e-4)
+            & ~multi_year)
     n = mask.sum()
     if n:
         if "salary" in df.columns:
