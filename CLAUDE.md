@@ -1,283 +1,217 @@
-# CLAUDE.md — NBA Free Agent Valuation Model
+# NBA Free Agent Valuation Model
 
-## Project Overview
+This project predicts NBA free-agent market value as **Cap Percentage**
+(`cap_pct`, annual salary divided by that season's cap) from public data.
+Published results must remain reproducible and free of target-derived features.
 
-Build an open-source, reproducible NBA free agent valuation model inspired by Hollinger's BORD$. The model predicts a player's market value as **% of salary cap**, using publicly available data and open advanced metrics as the base rating.
+## Read order
 
-The key differentiator: unlike BORD$, this model is fully transparent, reproducible, and incorporates CBA structural constraints as explicit features.
+- `ISSUES.md`: active defects and checks.
+- `docs/QUEUE.md`: current work.
+- `METHODOLOGY.md`: features, model math, ablations, and limits.
+- `CONTEXT.md`: terms used by code and published prose.
+- `VERSION_HISTORY.md`: landed versions and tagged metrics.
+- `docs/adr/`: architecture decisions.
 
-## Architecture
+## Agent-to-agent documentation
 
-```
-nba-valuation/
-├── CLAUDE.md                # this file — instructions and conventions
-├── AGENTS.md                # pointer to this file for agents that look for it
-├── CONTEXT.md               # domain glossary — the vocabulary code and docs share
-├── METHODOLOGY.md           # feature definitions, model math, ablations, limits
-├── VERSION_HISTORY.md       # v1.0 → v8.4x, CV R² at each step
-├── PROJECT_BRIEF.md         # outward-facing summary
-├── docs/adr/                # architecture decisions and rejected alternatives
-├── config.py                # seasons, cap values, CBA params  ← caps are load-bearing
-├── src/
-│   ├── scraping/
-│   │   ├── contracts.py     # Basketball Reference team + player salary pages
-│   │   ├── stats.py         # BBRef per-season advanced stats
-│   │   ├── advanced.py      # nbarapm.com: DARKO DPM, LEBRON, LAKER
-│   │   ├── height.py        # BBRef player index → height in inches
-│   │   ├── availability.py  # weighted GP% from the games column
-│   │   └── utils.py         # cached, rate-limited fetch via Playwright
-│   ├── features/
-│   │   ├── base_rating.py   # z-score the three impact metrics within season
-│   │   ├── age_curve.py     # age, age²
-│   │   ├── availability.py  # 3-year weighted GP%
-│   │   ├── cba_constraints.py  # CBA era flag
-│   │   ├── kf_market_value.py  # Kalman-filtered market trajectory (replaces prev_cap_pct)
-│   │   └── build_dataset.py # stage 1 of the training-data rebuild
-│   └── model/
-│       ├── train.py         # Ridge / XGBoost / two-sided Grabit + the filter chain
-│       ├── stages.py        # Stage 2 (push + clip) and Stage 3 (raise cap + signing offset + mechanism cap)
-│       ├── extension_cap.py # extension raise-cap ceiling (120%/140% of prior)
-│       ├── mechanism_cap.py # Early Bird / Non-Bird legal ceiling (CBA vet-min scale + EAS)
-│       ├── evaluate_suite.py  # the four-layer evaluation protocol (see below)
-│       ├── evaluate.py      # residual plots
-│       └── predict.py       # inference on upcoming free agents
-├── scripts/
-│   ├── build_external_features.py  # stage 2: awards, draft, injuries, team value
-│   ├── phase3.py            # stage 3 lives here: build_contract_features → prev_cap_pct
-│   ├── check_caps.py        # asserts every season's cap reconciles with max contracts
-│   ├── refresh_salaries.py  # re-scrape BBRef team pages; failed team keeps stale rows
-│   ├── extend_contract_structure.py  # incremental year_in_contract; never recomputes
-│   ├── rebuild_training_data.py      # single entry for the three-stage chain
-│   ├── refresh_spotrac.py   # FA class + anchored signing-mechanism labels
-│   ├── backfill_prehistory_salaries.py  # 2016-18 pay from the cached pages, offline
-│   ├── diagnostics.py       # residual analysis, SHAP, signing-mechanism slices
-│   ├── export_web.py        # refits and writes the portfolio site's data
-│   └── scrape_*.py          # one-off scrapers for awards, Spotrac, missing salaries
-├── data/
-│   ├── raw/                 # scraped HTML cache + hand-curated CSVs (mostly gitignored)
-│   └── processed/           # cleaned, merged datasets
-├── versions/v1/             # frozen snapshot so old version numbers stay reproducible
-└── outputs/
-    ├── models/              # metrics JSON (gitignored)
-    ├── predictions/         # historical prediction CSVs — see ADR 0001, do not reuse
-    ├── diagnostics/         # residual tables and plots
-    └── web/                 # export snapshots
-```
+Use these rules for all documents that transfer work between agents.
 
-**Refreshing the data** is four commands, in order. Each validates itself and
-refuses to write on a failed check:
+### Classify the document
 
-```
-scripts/refresh_salaries.py          # re-scrape 30 BBRef team pages, merge
-scripts/extend_contract_structure.py # incremental year_in_contract assignment
-scripts/rebuild_training_data.py     # the three-stage chain below, in one entry
-scripts/refresh_spotrac.py --year N  # FA class + signing-mechanism labels
-scripts/eval_stage3_signing.py       # regenerate the Stage-3 signing offsets
-```
+An active document changes current work. The active document set has five
+standard files:
 
-The fifth is not a scrape but a **recomputation the rebuild invalidates**:
-`stages.SIGNING_OFFSETS_DEPLOYED` holds four per-type mean OOF residuals of a
-particular frame, so a rebuild makes them stale exactly the way it makes a
-published R² stale. Copy `deployed_offsets_k20` from the harness's JSON into
-`src/model/stages.py` — see ISSUES #48.
+- `AGENTS.md`: entry point and reading order.
+- `CLAUDE.md`: current project rules and invariants.
+- `docs/worker-brief.md`: common rules for dispatched tasks.
+- `docs/QUEUE.md`: active work and completion conditions.
+- `ISSUES.md`: active defects.
 
-`rebuild_training_data.py` chains what used to be three unrelated scripts, the
-last of which is an experiment file:
+A task handoff is active only while `docs/QUEUE.md` depends on it. A completed
+brief or RESULT is historical evidence.
 
-```
-src/features/build_dataset.py               →  base merge
-scripts/build_external_features.py          →  awards, draft, injuries, team value
-scripts/phase3.py::build_contract_features  →  prev_cap_pct
-```
+Do not rewrite historical evidence during an active-document cleanup. Update it
+only to correct a factual error in that evidence.
 
-Two rules these scripts encode, both learned the hard way:
+### Give each document one function
 
-- **A failed fetch degrades to stale, never to missing.** `refresh_salaries.py`
-  keeps a team's existing rows when its page 403s; an earlier version filtered by
-  season alone and deleted a whole team's future salaries.
-- **The contract-structure table is extended, never recomputed.** The script that
-  produced `contract_structure_v2.csv` was never committed, and a reconstruction
-  from CBA escalator ratios reaches only 88% agreement on the year-1 flag — far
-  too low to regenerate history without invalidating every published version
-  number. `extend_contract_structure.py` carries unchanged rows byte-for-byte and
-  hard-fails if one would move.
+Keep each rule in one source file. Add a link when another document needs that
+rule.
 
-## Data Sources (all public)
+Do not copy model rules into `AGENTS.md`. Do not copy defect history into
+`docs/QUEUE.md`.
 
-| Source | Data | Format |
-|--------|------|--------|
-| Basketball Reference | salary by season, age, games played, height | HTML scrape (cached) |
-| nbarapm.com | DARKO DPM, LEBRON, LAKER, usage, box-score rates | Playwright + POST |
-| Spotrac | signing mechanism, contract years, total value, AAV | HTML scrape (cached) |
-| Manual reference | awards, draft position, team value | hand-curated CSV in `data/raw/raw_external/` |
-| `config.py` | salary cap by season, CBA era boundary | hand-maintained |
+Use these document forms:
 
-Sources considered and not used: Dunks & Threes (EPM), NBA.com tracking data.
-The three impact metrics from nbarapm.com already cover the performance signal —
-see the ablation table in METHODOLOGY.md.
+- Queue item: action and completion condition.
+- Issue: Problem, Reproduce, Fix, and Done.
+- Task brief: scope, fixed inputs, required evidence, and stop conditions.
+- Active handoff: status, current evidence, open decisions, and next action.
+- RESULT: change, evidence, decision, and artifact paths.
 
-**Salary cap values are load-bearing.** `cap_pct` is the model target, so a wrong
-cap silently rescales the target for an entire season. This has already happened
-once: the 2025 and 2026 caps sat at stale pre-media-deal projections, inflating
-those seasons' targets by roughly 9%. `scripts/check_caps.py` now asserts every
-season reconciles against max contracts landing on exactly 25/30/35% of the
-configured cap; run it after touching `CAP_BY_SEASON`.
+### Keep only action-changing information
 
-## Target Variable
+Keep information that does at least one of these jobs:
 
-`cap_pct` = annual salary / salary cap for that season. CONTEXT.md calls this
-**Cap Percentage**; use that name in prose and `cap_pct` in code.
+- Changes the next action.
+- Defines a scope limit or invariant.
+- Prevents a known failure.
+- Gives a reproduction command.
+- Defines an acceptance or completion condition.
+- Identifies the authoritative source or artifact.
 
-Training uses **Year-1 Contracts only**. Escalator Years are CBA-mandated raises
-on a price agreed years earlier, and Rookie-Scale Contracts are slotted by draft
-position — neither carries market information. Scoring, by contrast, runs over
-every row, because a Contract Surplus on an escalator year is a real statement
-about a team's books even though it is not a Signing Residual.
+Delete these items from active documents:
 
-## Feature Set
+- Session narrative and debate history.
+- Rhetorical warnings without a specific action.
+- Old frame counts that do not define a current baseline.
+- Repeated explanations that exist in `METHODOLOGY.md`, an ADR, or a RESULT.
+- Rejected alternatives that do not constrain current work.
+- Internal role names that do not change authority or scope.
 
-21 features, listed with definitions in METHODOLOGY.md. `kf_market_value`
-(Kalman-filtered market trajectory) replaced `prev_cap_pct` in v8.13x — the
-base model still uses `prev_cap_pct` internally, but the final feature list
-feeds the KF output. Inference is two-pass: base model predicts intermediate
-seasons, KF smooths the trajectory, final model uses `kf_market_value`.
+Keep a rejected alternative only when repeating it can cause a known defect.
+State the failed action and its consequence in one short rule.
 
-Over 20 further candidates were tested and rejected, each with its ΔCV R²
-recorded in the same file — consult that table before proposing a feature, since
-several obvious ideas (team cap space, playoff performance, agent portfolio) are
-already there.
+### Control terminology
 
-Two rules the ablation table encodes:
+Keep code identifiers and domain terms that change implementation. Define each
+project metric at its first active use.
 
-- **Never feed the model anything derived from the target.** `is_vet_min`,
-  `is_mle_range`, and `is_rookie_scale` produced large gains in Phase 2 and were
-  all leakage; they were removed in v4.0.
-- **Signing Mechanism is a diagnostic label, not a feature.** It is partly
-  determined by the contract itself. Feeding the model a fold-honest
-  `P(mechanism | x)` was tested and *hurt* (−0.0073), because the tree model
-  already extracts everything the features say about mechanism.
+Use one term for one concept. Remove private session terms, metaphors, and
+synonyms that add no technical distinction.
 
-## Modeling Strategy
+### Maintain the documents
 
-Current model is the three-stage Grabit pipeline described in METHODOLOGY.md.
-Stage 1 prices under *default parameters* with a two-sided censored loss; Stage 2
-applies the CBA bounds (push toward the ceiling where P(max) >= 0.52, then clip
-into the player's [floor, max] band); Stage 3 adjusts for told-route facts:
+When work lands, remove its queue item and fixed issue. Record the result in
+`VERSION_HISTORY.md`.
 
-```
-latent -> push -> clip[lo,hi] -> signing offset -> mechanism cap clip
--> extension clip -> re-clip[lo,hi]
+Never reuse an issue number. If code still cites a retired issue, keep one
+short entry in the retired-reference index.
+
+Before completion, make sure that links resolve and issue numbers remain in
+order. Run `git diff --check`.
+
+## Current pipeline
+
+`src/model/train.py` trains and evaluates the three-stage model:
+
+1. Stage 1 estimates latent value with a two-sided Grabit loss.
+2. Stage 2 applies the probability-based max push and CBA bounds.
+3. Stage 3 applies known signing-route adjustments and legal caps.
+
+```text
+latent -> push -> clip[lo, hi] -> signing offset -> mechanism cap
+       -> extension cap -> clip[lo, hi]
 ```
 
-The signing offset adds a per-type constant to the four eligibility mechanisms;
-the mechanism cap clips Early Bird and Non-Bird rows at their CBA legal ceiling;
-the extension clip clips first-paying-year extensions at their raise cap. Each
-clip only ever LOWERS a prediction and re-applies the [floor, ceiling] bound.
-Composition lives in `src/model/stages.py`. Ridge remains in `train.py` as a
-reference point.
+Composition belongs in `src/model/stages.py`.
+`scripts/export_web.py` must refit once and export from that fit. It must not
+read historical files under `outputs/predictions/`; see ADR 0001.
 
-The signing offset is the exception to the rule below, and the reason the rule
-is worded as it is: **a signing label may correct an OUTPUT, never enter the
-feature list.** Only the four eligibility mechanisms (Bird Rights, Cap Space,
-Early Bird, Non-Bird) are corrected; MLE, BAE and Minimum are determined by the
-contract value itself, so conditioning on them reads the target. That list is
-pre-registered alongside TAU, MARGIN and SIGNING_K = 20.
+Training uses Year-1 Contracts. Scoring can include later contract years. Keep
+**Signing Residual** (Year-1 model error) distinct from **Contract Surplus**
+(team outcome on any contract year).
 
-**Sign & Trade (and Extend & Trade) is reclassified as Bird Rights**, not
-excluded as leakage. Unlike MLE/BAE/Minimum, the S&T mechanism does not
-determine the contract's dollar amount — contracts signed via sign-and-trade
-range from $3.6M to $37.2M in the data — it reflects the signing route (the
-deal is facilitated by a trade) and the CBA requires the ORIGINATING team to
-hold Bird or Early Bird rights on the player for it to happen at all. The raw
-Spotrac labels `sign-and-trade` and `extend-and-trade` are mapped to the
-`Bird Rights` category at the signing_cat layer
-(`scripts/diagnostics.py::_categorize_signing`), never fed to the model as a
-feature.
+The 21 production features are defined in `METHODOLOGY.md`.
+`kf_market_value` replaced `prev_cap_pct` in v8.13x. Inference is two-pass
+so the Kalman-filtered trajectory exists before the final fit. Review the
+rejected-feature table before proposing another feature.
 
-Escalating model complexity requires a paired CV improvement, not a hunch. The
-hyperparameters have been grid-searched twice and the model is **not**
-underfitting — deeper trees, higher learning rate, and looser `min_child_weight`
-all score worse. Extra structure has to justify itself against that.
+## Model invariants
 
-**Judge a targeted intervention where it acts.** Censoring touches ~30% of rows
-across two zones that pull in opposite directions, so a pooled statistic averages
-both effects over rows neither touches — the pooled test would have deleted the
-max side at v7.4x on t = −0.07 while its zone MAE was falling by $0.75M. Each
-side is kept while its own zone MAE delta is negative. The pooled selection-pool
-rule still governs changes that act on every row.
+- Features must be available at inference and must not derive from the target.
+  Fit-time censor masks may use the observed target.
+- Signing Mechanism may adjust an output. It must not enter `FEATURE_COLS`.
+- Stage-3 signing offsets apply to Bird Rights, Cap Space, Early Bird, and
+  Non-Bird. `Sign & Trade` maps to Bird Rights in `signing_cat`.
+- A legal cap can only lower a prediction. Reapply `[floor, ceiling]` after
+  Stage-3 adjustments.
+- Salary caps live in `config.py`. Run `scripts/check_caps.py` after changing
+  `CAP_BY_SEASON`.
+- Store model values as `cap_pct`. Convert to dollars for display.
+- Require a paired CV improvement before adding model complexity.
+- Preserve the Free-Agent-list veto in the continuation filter. A Spotrac
+  contract span alone misclassifies valid new signings.
+- Preserve `early_supermax.csv`. A wider award lookback gives some players an
+  incorrect supermax ceiling.
 
-## Coding Conventions
+## Evaluation
 
-- Python 3.10+
-- `pandas` for data, `scikit-learn` for modeling, `xgboost` for GBT, `shap` for attributions
-- `matplotlib` / `seaborn` for viz
-- Type hints encouraged but not mandatory
-- Docstrings for all functions in `src/`
-- Scraping: `BeautifulSoup` over Playwright-fetched HTML, 3s between live requests, everything cached under `data/raw/html_cache/`
-- Dollar amounts stored as `cap_pct` (float 0-1), never raw dollars. Dollars are a display unit only
-- Use CONTEXT.md's vocabulary in prose. In particular keep **Signing Residual** (model accuracy, Year-1 only) distinct from **Contract Surplus** (team outcome, any year) — the arithmetic is identical and the meanings are not
+`src/model/evaluate_suite.py` defines separate layers:
 
-**Every entry point under `src/` and `scripts/` starts with**
+| Metric/layer | Purpose |
+|---|---|
+| A1 | pooled GroupKFold selection R-squared |
+| A2 | A1 scored on 2024-2026 rows |
+| B1 | rolling-origin 2024-2026 forecasting |
+| C | calibration and fixed-segment bias |
+| D | fixed rows, baseline ladder, and confirmation split |
+
+- Make accept/reject decisions from paired fold deltas on selection rows.
+- When a filter changes rows, compare common rows with a fixed player-to-fold
+  map. R-squared values from different row sets are not comparable.
+- Bin calibration by prediction. Keep segment membership fixed across models.
+- Evaluate targeted changes on the rows they affect.
+- Keep the 15% confirmation split out of selection, feature derivation, and fill
+  statistics until the version-bump confirmation run.
+- Apply the feature gates in `docs/worker-brief.md`.
+
+## Data and refresh
+
+Sources are Basketball Reference, Spotrac, nbarapm.com, curated tables under
+`data/raw/raw_external/`, and salary-cap values in `config.py`. Cache scraped
+HTML under `data/raw/html_cache/`.
+
+Current refresh order:
+
+```text
+python scripts/refresh_salaries.py
+python scripts/extend_contract_structure.py
+python scripts/rebuild_training_data.py
+python scripts/refresh_spotrac.py --year N
+python scripts/eval_stage3_signing.py
+```
+
+After the final command, copy `deployed_offsets_k20` into
+`src/model/stages.py`; see ISSUES #48.
+
+`scripts/rebuild_training_data.py` runs:
+
+```text
+src/features/build_dataset.py
+scripts/build_external_features.py
+scripts/phase3.py::build_contract_features
+```
+
+- A failed fetch must retain the last valid cached data.
+- Wait at least 3 seconds between live requests.
+- Extend `data/processed/contract_structure_v2.csv` with
+  `scripts/extend_contract_structure.py`. Preserve its historical rows.
+- The Spotrac salary migration is active. Read `docs/QUEUE.md` and ISSUES #50
+  and #51 before changing salary-source logic.
+
+## Code
+
+- Use Python 3.10+ and add docstrings to functions under `src/`.
+- Every entry point under `src/` and `scripts/` must insert the repository
+  root into `sys.path` before importing `config`.
 
 ```python
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))  # ".parent.parent" under scripts/
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 ```
 
-Running `python foo.py` puts only the script's own directory on `sys.path`, not
-the working directory, so `from config import ...` will not resolve without it.
-Keep the bootstrap when adding a new entry point.
+Scripts directly under `scripts/` use `.parent.parent`.
 
-**Do not rebind `sys.stdout`.** Use `sys.stdout.reconfigure(encoding="utf-8")`.
-Assigning `sys.stdout = io.TextIOWrapper(sys.stdout.buffer, ...)` at module level
-leaves the previous wrapper to be garbage-collected, which closes the underlying
-buffer for any process that imports the module.
+- Configure stdout with `sys.stdout.reconfigure(encoding="utf-8")`. Do not
+  replace `sys.stdout`.
+- Keep experiments outside production entry points until accepted.
 
-## Evaluation Protocol
+## Finish
 
-`src/model/evaluate_suite.py` implements four layers. They answer different
-questions and must not be mixed or substituted for one another.
+Record an unfixed defect in `ISSUES.md` with its problem, reproduction,
+proposed fix, and completion check. Delete fixed entries and record landed
+changes in `VERSION_HISTORY.md`.
 
-| Layer | What it is | What it is for |
-|-------|-----------|----------------|
-| **A** selection | pooled GroupKFold CV, and its 2024-26 subset | every accept/reject decision |
-| **B** forecasting | rolling-origin, train on all seasons < T, for T in 2024-2026 | what `predict.py` will actually achieve |
-| **C** integrity | calibration and per-segment bias | catching a change that helps the average and hurts a segment |
-| **D** guards | fixed eval set, baseline ladder, locked confirmation split | comparability |
-
-Rules that are easy to get wrong:
-
-- **Pooled CV is not leaking.** The estimand is the market's pricing function, a
-  structural quantity, so using later seasons to estimate it is efficient rather
-  than optimistic. Player grouping blocks the leakage that does matter. Layer B
-  exists because `predict.py` genuinely forecasts, not because layer A is dishonest.
-- **Report deltas paired by fold.** Fold sd is ~0.046; seed sd is ~0.001.
-  Comparing two independently-reported means throws away nearly all the power.
-- **Bin calibration by predicted value, never by the target.** Binning residuals
-  by actual salary produces a steep monotone bias gradient even when calibration
-  is perfect. Earlier versions of METHODOLOGY.md reported exactly that artifact
-  as a finding.
-- **Fix the evaluation set when the training filter changes.** R²'s denominator
-  moves with the dataset, so R² across different row sets is not comparable.
-- **The confirmation split is 15% of players, held out of selection.** Open it at
-  a version bump, not during iteration.
-
-## Handing off unfinished work
-
-When you find a real problem you are not fixing in this session, write it into
-**[ISSUES.md](ISSUES.md)** — do not leave it in the conversation, where the next
-agent will never see it. Give each entry enough that someone can act on it cold:
-the symptom, a command that reproduces it, what to do, and how to know it is
-fixed. Delete the entry when it is fixed; `VERSION_HISTORY.md` is where the fix
-gets recorded.
-
-Read ISSUES.md before starting work — what looks like a fresh bug is often
-already written up there.
-
-## Important Notes
-
-- **Do not overfit**: ~1,500 training rows. Ridge before XGBoost, XGBoost before anything larger, each step justified by a paired CV improvement.
-- **Cap % normalization**: always convert raw dollars to cap %, never mix eras without normalization.
-- **CBA regime awareness**: the 2023 CBA changed contract structure significantly. `cba_era` is the minimum encoding; `max_eligible_pct` encodes the actual ceiling per player.
-- **Avoid double counting**: if availability is already reflected in minutes, don't apply a separate availability discount on top.
-- **Scraping courtesy**: cache everything, rate-limit, don't hammer servers. Basketball Reference rate-limits aggressively — a full 30-team refresh takes ~25 minutes with backoff and one team will typically 403 and need a retry.
-- **A failed fetch must degrade to stale data, never to missing data.** Merges that replace a whole season wholesale will silently delete a team whose page failed.
+A change that moves published numbers takes the next `vN.Mx` version and a
+git tag containing its headline metrics.

@@ -213,6 +213,33 @@ def _load_signing_types() -> pd.DataFrame:
     return st[["player_name_norm", "season", "signing_type"]]
 
 
+def _resolve_team(name_norm: pd.Series, season: pd.Series,
+                  fallback: pd.Series | None = None) -> pd.Series:
+    """The team a player was actually on in a season, from Spotrac.
+
+    `team_abbreviation` — the column the board used to ship — rides in with the
+    impact metrics from nbarapm.com, which are deliberately lagged one season
+    (the market prices a summer signing on the PREVIOUS year's performance).
+    Lagging the stats is the model's causal structure; lagging the team just
+    mislabels the player with the club he left. Lillard's 2023 row pays his
+    Milwaukee salary to the dollar and used to read POR.
+
+    `player_teams.csv` is built by `scripts/build_player_teams.py`. Rows it
+    cannot resolve keep `fallback`, so a missing Spotrac page degrades to the
+    stale label rather than to a blank cell.
+    """
+    path = PROCESSED_DIR / "player_teams.csv"
+    base = (fallback.copy() if fallback is not None
+            else pd.Series(np.nan, index=name_norm.index, dtype=object))
+    if not path.exists():
+        print("  [warn] player_teams.csv missing — teams stay one season stale")
+        return base
+    teams = pd.read_csv(path).set_index(["player_name_norm", "season"])["team"]
+    keys = pd.MultiIndex.from_arrays([name_norm, season.astype(int)])
+    resolved = pd.Series(teams.reindex(keys).values, index=name_norm.index)
+    return resolved.where(resolved.notna(), base)
+
+
 def _training_medians(df: pd.DataFrame,
                       features: list[str] | None = None
                       ) -> tuple[list[str], pd.Series]:
@@ -570,7 +597,8 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
         "player_name": full["player_name"],
         "player_name_norm": full["player_name_norm"],
         "season": full["season"].astype(int),
-        "team": full["team_abbreviation"],
+        "team": _resolve_team(full["player_name_norm"], full["season"],
+                              full["team_abbreviation"]),
         "position": full["position"],
         "age": full["age"],
         "experience": _experience_years(full).values,
@@ -699,8 +727,10 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
     # Everything else comes from the player's most recent season on record.
     hist = df.sort_values("season").groupby("player_name_norm").last()
     fa = fa[fa["player_name_norm"].isin(hist.index)].copy()
-    # Position is stable and worth borrowing; team is not — a free agent's last
-    # team is stale the moment he signs elsewhere, so it is left blank.
+    # Position is stable and worth borrowing; the last team is not — it goes
+    # stale the moment he signs elsewhere, so it is never borrowed from history.
+    # The team is instead read from Spotrac's cap sheet below, which knows where
+    # he actually signed.
     for col in ("age", "height_inches", "draft_pick", "prev_cap_pct",
                 "award_score_cum", "ast_pct", "availability_3yr", "position"):
         borrowed = fa["player_name_norm"].map(hist[col]) if col in hist else np.nan
@@ -773,7 +803,9 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         "player_name": fa["player_name"].values,
         "player_name_norm": fa["player_name_norm"].values,
         "season": HOLDOUT_SEASON,
-        "team": np.nan,
+        "team": _resolve_team(
+            fa["player_name_norm"],
+            pd.Series(HOLDOUT_SEASON, index=fa.index)).values,
         "position": fa["position"].values,
         "age": fa["age"].values,
         "experience": _experience_years(probe).values,

@@ -351,6 +351,7 @@ closes the gap.
 | `is_rookie_scale` | N/A | Handled by rookie scale filter instead |
 | `team_value_B` | +0.0001 | Franchise value doesn't predict individual salary |
 | `injury_reports` | +0.0002 | Redundant with availability_3yr |
+| Spotrac injury burden | -0.0017 to -0.0024 directional paired Delta selection R-squared | Rejected 2026-08-31 after a three-seed, five-fold screen. One-year and two-year time decay, log games missed, fixed injury-type severity, recurrence weighting, raw games missed, and event count were all negative. The full type-plus-recurrence score was -0.00239 at t = -3.20. The 10-seed gate was stopped by user decision after every candidate arm and every recurrence fold was negative. Spotrac dates the missed-game interval rather than the diagnosis, so Damian Lillard's April 2025 Achilles tear first appears on 2025-10-22 and is unavailable for his 2025-07-19 signing. See `docs/briefs/2026-08-31-injury-feature.RESULT.md`. |
 | `is_lottery`, `is_top5` | < +0.001 | Redundant with draft_pick |
 | `all_nba_cum` | +0.0001 | Redundant with award_score_cum |
 | Agent portfolio features | -0.002 to -0.005 | Leakage when computed naively; too sparse for native categorical (147 agents over the training set) |
@@ -367,6 +368,7 @@ closes the gap.
 | `ema_quality` (exponential moving average) | +0.00263 (t = 1.17) | Control for `kalman_filtered_stats` (v8.10x). A simple EMA over the three z-scored impact metrics, which does temporal smoothing without optimal metric weighting or age-aware drift. Recovers only half of `kalman_filtered_stats`'s gain, confirming the Kalman filter's advantage is in the weighting and drift, not mere smoothing |
 | 6 raw O/D z-scores replacing 3 composites | +0.0044 (t = 1.14) | Arm A of the O/D split ablation (v8.12x). Replacing `darko_dpm_z`, `lebron_z`, `laker_z` with their 6 offensive and defensive components costs 3 degrees of freedom and mostly re-expresses total quality. Gains are fold-unstable: range −0.00000 to +0.01931 across 5 folds |
 | O/D Kalman (two independent filters) | −0.0009 (Arm D) | Two scalar Kalman filters (one from O metrics, one from D) replacing the composite `kalman_filtered_stats`. Correlation with composite is only 0.775 — independent filters lose cross-metric information between O and D measurements. Recovers half the value at best |
+| `mpg × impact` interactions (4 forms) | −0.0018 to −0.0008 (t −1.00 to −0.49) | Tested 2026-08-29 on the hypothesis that minutes inflate the price of high-volume, low-efficiency players. Four forms — `mpg × composite impact z`, `mpg ×` each of the three metrics separately, `mpg × availability_3yr × composite` (a minute-weighted "total value" term), and the composite impact z on its own — every one negative on the pooled selection pool. It also **fails in the zone it targets**: on high-mpg / sub-average-impact rows (n=89) MAE moves $4.61M → $4.65M, and on the narrower volume-scorer slice (high mpg, high usage, impact < 0.25, n=47) $5.91M → $6.02M. The premise does not hold either — that zone's OOF bias is $+0.05M, and the volume-scorer slice is *under*-priced by $0.73M. Its problem is spread, not level: MAE $5.91M against $3.19M for everyone else, the bimodal `y | x` documented above. A gradient-boosted model already represents `mpg × metric` by splitting on one and then the other, so the explicit product only adds a collinear column. Arm: baseline XGBoost on the 20 base features, GroupKFold, 10 seeds, paired by fold. |
 
 ### Training-set choices tested and rejected
 
@@ -1262,10 +1264,16 @@ classifier fed those features. At the pre-registered operating point (tau =
 t = -2.48, arm B (P-weighted pull with margin) dSel +0.003 at t = +0.54,
 best t anywhere on the grid +1.75.
 
-**Offseason-injury signal.** 1 of 9 fat-tail floor rows has a dated
-offseason injury. The rest are age/decline, playstyle devaluation, buyout
-dynamics and cold markets. A perfect injury flag is worth +0.0097, a quarter
-of the floor headroom. No-go on the scrape.
+**Offseason-injury signal.** The earlier floor-only oracle of +0.0097 did not
+survive a frame-wide feature test. Cached Spotrac pages produced 11,697 dated
+injury/DNP rows, but the table dates missed games rather than diagnoses and
+cannot expose Lillard's April 2025 Achilles tear before his July signing. All
+fixed score forms were negative in the three-seed directional screen: the best
+simple event-count form was -0.00172 paired Delta selection R-squared, the
+type-weighted form was -0.00173, and the full time/type/recurrence score was
+-0.00239 at t = -3.20. The user rejected the feature and stopped the 10-seed
+gate. Reopen only with diagnosis dates and signing-time prognosis or recovery
+status, not another weighting of the same missed-game table.
 
 **MLE branch.** P(mle) AUC 0.71: whether a player is offered an exception
 depends on the signing team's cap position, which no player feature sees.
