@@ -93,6 +93,25 @@ clip makes that objective monotone in it. `TAU = 0.52`, `SIGNING_K = 20` and
 - Complete when every constant has either a derivation or a written reason to
   leave it alone.
 
+## Blocked
+
+### Fix the minimum-contract length defect (ISSUES #55)
+
+Blocked on Spotrac access: this environment denies `www.spotrac.com`, and
+`data/raw/html_cache/` is not in the clone. Run on a machine with the cache,
+or allow the host in the environment's network settings.
+
+- Take `contract_years` for the 29 `spotrac_fa_backfill` rows from the Spotrac
+  "Contract Terms" field, counting option years. Wait at least 3 seconds
+  between live requests.
+- Make `_normalize_vetmin_caphold` apply the one-year rule in
+  `build_merged_salaries._min_cap_charge`.
+- Land this in the same rebuild as the Spotrac salary migration item, because
+  both change the salary frame and regenerate the same outputs.
+- Rerun the ring-chasing and waiver items on the rebuilt frame, not on v8.16x;
+  LeBron James 2026 changes target.
+- Complete when the ISSUES #55 Done condition holds.
+
 ## Needs a brief
 
 ### Separate ex-ante and ex-post Stage-2 modes
