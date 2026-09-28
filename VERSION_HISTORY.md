@@ -733,6 +733,7 @@ Evidence: `docs/briefs/2026-07-26-service-years.RESULT.md`,
 
 | Ver | Model | A1 (told) | A2 (told) | B1 (told) | N | Feat | Change |
 |-----|-------|-----------|-----------|-----------|---|------|--------|
+| **8.17x** | **XGBoost (Grabit v4)** | **0.8422** | **0.8595** | **0.8273** | **870** | **21** | **Multi-year minimum contracts keep their salary (ISSUES #55). Correctness fix; 40 targets change** |
 | **8.16x** | **XGBoost (Grabit v4)** | **0.8423** | **0.8576** | **0.8259** | **870** | **21** | **Spotrac cap-hit salary migration. Source correction and new baseline; not comparable with v8.15x because rows and targets changed** |
 | **8.15x** | **XGBoost (Grabit v4)** | **0.8572†** | **0.8810†** | **0.8556** | **873** | **21** | **Web inference repair: every Value Board row gets a KF trajectory, while only genuine Year-1 market events can anchor it. Evaluation rows remain bit-identical. †Metrics unchanged from v8.14x** |
 | **8.14x** | **XGBoost (Grabit v4)** | **0.8572†** | **0.8810†** | **0.8556** | **873** | **21** | **KF hyperparameter tuning: Q_FLOOR 0.0005→0.04, prehistory+expand defaults. +0.0088 over v8.13x tuned baseline. †Nested-CV ablation** |
@@ -1622,6 +1623,57 @@ Evidence: `scripts/build_merged_salaries.py`,
 `data/processed/merged_salaries.csv`, `data/processed/training_data_v2.csv`,
 `tests/test_salary_migration.py`, `tests/test_spotrac_scraper.py`, and
 `outputs/diagnostics/stage3_signing_offset_eval.csv`.
+
+### v8.17x: one-year rule for the minimum cap charge (ISSUES #55)
+
+The CBA reduces the cap charge to the base minimum only for one-year minimum
+contracts. `train._normalize_vetmin_caphold` applied that charge to every
+Minimum row, overriding `build_merged_salaries._min_cap_charge`, which already
+used the one-year rule. It now leaves rows with `contract_years` other than 1
+at their salary. An unknown length is still treated as one year.
+
+The 29 `spotrac_fa_backfill` rows were stored as one-year contracts because
+they carry only season 2026. `scripts/fetch_backfill_contract_terms.py`
+extracted each row's Spotrac contract block into
+`data/processed/spotrac_backfill_contract_terms.csv`. Five rows whose length or
+contract year differs now have sourced entries in
+`contract_structure_corrections.csv`: LeBron James 2026 (two years, 2027
+player option), Bennedict Mathurin 2026, Jonathan Mogbo 2026, JD Davison 2026,
+and Taj Gibson 2026. The last two are year 2 of contracts that began in 2025.
+
+This is a correctness fix; the gate is reported, not applied. Evaluation
+membership stays at 870 rows. Normalized rows fall from 100 to 60, and 40
+targets rise from a mean 1.48% to 1.93% of cap. LeBron James 2026 reads $3.88M
+instead of $2.45M.
+
+| Metric | v8.16x | v8.17x |
+|---|---:|---:|
+| A1 pooled CV R2 | 0.8423 | **0.8422** |
+| A2 2024-26 CV R2 | 0.8587 | **0.8595** |
+| B1 rolling-origin R2 | 0.8255 | **0.8273** |
+| B1 2024 / 2025 / 2026 | 0.8607 / 0.8108 / 0.7929 | 0.8593 / 0.8125 / 0.7989 |
+| MAE | $2.71M | $2.72M |
+| Calibration slope | 0.959 | 0.958 |
+
+The v8.16x column is the same-day rerun, so both columns share code apart from
+this change. Paired selection delta is -0.0003 (t = -0.46; per fold -0.00049,
+-0.00207, -0.00069, -0.00013, +0.00190). Scored against the corrected targets,
+the v8.16x predictions give A1 0.8426 and B1 0.8268.
+
+Regenerated deployed k=20 signing offsets: Bird Rights +0.01494, Cap Space
++0.00828, Early Bird +0.00424, and Non-Bird -0.00580. Legality and
+bit-identity guards pass. The web export forward 2026 R2 is 0.7956 on 112
+rows, within 0.003 of the suite.
+
+Verification: `pytest` passes 57/57, including the new
+`VetMinCapChargeTests`.
+
+Evidence: `src/model/train.py`,
+`data/raw/raw_external/contract_structure_corrections.csv`,
+`data/processed/spotrac_backfill_contract_terms.csv`,
+`data/raw/raw_external/signing_offsets.json`,
+`outputs/diagnostics/stage3_signing_offset_eval.csv`, and
+`outputs/web/valuations_export.csv`.
 
 ### Repository tidy, 2026-09-28 (no version bump)
 

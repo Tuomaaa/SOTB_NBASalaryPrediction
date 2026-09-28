@@ -1,6 +1,6 @@
 # Work queue
 
-Last updated 2026-09-28 after the public accuracy views.
+Last updated 2026-09-28 after v8.17x (ISSUES #55).
 
 Keep only active work here. Each item needs an action and a completion check.
 Use a dated brief for additional detail. Put defects in `ISSUES.md` and landed
@@ -14,8 +14,8 @@ work in `VERSION_HISTORY.md`.
   with HEAD on fixed rows. The current `split` branch recovered 61.4% of 57
   ambiguous rows against a documented 68% ceiling; taking the first Spotrac
   amount performed better.
-- Complete when A1, A2, and B1 are remeasured against the v8.16x baseline
-  0.8423, 0.8576, and 0.8259; `SIGNING_OFFSETS_DEPLOYED`, `career_earnings.csv`,
+- Complete when A1, A2, and B1 are remeasured against the v8.17x baseline
+  0.8422, 0.8595, and 0.8273; `SIGNING_OFFSETS_DEPLOYED`, `career_earnings.csv`,
   and `rings_thru_prev.csv` are regenerated from the final salary frame.
 
 ### Decide the ring-chasing discount
@@ -37,9 +37,9 @@ multiplicative pull on the latent before the clip).
   top-dollar signers alike. Jimmy Butler 2023 (33, $218M banked, no ring)
   signed $45.2M and the pull deepened his error by $4.19M, while gains of the
   same size land on Conley and Horford. Report gain and damage by named row.
-- LeBron James 2026 (41, PHI minimum) is the largest forward miss: $40.98M
-  over-prediction, and the 2026 origin reads 0.885 without him against 0.793
-  with him. Report his row and the 2026 origin with and without the pull. See
+- LeBron James 2026 (41, two-year PHI minimum) is the largest forward miss:
+  about $39.5M over-prediction on v8.17x. On v8.16x the 2026 origin read 0.885
+  without him against 0.793 with him. Report his row and the 2026 origin with and without the pull. See
   `docs/briefs/2026-09-28-public-accuracy-views.RESULT.md`.
 - Complete when it is adopted or rejected with paired metrics, a fixed subset
   definition, and per-row gain/damage reported.
@@ -52,7 +52,7 @@ buyout.
 
 - Audit each positive `is_waived` event against information available before
   the signing date. Separate an ordinary waiver from a buyout re-signing.
-- Remeasure `is_waived` and `mpg_x_waived` on the fixed v8.16x frame.
+- Remeasure `is_waived` and `mpg_x_waived` on the fixed v8.17x frame.
 - Add `kf_market_value_x_waived = is_waived * kf_market_value` as a challenger.
   Build this interaction inside each CV fold after nested KF inference.
 - Report paired A1, A2, B1, C1, and C2. Report named-row effects for Kemba
@@ -63,7 +63,7 @@ buyout.
 
 ### Grabit hyperparameter tuning — PAUSED
 
-Paused by user decision on 2026-08-31. Keep the v8.16x incumbent
+Paused by user decision on 2026-08-31. Keep the incumbent
 `sigma = 0.02`, `sigma_left = 0.02`, `right_gate = 0.55`, and
 `left_gate = 2.0` until this item is explicitly resumed.
 
@@ -92,25 +92,6 @@ clip makes that objective monotone in it. `TAU = 0.52`, `SIGNING_K = 20` and
   the current value stands.
 - Complete when every constant has either a derivation or a written reason to
   leave it alone.
-
-## Blocked
-
-### Fix the minimum-contract length defect (ISSUES #55)
-
-Blocked on Spotrac access: this environment denies `www.spotrac.com`, and
-`data/raw/html_cache/` is not in the clone. Run on a machine with the cache,
-or allow the host in the environment's network settings.
-
-- Take `contract_years` for the 29 `spotrac_fa_backfill` rows from the Spotrac
-  "Contract Terms" field, counting option years. Wait at least 3 seconds
-  between live requests.
-- Make `_normalize_vetmin_caphold` apply the one-year rule in
-  `build_merged_salaries._min_cap_charge`.
-- Land this in the same rebuild as the Spotrac salary migration item, because
-  both change the salary frame and regenerate the same outputs.
-- Rerun the ring-chasing and waiver items on the rebuilt frame, not on v8.16x;
-  LeBron James 2026 changes target.
-- Complete when the ISSUES #55 Done condition holds.
 
 ## Needs a brief
 
@@ -147,8 +128,9 @@ Build the public accuracy panel from
 
 - From the machine that holds the tags, run `git push origin --tags`. Tag any
   missing v8.x release commit with its headline metrics.
-- Complete when `git ls-remote --tags origin` lists `pre-tidy-2026-09-28` and
-  v8.16x.
+- Tag v8.17x on the merged commit with its headline metrics.
+- Complete when `git ls-remote --tags origin` lists `pre-tidy-2026-09-28`,
+  v8.16x, and v8.17x.
 
 ### Add P(max) to the Value Board
 
