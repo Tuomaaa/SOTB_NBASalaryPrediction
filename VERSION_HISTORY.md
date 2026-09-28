@@ -1622,6 +1622,35 @@ Evidence: `scripts/build_merged_salaries.py`,
 `tests/test_salary_migration.py`, `tests/test_spotrac_scraper.py`, and
 `outputs/diagnostics/stage3_signing_offset_eval.csv`.
 
+### Repository tidy, 2026-09-28 (no version bump)
+
+No published number moves. The commit before the removal has the tag
+`pre-tidy-2026-09-28`. To restore a removed file, run
+`git checkout pre-tidy-2026-09-28 -- <path>`.
+
+Removed files:
+
+- Legacy entry points: root `predict.py`, `api_backend/`, `versions/v1/`,
+  `outputs/versions/`, `PROJECT_BRIEF.md`, and `src/model/evaluate.py`.
+  `src/model/predict.py` and `scripts/export_web.py` replace them.
+- Finished or rejected experiment scripts: route-mixture p1, p2, and p4,
+  phase3c/3d, told clip, extension cap, max-branch tau sweep, missingness
+  repair, KF forward veto, `hyperparam_sweep`, `ablation_new_features`,
+  `audit_feature_missingness`, `compute_mvc`, `scrape_pure_rapm`, and
+  `scrape_spotrac_missing`.
+- The rejected injury feature: `src/features/injury_history.py`, its test,
+  its build and evaluation scripts, and `spotrac_injuries.csv`.
+- The rejected ring-chasing shapes: `eval_ringchase_latent`, `_offset`, and
+  `_pweighted`. `eval_ringchase_gated.py` remains for the active queue item.
+- Unused files: 8 processed CSVs, 39 versioned files under
+  `outputs/predictions/`, `outputs/mvc/`, and 10 files under
+  `outputs/diagnostics/`.
+
+Scripts that remain in use: scripts cited by an `ISSUES.md` reproduction
+command, scripts that build tracked data, and scripts that active queue items
+need. Verification: `pytest` passes 56/56. The three removed tests belonged to
+the injury feature.
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v7.0x was a statistical
