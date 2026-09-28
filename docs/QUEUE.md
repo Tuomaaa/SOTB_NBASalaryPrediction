@@ -56,6 +56,10 @@ age cannot separate discounters from full-price veterans.
 - Fit the hazard on seasons <= 2016 with lookahead to 2018, freeze it, add a
   `--gate retire` arm, and report the 2026 origin and A1 with and without
   LeBron 2026 plus the named rows above.
+- Forward check: Stephen Curry's September 2026 extension (two years, $116M,
+  year 1 $55.7M in repo season 2027, about $20M under his maximum; ESPN,
+  2026-09) is outside the frame. Score it with the frozen gate before the
+  2027 refresh adds the row.
 - Complete when the retire gate is adopted or rejected with paired metrics and
   per-row gain and damage; reject all three gates if it fails.
 
