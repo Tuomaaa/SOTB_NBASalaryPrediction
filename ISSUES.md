@@ -426,25 +426,32 @@ reads MIL.
 
 **Severity:** medium. This changes target values.
 
-**Problem:** `_normalize_vetmin_caphold` rewrites every Minimum row at or below
-2.5% of cap to the base cap charge. The CBA gives that reduced charge only to
-one-year minimum contracts; a multi-year minimum contract counts its full
-salary. On the v8.16x evaluation frame, 39 of the 100 normalized rows have
-`contract_years >= 2`. LeBron James 2026 is a two-year minimum contract with a
-year-2 player option (ESPN, CBS Sports, 2026-07), but
-`contract_structure_v2.csv` records `contract_years = 1`, so a length rule
-alone would still normalize him from $3.88M to $2.45M.
+**Problem:** Two defects combine.
+
+- `train._normalize_vetmin_caphold` rewrites every Minimum row at or below
+  2.5% of cap to the one-year cap charge. The CBA grants that charge only to
+  one-year minimum contracts. `build_merged_salaries._min_cap_charge` already
+  applies the one-year rule, but the load-time normalization runs later and
+  overrides it. On the v8.16x evaluation frame, 39 of the 100 normalized rows
+  have `contract_years >= 2`.
+- All 29 `spotrac_fa_backfill` rows in `salaries.csv` carry only season 2026.
+  `extend_contract_structure.py` counts consecutive salary seasons, so each
+  backfill contract is stored as one year. LeBron James 2026 is a two-year
+  minimum contract with a year-2 player option (Spotrac; ESPN and CBS Sports,
+  2026-07) but reads `contract_years = 1` and a $2.45M target instead of $3.88M.
 
 **Reproduce:** Join `outputs/models/oof_reference.csv` to the raw `cap_pct` in
 `training_data_v2.csv` and to `contract_structure_v2.csv`. Count Minimum rows
-whose target changed, by `contract_years`. Inspect LeBron James 2026.
+whose target changed, by `contract_years`. Then count `contract_years` for the
+`spotrac_fa_backfill` rows in `salaries.csv`.
 
-**Fix:** Normalize only one-year minimum contracts. Count option years in
-`contract_years` for the Spotrac cap-hit branch, or add a sourced
-`contract_structure_corrections.csv` row for LeBron James 2026. Apply the rule
-in all five paths listed in the v8.11x entry, then rerun the paired gate and the
-#48 offset regeneration.
+**Fix:** Make `_normalize_vetmin_caphold` apply the same one-year rule as
+`_min_cap_charge`. For backfill rows, take the length from the Spotrac
+"Contract Terms" field that `scrape_spotrac_players.py` already parses,
+including option years. This needs the Spotrac HTML cache or live access to
+www.spotrac.com. Apply the rule in all five paths listed in the v8.11x entry,
+then rerun the paired gate and the #48 offset regeneration.
 
-**Done:** Multi-year minimum rows keep their full salary, LeBron James 2026
-reads `contract_years = 2` and $3.88M, and the number-moving rebuild has a
-version entry.
+**Done:** Multi-year minimum rows keep their full salary, every backfill row
+has its Spotrac contract length, LeBron James 2026 reads `contract_years = 2`
+and $3.88M, and the number-moving rebuild has a version entry.
