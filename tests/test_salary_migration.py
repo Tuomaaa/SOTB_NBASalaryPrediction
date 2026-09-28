@@ -478,3 +478,15 @@ def test_signing_contract_rejects_price_above_exception_limit():
     value, branch = merged.resolve_row(row, set(), set(), starts)
     assert branch != "signing_contract"
     assert value == merged.resolve_row(row, set(), set())[0]
+
+
+def test_signing_contract_skips_one_year_minimum_not_paid_in_full():
+    # Dalano Banton 2025: 10-day deals; Spotrac prints the annual minimum.
+    row = _row(player_name_norm="dalano banton", season=2025,
+               base=141_463, extra_amounts="141463;28293",
+               statuses="Retained;Retained;Active", n_teams=3,
+               split_total=311_219, contract_years=1)
+    starts = {("dalano banton", 2025): [_contract("Minimum", 1, 2_296_274)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert branch != "vet_min" or value < 1_000_000
+    assert value == merged.resolve_row(row, set(), set())[0]

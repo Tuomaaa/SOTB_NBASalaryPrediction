@@ -567,6 +567,15 @@ def _signing_year1_amount(row, season: int, contracts: list
     years = pd.to_numeric(c.get("contract_years"), errors="coerce")
     total = one_year_total(c)
     if total is not None:
+        # A one-year minimum that the cell does not pay in full was cut short:
+        # a 10-day contract (Spotrac prints the annual minimum for it) or a
+        # deal waived partway. Pricing it at the full-season charge admits
+        # rows the prorated filter exists to drop: the 2026-09-28 rebuild
+        # added 64 such rows, Dalano Banton 2025 among them at $2,296,274
+        # against $311,219 paid. Those rows keep the season-cash reading.
+        if ("minimum" in str(c.get("signing_type")).lower()
+                and sum(amounts) < 0.95 * total):
+            return None
         picked = total
     else:
         # A longer deal's year 1 is the combination of the cell's figures
