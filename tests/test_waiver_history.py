@@ -9,6 +9,7 @@ from src.features.waiver_history import (
     _resolve_waiver_no_signing,
     attach_waiver_history,
     classify_transaction,
+    money_owed,
 )
 
 
@@ -170,6 +171,50 @@ class WaiverHistoryTests(unittest.TestCase):
         result = attach_waiver_history(frame, events, signings)
 
         self.assertEqual(result.loc[0, "is_waived"], 1.0)
+
+    def test_money_owed_scans_every_waiver_in_lookback(self):
+        """A buyout followed by a plain waiver still leaves money owed."""
+        frame = pd.DataFrame([
+            {"player_name_norm": "vet", "season": 2021, "salary": 2_000_000},
+            {"player_name_norm": "cut", "season": 2021, "salary": 2_000_000},
+        ])
+        signings = pd.DataFrame([{
+            "player_name_norm": p, "signing_date": "2021-08-06",
+            "signing_season": 2021, "contract_years": 1,
+            "total_value": 2_000_000, "is_extension": 0,
+            "contract_class": "standard", "team": "BKN",
+            "fa_year_matched": 2021, "match_confidence": "exact",
+            "tx_text": "Signed a 1 year contract",
+        } for p in ("vet", "cut")])
+        events = pd.DataFrame([
+            {"player_name_norm": "vet", "transaction_date": "2021-03-25",
+             "event_type": "waived",
+             "tx_text": "Waived by San Antonio (SAS) - bought out, gave back $7.25 million"},
+            {"player_name_norm": "vet", "transaction_date": "2021-04-23",
+             "event_type": "waived", "tx_text": "Waived by Brooklyn (BKN)"},
+            {"player_name_norm": "cut", "transaction_date": "2021-06-28",
+             "event_type": "waived", "tx_text": "Waived by Minnesota (MIN)"},
+        ])
+
+        result = attach_waiver_history(frame, events, signings)
+
+        self.assertEqual(result["is_waived"].tolist(), [1.0, 1.0])
+        self.assertEqual(result["prior_waiver_owed"].tolist(), [1.0, 0.0])
+        self.assertEqual(result.loc[0, "prior_waiver_text"],
+                         "Waived by Brooklyn (BKN)")
+
+    def test_money_owed_wording(self):
+        """Buyout, stretch and dead money count; a zeroed amount does not."""
+        texts = {
+            "Waived by Detroit (DET) - agree to buyout": 1.0,
+            "Waived by Milwaukee (MIL) via Stretch Provision": 1.0,
+            "Waived by Orlando (ORL); leaves behind $8 million in dead cap": 1.0,
+            "Waived by Memphis (MEM); reduced waived amount to $0": 0.0,
+            "Waived by Golden State (GSW)": 0.0,
+        }
+        for text, owed in texts.items():
+            self.assertEqual(money_owed(pd.DataFrame({"tx_text": [text]})),
+                             owed, text)
 
     def test_resolve_no_signing_no_waivers(self):
         """Player with transaction page but zero waiver events -> not waived."""

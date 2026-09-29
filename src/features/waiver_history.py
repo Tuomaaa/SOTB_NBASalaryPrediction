@@ -1,5 +1,6 @@
 """Previous-waiver feature from dated Spotrac transaction logs."""
 
+import re
 from pathlib import Path
 
 import numpy as np
@@ -11,6 +12,16 @@ from config import CAP_BY_SEASON, PROCESSED_DIR
 TRANSACTIONS = PROCESSED_DIR / "spotrac_transactions.csv"
 SIGNING_DATES = PROCESSED_DIR / "contract_signing_dates.csv"
 WAIVER_LOOKBACK_DAYS = 365
+# Spotrac wording for a waiver that leaves the old team paying the player.
+# "reduced waived amount to $0" says nothing is owed and does not match.
+MONEY_OWED = re.compile(
+    r"buyout|bought out|stretch|gave back|giving back|dead cap"
+    r"|reducing salary|reducing amount owed", re.IGNORECASE)
+
+
+def money_owed(waivers: pd.DataFrame) -> float:
+    """1.0 when any of these waiver events leaves money owed, else 0.0."""
+    return float(waivers["tx_text"].astype(str).str.contains(MONEY_OWED).any())
 
 
 def classify_transaction(text: str) -> str:
@@ -128,7 +139,7 @@ def _resolve_waiver_no_signing(
     player_tx: pd.DataFrame,
     season: int,
     lookback_days: int = WAIVER_LOOKBACK_DAYS,
-) -> tuple[float, pd.Timestamp | None, str | None] | None:
+) -> tuple[float, pd.Timestamp | None, str | None, float] | None:
     """Try to resolve waiver status when signing date is unknown.
 
     Uses conservative season-based date windows.  For season X the signing
@@ -136,10 +147,12 @@ def _resolve_waiver_no_signing(
     spans roughly July of year X-2 to October of year X-1.
 
     Three outcomes:
-    - No waiver events at all → (0.0, None, None)   (definitively not waived)
-    - All waivers outside the widest possible window → (0.0, None, None)
-    - A waiver clearly inside the tightest window    → (1.0, date, text)
+    - No waiver events at all → (0.0, None, None, 0.0)   (definitively not waived)
+    - All waivers outside the widest possible window → (0.0, None, None, 0.0)
+    - A waiver clearly inside the tightest window    → (1.0, date, text, owed)
     - Ambiguous (waiver between tight and wide)      → None  (leave unknown)
+
+    `owed` is `money_owed` over every waiver in the tight window.
 
     The wide window brackets the earliest-possible lookback start (signing
     on July 1, lookback starts July 1 of the prior year) through the latest
@@ -154,7 +167,7 @@ def _resolve_waiver_no_signing(
         & player_tx["transaction_date"].notna()
     ]
     if waivers.empty:
-        return (0.0, None, None)
+        return (0.0, None, None, 0.0)
 
     # Wide window: earliest possible lookback start → latest possible signing
     wide_start = pd.Timestamp(f"{season - 2}-07-01")
@@ -164,7 +177,7 @@ def _resolve_waiver_no_signing(
         & (waivers["transaction_date"] <= wide_end)
     ]
     if in_wide.empty:
-        return (0.0, None, None)
+        return (0.0, None, None, 0.0)
 
     # Tight window: inside every possible 365-day lookback
     tight_start = pd.Timestamp(f"{season - 2}-10-25")
@@ -175,7 +188,8 @@ def _resolve_waiver_no_signing(
     ]
     if not in_tight.empty:
         hit = in_tight.sort_values("transaction_date").iloc[-1]
-        return (1.0, hit["transaction_date"], hit["tx_text"])
+        return (1.0, hit["transaction_date"], hit["tx_text"],
+                money_owed(in_tight))
 
     # Waiver is in the wide window but not the tight window — ambiguous.
     return None
@@ -192,7 +206,9 @@ def attach_waiver_history(
     is_waived is 1/0 only when both the player's transaction page and the
     signing date that prices the row are observed. It stays NaN otherwise.
     is_waived_known makes that source coverage explicit and is kept for the
-    required coverage-control evaluation.
+    required coverage-control evaluation. prior_waiver_owed is 1 when any
+    waiver in the lookback left the old team paying the player (a buyout,
+    stretch or dead money); it scans every waiver, not only the last one.
 
     When a player has a transaction page but no signing date can be matched,
     the function attempts conservative resolution: if no waiver events exist
@@ -214,6 +230,7 @@ def attach_waiver_history(
     out["is_waived_known"] = 0.0
     out["prior_waiver_date"] = pd.NaT
     out["prior_waiver_text"] = pd.NA
+    out["prior_waiver_owed"] = np.nan
     if tx is None or tx.empty:
         return out
 
@@ -272,9 +289,10 @@ def attach_waiver_history(
                 tx_by_player[player], season, lookback_days
             )
             if resolved is not None:
-                is_w, w_date, w_text = resolved
+                is_w, w_date, w_text, owed = resolved
                 out.at[i, "is_waived_known"] = 1.0
                 out.at[i, "is_waived"] = is_w
+                out.at[i, "prior_waiver_owed"] = owed
                 if w_date is not None:
                     out.at[i, "prior_waiver_date"] = w_date
                     out.at[i, "prior_waiver_text"] = w_text
@@ -294,6 +312,8 @@ def attach_waiver_history(
             >= signing - pd.Timedelta(days=lookback_days)
         ]
         out.at[i, "is_waived"] = float(not prior.empty)
+        out.at[i, "prior_waiver_owed"] = (money_owed(prior)
+                                          if not prior.empty else 0.0)
         if not prior.empty:
             hit = prior.sort_values("transaction_date").iloc[-1]
             out.at[i, "prior_waiver_date"] = hit["transaction_date"]
@@ -345,6 +365,7 @@ def attach_waiver_status_as_of(
     out["is_waived_known"] = 0.0
     out["prior_waiver_date"] = pd.NaT
     out["prior_waiver_text"] = pd.NA
+    out["prior_waiver_owed"] = np.nan
     if tx is None or tx.empty:
         return out
 
@@ -366,6 +387,8 @@ def attach_waiver_status_as_of(
             & (rows["transaction_date"] >= start)
         ]
         out.at[i, "is_waived"] = float(not prior.empty)
+        out.at[i, "prior_waiver_owed"] = (money_owed(prior)
+                                          if not prior.empty else 0.0)
         if not prior.empty:
             hit = prior.sort_values("transaction_date").iloc[-1]
             out.at[i, "prior_waiver_date"] = hit["transaction_date"]
