@@ -142,15 +142,16 @@ rejected-feature table before proposing another feature.
 
 | Metric/layer | Purpose |
 |---|---|
-| A1 | pooled GroupKFold selection R-squared |
+| A1 | pooled repeated grouped CV selection R-squared (fixed player-to-fold hash, one partition per seed) |
 | A2 | A1 scored on 2024-2026 rows |
 | B1 | rolling-origin 2024-2026 forecasting |
 | C | calibration and fixed-segment bias |
 | D | fixed rows, baseline ladder, and confirmation split |
 
 - Make accept/reject decisions from paired fold deltas on selection rows.
-- When a filter changes rows, compare common rows with a fixed player-to-fold
-  map. R-squared values from different row sets are not comparable.
+- When a filter changes rows, compare common rows. Folds come from a fixed
+  player-to-fold hash, so membership changes do not move other players, but
+  R-squared values from different row sets are still not comparable.
 - Bin calibration by prediction. Keep segment membership fixed across models.
 - Evaluate targeted changes on the rows they affect.
 - Keep the 15% confirmation split out of selection, feature derivation, and fill

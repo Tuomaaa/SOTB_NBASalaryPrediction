@@ -1,6 +1,6 @@
 # Work queue
 
-Last updated 2026-09-28 after v5.3.3 (ISSUES #55).
+Last updated 2026-09-29 after v6.0.0 (repeated grouped CV).
 
 Keep only active work here. Each item needs an action and a completion check.
 Use a dated brief for additional detail. Put defects in `ISSUES.md` and landed
@@ -8,36 +8,13 @@ work in `VERSION_HISTORY.md`.
 
 ## In progress
 
-### Finish the Spotrac salary migration
-
-The 2019 COVID rule and the `career_earnings.csv` and `rings_thru_prev.csv`
-regeneration need no action: 104 of 127 frame rows for 2019 match BBRef with no
-over-corrected row, and neither file reads `salaries.csv`.
-
-The remaining defect is multi-amount seasons. The merge summed a season's cash
-across teams, so a waived player's old contract priced his new signing (Dion
-Waiters 2019 read $13.44M for a rest-of-season minimum). 26 frame rows differ
-from BBRef by more than $0.5M. `build_merged_salaries.py` now has the
-`signing_contract` branch: price the contract that starts that season.
-
-- The branch was fixed against the 2026-09-28 dry-run dump in
-  `outputs/experiments/merge_debug/`: 49 of 52 verified rows match. Austin
-  Rivers 2020 reads the page cell sum $3,476,027 against a remembered $3.5M;
-  Oshae Brissett and Bol Bol 2023 are ISSUES #56.
-- Run on a machine with `data/raw/html_cache/`: dry-run
-  `python scripts/build_merged_salaries.py`, confirm the moved rows match
-  `merge_debug/expected_values.csv`, then run
-  `python scripts/rebuild_training_data.py`, the suite, and
-  `scripts/eval_stage3_signing.py`.
-- Delete `outputs/experiments/merge_debug/` once the rebuild lands.
-- Complete when the rebuilt frame is remeasured against the v5.3.3 baseline
-  0.8422, 0.8595, and 0.8273 and the offsets are regenerated.
-
 ### Decide the ring-chasing discount
 
 `scripts/eval_ringchase_gated.py` pulls the Stage-2 latent down for gated
 rows. The earlier +0.93 screen scored a pre-v5.3.0 champion (wrong KF setup,
-fixed 2026-09-28). Three-seed screens on v5.3.3:
+fixed 2026-09-28). Three-seed screens on v5.3.3, with a one-sample t over
+(fold, seed) cells that overstates the evidence because the cells shared folds
+(replaced in v6.0.0 by the corrected `paired_delta`):
 
 | gate | n | paired dSel t | A1 without LeBron 2026 |
 |---|---:|---:|---|
@@ -56,8 +33,9 @@ age cannot separate discounters from full-price veterans.
   games; fitted on veterans aged 30+ in 1997-2016; 0 below age 30). The
   amendment followed a pre-run check: without a floor and age limit, 167
   players under 32 were pulled by more than $0.5M at delta = 1 because one
-  injury season read as retirement (De'Anthony Melton 2025 p = 0.71). It is adopted only if, at 10 seeds on the rebuilt frame, paired
-  dSel t > 2, delta is interior in most pools, A1 without LeBron James 2026
+  injury season read as retirement (De'Anthony Melton 2025 p = 0.71). It is
+  adopted only if, at 10 seeds on the v6.0.0 frame, the
+  corrected paired dSel t > 2, delta is interior in most pools, A1 without LeBron James 2026
   improves, and C2 passes. Otherwise all ring-chase shapes are rejected and
   no further shape is tried.
 - Screens so far (3 seeds): the hard retire gate reached t = +2.74 with delta
@@ -106,7 +84,7 @@ buyout.
 
 - Audit each positive `is_waived` event against information available before
   the signing date. Separate an ordinary waiver from a buyout re-signing.
-- Remeasure `is_waived` and `mpg_x_waived` on the fixed v5.3.3 frame.
+- Remeasure `is_waived` and `mpg_x_waived` on the v6.0.0 frame.
 - Add `kf_market_value_x_waived = is_waived * kf_market_value` as a challenger.
   Build this interaction inside each CV fold after nested KF inference.
 - Report paired A1, A2, B1, C1, and C2. Report named-row effects for Kemba
@@ -183,8 +161,9 @@ Build the public accuracy panel from
 - From the machine that holds the tags, run `git push origin --tags`. Local
   tags carry legacy `vN.Mx` names; add the renumbered name beside each landed
   release (for example `v5.3.3` beside `v8.17x`) with its headline metrics.
+- Tag v6.0.0 on the merged commit with its headline metrics.
 - Complete when `git ls-remote --tags origin` lists `pre-tidy-2026-09-28`,
-  `v5.3.2` and `v5.3.3`.
+  `v5.3.2`, `v5.3.3` and `v6.0.0`.
 
 ### Add P(max) to the Value Board
 

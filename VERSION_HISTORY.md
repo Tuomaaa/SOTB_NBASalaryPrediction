@@ -1779,6 +1779,77 @@ command, scripts that build tracked data, and scripts that active queue items
 need. Verification: `pytest` passes 56/56. The three removed tests belonged to
 the injury feature.
 
+## Phase 9: Repeated grouped CV
+
+Numbers from this phase onward are not comparable with Phase 8 or earlier:
+layer A is scored on ten fold partitions instead of one, and the frame changed.
+
+| Ver | Model | A1 (told) | A2 (told) | B1 (told) | N | Feat | Change |
+|-----|-------|-----------|-----------|-----------|---|------|--------|
+| **v6.0.0** | **XGBoost (Grabit v4)** | **0.8509** | **0.8559** | **0.8304** | **885** | **21** | **PROUD. Repeated grouped CV with a fixed player-to-fold hash (ISSUES #35); Spotrac migration completed with the signing_contract branch** |
+
+### v6.0.0: repeated grouped CV and the completed Spotrac migration
+
+**Evaluation protocol.** Layer A folded with `GroupKFold`, which rebalances
+whenever rows change. The migration rebuild added 16 rows and moved 298 of 483
+players between folds; the same model's A2 then read 0.8359 on the new split
+against 0.8699 on the old one. `evaluate_suite.fold_ids` now assigns each
+player's fold from a hash of (partition, player), so a membership change never
+moves another player. Seed i is fitted on partition i, so the ten-seed average
+also averages ten fold assignments at no extra fit cost. `paired_delta` applies
+the Nadeau-Bengio correction for repeated k-fold CV, because each row appears in
+ten cells. `eval_stage3_signing.py` and `eval_ringchase_gated.py` share the
+folds.
+
+**Salary migration.** A season whose cell holds more than one contract's money
+is priced by the contract that starts that season (`signing_contract` in
+`scripts/build_merged_salaries.py`): a one-year deal at its total, a longer one
+at the cell combination nearest its AAV. NBA Cup prize money is dropped by its
+per-season tier, a season with a block above its CBA exception limit is left to
+the season-cash reading, and a one-year minimum must be paid at least 95% in the
+cell, so 10-day contracts stay out of the frame. Sourced overrides cover Kevin
+Knox 2023, David Nwaba 2019 and Moses Brown 2021. The 2019 COVID rule needed no
+change (104 of 127 frame rows match BBRef, none over-corrected), and
+`career_earnings.csv` and `rings_thru_prev.csv` do not read `salaries.csv`.
+The rebuild was verified against a precomputed expected table (4,181 rows, 0
+mismatches). Frame: 885 rows (870 - 1 + 16); Dion Waiters 2019 leaves as a
+rest-of-season minimum, and 16 guaranteed full-season minimums enter.
+
+On the 869 shared rows with identical folds and seeds, the migration is
+neutral to slightly positive: A1 0.8416 -> 0.8429, A2 0.8705 -> 0.8699, B1
+0.8276 -> 0.8296, paired selection delta +0.0025 (t = 1.03).
+
+| Metric | v6.0.0 |
+|---|---:|
+| A1 pooled CV R2 | **0.8509** |
+| A2 2024-26 CV R2 | **0.8559** |
+| B1 rolling-origin R2 | **0.8304** |
+| B1 2024 / 2025 / 2026 | 0.8614 / 0.8159 / 0.8031 |
+| MAE | $2.60M |
+| Calibration slope | 0.961 |
+| Seed sd (includes fold assignment) | 0.0080 |
+
+Arms under the new protocol (A1 / A2 / B1): clip only 0.8303 / 0.8435 /
+0.8242; plus push, not told the route, 0.8280 / 0.8366 / 0.8112; plus the
+extension clip 0.8357 / 0.8466 / 0.8230; champion 0.8509 / 0.8559 / 0.8304.
+The told-route numbers answer the question a team asks, since a team knows the
+route it would use to sign a player.
+
+Deployed k=20 signing offsets: Bird Rights +0.01537, Cap Space +0.00875, Early
+Bird +0.00501, Non-Bird -0.00553. Legality and bit-identity guards pass.
+The web export's forward 2026 R2 is 0.7919 on 112 rows, within 0.011 of the
+suite's 0.8031 on 118. `validate()` now exempts `availability_3yr` rows whose three-season lookback
+changed membership.
+
+Verification: `pytest` passes 74/74, including
+`tests/test_evaluation_protocol.py`.
+
+Evidence: `src/model/evaluate_suite.py`, `scripts/build_merged_salaries.py`,
+`data/processed/merged_salaries.csv`, `data/processed/training_data_v2.csv`,
+`data/raw/raw_external/salary_corrections.csv`,
+`data/raw/raw_external/signing_offsets.json`, and
+`outputs/diagnostics/stage3_signing_offset_eval.csv`.
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v2.0.0 was a statistical

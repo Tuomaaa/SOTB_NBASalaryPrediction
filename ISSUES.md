@@ -15,6 +15,7 @@ refer to them by number.
 - #38: veteran-minimum cap-charge convention, landed in v5.0.1.
 - #41: Spotrac page-identity guard; Josh Gray remains the documented no-page
   case.
+- #35: fixed player-to-fold hash for repeated grouped CV, landed in v6.0.0.
 - #55: one-year rule for the minimum cap charge, landed in v5.3.3.
 
 ## 4. Three signing-mechanism labels remain unknown
@@ -187,24 +188,6 @@ that were based on a presumed raise multiple.
 
 **Done:** Per-season values reconcile with sourced contract totals and all
 affected corrections have `confidence=verified`.
-
-## 35. Row-count changes reshuffle GroupKFold
-
-**Severity:** low.
-
-**Problem:** `GroupKFold` rebalances after rows are removed. A common-row delta
-can therefore measure fold reassignment. The 944-to-868 rookie-contract change
-moved from raw Delta R-squared -0.0044 to -0.00026 with a fixed player-to-fold
-map.
-
-**Reproduce:** Score old and new frames with ordinary `GroupKFold`, then with
-the same deterministic player-to-fold map in both frames.
-
-**Fix:** Add a shared fixed-fold common-row comparison and use it whenever frame
-membership changes.
-
-**Done:** The evaluation suite exposes the fixed-fold comparison and reports
-membership changes separately from prediction changes.
 
 ## 36. Stretched dead money enters training as signed salary
 
