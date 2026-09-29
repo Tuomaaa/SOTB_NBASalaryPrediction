@@ -18,6 +18,7 @@ refer to them by number.
 - #35: fixed player-to-fold hash for repeated grouped CV, landed in v6.0.0.
 - #55: one-year rule for the minimum cap charge, landed in v5.3.3.
 - #58: no-signing waiver window year, landed in v6.0.5.
+- #60: signing-offset harness on the KF champion, landed in v6.0.6.
 
 ## 4. Three signing-mechanism labels remain unknown
 
@@ -497,24 +498,3 @@ contract violation.
 resolves. Test any new definition as a feature change.
 
 **Done:** The fresh definition is adopted or rejected with paired metrics.
-
-## 60. Signing offsets are estimated without `kf_market_value`
-
-**Severity:** medium. The deployed Stage-3 offsets come from a different
-model than the champion.
-
-**Problem:** `scripts/eval_stage3_signing.py` fits its champion on the
-feature list returned by `load_evaluation_frame(allow_missing_computed=True)`:
-20 features without `kf_market_value`. It never builds a KF context. The
-deployed champion uses all 21 features. The offsets therefore ignore every
-change to the KF, and v6.0.4 wrote offsets identical to v6.0.0's.
-
-**Reproduce:** Search `scripts/eval_stage3_signing.py` for
-`prepare_kf_context` or `kf_market_value` (no match), then compare
-`data/raw/raw_external/signing_offsets.json` before and after a KF change.
-
-**Fix:** Fit the harness through `make_kf_stage_arms_fitter` with the
-production KF context, rerun it, and version the offset change.
-
-**Done:** The harness fits the 21-feature champion, and the deployed offsets
-are regenerated from it.

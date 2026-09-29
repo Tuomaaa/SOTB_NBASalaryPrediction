@@ -1791,7 +1791,8 @@ layer A is scored on ten fold partitions instead of one, and the frame changed.
 | v6.0.2 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | SHAME. Ring-chasing discount rejected; oracle diagnostics locate the failure in the concept |
 | v6.0.3 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | SHAME. Partially linear waiver term not adopted (selection t = +0.19); three failure mechanisms define the next arm |
 | v6.0.4 | XGBoost (Grabit v4) | 0.8529 | 0.8565 | 0.8288 | 885 | 21 | SHAME. KF anchor re-priced at in-season signings, the market's last observed price |
-| **v6.0.5** | **XGBoost (Grabit v4)** | **0.8527** | **0.8561** | **0.8293** | **885** | **21** | **SHAME. No-signing waiver window moved to the season convention (ISSUES #58)** |
+| v6.0.5 | XGBoost (Grabit v4) | 0.8527 | 0.8561 | 0.8293 | 885 | 21 | SHAME. No-signing waiver window moved to the season convention (ISSUES #58) |
+| **v6.0.6** | **XGBoost (Grabit v4)** | **0.8527** | **0.8561** | **0.8293** | **885** | **21** | **SHAME. Deployed signing offsets refitted on the KF champion (ISSUES #60); no published number moves** |
 
 ### v6.0.0: repeated grouped CV and the completed Spotrac migration
 
@@ -2004,6 +2005,29 @@ Deployed k=20 signing offsets:
 The offset harness still omits `kf_market_value` (ISSUES #60).
 
 Verification: `pytest` passes 85/85.
+
+### v6.0.6: signing offsets from the deployed champion (ISSUES #60)
+
+`scripts/eval_stage3_signing.py` fitted its champion on the 20 features
+returned by `load_evaluation_frame(allow_missing_computed=True)`, without
+`kf_market_value`, in both its layer-A pass and its layer-B forward fits. The
+deployed offsets therefore came from a different model and ignored every KF
+change. The harness now uses the suite's `make_kf_stage_arms_fitter` (ARM_EXT)
+over the 21 `FEATURE_COLS`. Its champion reproduces the suite's
+`oof_champion_ext_clip` exactly: A1 0.8385, A2 0.8474, MAE $2.724M.
+
+Deployed k=20 offsets, with dollars at the 2026 cap ($165.0M):
+
+| Route | Before | After | After ($M, 2026) |
+|---|---:|---:|---:|
+| Bird Rights | +0.01526 | +0.01289 | +$2.13M |
+| Cap Space | +0.00879 | +0.00715 | +$1.18M |
+| Early Bird | +0.00502 | +0.00875 | +$1.44M |
+| Non-Bird | -0.00559 | -0.00244 | -$0.40M |
+
+Published A1, A2 and B1 do not move, because the suite estimates its own
+fold-honest offsets. The new constants reach `predict.py` and
+`export_web.py`, and the Value Board changes by the same amounts.
 
 ### Corrections to earlier findings
 
