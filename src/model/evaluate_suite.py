@@ -405,7 +405,8 @@ def _compute_kf_nested(kf_ctx: KFContext, train: pd.DataFrame,
 
 
 def make_kf_stage_arms_fitter(kf_ctx: KFContext, clf_features: list[str],
-                              grabit_params: dict | None = None):
+                              grabit_params: dict | None = None,
+                              augment=None):
     """Multi-arm fitter with nested-CV kf_market_value computation per fold.
 
     Same shape as `make_stage_arms_fitter` — returns a dict of ARM_CLIP,
@@ -415,12 +416,17 @@ def make_kf_stage_arms_fitter(kf_ctx: KFContext, clf_features: list[str],
     The `features` argument this fitter receives should be FEATURE_COLS
     (21 features including kf_market_value). The base model used for KF
     measurements uses MEASUREMENT_FEATURES (prev_cap_pct, not kf).
+
+    `augment`, if given, maps a frame to a frame after kf_market_value is
+    attached, so a challenger built from kf_market_value stays fold-honest.
     """
     gp = grabit_params or {}
 
     def fitter(train, test, features, seed):
         train_aug, test_aug = _compute_kf_nested(kf_ctx, train, test,
                                                   clf_features, seed)
+        if augment is not None:
+            train_aug, test_aug = augment(train_aug), augment(test_aug)
         latent, lo, hi = grabit_latent(train_aug, test_aug, features,
                                        seed, **gp)
         clf = train_route_classifier(train_aug, clf_features, seed)
@@ -969,7 +975,8 @@ def layer_b_kf(df: pd.DataFrame, kf_ctx: KFContext,
                clf_features: list[str], seeds=DEFAULT_SEEDS,
                origins=FORWARD_ORIGINS, k: float = SIGNING_K,
                grabit_params: dict | None = None,
-               verbose: bool = True) -> tuple[dict, np.ndarray, dict]:
+               verbose: bool = True, features: list[str] | None = None,
+               augment=None) -> tuple[dict, np.ndarray, dict]:
     """Layer B with KF: rolling forward + signing offsets per origin.
 
     For each origin T:
@@ -981,12 +988,15 @@ def layer_b_kf(df: pd.DataFrame, kf_ctx: KFContext,
       5. For signing offsets: inner OOF on augmented training data with a
          standard champion fitter
 
+    `features` defaults to FEATURE_COLS; `augment` is applied after
+    kf_market_value is attached (see `make_kf_stage_arms_fitter`).
+
     Returns:
         (fwd_arms, signing_fwd, signing_detail) matching the shape
         run_suite_arms_kf expects.
     """
     gp = grabit_params or {}
-    features = list(FEATURE_COLS)
+    features = list(features or FEATURE_COLS)
     season = df["season"].values
     cat = df["signing_cat"].values
     lo, hi = df["floor_pct"].values, df["max_eligible_pct"].values
@@ -1020,6 +1030,8 @@ def layer_b_kf(df: pd.DataFrame, kf_ctx: KFContext,
             np.isfinite(kf_all[tr]), kf_all[tr], fill)
         test_aug["kf_market_value"] = np.where(
             np.isfinite(kf_all[te]), kf_all[te], fill)
+        if augment is not None:
+            train_aug, test_aug = augment(train_aug), augment(test_aug)
 
         # Stage-2/3 arms: standard multi-arm fitter on augmented data
         fitter = make_stage_arms_fitter(clf_features, grabit_params=gp)
@@ -1551,7 +1563,7 @@ def run_suite_arms(df: pd.DataFrame, features: list[str], fitter,
 def run_suite_arms_kf(df: pd.DataFrame, features: list[str], kf_fitter,
                       kf_ctx: KFContext, clf_features: list[str],
                       seeds=DEFAULT_SEEDS, ladder=None,
-                      grabit_params: dict | None = None,
+                      grabit_params: dict | None = None, augment=None,
                       ) -> tuple[dict[str, SuiteResult], dict]:
     """Score the KF champion through all four layers with nested CV.
 
@@ -1574,7 +1586,8 @@ def run_suite_arms_kf(df: pd.DataFrame, features: list[str], kf_fitter,
     # Layer B: KF + signing per origin (pre-computed KF, inner OOF for offsets)
     print("\n  Layer B -- KF with signing offsets (pre-computed per origin)...")
     fwd_arms, _, b_detail = layer_b_kf(
-        df, kf_ctx, clf_features, seeds, grabit_params=grabit_params)
+        df, kf_ctx, clf_features, seeds, grabit_params=grabit_params,
+        features=features, augment=augment)
 
     if ladder is None:
         ladder = baseline_ladder(df, features, seeds)
