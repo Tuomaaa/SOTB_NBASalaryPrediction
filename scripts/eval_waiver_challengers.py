@@ -85,6 +85,8 @@ def arms() -> dict:
                                      "exclude_waived_max": True}),
         "owed_censor": (base, None, {"owed_branch": "censor",
                                      "exclude_waived_max": True}),
+        "waived_branch": (base, None, {"waived_branch": True,
+                                       "exclude_waived_max": True}),
     }
 
 
@@ -155,6 +157,7 @@ def main() -> None:
         rm.WAIVER_BETA_LOG.clear()
         rm.OWED_GAMMA_LOG.clear()
         rm.EXCLUDED_PUSH_LOG.clear()
+        rm.WAIVED_GAMMA_LOG.clear()
         fitter = make_kf_stage_arms_fitter(kf_ctx, clf_features,
                                            grabit_params=gp, augment=augment)
         if args.full:
@@ -171,6 +174,12 @@ def main() -> None:
             metrics = {**layer_a(df, oof, fold_r2), **layer_c(df, oof)}
             stages = {k: store[k][0] for k in (ARM_CLIP, ARM_EXANTE)}
         betas = list(rm.WAIVER_BETA_LOG) or list(rm.OWED_GAMMA_LOG)
+        if rm.WAIVED_GAMMA_LOG:
+            g = np.array(rm.WAIVED_GAMMA_LOG)
+            print(f"  gamma owed mean {g[:, 0].mean():.3f} "
+                  f"[{g[:, 0].min():.3f}, {g[:, 0].max():.3f}]; plain mean "
+                  f"{g[:, 1].mean():.3f} [{g[:, 1].min():.3f}, "
+                  f"{g[:, 1].max():.3f}] over {len(g)} fits", flush=True)
         if rm.EXCLUDED_PUSH_LOG:
             print(f"  exclusion removed the push on "
                   f"{sum(rm.EXCLUDED_PUSH_LOG)} waived test rows over "

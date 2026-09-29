@@ -349,6 +349,24 @@ WAIVER_BETA_LOG: list[float] = []
 # Experiment log for the money-owed branch: one gamma per fit.
 OWED_GAMMA_LOG: list[float] = []
 OWED_MIN_ROWS = 10
+# Experiment log for the waived branch: one (gamma_owed, gamma_plain) per fit.
+WAIVED_GAMMA_LOG: list[tuple[float, float]] = []
+
+
+def waived_mask(frame: pd.DataFrame) -> np.ndarray:
+    """Rows with a known waiver in the lookback (`is_waived == 1`)."""
+    return (pd.to_numeric(frame["is_waived"], errors="coerce")
+            .fillna(0.0).values == 1.0)
+
+
+def _group_gamma(model, rows: pd.DataFrame, features: list[str]) -> float:
+    """Tobit gamma of observed pay on the model's latent for one group."""
+    if len(rows) < OWED_MIN_ROWS:
+        return 1.0
+    return _tobit_beta(rows[TARGET].values, np.zeros(len(rows)),
+                       model.predict(rows[features]), rows["floor_pct"].values,
+                       rows["is_at_floor"].values.astype(bool),
+                       bounds=(0.0, 1.0), x0=0.5)
 
 
 def owed_mask(frame: pd.DataFrame) -> np.ndarray:
@@ -426,7 +444,8 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                   seed: int, sigma: float = 0.02, gate_frac: float = 0.55,
                   floor_gate_k: float = 2.0, sigma_left: float | None = None,
                   censor_c: float | None = None, waiver_term: bool = False,
-                  owed_branch: bool | str = False):
+                  owed_branch: bool | str = False,
+                  waived_branch: bool = False):
     """Champion Grabit v4 latent on `test`, plus the Stage-2 bounds (lo, hi).
 
     Byte-for-byte the same training path as evaluate_suite.make_grabit_fitter,
@@ -445,11 +464,17 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
     True drops those rows from the fit, so their latent is out-of-sample.
     "censor" keeps them as right-censored rows (their pay is a lower bound on
     undiscounted value) and exempts them from the left gate.
+
+    `waived_branch` (experiment, off by default) fits the model on never-waived
+    rows only and prices every waived row as gamma_g * latent, with one Tobit
+    gamma for money-owed waivers and one for plain waivers (`_group_gamma`).
     """
     from xgboost import XGBRegressor
     full_train = train
     if owed_branch is True:
         train = train[~owed_mask(train)]
+    if waived_branch:
+        train = train[~waived_mask(train)]
 
     y_tr = train[TARGET].values
     max_elig_tr = train["max_eligible_pct"].values
@@ -497,6 +522,14 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                 bounds=(0.0, 1.0), x0=0.5)
         OWED_GAMMA_LOG.append(gamma)
         latent = np.where(owed_mask(test), gamma * latent, latent)
+    if waived_branch:
+        w_tr, o_tr = waived_mask(full_train), owed_mask(full_train)
+        g_owed = _group_gamma(model, full_train[w_tr & o_tr], features)
+        g_plain = _group_gamma(model, full_train[w_tr & ~o_tr], features)
+        WAIVED_GAMMA_LOG.append((g_owed, g_plain))
+        w_te, o_te = waived_mask(test), owed_mask(test)
+        latent = np.where(w_te & o_te, g_owed * latent,
+                          np.where(w_te & ~o_te, g_plain * latent, latent))
     lo = (test["floor_pct"].values if "floor_pct" in test.columns
           else np.zeros(len(test)))
     hi = test["max_eligible_pct"].values
