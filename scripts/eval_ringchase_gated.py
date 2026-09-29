@@ -118,9 +118,10 @@ def realized_last_label(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
 
     Frame season s is the contract signed after Basketball Reference season s,
     so its seasons are s+1, s+2, ... The label is 1 when the player's last
-    Basketball Reference season is <= s + ORACLE_HORIZON. It is known when that
-    last season is before the latest scraped season (he has retired) or when
-    s + ORACLE_HORIZON + 1 is already observed; otherwise it is unknown.
+    Basketball Reference season is <= s + ORACLE_HORIZON. It is known only
+    when season s + ORACLE_HORIZON + 1 is already observed. Absence from the
+    latest season alone is not retirement: Kyrie Irving, Fred VanVleet and
+    Damian Lillard missed 2025-26 injured and read as retired.
     Returns (label, known). Rows under 30 read 0, like the hazard.
     """
     from scripts.build_retirement_hazard import MIN_AGE, _norm
@@ -137,7 +138,7 @@ def realized_last_label(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     ls = df["player_name_norm"].map(last).values.astype(float)
     horizon_end = s + ORACLE_HORIZON
     label = (ls <= horizon_end).astype(float)
-    known = (ls < latest) | (horizon_end + 1 <= latest)
+    known = horizon_end + 1 <= latest
     young = df["age"].values.astype(float) < MIN_AGE
     label[young] = 0.0
     known = known | young
