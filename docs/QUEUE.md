@@ -19,36 +19,30 @@ The 85 plain waivers have bias -$0.13M.
 - `prior_waiver_owed` (landed 2026-09-29) scans every waiver in the lookback.
   36 of the 120 waived evaluation rows owe money: 26 are in selection, 10 in
   confirmation, and 24 sit at the floor.
-- Pre-registered 2026-09-29, before any score, as one arm `owed_branch`:
-  1. Stage 1 fits the Grabit model on the training rows with
-     `prior_waiver_owed != 1`. Its bases and gates are computed on those rows,
-     and `FEATURE_COLS` is unchanged.
-  2. For money-owed rows, `m` is that model's latent. The rows never entered
-     the fit, so `m` is out-of-sample.
-  3. Fit gamma on the training money-owed rows by Tobit: `y = gamma * m + e`,
-     with at-floor rows left-censored and gamma bounded to [0, 1]. With
-     fewer than 10 such rows, gamma = 1.
-  4. The latent of a test money-owed row is `gamma * m`.
-  5. P(max) = 0 on every row with `is_waived == 1`, in both layers. No waived
-     frame row signed a maximum.
-  6. The rest of the pipeline is unchanged. Layer B fits gamma on seasons
-     before each origin. The layer-B signing-offset inner OOF still uses the
-     champion fitter.
-- Run: `python scripts/eval_waiver_challengers.py --seeds 10 --full --arms
-  incumbent owed_branch`.
-- Gate, amended 2026-09-29 at the user's direction while the incumbent arm
-  was still running and before any score: use the targeted gate in
-  `docs/worker-brief.md`. The affected rows are `is_waived == 1`
-  (13.6% of the frame). On the waived selection rows, the player-clustered
-  paired squared-error t must exceed 2. Pooled selection dSel must exceed 0.
-  B1 must move the same way, C2 growth must be <= $0.3M, and the C1 relative
-  gap must be <= 0.005. The canary does not decide. Report it only on a
-  divergence above 0.005 (see `docs/worker-brief.md`).
-- Report the gamma distribution, the number of waived rows whose push the
-  exclusion removes, and the named rows.
-- If the arm fails, record it and do not amend it. With 26 money-owed
-  selection rows, a pass is not expected to be easy.
-- Complete when `owed_branch` is adopted or rejected with paired metrics.
+- `owed_branch` (2026-09-29) failed at 10 seeds. Money-owed rows dropped
+  from the Grabit fit and priced as `gamma * latent` (gamma mean 0.24) gave a
+  targeted t of +0.73 on waived selection rows. Money-owed rows improved (MAE
+  $2.93M to $0.98M; t +1.15 over 21 players). Plain waivers rose by $0.64M on
+  average (t -2.12): they had borrowed the waiver discount the tree learned
+  from money-owed floor rows. Keeping money-owed rows as right-censored rows
+  raised plain waivers further in a one-seed prediction check (+$0.86M).
+- Pre-registered 2026-09-29, before any score, as one arm `waived_branch`:
+  1. Stage 1 fits Grabit only on rows with `is_waived != 1`. `FEATURE_COLS`
+     is unchanged, and `is_waived` is constant in that fit.
+  2. Every waived row is priced as `gamma_g * latent`. There are two groups:
+     money-owed (`prior_waiver_owed == 1`) and plain.
+  3. Each gamma is a Tobit fit on that group's training rows, with at-floor
+     rows left-censored, bounded to [0, 1]. A group with fewer than 10
+     training rows keeps gamma = 1.
+  4. P(max) = 0 on waived rows. The rest is as `owed_branch`.
+  5. Run: `python scripts/eval_waiver_challengers.py --seeds 10 --full --arms
+     incumbent waived_branch`.
+  6. Gate: the targeted gate in `docs/worker-brief.md` on `is_waived == 1`,
+     with pooled selection dSel > 0, B1 in the same direction, C2 growth
+     <= $0.3M and a C1 gap <= 0.005.
+  7. If it fails, record it. Future signings are a monitor after adoption,
+     not a gate.
+- Complete when `waived_branch` is adopted or rejected with paired metrics.
 - Still open: confirm the patched waiver columns with a full local
   `python scripts/rebuild_training_data.py`.
 
