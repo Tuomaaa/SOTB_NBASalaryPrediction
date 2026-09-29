@@ -2092,9 +2092,15 @@ The web export adds the term as a `waiver_term` SHAP column, writes beta to
 what-if does not read them yet (ISSUES #61).
 
 Deployed k=20 offsets, refitted by `scripts/eval_stage3_signing.py` on this
-champion:
+champion. Its champion reproduces the suite ARM_EXT (A1 0.8455, A2 0.8534).
+Dollars are at the 2026 cap ($165.0M):
 
-OFFSETS_TABLE
+| Route | v6.0.6 | v6.1.0 | v6.1.0 ($M, 2026) |
+|---|---:|---:|---:|
+| Bird Rights | +0.01289 | +0.01158 | +$1.91M |
+| Cap Space | +0.00715 | +0.00816 | +$1.35M |
+| Early Bird | +0.00875 | +0.00894 | +$1.47M |
+| Non-Bird | -0.00244 | -0.00319 | -$0.53M |
 
 | Metric | v6.1.0 |
 |---|---:|
