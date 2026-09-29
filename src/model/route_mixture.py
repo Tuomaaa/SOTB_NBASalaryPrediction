@@ -345,17 +345,44 @@ def waiver_z(frame: pd.DataFrame) -> np.ndarray:
     return waived.values * frame["kf_market_value"].values
 
 
+def _tobit_beta(y: np.ndarray, base: np.ndarray, z: np.ndarray,
+                floor: np.ndarray, at_floor: np.ndarray) -> float:
+    """MLE of beta in y = base + beta * z + e, left-censored at the floor.
+
+    A row at the floor only says its discounted value is at or below the
+    minimum, so it enters through the normal CDF, not as an exact value.
+    Treating those rows as exact would shrink the discount toward zero.
+    """
+    from scipy.optimize import minimize
+    from scipy.stats import norm
+    free = ~at_floor
+    s0 = float(np.std((y - base)[free])) if free.sum() > 2 else 0.01
+
+    def nll(theta):
+        beta, log_s = theta
+        s = np.exp(log_s)
+        mu = base + beta * z
+        ll = norm.logpdf((y[free] - mu[free]) / s).sum() - free.sum() * log_s
+        ll += norm.logcdf((floor[at_floor] - mu[at_floor]) / s).sum()
+        return -ll
+
+    fit = minimize(nll, x0=[-0.3, np.log(max(s0, 1e-4))], method="L-BFGS-B",
+                   bounds=[(-1.0, 0.0), (np.log(1e-4), np.log(1.0))])
+    return float(fit.x[0])
+
+
 def waiver_beta(train: pd.DataFrame, features: list[str], seed: int,
                 n_inner: int = 4) -> float:
     """Share of market value a waived player gives up, fitted in-slice.
 
-    Least squares through the origin of fold-honest residuals on waived rows:
-    a plain XGBoost is fitted on n_inner player-grouped inner folds, so no
-    residual comes from a model that saw its own player. Clipped to [-1, 0].
+    Fold-honest base predictions come from a plain XGBoost fitted on n_inner
+    player-grouped inner folds, so no row is predicted by a model that saw its
+    own player. Beta is then a Tobit MLE on waived rows with the at-floor rows
+    left-censored (`_tobit_beta`), bounded to [-1, 0].
     """
     from xgboost import XGBRegressor
     z = waiver_z(train)
-    w = z > 0
+    w = pd.to_numeric(train["is_waived"], errors="coerce").fillna(0.0).values > 0
     if w.sum() < 10:
         return 0.0
     y = train[TARGET].values
@@ -365,9 +392,8 @@ def waiver_beta(train: pd.DataFrame, features: list[str], seed: int,
         m = XGBRegressor(**{**_XGB_BASE, "random_state": seed})
         m.fit(train.iloc[itr][features], y[itr])
         oof[iva] = m.predict(train.iloc[iva][features])
-    r = y - oof
-    beta = float((r[w] * z[w]).sum() / (z[w] ** 2).sum())
-    return float(np.clip(beta, -1.0, 0.0))
+    return _tobit_beta(y[w], oof[w], z[w], train["floor_pct"].values[w],
+                       train["is_at_floor"].values[w].astype(bool))
 
 
 def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
@@ -382,8 +408,9 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
     fitter exactly (asserted in the eval harness).
 
     `waiver_term` (experiment, off by default) makes Stage 1 partially linear:
-    latent = GBM(x) + beta * waiver_z, with beta from `waiver_beta` and the
-    term passed to the Grabit fit and prediction as base_margin.
+    latent = GBM(x) + beta * waiver_z, with beta from `waiver_beta` (a Tobit
+    fit, left-censored at the floor) and the term passed to the Grabit fit
+    and prediction as base_margin.
     """
     from xgboost import XGBRegressor
 

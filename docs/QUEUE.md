@@ -28,10 +28,13 @@ interaction into a region with four rows.
   makes pay above the minimum partly worthless to him. Amended before any
   result at the user's direction: the first draft used
   `max(kf_market_value - floor_pct, 0)`, and the run was stopped during the
-  incumbent arm. The Stage-2 clip alone enforces the minimum. Estimate beta inside each
-  training slice by least squares through the origin of 4-fold inner OOF
-  residuals, from the plain base XGBoost, on waived rows, and clip it to
-  [-1, 0]. Apply it as `base_margin` in the Grabit fit and prediction.
+  incumbent arm. The Stage-2 clip alone enforces the minimum. Estimate beta
+  inside each training slice on waived rows from 4-fold inner OOF
+  predictions of the plain base XGBoost, by a Tobit MLE with at-floor rows
+  left-censored, bounded to [-1, 0]. Second amendment, also before any
+  result and at the user's direction: the draft used least squares, which
+  reads the two thirds of waived rows sitting at the floor as exact values
+  (on folds 0-2, least squares gives -0.18 to -0.31 and Tobit -0.36 to -0.50). Apply it as `base_margin` in the Grabit fit and prediction.
   Run: `python scripts/eval_waiver_challengers.py --seeds 10 --full --arms
   incumbent waiver_term`.
 - Gate: paired dSel >= +0.002 and t > 2, B1 moves the same way, C2 growth
