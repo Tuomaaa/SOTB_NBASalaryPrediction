@@ -12,6 +12,7 @@ feature list and switches explicitly, so their definitions do not move:
     kf_x_waived       + is_waived * kf_market_value
     kf_x_known        + is_waived_known * kf_market_value (coverage control)
     term_flags        v6.1.0 champion with is_waived and mpg_x_waived kept
+    term_flags_owed   term_flags, term applied to money-owed waivers only
     waiver_term       partially linear Stage 1: latent = GBM(x) + beta * z,
                       z = is_waived * kf_market_value,
                       beta fitted in each training slice (see
@@ -102,6 +103,10 @@ def arms() -> dict:
         # the effect of dropping them.
         "term_flags": (base, None, {"waiver_term": True,
                                     "exclude_waived_max": True}),
+        # term_flags with the term applied to money-owed waivers only; beta
+        # is still fitted on every waived row.
+        "term_flags_owed": (base, None, {"waiver_term": "owed",
+                                         "exclude_waived_max": True}),
         "owed_branch": (base, None, {**V606, "owed_branch": True,
                                      "exclude_waived_max": True}),
         "owed_censor": (base, None, {**V606, "owed_branch": "censor",

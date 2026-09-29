@@ -386,7 +386,7 @@ def owed_mask(frame: pd.DataFrame) -> np.ndarray:
 def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                   seed: int, sigma: float = 0.02, gate_frac: float = 0.55,
                   floor_gate_k: float = 2.0, sigma_left: float | None = None,
-                  censor_c: float | None = None, waiver_term: bool = True,
+                  censor_c: float | None = None, waiver_term: bool | str = True,
                   owed_branch: bool | str = False,
                   waived_branch: bool = False):
     """Champion Grabit v4 latent on `test`, plus the Stage-2 bounds (lo, hi).
@@ -400,7 +400,9 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
     waiver features are also restored) makes Stage 1 partially linear:
     latent = GBM(x) + beta * waiver_z, with beta from `train.waiver_beta` (a
     Tobit fit, left-censored at the floor) and the term passed to the Grabit
-    fit and prediction as base_margin.
+    fit and prediction as base_margin. "owed" (experiment) fits beta the same
+    way but applies the term only to money-owed waivers (`owed_mask`), in both
+    the fit and the prediction.
 
     `owed_branch` (experiment, off by default) prices money-owed rows
     (`owed_mask`) as gamma * latent, with gamma a Tobit fit on the training
@@ -447,10 +449,14 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
         beta = waiver_beta(train, features, seed)
         WAIVER_BETA_LOG.append(beta)
         b0 = float(y_tr.mean())
-        model.fit(train[features], y_tr,
-                  base_margin=b0 + beta * waiver_z(train))
+        if waiver_term == "owed":
+            def zf(frame):
+                return waiver_z(frame) * owed_mask(frame)
+        else:
+            zf = waiver_z
+        model.fit(train[features], y_tr, base_margin=b0 + beta * zf(train))
         latent = model.predict(test[features],
-                               base_margin=b0 + beta * waiver_z(test))
+                               base_margin=b0 + beta * zf(test))
     else:
         model.fit(train[features], y_tr)
         latent = model.predict(test[features])
