@@ -37,7 +37,7 @@ TRAINING = PROCESSED_DIR / "training_data_v2.csv"
 # a median over the dataset and shifts whenever rows are added.
 STABLE_FEATURES = [
     "darko_dpm", "lebron", "laker", "age", "age_squared", "mpg",
-    "availability_3yr", "usage_pct", "height_inches", "cba_era", "ast_pct",
+    "usage_pct", "height_inches", "cba_era", "ast_pct",
     "is_waived", "is_waived_known",
     "award_score_cum", "draft_pick", "year_in_contract", "contract_years",
 ]
@@ -46,6 +46,12 @@ STABLE_FEATURES = [
 # removing one priced row legitimately moves every z-score in that season,
 # while seasons whose membership did not change must still reproduce exactly.
 SEASON_NORMALIZED_FEATURES = ["darko_dpm_z", "lebron_z", "laker_z"]
+
+# These read the same player's previous seasons. Adding or removing one of his
+# rows in the lookback legitimately moves them (the 2026-09-28 rebuild moved
+# availability_3yr on 5 rows this way), while rows whose lookback membership
+# did not change must still reproduce exactly.
+PLAYER_HISTORY_FEATURES = {"availability_3yr": 3}
 
 
 def stage0_salaries() -> None:
@@ -148,6 +154,31 @@ def validate(old: pd.DataFrame, new: pd.DataFrame) -> None:
         changed = ",".join(map(str, sorted(membership_changed_seasons)))
         note = (f"; re-normalized season(s) {changed}"
                 if changed else "")
+        mark = "" if pct > 99.9 else "   <-- REGRESSION"
+        print(f"  {col:20s} {pct:7.2f}%{note}{mark}")
+        if pct <= 99.9:
+            bad.append(col)
+
+    changed_keys = set(added) | set(lost)
+    for col, lookback in PLAYER_HISTORY_FEATURES.items():
+        if col not in o.columns or col not in n.columns:
+            continue
+        strict_rows = [
+            k for k in shared
+            if not any((k[0], k[1] - j) in changed_keys
+                       for j in range(1, lookback + 1))
+        ]
+        exempt = len(shared) - len(strict_rows)
+        ok = np.isclose(
+            pd.to_numeric(n.loc[strict_rows, col], errors="coerce")
+            .astype(float),
+            pd.to_numeric(o.loc[strict_rows, col], errors="coerce")
+            .astype(float),
+            rtol=1e-6, equal_nan=True,
+        ) if strict_rows else np.array([True])
+        pct = float(np.mean(ok)) * 100
+        note = (f"; {exempt} row(s) with a changed lookback exempt"
+                if exempt else "")
         mark = "" if pct > 99.9 else "   <-- REGRESSION"
         print(f"  {col:20s} {pct:7.2f}%{note}{mark}")
         if pct <= 99.9:
