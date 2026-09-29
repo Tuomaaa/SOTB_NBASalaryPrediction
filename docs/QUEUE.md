@@ -1,6 +1,6 @@
 # Work queue
 
-Last updated 2026-09-29 after v6.0.2 (ring-chasing discount rejected).
+Last updated 2026-09-29 after v6.0.3 (waiver term not adopted).
 
 Keep only active work here. Each item needs an action and a completion check.
 Use a dated brief for additional detail. Put defects in `ISSUES.md` and landed
@@ -10,41 +10,22 @@ work in `VERSION_HISTORY.md`.
 
 ### Improve the waiver features
 
-Production includes `is_waived` and `mpg_x_waived`. Of 120 waived frame rows,
-2 were paid above $10M, and the champion's waived-row MAE ($1.60M) already beats
-the rest of the frame. The error sits on four stars the trees cannot reach:
-Damian Lillard 2025 (+$25.7M), Kemba Walker 2021 (+$19.5M), Andre Drummond
-2021 (+$14.9M) and Bradley Beal 2025 (+$8.1M). A tree cannot extrapolate an
-interaction into a region with four rows.
+Production includes `is_waived` and `mpg_x_waived`; both stay (three-seed
+ablations t = -0.45 and -0.53). The partially linear term failed at v6.0.3.
+See `docs/briefs/2026-09-29-waiver-term.RESULT.md` for the three failure
+mechanisms. Only money-owed waivers are mispriced: 35 rows, bias +$2.52M.
+The 85 plain waivers have bias -$0.13M.
 
-- 2026-09-29 three-seed layer-A screen (`scripts/eval_waiver_challengers.py`):
-  dropping `is_waived` gives t = -0.45 and dropping `mpg_x_waived` gives
-  t = -0.53. `kf_market_value_x_waived` gives t = -0.32 and leaves the named
-  rows unchanged, and the coverage control gives t = +0.24. Keep both
-  features, and drop the interaction without a 10-seed run.
-- Pre-registered 2026-09-29, before any score: a partially linear Stage 1,
-  `latent = GBM(x) + beta * z`, where `z = is_waived * kf_market_value`.
-  Beta is the share of market value a waived player gives up; the CBA set-off
-  makes pay above the minimum partly worthless to him. Amended before any
-  result at the user's direction: the first draft used
-  `max(kf_market_value - floor_pct, 0)`, and the run was stopped during the
-  incumbent arm. The Stage-2 clip alone enforces the minimum. Estimate beta
-  inside each training slice on waived rows from 4-fold inner OOF
-  predictions of the plain base XGBoost, by a Tobit MLE with at-floor rows
-  left-censored, bounded to [-1, 0]. Second amendment, also before any
-  result and at the user's direction: the draft used least squares, which
-  reads the two thirds of waived rows sitting at the floor as exact values
-  (on folds 0-2, least squares gives -0.18 to -0.31 and Tobit -0.36 to -0.50). Apply it as `base_margin` in the Grabit fit and prediction.
-  Run: `python scripts/eval_waiver_challengers.py --seeds 10 --full --arms
-  incumbent waiver_term`.
-- Gate: paired dSel >= +0.002 and t > 2, B1 moves the same way, C2 growth
-  <= $0.3M, C1 relative gap <= 0.005, and the confirmation canary does not
-  fall. Report the beta distribution and the latent, pushed and final values
-  of the four named rows and Whiteside 2020. If the P(max) push re-inflates
-  them, record a FAIL and do not patch the push in this round.
-- Complete when the arm is adopted or rejected with paired metrics.
-- Still open: separate an ordinary waiver from a buyout re-signing, and
-  confirm the patched waiver columns with a full local
+- Add a money-owed flag that scans every waiver in the lookback, not only the
+  last one. LaMarcus Aldridge 2021 lost his buyout to a later plain waiver.
+  Test it in `tests/test_waiver_history.py`.
+- Then pre-register path B: the main GBM trains without money-owed rows, and
+  those rows are priced by `max(floor, gamma * m(x))`. m is the main
+  model's out-of-sample latent, and gamma is a Tobit fit in each fold.
+  P(max) is 0 for every waived row, because no waived frame row signed a
+  maximum.
+- Complete when path B is adopted or rejected with paired metrics.
+- Still open: confirm the patched waiver columns with a full local
   `python scripts/rebuild_training_data.py`.
 
 ### Fold P(max) into Stage 1

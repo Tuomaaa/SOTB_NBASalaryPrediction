@@ -1788,7 +1788,8 @@ layer A is scored on ten fold partitions instead of one, and the frame changed.
 |-----|-------|-----------|-----------|-----------|---|------|--------|
 | v6.0.0 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | PROUD. Repeated grouped CV with a fixed player-to-fold hash (ISSUES #35); Spotrac migration completed with the signing_contract branch |
 | v6.0.1 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | SHAME. Waiver fallback anchors on the first signing not cut before opening night; no published number moves |
-| **v6.0.2** | **XGBoost (Grabit v4)** | **0.8509** | **0.8559** | **0.8304** | **885** | **21** | **SHAME. Ring-chasing discount rejected; oracle diagnostics locate the failure in the concept** |
+| v6.0.2 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | SHAME. Ring-chasing discount rejected; oracle diagnostics locate the failure in the concept |
+| **v6.0.3** | **XGBoost (Grabit v4)** | **0.8509** | **0.8559** | **0.8304** | **885** | **21** | **SHAME. Partially linear waiver term not adopted (selection t = +0.19); three failure mechanisms define the next arm** |
 
 ### v6.0.0: repeated grouped CV and the completed Spotrac migration
 
@@ -1885,6 +1886,25 @@ improve, and paid last-contract signings get worse. The hazard ranks the
 outcome with AUC 0.725, so the failure is in the concept, not the estimator.
 Reopen only when the 2024-2026 star signings have observed horizons. See
 `docs/briefs/2026-09-29-ring-chasing.RESULT.md`.
+
+### v6.0.3: partially linear waiver term not adopted
+
+The pre-registered arm `latent = GBM(x) + beta * is_waived * kf_market_value`,
+with beta a Tobit fit on inner residuals (mean -0.438 over 80 fits), failed
+its selection gate at 10 seeds: paired dSel +0.00114, t = +0.19. Pooled A1
+rose from 0.8509 to 0.8585, and B1 from 0.8304 to 0.8372. Most of that gain
+fell on confirmation rows (the canary rose from 0.8496 to 0.8956), and the
+canary does not decide.
+
+The waiver direction stays open. The failures were:
+
+- The arm discounted plain waivers, which are cuts before a guarantee date
+  with nothing owed, and which the champion already prices without bias.
+- The tree compensated for high-value players at the floor that the Grabit
+  left gate leaves uncensored.
+- The max push re-inflated Damian Lillard 2025.
+
+See `docs/briefs/2026-09-29-waiver-term.RESULT.md`.
 
 ### Corrections to earlier findings
 
