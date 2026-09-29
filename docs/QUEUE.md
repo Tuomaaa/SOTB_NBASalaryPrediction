@@ -1,6 +1,6 @@
 # Work queue
 
-Last updated 2026-09-29 after v6.1.0 (Stage-1 waiver term).
+Last updated 2026-09-29 after v6.2.0 (waiver term on money-owed waivers).
 
 Keep only active work here. Each item needs an action and a completion check.
 Use a dated brief for additional detail. Put defects in `ISSUES.md` and landed
@@ -84,10 +84,10 @@ Build the public accuracy panel from
   tags carry legacy `vN.Mx` names; add the renumbered name beside each landed
   release (for example `v5.3.3` beside `v8.17x`) with its headline metrics.
 - Tag v6.0.0 on `30aa82e`, v6.0.1 on `093b2e0`, and each later version
-  through v6.1.0 on the commit that records it. Each tag carries the
+  through v6.2.0 on the commit that records it. Each tag carries the
   headline metrics in its `VERSION_HISTORY.md` row.
 - Complete when `git ls-remote --tags origin` lists `pre-tidy-2026-09-28`,
-  `v5.3.2`, `v5.3.3`, and `v6.0.0` through `v6.1.0`.
+  `v5.3.2`, `v5.3.3`, and `v6.0.0` through `v6.2.0`.
 
 ### Confirm the patched waiver columns
 

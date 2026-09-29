@@ -1793,7 +1793,8 @@ layer A is scored on ten fold partitions instead of one, and the frame changed.
 | v6.0.4 | XGBoost (Grabit v4) | 0.8529 | 0.8565 | 0.8288 | 885 | 21 | SHAME. KF anchor re-priced at in-season signings, the market's last observed price |
 | v6.0.5 | XGBoost (Grabit v4) | 0.8527 | 0.8561 | 0.8293 | 885 | 21 | SHAME. No-signing waiver window moved to the season convention (ISSUES #58) |
 | v6.0.6 | XGBoost (Grabit v4) | 0.8527 | 0.8561 | 0.8293 | 885 | 21 | SHAME. Deployed signing offsets refitted on the KF champion (ISSUES #60); no published number moves |
-| **v6.1.0** | **XGBoost (Grabit v4)** | **0.8581** | **0.8605** | **0.8500** | **885** | **19** | **DEFAULT. Stage-1 waiver term replaces the two waiver features; no push on waived rows** |
+| v6.1.0 | XGBoost (Grabit v4) | 0.8581 | 0.8605 | 0.8500 | 885 | 19 | DEFAULT. Stage-1 waiver term replaces the two waiver features; no push on waived rows |
+| **v6.2.0** | **XGBoost (Grabit v4)** | **0.8612** | **0.8648** | **0.8516** | **885** | **21** | **DEFAULT. Waiver term on money-owed waivers only; waiver features restored** |
 
 ### v6.0.0: repeated grouped CV and the completed Spotrac migration
 
@@ -2029,6 +2030,80 @@ Deployed k=20 offsets, with dollars at the 2026 cap ($165.0M):
 Published A1, A2 and B1 do not move, because the suite estimates its own
 fold-honest offsets. The new constants reach `predict.py` and
 `export_web.py`, and the Value Board changes by the same amounts.
+
+### v6.2.0: waiver term on money-owed waivers only
+
+v6.1.0 discounted every waived row by the same share of `kf_market_value`.
+Two expensive plain waivers carried most of its loss on fresh plain waivers:
+Paul 2024 (a declined non-guarantee, $3.00M against $10.46M) and Hill 2019
+(a waive-and-re-sign with Milwaukee, $2.59M against $9.13M). The other ten
+fresh plain waivers moved little. Follow-up arms on the v6.1.0 frame (10
+seeds, repeated grouped CV, all layers), each paired against v6.1.0:
+
+| Arm | A1 | A2 | B1 | dSel (t) | Gate |
+|---|---:|---:|---:|---:|---|
+| `owed_branch` (flags kept, money-owed rows priced as gamma x latent) | 0.8597 | 0.8609 | 0.8459 | +0.0009 (+0.24) | fail, B1 |
+| `term_flags` (v6.1.0 with the flags kept) | 0.8599 | 0.8631 | 0.8523 | +0.0024 (+0.98) | pass |
+| `term_flags_owed` | 0.8612 | 0.8648 | 0.8516 | +0.0041 (+1.11) | pass |
+
+`term_flags_owed` was pre-registered before scoring (commit `6c6d7db`,
+`scripts/eval_waiver_challengers.py`): the 21 v6.0.6 features, beta
+fitted by `waiver_beta` on every waived row, the term applied only where
+`prior_waiver_owed == 1` in fit and prediction, and P(max) = 0 on waived
+rows. The gate was the one used for v6.1.0: dSel > 0, B1 change >= 0, C2
+growth <= $0.3M and C1 gap <= 0.005, with the targeted t reported only. It
+passed: C2 worst +$0.073M (Other), C1 gap -0.0045, targeted t +0.45. It is
+the fourth arm scored after v6.1.0, so its t carries that selection.
+
+Bias / MAE in $M on the champion OOF (prediction minus actual):
+
+| Group | n | v6.0.6 | v6.1.0 | v6.2.0 |
+|---|---:|---:|---:|---:|
+| Money-owed, above floor, fresh | 8 | +7.24 / 7.98 | -1.07 / 2.44 | -0.22 / 2.79 |
+| Money-owed, above floor, stale | 4 | -0.90 / 1.43 | -0.38 / 1.80 | -0.92 / 1.42 |
+| Plain, above floor, fresh | 12 | -0.55 / 1.08 | -1.76 / 2.33 | +0.62 / 1.34 |
+| Plain, above floor, stale | 18 | -1.77 / 2.26 | -1.37 / 2.06 | -1.31 / 2.00 |
+| Waived, at floor | 80 | +0.79 / 0.90 | +0.54 / 0.69 | +0.79 / 0.90 |
+| Never waived | 763 | +0.41 / 2.75 | +0.50 / 2.78 | +0.41 / 2.75 |
+
+Paul 2024 returns to $12.94M and Hill 2019 to $11.86M. Never-waived rows
+return to their v6.0.6 errors, which v6.1.0 lost by dropping the flags.
+Money-owed stars are discounted less than in v6.1.0, because beta (mean
+-0.478) is fitted on every waived row: Walker 2021 $16.13M against $8.73M,
+Lillard 2025 $16.57M against $14.10M.
+
+The confirmation split diverges from selection by more than 0.005, so it is
+reported: selection pool 0.8512 -> 0.8553, confirmation 0.8990 -> 0.8963. It
+did not enter the decision.
+
+Production: `FEATURE_COLS` returns to 21. `train.waiver_z(owed_only=True)`
+carries the term in `train_grabit` and `grabit_predict`, and
+`route_mixture.grabit_latent` defaults to `waiver_term="owed"`. The web
+export's `wv` flag now marks money-owed waivers (ISSUES #61).
+
+Deployed k=20 offsets, refitted by `scripts/eval_stage3_signing.py`, whose
+champion reproduces the suite ARM_EXT (A1 0.8477, A2 0.8570). Dollars are at
+the 2026 cap ($165.0M):
+
+| Route | v6.1.0 | v6.2.0 | v6.2.0 ($M, 2026) |
+|---|---:|---:|---:|
+| Bird Rights | +0.01158 | +0.01246 | +$2.06M |
+| Cap Space | +0.00816 | +0.00689 | +$1.14M |
+| Early Bird | +0.00894 | +0.00890 | +$1.47M |
+| Non-Bird | -0.00319 | -0.00253 | -$0.42M |
+
+| Metric | v6.2.0 |
+|---|---:|
+| A1 | 0.8612 |
+| A2 | 0.8648 |
+| B1 | 0.8516 |
+| C1 slope | 0.967 |
+| MAE (A1) | $2.54M |
+
+Artifacts: `outputs/models/waiver_challengers_owedcmp.json`,
+`outputs/models/waiver_challengers_flagsowed.json` and their `_oof.csv`
+files, `outputs/models/evaluation_suite.json`,
+`outputs/models/oof_reference.csv`.
 
 ### v6.1.0: Stage-1 waiver term replaces the waiver features
 
