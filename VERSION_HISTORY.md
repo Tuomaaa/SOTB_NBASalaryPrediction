@@ -1789,7 +1789,8 @@ layer A is scored on ten fold partitions instead of one, and the frame changed.
 | v6.0.0 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | PROUD. Repeated grouped CV with a fixed player-to-fold hash (ISSUES #35); Spotrac migration completed with the signing_contract branch |
 | v6.0.1 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | SHAME. Waiver fallback anchors on the first signing not cut before opening night; no published number moves |
 | v6.0.2 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | SHAME. Ring-chasing discount rejected; oracle diagnostics locate the failure in the concept |
-| **v6.0.3** | **XGBoost (Grabit v4)** | **0.8509** | **0.8559** | **0.8304** | **885** | **21** | **SHAME. Partially linear waiver term not adopted (selection t = +0.19); three failure mechanisms define the next arm** |
+| v6.0.3 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | SHAME. Partially linear waiver term not adopted (selection t = +0.19); three failure mechanisms define the next arm |
+| **v6.0.4** | **XGBoost (Grabit v4)** | **0.8529** | **0.8565** | **0.8288** | **885** | **21** | **SHAME. KF anchor re-priced at in-season signings, the market's last observed price** |
 
 ### v6.0.0: repeated grouped CV and the completed Spotrac migration
 
@@ -1905,6 +1906,65 @@ The waiver direction stays open. The failures were:
 - The max push re-inflated Damian Lillard 2025.
 
 See `docs/briefs/2026-09-29-waiver-term.RESULT.md`.
+
+### v6.0.4: KF anchor at the last observed price
+
+`kf_market_value` is documented as anchoring at "the market's last observed
+price". The anchor was the last evaluation-frame contract, and `df_full`
+holds one row per season (the main contract). A buyout followed by a
+rest-of-season minimum therefore kept the old contract as the anchor. Andre
+Drummond 2021 stayed anchored at $26.4M after signing a Lakers rest-of-season
+minimum, and Russell Westbrook 2023 at $47.6M. `load_reprice_events` now
+overrides that season's anchor with each in-season signing's observed price:
+
+- A rest-of-season contract anchors at the season floor.
+- A mid-season standard non-extension contract anchors at its AAV over the
+  cap, floored at the minimum.
+- A two-way contract anchors at 0 with the tier-2 prior; it counts 0 against
+  the cap.
+- A 10-day contract also anchors at 0; this is the user's declared choice.
+
+The standard-contract window closes on June 20, so a late-June deal is never
+the prior-season anchor of its own row. The rule is on in both
+`prepare_kf_context` and `compute_kf_column`, so training, the suite,
+`predict.py` and `export_web.py` share it. `reprice=False` reproduces v6.0.3.
+
+This was adopted on correctness, with paired metrics reported, not gated. On
+identical folds, paired selection dSel was -0.0003 (t -0.15). The 96 rows
+whose anchor changed improved in MAE from $1.49M to $1.37M, and the targeted
+t was +1.10. Drummond 2021 went from +$14.9M to +$6.8M, and Wesley Matthews
+2019 from +$2.4M to $0.0M. The largest loss was Wayne Ellington 2019
+(-$1.2M).
+
+A first version failed its gate (targeted t -1.02). It anchored every
+post-opener standard contract at the floor, which caught late-June FA deals
+(Patrick Williams 2024, Thaddeus Young 2022), 2011 lockout signings and an
+unflagged extension.
+
+| Metric | v6.0.4 |
+|---|---:|
+| A1 pooled CV R2 | **0.8529** |
+| A2 2024-26 CV R2 | **0.8565** |
+| B1 rolling-origin R2 | **0.8288** |
+| B1 2024 / 2025 / 2026 | 0.8628 / 0.8097 / 0.8028 |
+| MAE | $2.59M |
+| Calibration slope | 0.961 |
+| Seed sd | 0.0078 |
+
+Deployed signing offsets are unchanged (ISSUES #60).
+
+Also recorded after v6.0.3, all rejected on their gates:
+
+- `owed_branch`: money-owed waivers leave the fit and are priced as gamma
+  times the latent; targeted t +0.73.
+- `waived_branch`: two gammas, fitted on never-waived rows; targeted t
+  +1.06.
+- The `is_waived` corrections for ISSUES #58 and #59: A1 fell to 0.8471.
+  They were reverted in `b2843e1`, and both issues stay open.
+
+Each Stage-1 training-set change moved other rows.
+
+Verification: `pytest` passes 84/84, including `tests/test_kf_reprice.py`.
 
 ### Corrections to earlier findings
 

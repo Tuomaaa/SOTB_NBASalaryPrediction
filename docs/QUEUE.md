@@ -1,6 +1,6 @@
 # Work queue
 
-Last updated 2026-09-29 after v6.0.3 (waiver term not adopted).
+Last updated 2026-09-29 after v6.0.4 (KF anchor re-pricing).
 
 Keep only active work here. Each item needs an action and a completion check.
 Use a dated brief for additional detail. Put defects in `ISSUES.md` and landed
@@ -75,41 +75,6 @@ The 85 plain waivers have bias -$0.13M.
   ADR.
 - Still open: confirm the patched waiver columns with a full local
   `python scripts/rebuild_training_data.py`.
-
-### Re-price the KF anchor at in-season signings
-
-The KF anchor is the player's last evaluation-frame contract. A buyout
-followed by a rest-of-season minimum leaves the anchor on the old contract,
-because `df_full` holds one row per season, the main contract. Examples:
-Russell Westbrook 2023 is anchored at $47.6M and signed for $3.8M, Kyle
-Lowry 2024 at $33.8M for $3.3M, and Andre Drummond 2021 at $26.4M for
-$1.7M. `is_waived` is not touched here; ISSUES #58 and #59 stay open.
-
-- The first `kf_reprice` arm (2026-09-29) failed its targeted gate: t -1.02
-  over 76 players, B1 -0.0036. Its "standard after opening night" class
-  anchored at the floor contracts whose observed price was far higher. Those
-  were June FA deals that belong to the next season (Patrick Williams 2024,
-  Thaddeus Young 2022), 2011 lockout signings, and an unflagged extension.
-  Westbrook 2023, Lowry 2024 and Dieng 2021 did not move, because `is_waived`
-  already priced them.
-- Reclassified by the user as a definition correction (SHAME), not a gated
-  feature change. The KF anchor is documented as "the market's last observed
-  price", and a later signing is a later observed price. Paired metrics are
-  reported. Stop and discuss before adoption if damage is broad, as with
-  ISSUES #59.
-- Corrected rule, `prepare_kf_context(reprice=True)`:
-  - A rest-of-season contract anchors at the season floor (strong).
-  - A two-way contract anchors at 0 (weak, tier-2 prior); it counts 0
-    against the cap.
-  - A 10-day contract anchors at 0 (weak). This is the user's declared
-    modeling choice: its observed cap price is the prorated minimum.
-  - A standard non-extension contract signed after opening night and before
-    June 20 of the following year anchors at its own AAV over the cap
-    (strong). Later June signings start the next season, and anchoring on
-    them would leak a row's own contract.
-  - An event overrides the same season's evaluation-frame anchor.
-- Complete when the corrected rule is adopted or reverted with paired metrics
-  reported.
 
 ### Fold P(max) into Stage 1
 
