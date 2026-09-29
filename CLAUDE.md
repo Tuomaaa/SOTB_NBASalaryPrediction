@@ -217,5 +217,7 @@ changes in `VERSION_HISTORY.md`.
 A change that moves published numbers takes the next `PROUD.DEFAULT.SHAME`
 version and a git tag containing its headline metrics: PROUD for a structural
 advance, DEFAULT for a change that passes the paired gate, SHAME for a
-correction adopted on correctness. `VERSION_HISTORY.md` maps the legacy
+correction adopted on correctness. A SHAME version may also mark a landed
+correction or a recorded rejection that moves no published number; its tag
+repeats the current headline metrics. `VERSION_HISTORY.md` maps the legacy
 `vN.Mx` names used up to v5.3.3.

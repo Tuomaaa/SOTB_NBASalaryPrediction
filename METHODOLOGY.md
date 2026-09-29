@@ -1275,6 +1275,17 @@ type-weighted form was -0.00173, and the full time/type/recurrence score was
 gate. Reopen only with diagnosis dates and signing-time prognosis or recovery
 status, not another weighting of the same missed-game table.
 
+**Ring-chasing discount (v6.0.2).** A pull on the Stage-2 latent for veterans
+likely to be on their last contract, weighted by a retirement hazard fitted on
+1997-2016 careers (AUC 0.725 against the realized outcome), failed its
+pre-registered gate at t = +0.88. Oracle arms that pull on the realized last
+contract fail too (t = -0.43, and t = -0.50 when restricted to earnings at or
+above P75). In 2019-2023 a paid last-contract signing shows no discount
+(residual -$1.37M against -$1.35M for other paid veterans), and every gain
+comes from rows that sign the minimum. Reopen only when the 2024-2026 star
+signings have observed horizons, and only after the `last_rich` oracle passes.
+See `docs/briefs/2026-09-29-ring-chasing.RESULT.md`.
+
 **MLE branch.** P(mle) AUC 0.71: whether a player is offered an exception
 depends on the signing team's cap position, which no player feature sees.
 
