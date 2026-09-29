@@ -114,7 +114,7 @@ Training uses Year-1 Contracts. Scoring can include later contract years. Keep
 (team outcome on any contract year).
 
 The 21 production features are defined in `METHODOLOGY.md`.
-`kf_market_value` replaced `prev_cap_pct` in v8.13x. Inference is two-pass
+`kf_market_value` replaced `prev_cap_pct` in v5.2.0. Inference is two-pass
 so the Kalman-filtered trajectory exists before the final fit. Review the
 rejected-feature table before proposing another feature.
 
@@ -213,5 +213,8 @@ Record an unfixed defect in `ISSUES.md` with its problem, reproduction,
 proposed fix, and completion check. Delete fixed entries and record landed
 changes in `VERSION_HISTORY.md`.
 
-A change that moves published numbers takes the next `vN.Mx` version and a
-git tag containing its headline metrics.
+A change that moves published numbers takes the next `PROUD.DEFAULT.SHAME`
+version and a git tag containing its headline metrics: PROUD for a structural
+advance, DEFAULT for a change that passes the paired gate, SHAME for a
+correction adopted on correctness. `VERSION_HISTORY.md` maps the legacy
+`vN.Mx` names used up to v5.3.3.

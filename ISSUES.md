@@ -12,10 +12,10 @@ refer to them by number.
 
 - #2: continuation-span warning, now in `CLAUDE.md`.
 - #31: Kendrick Nunn contract-structure correction, commit `8071745`.
-- #38: veteran-minimum cap-charge convention, landed in v8.11x.
+- #38: veteran-minimum cap-charge convention, landed in v5.0.1.
 - #41: Spotrac page-identity guard; Josh Gray remains the documented no-page
   case.
-- #55: one-year rule for the minimum cap charge, landed in v8.17x.
+- #55: one-year rule for the minimum cap charge, landed in v5.3.3.
 
 ## 4. Three signing-mechanism labels remain unknown
 
@@ -432,7 +432,7 @@ reads MIL.
 minimum deals the Spotrac contract block states a different length. Oshae
 Brissett 2023 is a two-year minimum stored as one year, so his $2,165,000 is
 wrongly charged at $2,019,706. Bol Bol 2023 is a one-year minimum stored as two
-years, so his charge is wrongly left at $2,165,000. On v8.17x, 44 of the 232
+years, so his charge is wrongly left at $2,165,000. On v5.3.3, 44 of the 232
 Minimum frame rows with a starting Spotrac minimum block disagree on length;
 24 are two-year blocks stored as one year (Marc Gasol 2020, Rajon Rondo 2019)
 and so carry the one-year charge. The candidate list is

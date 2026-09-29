@@ -62,8 +62,8 @@ into a CSV cannot survive.
 4. **Year-1 filter**: only keep `year_in_contract == 1` rows. Years 2+ are CBA-mandated escalators (5%/8% raises), not market evaluations. Reduces to **1,808 rows**.
 5. **Rookie scale filter**: remove 1st-round picks in years 2-4 of rookie deal (slotted by draft position, not market). Uses draft_data.csv for precise identification. Reduces to **1,556 rows** across 666 players, 2019–2026.
 6. **Prorated filter**: drop rows below 1.2% of that season's cap — partial-season pay, not an annual contract value. Reduces to **1,297 rows**. See below.
-7. **Mislabel filter** (v7.6x): drop year-1 rows paid above their *tier* ceiling — provable escalator mislabels. Reduces to **1,291 rows**. See below.
-8. **Continuation filter** (v7.7x): drop rows a three-signal consensus identifies as later years of older deals. Reduces to **1,172 rows**. See below.
+7. **Mislabel filter** (v3.0.5): drop year-1 rows paid above their *tier* ceiling — provable escalator mislabels. Reduces to **1,291 rows**. See below.
+8. **Continuation filter** (v3.0.6): drop rows a three-signal consensus identifies as later years of older deals. Reduces to **1,172 rows**. See below.
 9. **GroupKFold CV**: 5-fold, same player stays in same fold to prevent within-player leakage.
 
 The last two filters exist because the contract-structure table tags a
@@ -81,7 +81,7 @@ of which are easier to price than an open-market signing. Adding the actual free
 agent signings dropped the 2026 forward R² from 0.843 to 0.811 on a test set
 that finally represents the task.
 
-### Prorated salaries (removed in v7.2x)
+### Prorated salaries (removed in v3.0.1)
 
 259 rows (17%) paid less than 1.2% of the cap, a median of $0.29M with a median
 28 games played and 12.5 minutes. These are 10-day contracts and mid-season
@@ -99,7 +99,7 @@ R² 0.7534 → 0.7588, MAE $3.289M → $3.327M, bias **−$0.423M → +$0.101M**
 Re-centring the filtered predictions by their mean shift returns R² to 0.7522 —
 the conditional pricing function is unchanged, only the level moved.
 
-### Mislabelled year-1 rows (removed in v7.6x)
+### Mislabelled year-1 rows (removed in v3.0.5)
 
 No fresh signing can exceed its tier maximum, so a year-1 label on a salary above
 that ceiling is *proof* the row is a later year of an older deal — not a
@@ -111,7 +111,7 @@ floored `max_eligible_pct`. The no-decrease floor exists to legalise escalator
 pay for Stage-2 scoring, and escalator pay is exactly what a fresh contract
 cannot be, so including it would make the test vacuous.
 
-### Continuation rows (removed in v7.7x)
+### Continuation rows (removed in v3.0.6)
 
 The six above were the visible tip. Of the 88 year-1 2019 rows with 2018 pay on
 record, 38 stepped by an escalator-shaped ratio — LeBron at exactly 1.050, George
@@ -137,7 +137,7 @@ stale price in training is cheaper than a deleted real one. 119 rows fall; the
 largest are verifiable mid-contract seasons (LeBron 2019, Simmons 2021,
 Hayward 2023). Common-row A1 rose +0.0102, the largest paired gain of Phase 7.
 
-**v7.9x replaced the primary path with a dated-span test.** With correct spans
+**v3.1.1 replaced the primary path with a dated-span test.** With correct spans
 (see below), `_filter_continuations` now demotes a row outright when a dated
 contract covers it and starts before the season, unless the season is
 renegotiated-fresh or the row appears in that season's FA-signings list; the
@@ -176,7 +176,7 @@ as fresh.
 | `lebron_od_diff_z` | LEBRON offensive minus defensive component, z-scored by season. See below. |
 | `laker_od_diff_z` | LAKER offensive minus defensive component, z-scored by season. See below. |
 
-#### O/D diff z-scores (v8.12x)
+#### O/D diff z-scores (v5.1.0)
 
 The three composite z-scores (DARKO DPM, LEBRON, LAKER) measure overall player
 quality. The O/D diffs capture a second, **orthogonal** dimension: whether a
@@ -211,7 +211,7 @@ in `train.py::load_training_data()`.
 | `availability_3yr` | Weighted GP% over past 3 seasons (0.5/0.3/0.2) |
 | `playoff_mpg_diff` | Playoff minutes per game minus regular-season `mpg`, **0.0** where the player did not appear in that season's playoffs. See below. |
 
-#### `playoff_mpg_diff` (v8.6x)
+#### `playoff_mpg_diff` (v4.3.0)
 
 A playoff rotation is a public, dated judgement of a player, made by the party
 with the most information, on the games that matter most, and made *before* the
@@ -239,7 +239,7 @@ the player-specific half alone scores −0.00045 (t −1.58), and `po_games` add
 the same falsification: the within-team permutation retains 6% of its gain
 (+0.00028, t +0.72) and a team-mean control retains 10%.
 
-#### `kalman_filtered_stats` — Kalman-filtered player quality (v8.10x)
+#### `kalman_filtered_stats` — Kalman-filtered player quality (v5.0.0)
 
 A Kalman filter over the three impact metrics (DARKO DPM, LEBRON, LAKER) that
 produces a single filtered quality estimate per player-season. The filter runs
@@ -295,13 +295,13 @@ Code: `src/features/kalman_quality.py`, attached at load time in
 | Feature | Description |
 |---------|-------------|
 | `cba_era` | Binary: 0 = pre-2023 CBA, 1 = post-2023 CBA |
-| `kf_market_value` | Kalman-filtered market trajectory (v8.13x, replaces `prev_cap_pct`). For a player at season T: anchor a random-walk KF at the market's last observed price, update through model-predicted intermediate seasons. Three-tier anchor: (1) most recent Year-1 eval-frame row, (2) earliest rookie-scale season for first-rounders, (3) fallback to `prev_cap_pct`. At inference time, a base model (21 features with `prev_cap_pct`) prices intermediate seasons — no circularity because the measurement model never sees `kf_market_value`. See `src/features/kf_market_value.py`. |
+| `kf_market_value` | Kalman-filtered market trajectory (v5.2.0, replaces `prev_cap_pct`). For a player at season T: anchor a random-walk KF at the market's last observed price, update through model-predicted intermediate seasons. Three-tier anchor: (1) most recent Year-1 eval-frame row, (2) earliest rookie-scale season for first-rounders, (3) fallback to `prev_cap_pct`. At inference time, a base model (21 features with `prev_cap_pct`) prices intermediate seasons — no circularity because the measurement model never sees `kf_market_value`. See `src/features/kf_market_value.py`. |
 | `is_waived` | 1 when Spotrac records a waiver or buyout in the fixed 365 days before the signing that prices this row. Events after signing are excluded. Unknown source/signing coverage remains auditable through `is_waived_known`, which is not a model feature. |
-| `mpg_x_waived` | `mpg × is_waived` (v8.4x). A waiver erases most of a player's price history — the OLS slope of pay on prior pay drops 0.750 → 0.140 across it — so the market re-prices him off current workload instead. NaN where `is_waived` is unknown, never 0. |
+| `mpg_x_waived` | `mpg × is_waived` (v4.2.0). A waiver erases most of a player's price history — the OLS slope of pay on prior pay drops 0.750 → 0.140 across it — so the market re-prices him off current workload instead. NaN where `is_waived` is unknown, never 0. |
 
-#### Filling `prev_cap_pct` for first contracts (v7.3x)
+#### Filling `prev_cap_pct` for first contracts (v3.0.2)
 
-A first contract has no previous deal to observe. Until v7.3x the fill was one
+A first contract has no previous deal to observe. Until v3.0.2 the fill was one
 number for everyone — the median `cap_pct` over first-round rows, which lands on
 pick-4 money (~6.9% of cap). An undrafted player's actual predecessor is a
 minimum deal (~1.5%), so the fill overstated it 4.6×, and because it was a
@@ -318,7 +318,7 @@ Paired gain **+0.0034 ± 0.0007 (t = +4.91)**, positive in all five folds — th
 times the Grabit effect, and the largest single paired improvement since the
 two-stage pipeline.
 
-### Missingness semantics (v8.2x)
+### Missingness semantics (v4.1.0)
 
 A player who did not play has an **undefined** usage rate, not a missing one.
 46 full-table rows now carry `games = minutes = 0` and a `did_not_play` status
@@ -331,7 +331,7 @@ rates over eight seasons, matched on name-season then on the stable
 `player_url`, filling only gaps and never synthesising LAKER. After the repair,
 age, height, mpg and availability have zero missing values in the 944 frame.
 
-The impact-source join itself was repaired in v8.1x: the three sources
+The impact-source join itself was repaired in v4.0.1: the three sources
 (DARKO, LEBRON, LAKER) sometimes spelled the same player differently, and
 the old name-season merge left those rows split. Joining on `(nba_id, season)`
 closes the gap.
@@ -344,7 +344,7 @@ closes the gap.
 | `ast_tov_ratio` | +0.0001 | Redundant with ast_pct |
 | `experience_years` | -0.0004 | Collinear with age |
 | `win_pct`, `made_playoffs` | +0.0004 | Team context already in player metrics |
-| `playoff_bpm_diff_adj`, `playoff_laker_diff_adj` | +0.0003 | Sparse (35% coverage), noisy. **Superseded 2026-08-01, but only for minutes**: `playoff_mpg_diff` (adopted v8.6x, +0.00576 paired, t 3.41) shows the playoff signal is in the ROTATION, not in playoff box-score rates. A benched player's per-possession metrics stay respectable on a small sample; the minutes themselves are what the market prices. These two rows stand as measured — do not re-test them expecting the v8.6x result. |
+| `playoff_bpm_diff_adj`, `playoff_laker_diff_adj` | +0.0003 | Sparse (35% coverage), noisy. **Superseded 2026-08-01, but only for minutes**: `playoff_mpg_diff` (adopted v4.3.0, +0.00576 paired, t 3.41) shows the playoff signal is in the ROTATION, not in playoff box-score rates. A benched player's per-possession metrics stay respectable on a small sample; the minutes themselves are what the market prices. These two rows stand as measured — do not re-test them expecting the v4.3.0 result. |
 | `po_games` (alongside `playoff_mpg_diff`) | +0.00109 paired, t 4.89 | Rejected 2026-08-01 as a **team-success proxy** despite clearing the bar: permuting it within (season, playoff team) retains the entire edge. Same family as `win_pct` / `made_playoffs` below. See the `playoff_mpg_diff` section above. |
 | `max_eligible_pct` | +0.0008 | Collinear with age/experience |
 | `is_vet_min`, `is_mle_range` | N/A | Derived from target variable (leakage) |
@@ -364,9 +364,9 @@ closes the gap.
 | Post-hoc recalibration (isotonic) | -0.0052 | As above, and more prone to overfitting the fold |
 | `height_x_age` | +0.0004 (t = 0.47) | Noise, and it *hurts* the segment it targets: only 36 tall+old rows in training, split between minimum ring-chasers and productive bigs on real contracts. The interaction can only push one direction ("old+tall = cheaper"); the impact metrics already separate declining bigs from productive ones per player |
 | `weight_x_age` | N/A | No weight column in the training set — the height scraper reads only the height field of the BBRef index pages. Would inherit the same counter-effect problem as `height_x_age`: heavy+old contains both ends of the price range |
-| `kf_innov` (Kalman innovation) | +0.00167 (t = 1.34) | Tested alongside `kalman_filtered_stats` (v8.10x). The filter's innovation (surprise) — actual measurement minus predicted measurement — captures how much a player over- or under-performed expectations. Does not clear t > 2 on its own; the quality estimate already absorbs the signal |
-| `ema_quality` (exponential moving average) | +0.00263 (t = 1.17) | Control for `kalman_filtered_stats` (v8.10x). A simple EMA over the three z-scored impact metrics, which does temporal smoothing without optimal metric weighting or age-aware drift. Recovers only half of `kalman_filtered_stats`'s gain, confirming the Kalman filter's advantage is in the weighting and drift, not mere smoothing |
-| 6 raw O/D z-scores replacing 3 composites | +0.0044 (t = 1.14) | Arm A of the O/D split ablation (v8.12x). Replacing `darko_dpm_z`, `lebron_z`, `laker_z` with their 6 offensive and defensive components costs 3 degrees of freedom and mostly re-expresses total quality. Gains are fold-unstable: range −0.00000 to +0.01931 across 5 folds |
+| `kf_innov` (Kalman innovation) | +0.00167 (t = 1.34) | Tested alongside `kalman_filtered_stats` (v5.0.0). The filter's innovation (surprise) — actual measurement minus predicted measurement — captures how much a player over- or under-performed expectations. Does not clear t > 2 on its own; the quality estimate already absorbs the signal |
+| `ema_quality` (exponential moving average) | +0.00263 (t = 1.17) | Control for `kalman_filtered_stats` (v5.0.0). A simple EMA over the three z-scored impact metrics, which does temporal smoothing without optimal metric weighting or age-aware drift. Recovers only half of `kalman_filtered_stats`'s gain, confirming the Kalman filter's advantage is in the weighting and drift, not mere smoothing |
+| 6 raw O/D z-scores replacing 3 composites | +0.0044 (t = 1.14) | Arm A of the O/D split ablation (v5.1.0). Replacing `darko_dpm_z`, `lebron_z`, `laker_z` with their 6 offensive and defensive components costs 3 degrees of freedom and mostly re-expresses total quality. Gains are fold-unstable: range −0.00000 to +0.01931 across 5 folds |
 | O/D Kalman (two independent filters) | −0.0009 (Arm D) | Two scalar Kalman filters (one from O metrics, one from D) replacing the composite `kalman_filtered_stats`. Correlation with composite is only 0.775 — independent filters lose cross-metric information between O and D measurements. Recovers half the value at best |
 | `mpg × impact` interactions (4 forms) | −0.0018 to −0.0008 (t −1.00 to −0.49) | Tested 2026-08-29 on the hypothesis that minutes inflate the price of high-volume, low-efficiency players. Four forms — `mpg × composite impact z`, `mpg ×` each of the three metrics separately, `mpg × availability_3yr × composite` (a minute-weighted "total value" term), and the composite impact z on its own — every one negative on the pooled selection pool. It also **fails in the zone it targets**: on high-mpg / sub-average-impact rows (n=89) MAE moves $4.61M → $4.65M, and on the narrower volume-scorer slice (high mpg, high usage, impact < 0.25, n=47) $5.91M → $6.02M. The premise does not hold either — that zone's OOF bias is $+0.05M, and the volume-scorer slice is *under*-priced by $0.73M. Its problem is spread, not level: MAE $5.91M against $3.19M for everyone else, the bimodal `y | x` documented above. A gradient-boosted model already represents `mpg × metric` by splitting on one and then the other, so the explicit product only adds a collinear column. Arm: baseline XGBoost on the 20 base features, GroupKFold, 10 seeds, paired by fold. |
 
@@ -398,7 +398,7 @@ that is **not** a function of the current features: market supply and demand at
 the position that summer, how the previous contract terminated, league-wide cap
 room. Modelling the mechanism itself is a dead end for point accuracy.
 
-**This is not contradicted by the v8.8x signing offset**, and the distinction is
+**This is not contradicted by the v4.4.0 signing offset**, and the distinction is
 the whole reason that component sits in Stage 3 rather than in the feature list.
 A feature is an *input*: `P(mechanism | x)` is a function of `x`, the trees
 already extract it, and it costs 0.0073. The Stage-3 offset is an *output
@@ -414,7 +414,7 @@ The model is now explicitly three stages. Composition lives in
 export, and `predict.py`) call it. Every layer beyond Stage 2 is opt-in through
 a keyword argument that defaults to off, so a consumer that has not opted in is
 bit-identical to the composition it had before that layer existed — the web
-export has not yet opted into the v8.8x signing offset (ISSUES #46):
+export has not yet opted into the v4.4.0 signing offset (ISSUES #46):
 
 ```
 latent  ->  push  ->  clip(lo, hi)  ->  stage 3  ->  stage 3 signing
@@ -432,16 +432,16 @@ latent  ->  push  ->  clip(lo, hi)  ->  stage 3  ->  stage 3 signing
   classifier says P(max) >= 0.52, and the clip then caps the result into
   `[floor_pct, max_eligible_pct]`. Deterministic, needs no route.
 - **Stage 3** adjusts for what only applies once the **signing route** is
-  known, in two components. The extension raise cap (v8.0x) only ever lowers,
+  known, in two components. The extension raise cap (v4.0.0) only ever lowers,
   is a no-op where `is_extension` is false or `ext_cap_pct` is NaN, and never
-  reads the target. The signing-type offset (v8.8x) adds one constant per
+  reads the target. The signing-type offset (v4.4.0) adds one constant per
   eligibility mechanism and re-applies both legal bounds afterwards.
 
 Everything else (market conditions, negotiating posture) stays averaged inside
 Stage 1, which is precisely what the C2 mechanism-bias table measures.
 **Promoting a parameter from "averaged" to "told" should shrink its C2 bias** —
 that is the natural acceptance test for any future extension of the pipeline,
-and it is the test the v8.8x signing offset was written to pass.
+and it is the test the v4.4.0 signing offset was written to pass.
 
 ### Stage 1: Grabit (Nonlinear Tobit via XGBoost)
 
@@ -461,7 +461,7 @@ XGBRegressor(
 Standard XGBoost treats all training rows equally. But a salary pinned against a
 CBA bound is not a market price — it is the bound. **Grabit** (Sigrist &
 Hirnschall, 2019) replaces the loss with a censored-normal likelihood, and since
-v7.8x the project censors **both** bounds:
+v3.1.0 the project censors **both** bounds:
 
 - **Uncensored rows**: standard squared error. `grad = pred − actual`, `hess = 1`.
 - **Right-censored rows** (max contracts): the observation is a *floor* of the
@@ -501,7 +501,7 @@ his salary reflects a **choice** and the censoring premise is simply false. The
 oracle experiment (fold-honest `P(mechanism | x)` scores −0.0073; a leaky oracle
 gains only +0.0137) measured that dead end.
 
-The v7.8x population is the opposite one: players whose unconstrained price sits
+The v3.1.0 population is the opposite one: players whose unconstrained price sits
 *below* the minimum, held up by a rule **no contract can cross**. That is a
 genuine constraint, mathematically identical to the max ceiling with the sign
 flipped, and it was worth $0.42M per row on 297 rows.
@@ -519,11 +519,11 @@ on the arm was seen; MARGIN was frozen since route-mixture phase 1 and must not
 be tuned on zone MAE (the clip makes censored sides one-way valves, so zone MAE
 is monotone in the margin).
 
-#### The route classifier's inputs are curated, not inherited (v8.6x)
+#### The route classifier's inputs are curated, not inherited (v4.3.0)
 
 The classifier that produces P(max) reads
 `route_mixture.CLF_BASE_COLS + CLF_EXTRA_COLS` — 36 columns, **stated
-explicitly and frozen**. Until v8.6x the base half was `list(FEATURE_COLS)`, so
+explicitly and frozen**. Until v4.3.0 the base half was `list(FEATURE_COLS)`, so
 every regression feature was force-fed to the classifier as well. That coupling
 is not neutral, because P(max) feeds a knife-edge gate: a column carrying no
 route information still perturbs the classifier's trees through
@@ -569,7 +569,7 @@ The ceiling therefore also carries a floor of `1.08 × previous season's cap_pct
 Anchoring it needs pay from before the training window, so
 `scripts/backfill_prehistory_salaries.py` re-parses the cached BBRef player pages
 offline into `salaries_prehistory.csv` (767 rows, ~550 players, 2016–2018; the
-2018 count grew from 155 to ~550 via the v7.10x team-salary scrape).
+2018 count grew from 155 to ~550 via the v3.1.2 team-salary scrape).
 
 #### Why the ceiling is audited
 
@@ -577,13 +577,13 @@ A ceiling below observed pay is provably wrong — the salary happened, so it wa
 legal — and it does damage twice: the row is mislabelled as censored at a
 threshold it has already passed, and the Stage-2 clip pins the prediction below
 the truth, a guaranteed error. Auditing `actual > max_eligible_pct` found 13 such
-rows before v7.4x (Curry 2019 at 36.9% of a frozen cap against a 35% ceiling,
+rows before v3.0.3 (Curry 2019 at 36.9% of a frozen cap against a 35% ceiling,
 Wall and Towns on early-signed designated-veteran deals, and two rows that were
 float dust at exactly the tier). All three rules above came from that audit; the
 count is now **zero**, and it is worth re-running after any change to experience,
 awards, or cap data.
 
-#### The designated-ceiling gate (v7.12x)
+#### The designated-ceiling gate (v3.2.1)
 
 The award path in `_compute_max_eligible` granted the 35%/30% designated ceiling
 from All-NBA + experience alone, without the CBA's team-continuity requirement.
@@ -629,7 +629,7 @@ The `is_at_floor` label reads the observed outcome and is therefore a
 inference the floor clip needs only season and experience, both knowable before
 the market opens.
 
-### Stage 3: the extension raise cap (v8.0x)
+### Stage 3: the extension raise cap (v4.0.0)
 
 A first-paying-year extension additionally faces its own raise cap: 120% of
 the player's prior-year salary under the 2017 CBA, 140% under the 2023 CBA,
@@ -668,8 +668,8 @@ Evidence: `docs/briefs/2026-07-26-extension-route.RESULT.md`,
 Adopted 2026-07-26 and refined 2026-07-27. Stage 3 reads the realized signing
 route, so numbers computed with it are **told-route numbers**. They go in the
 **same column** as ex-ante numbers: the route is information the champion also
-had and merely ignored. **v7.1x-v7.13x predate the convention** and every entry
-from v8.0x says so.
+had and merely ignored. **v3.0.0-v3.2.2 predate the convention** and every entry
+from v4.0.0 says so.
 
 The refinement is a per-route test that keeps it honest: *after being told the
 route, does the salary still require a non-trivial computation?*
@@ -687,11 +687,11 @@ route, does the salary still require a non-trivial computation?*
   from the other direction: told "he signed the MLE" you have been told the
   number.
 
-### Stage 3, signing component: the per-type residual offset (v8.8x)
+### Stage 3, signing component: the per-type residual offset (v4.4.0)
 
 The stack carries a systematic Signing Residual by mechanism that no feature
 removes -- Bird Rights rows underpriced by $1.86M, Non-Bird overpriced by
-$1.22M (selection pool, v8.7x champion OOF). The correction is rung 1 of the
+$1.22M (selection pool, v4.3.1 champion OOF). The correction is rung 1 of the
 obvious ladder and deliberately the crudest thing that removes it: **one
 constant per type**, added to the composed prediction.
 
@@ -784,11 +784,11 @@ published R2. Regenerate with `scripts/eval_stage3_signing.py` and copy
 
 **`predict.py` is untouched by this.** An unsigned free agent has no signing
 mechanism -- the label exists only once the contract does -- so every offset on
-that path is 0.0 and the free-agent valuations are bit-identical to v8.7x. The
+that path is 0.0 and the free-agent valuations are bit-identical to v4.3.1. The
 deployed offsets are passed in explicitly and the identity is asserted, so the
 no-op is demonstrated by the code rather than assumed.
 
-### Stage 3, mechanism cap: the CBA ceiling for Early Bird and Non-Bird (v8.9x)
+### Stage 3, mechanism cap: the CBA ceiling for Early Bird and Non-Bird (v4.5.0)
 
 A zero-parameter deterministic clip, the same architecture as the extension
 raise cap: it only ever LOWERS a prediction, reads no fitted parameter, and the
@@ -853,7 +853,7 @@ Tobit-specific:
 - **Right gate = 0.55**: baseline prediction must reach 55% of `max_eligible_pct` to be censored.
 - **Left gate k = 2.0**: baseline prediction must be at most 2.0 × observed pay to be censored. Screened over {1.5, 2.0, 3.0}; 3.0 improved the floor zone slightly more but pushed the sub-2% predicted band further negative, and 2.0 was the best floor-zone gain that left non-floor rows untouched.
 
-**Re-swept at v7.8x (2026-07-23); the incumbent held.** A 36-config grid
+**Re-swept at v3.1.0 (2026-07-23); the incumbent held.** A 36-config grid
 (sigma × gate_frac × k_floor) plus an 11-config boundary probe confirmed that
 0.02 / 0.55 / 2.0 is optimal — or rather, that the alternatives fail for a
 structural reason rather than by a close margin.
@@ -937,11 +937,11 @@ failing to help (linear −0.0013, isotonic −0.0052).
 
 ### D — guards
 
-- **Fixed evaluation set** whenever the training filter changes. R²'s denominator moves with the row set, so R² across different datasets is not comparable. The apparent v3.5x → v4.0 collapse from 0.866 to 0.645 is this effect, not a regression.
+- **Fixed evaluation set** whenever the training filter changes. R²'s denominator moves with the row set, so R² across different datasets is not comparable. The apparent v1.10.0 → v1.10.1 collapse from 0.866 to 0.645 is this effect, not a regression.
 - **Baseline ladder**, so absolute R² is not mistaken for skill: predicting the mean 0.000, `mpg` alone **0.5740**, `mpg + prev_cap_pct` 0.6179, four features 0.7456, full 14 features 0.7609. Minutes per game alone reaches 75% of the full model's R²; the remaining ten features together buy +0.015 over that four-feature model.
-- **Locked confirmation split**: 15% of players by stable hash, excluded from the metric that decides since 2026-07-23. Currently 0.7857 (n=168) against 0.7616 on the selection pool. The two levels are not comparable to each other — different players, different difficulty — so only the *trend* is informative. It widened against the pool from +0.0150 (v7.2x) to +0.0228 (v7.4x), an audit confirmed the drift was real, and the protocol changed in response. See "The confirmation split, and why decisions now exclude it" below.
+- **Locked confirmation split**: 15% of players by stable hash, excluded from the metric that decides since 2026-07-23. Currently 0.7857 (n=168) against 0.7616 on the selection pool. The two levels are not comparable to each other — different players, different difficulty — so only the *trend* is informative. It widened against the pool from +0.0150 (v3.0.1) to +0.0228 (v3.0.3), an audit confirmed the drift was real, and the protocol changed in response. See "The confirmation split, and why decisions now exclude it" below.
 
-### Results (v7.8x, 10 seeds, n = 1,172)
+### Results (v3.1.0, 10 seeds, n = 1,172)
 
 | Metric | Baseline XGBoost | Grabit v4 (two-sided) |
 |--------|-----------------|------------------|
@@ -964,8 +964,8 @@ comparison is paired by fold.
 ### Judging Grabit: the zone scorecards
 
 **Selection-pool paired delta (Grabit − baseline): +0.0022 ± 0.0016, t = +1.39.**
-This has ranged from +0.0011 (t = +2.72) at v7.2x to −0.0001 (t = −0.07) at
-v7.4x, when the ceiling bug that had been inflating it was fixed.
+This has ranged from +0.0011 (t = +2.72) at v3.0.1 to −0.0001 (t = −0.07) at
+v3.0.3, when the ceiling bug that had been inflating it was fixed.
 
 The pooled test is the wrong instrument regardless of what it reads. Censoring
 touches 57 + 297 = 354 of 1,172 rows, and the two sides pull in opposite
@@ -979,7 +979,7 @@ large floor-side effect over rows that neither touches. The suite reports a
 | bias | −$6.60M | −$6.07M |
 | rows better / worse | — | **55 / 2** |
 
-| Floor zone (n=297) — pinned at the CBA minimum | One-sided (v7.7x) | Two-sided (v7.8x) |
+| Floor zone (n=297) — pinned at the CBA minimum | One-sided (v3.0.6) | Two-sided (v3.1.0) |
 |---|---|---|
 | MAE | $2.40M | **$1.98M** |
 | bias | +$2.37M | +$1.93M |
@@ -1006,7 +1006,7 @@ downward pull helps them: non-floor rows move −$0.012M with a CI spanning zero
 and the worst fixed-row segment |bias| growth is +$0.07M against the $0.30M gate.
 
 **Segment checks between two models must use fixed rows.** A predicted-band
-decomposition of v7.8x first read "−$1.21M on 2-4% others", which looked like
+decomposition of v3.1.0 first read "−$1.21M on 2-4% others", which looked like
 serious damage and was band-composition shift — the same regression-to-the-mean
 artifact layer C exists to avoid, reappearing on the model-comparison axis. Rows
 must be assigned to segments by something neither model produced.
@@ -1036,19 +1036,19 @@ model) cannot be judged on common-row A1, which scores only rows both frames kee
 and is by construction blind to the benefit of removing stale rows. The judging
 criteria are: (i) the pre-registered contamination signal shrinks or collapses;
 (ii) C2 fixed-segment |bias| growth stays within $0.3M; (iii) common-row A1 is
-neutral (the change does no harm). v7.9x established this: its common-row A1
+neutral (the change does no harm). v3.1.1 established this: its common-row A1
 was −0.0009 (t −0.13, neutral) while its pre-registered `is2019` control
 collapsed from +0.0035 (t 2.29) to −0.0004 (t −0.91).
 
 **Each Grabit side** is judged on its own zone: keep it while that zone's MAE
 delta is negative, drop the side whose zone turns positive. Applying the pooled
-rule to a 5% intervention would have removed the max side at v7.4x on a
+rule to a 5% intervention would have removed the max side at v3.0.3 on a
 t-statistic of −0.07.
 
 **The correctness-versus-metric thread.** Six of the last nine versions landed
 on a correctness argument rather than a metric win, and several did not clear
-t > 2: v7.9x (common-row A1 -0.0009), v7.13x (t = 0.08), v8.0x (t = 1.11),
-v8.1x, and the missingness repair inside v8.2x (t = 1.10, failing the
+t > 2: v3.1.1 (common-row A1 -0.0009), v3.2.2 (t = 0.08), v4.0.0 (t = 1.11),
+v4.0.1, and the missingness repair inside v4.1.0 (t = 1.10, failing the
 calibration guard by 0.0017). The standing rule these encode: **a wrong fact is
 repaired on correctness; a suboptimal parameter must clear the gate.** The
 protocol's role in a correctness case is to confirm the fix does no harm, not
@@ -1056,7 +1056,7 @@ to justify it.
 
 **Rule 3 is unreliable for level corrections.** The guard compares |bias|, so a
 change that shifts every segment by the same amount necessarily trips it wherever
-a segment was already overpredicted — v7.2x breached it while improving four
+a segment was already overpredicted — v3.0.1 breached it while improving four
 segments and worsening two by the identical mechanism. Treat a C2 breach on a
 calibration change as uninformative until the guard measures segment bias
 *relative to the global level*.
@@ -1071,17 +1071,17 @@ assigned by a hash of the name so it cannot drift — is the canary: it carries
 only 15% weight in a pooled decision metric, so it should climb more slowly than
 the selection pool, but not fall while the pool rises.
 
-It fell. The audit promised at v7.4x was run over v7.2x → v7.5x, on identical
+It fell. The audit promised at v3.0.3 was run over v3.0.1 → v3.0.4, on identical
 rows with identical fold assignment:
 
-| Slice | v7.2x | v7.5x | delta |
+| Slice | v3.0.1 | v3.0.4 | delta |
 |---|---|---|---|
 | Selection pool (n=1,107) | 0.7568 | 0.7603 | **+0.0035** |
 | Confirmation split (n=184) | 0.7533 | 0.7481 | **−0.0052** |
 
 Difference-in-differences on row-level squared-error improvement, bootstrapped by
 player cluster: **+5.6e-5, 95% CI [+8.5e-6, +1.11e-4] — excluding zero**, and the
-result survives removing the six rows v7.6x later demoted.
+result survives removing the six rows v3.0.5 later demoted.
 
 **The protocol changed in response.** `oof_groupkfold` returns a second fold ×
 seed matrix computed on selection-pool validation rows only; `paired_delta` for
@@ -1091,7 +1091,7 @@ serve as training data in other folds — they are excluded only from the metric
 that decides. Headline A1/A2/B1 stay pooled for continuity.
 
 Honest limits on the finding: the CI's lower bound sits near zero, and one
-plausible channel is innocent — v7.3x's rookie-scale fill table is estimated from
+plausible channel is innocent — v3.0.2's rookie-scale fill table is estimated from
 the whole dataset, 85% of which is selection-pool players, so it would help those
 rows more without anyone gaming anything. The evidence is *moderate and
 directionally clear*, not a verdict. Tightening costs 7% of the decision sample,
@@ -1103,8 +1103,8 @@ the suite now rotates one generation to `oof_reference_prev.csv` before
 overwriting, so the paired comparison against the previous state survives a
 rerun.
 
-Post-change readings (v7.8x): selection 0.7616, confirmation 0.7857 — the
-confirmation slice now scores *above* the pool, which is what the v7.6x-v7.7x
+Post-change readings (v3.1.0): selection 0.7616, confirmation 0.7857 — the
+confirmation slice now scores *above* the pool, which is what the v3.0.5-v3.0.6
 cleanups look like when they help rows nobody was watching.
 
 ## Holdout vs Valuation
@@ -1115,7 +1115,7 @@ they mean different things:
 - **Signing Board / holdout**: Year-1 filter on train and test both. Produces the **Signing Residual** — a measure of model accuracy against a price the market actually set.
 - **Value Board / valuation**: Year-1 filter on train only, score every row. Produces the **Contract Surplus** — a statement about a team's books, not about model error. R² is not meaningful here; ranking is.
 
-## Diagnostic Findings (v7.8x, n = 1,172)
+## Diagnostic Findings (v3.1.0, n = 1,172)
 
 ### Bias by predicted band
 
@@ -1128,8 +1128,8 @@ they mean different things:
 | 15-25% | 96 | −$0.15M | — |
 | 25%+ | 43 | −$0.51M | — |
 
-Flat to within ±$0.51M — tighter than at v7.4x (±$1.05M), mostly because
-v7.8x's floor clip removed the overprediction that used to sit in the bottom
+Flat to within ±$0.51M — tighter than at v3.0.3 (±$1.05M), mostly because
+v3.1.0's floor clip removed the overprediction that used to sit in the bottom
 bands. Calibration slope 0.9885, intercept +0.0019.
 
 **Bands must be cut on the prediction, never on the target.** Binning residuals
@@ -1153,7 +1153,7 @@ warning under "Judging Grabit".
 | Sign & Trade | 15 | −$3.83M | $4.48M |
 
 Minimum's bias fell from +$2.51M to +$1.86M and its MAE from $2.59M to $1.99M
-between v7.4x and v7.8x — that segment is the floor zone under another name, and
+between v3.0.3 and v3.1.0 — that segment is the floor zone under another name, and
 the left-censoring branch is what moved it.
 
 Bird Rights and Sign & Trade are underpriced — both let a team exceed the cap for
@@ -1242,7 +1242,7 @@ Five route-mixture architectures were measured and all five are closed. Each
 tested whether a signing-route probability function applied to the Grabit
 latent at **output** time (not as an input feature) could recover error the
 censored model leaves on the table. The answer is no for every route except
-the extension, which was adopted in v8.0x as Stage 3 -- and Stage 3 works
+the extension, which was adopted in v4.0.0 as Stage 3 -- and Stage 3 works
 only because it applies a legal ceiling, not because a classifier learned
 where the error is.
 
@@ -1323,7 +1323,7 @@ python scripts/diagnostics.py
 ```
 
 Every number quoted in this document can be reproduced by checking out its
-version tag (`v7.1x` … `v7.8x`) and running `src/model/evaluate_suite.py`.
+version tag (`v3.0.0` … `v3.1.0`) and running `src/model/evaluate_suite.py`.
 
 ## References
 

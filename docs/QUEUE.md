@@ -1,6 +1,6 @@
 # Work queue
 
-Last updated 2026-09-28 after v8.17x (ISSUES #55).
+Last updated 2026-09-28 after v5.3.3 (ISSUES #55).
 
 Keep only active work here. Each item needs an action and a completion check.
 Use a dated brief for additional detail. Put defects in `ISSUES.md` and landed
@@ -30,14 +30,14 @@ from BBRef by more than $0.5M. `build_merged_salaries.py` now has the
   `python scripts/rebuild_training_data.py`, the suite, and
   `scripts/eval_stage3_signing.py`.
 - Delete `outputs/experiments/merge_debug/` once the rebuild lands.
-- Complete when the rebuilt frame is remeasured against the v8.17x baseline
+- Complete when the rebuilt frame is remeasured against the v5.3.3 baseline
   0.8422, 0.8595, and 0.8273 and the offsets are regenerated.
 
 ### Decide the ring-chasing discount
 
 `scripts/eval_ringchase_gated.py` pulls the Stage-2 latent down for gated
-rows. The earlier +0.93 screen scored a pre-v8.14x champion (wrong KF setup,
-fixed 2026-09-28). Three-seed screens on v8.17x:
+rows. The earlier +0.93 screen scored a pre-v5.3.0 champion (wrong KF setup,
+fixed 2026-09-28). Three-seed screens on v5.3.3:
 
 | gate | n | paired dSel t | A1 without LeBron 2026 |
 |---|---:|---:|---|
@@ -106,7 +106,7 @@ buyout.
 
 - Audit each positive `is_waived` event against information available before
   the signing date. Separate an ordinary waiver from a buyout re-signing.
-- Remeasure `is_waived` and `mpg_x_waived` on the fixed v8.17x frame.
+- Remeasure `is_waived` and `mpg_x_waived` on the fixed v5.3.3 frame.
 - Add `kf_market_value_x_waived = is_waived * kf_market_value` as a challenger.
   Build this interaction inside each CV fold after nested KF inference.
 - Report paired A1, A2, B1, C1, and C2. Report named-row effects for Kemba
@@ -129,7 +129,7 @@ The two censored sides are biased in opposite directions on the current frame:
 | middle | 553 | -$0.68M | $3.24M |
 | floor | 249 | **+$1.97M** | $1.97M |
 
-The v8.16x screen found that stronger settings shrink both bound-zone biases
+The v5.3.2 screen found that stronger settings shrink both bound-zone biases
 but lose whole-frame performance. At `sigma = sigma_left = 0.04`, same-run A1
 fell from 0.826685 to 0.823787 and C1 failed. The balanced 0.025/0.025 arm had
 paired dSel +0.000267 at t=0.77 and also failed C1. Resume only if a new
@@ -180,11 +180,11 @@ Build the public accuracy panel from
 `git ls-remote --tags origin` returns no tags. `VERSION_HISTORY.md` cites
 `pre-tidy-2026-09-28`, and `CLAUDE.md` requires a tag for each version bump.
 
-- From the machine that holds the tags, run `git push origin --tags`. Tag any
-  missing v8.x release commit with its headline metrics.
-- Tag v8.17x on the merged commit with its headline metrics.
+- From the machine that holds the tags, run `git push origin --tags`. Local
+  tags carry legacy `vN.Mx` names; add the renumbered name beside each landed
+  release (for example `v5.3.3` beside `v8.17x`) with its headline metrics.
 - Complete when `git ls-remote --tags origin` lists `pre-tidy-2026-09-28`,
-  v8.16x, and v8.17x.
+  `v5.3.2` and `v5.3.3`.
 
 ### Add P(max) to the Value Board
 

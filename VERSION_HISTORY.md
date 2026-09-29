@@ -1,47 +1,122 @@
 # Version History — NBA Free Agent Valuation Model
 
+## Version numbering
+
+Versions are `PROUD.DEFAULT.SHAME`:
+
+- **PROUD** marks a structural advance and resets the other two parts.
+- **DEFAULT** marks a model or feature change that passed the paired gate.
+- **SHAME** marks a data or code correction adopted on correctness.
+
+Every version up to v5.3.3 was renumbered on 2026-09-29. Commit messages,
+tags and the dated briefs under `docs/briefs/` keep the legacy `vN.Mx` names;
+use this table to translate them. Headings below keep the legacy name in
+parentheses.
+
+| Version | Legacy | Kind | Change |
+|---|---|---|---|
+| v0.0.0 | v1.0 | first | first model |
+| v0.1.0 | v1.1 | DEFAULT | split impact metrics |
+| v0.2.0 | v1.2 | DEFAULT | experience and CBA features |
+| v1.0.0 | v2.0 | PROUD | multi-season training (4x data) |
+| v1.1.0 | v2.1 | DEFAULT | extended seasons and box-score stats |
+| v1.2.0 | v2.2 | DEFAULT | full dataset |
+| v1.3.0 | v3.0 | DEFAULT | kitchen-sink features |
+| v1.4.0 | v3.1 | DEFAULT | age-heuristic rookie filter |
+| v1.5.0 | v3.2 | DEFAULT | assist features |
+| v1.6.0 | v3.3 | DEFAULT | win features |
+| v1.7.0 | v3.4 | DEFAULT | leaked is_vet_min and is_mle_range |
+| v1.8.0 | v3.4x | DEFAULT | first XGBoost |
+| v1.9.0 | v3.5 | DEFAULT | leaked is_rookie_scale |
+| v1.10.0 | v3.5x | DEFAULT | XGBoost on the leaked set |
+| v1.10.1 | v4.0 | SHAME | leaked features removed, year-1 filter |
+| v1.11.0 | v4.1 | DEFAULT | mpg |
+| v1.12.0 | v4.1x | DEFAULT | XGBoost with rookie filter |
+| v1.13.0 | v4.2x | DEFAULT | draft-based rookie filter |
+| v1.14.0 | v5.0 | DEFAULT | ablation to 13 features |
+| v1.15.0 | v5.0x | DEFAULT | XGBoost on the ablated set |
+| v1.16.0 | v5.1x | DEFAULT | grid search, depth and rate |
+| v1.17.0 | v5.2x | DEFAULT | grid search, regularization |
+| v1.17.1 | v5.3x | SHAME | award forward-fill bug |
+| v1.18.0 | v6.0x | DEFAULT | prev_cap_pct |
+| v1.19.0 | v6.1x | DEFAULT | comprehensive awards |
+| v1.20.0 | v6.2x | DEFAULT | award ablation |
+| v2.0.0 | v7.0x | PROUD | Grabit two-stage censored model |
+| v3.0.0 | v7.1x | PROUD | four-layer evaluation protocol and data refresh |
+| v3.0.1 | v7.2x | SHAME | prorated salaries removed |
+| v3.0.2 | v7.3x | SHAME | rookie-scale fill for first contracts |
+| v3.0.3 | v7.4x | SHAME | Stage-2 ceiling audit |
+| v3.0.4 | v7.5x | SHAME | early-supermax list |
+| v3.0.5 | v7.6x | SHAME | year-1 rows above their tier ceiling |
+| v3.0.6 | v7.7x | SHAME | three-signal continuation demotion |
+| v3.1.0 | v7.8x | DEFAULT | two-sided Grabit (floor censoring) |
+| v3.1.1 | v7.9x | SHAME | continuation filter v2 |
+| v3.1.2 | v7.10x | SHAME | prev_cap_pct repair and 2026 cap |
+| v3.2.0 | v7.11x | DEFAULT | prev_cap_pct as previous-season pay |
+| v3.2.1 | v7.12x | SHAME | designated-ceiling award path |
+| v3.2.2 | v7.13x | SHAME | real service years |
+| v4.0.0 | v8.0x | PROUD | three-stage pipeline (signing route) |
+| v4.0.1 | v8.1x | SHAME | impact-source join on nba_id |
+| v4.1.0 | v8.2x | DEFAULT | is_waived |
+| v4.1.1 | v8.3x | SHAME | rookie-contract filter |
+| v4.2.0 | v8.4x | DEFAULT | mpg_x_waived |
+| v4.2.1 | v8.5x | SHAME | Wall contract structure and error board |
+| v4.3.0 | v8.6x | DEFAULT | playoff_mpg_diff |
+| v4.3.1 | v8.7x | SHAME | Spotrac phantom-data cleanup |
+| v4.4.0 | v8.8x | DEFAULT | Stage-3 signing-type offset |
+| v4.5.0 | v8.9x | DEFAULT | mechanism cap clip |
+| v5.0.0 | v8.10x | PROUD | Kalman-filtered quality |
+| v5.0.1 | v8.11x | SHAME | vet-min cap-hold normalization |
+| v5.1.0 | v8.12x | DEFAULT | O/D diff z-scores |
+| v5.2.0 | v8.13x | DEFAULT | kf_market_value replaces prev_cap_pct |
+| v5.3.0 | v8.14x | DEFAULT | KF hyperparameter tuning |
+| v5.3.1 | v8.15x | SHAME | web KF inference repair |
+| v5.3.2 | v8.16x | SHAME | Spotrac cap-hit salary migration |
+| v5.3.3 | v8.17x | SHAME | one-year minimum rule (ISSUES #55) |
+
+
 ## Phase 1: Ridge exploration (single-season → multi-season)
 
 | Ver | Model | CV R² | N | Feat | Change |
 |-----|-------|-------|---|------|--------|
-| 1.0 | Ridge | 0.429 | 297 | 4 | First model. Single-season (2025 only), composite `base_rating`, age, availability, usage |
-| 1.1 | Ridge | 0.574 | 297 | 8 | Dropped composite rating → separate z-scored DARKO/LEBRON/LAKER. Added minutes, height |
-| 1.2 | Ridge | 0.618 | 297 | 9 | Added experience_years, cba_era, max_eligible_pct. Dropped WAR (double-counts rating × minutes) |
-| 2.0 | Ridge | 0.641 | 1222 | 11 | Multi-season training (2019-2025, ~4x data). Historical salary scrape from BBRef |
-| 2.1 | Ridge | 0.635 | 1947 | 12 | Extended to 2019-2026. Added BPM, shooting splits. Diminishing returns from box-score stats |
-| 2.2 | Ridge | 0.622 | 2874 | 12 | Full dataset with all team contracts. More data diluted signal slightly |
+| v0.0.0 (1.0) | Ridge | 0.429 | 297 | 4 | First model. Single-season (2025 only), composite `base_rating`, age, availability, usage |
+| v0.1.0 (1.1) | Ridge | 0.574 | 297 | 8 | Dropped composite rating → separate z-scored DARKO/LEBRON/LAKER. Added minutes, height |
+| v0.2.0 (1.2) | Ridge | 0.618 | 297 | 9 | Added experience_years, cba_era, max_eligible_pct. Dropped WAR (double-counts rating × minutes) |
+| v1.0.0 (2.0) | Ridge | 0.641 | 1222 | 11 | Multi-season training (2019-2025, ~4x data). Historical salary scrape from BBRef |
+| v1.1.0 (2.1) | Ridge | 0.635 | 1947 | 12 | Extended to 2019-2026. Added BPM, shooting splits. Diminishing returns from box-score stats |
+| v1.2.0 (2.2) | Ridge | 0.622 | 2874 | 12 | Full dataset with all team contracts. More data diluted signal slightly |
 
 ## Phase 2: Feature engineering + XGBoost (leaked metrics era)
 
 | Ver | Model | CV R² | N | Feat | Change |
 |-----|-------|-------|---|------|--------|
-| 3.0 | Ridge | 0.642 | 2890 | 18 | Added offense/defense splits, playoff features, years_from_peak. Kitchen sink approach |
-| 3.1 | Ridge | 0.676 | 2130 | 19 | Age-heuristic rookie scale filter (removed ~760 rookie rows). Cleaner training signal |
-| 3.2 | Ridge | 0.676 | 2130 | 20 | Tested ast_pct, ast_tov_ratio — marginal. Cleaned redundant CBA columns |
-| 3.3 | Ridge | 0.676 | 2130 | 22 | Added win_pct, made_playoffs — near-zero impact |
-| 3.4 | Ridge | 0.724 | 2130 | 23 | Added `is_vet_min`, `is_mle_range` — **leaked features** (derived from target). +0.05 was illusory |
-| 3.4x | XGBoost | 0.759 | 2130 | 23 | First XGBoost attempt. Big gain over Ridge on same features |
-| 3.5 | Ridge | 0.806 | 2130 | 24 | Added `is_rookie_scale` as feature — also leaked. Ridge ceiling |
-| 3.5x | XGBoost | 0.866 | 3059 | 25 | XGBoost on full dataset with all leaked features. Highest R² but meaningless |
+| v1.3.0 (3.0) | Ridge | 0.642 | 2890 | 18 | Added offense/defense splits, playoff features, years_from_peak. Kitchen sink approach |
+| v1.4.0 (3.1) | Ridge | 0.676 | 2130 | 19 | Age-heuristic rookie scale filter (removed ~760 rookie rows). Cleaner training signal |
+| v1.5.0 (3.2) | Ridge | 0.676 | 2130 | 20 | Tested ast_pct, ast_tov_ratio — marginal. Cleaned redundant CBA columns |
+| v1.6.0 (3.3) | Ridge | 0.676 | 2130 | 22 | Added win_pct, made_playoffs — near-zero impact |
+| v1.7.0 (3.4) | Ridge | 0.724 | 2130 | 23 | Added `is_vet_min`, `is_mle_range` — **leaked features** (derived from target). +0.05 was illusory |
+| v1.8.0 (3.4x) | XGBoost | 0.759 | 2130 | 23 | First XGBoost attempt. Big gain over Ridge on same features |
+| v1.9.0 (3.5) | Ridge | 0.806 | 2130 | 24 | Added `is_rookie_scale` as feature — also leaked. Ridge ceiling |
+| v1.10.0 (3.5x) | XGBoost | 0.866 | 3059 | 25 | XGBoost on full dataset with all leaked features. Highest R² but meaningless |
 
 ## Phase 3: Data cleanup + year-1 filter
 
 | Ver | Model | CV R² | N | Feat | Change |
 |-----|-------|-------|---|------|--------|
-| 4.0 | Ridge | 0.645 | 1739 | 11 | Year-1 filter (drop CBA escalator rows). Removed all leaked features. Clean 11-feature set |
-| 4.1 | Ridge | 0.671 | 1739 | 11 | Added `mpg` (minutes/games) instead of raw minutes. Better signal for per-game workload |
-| 4.1x | XGBoost | 0.707 | 1216 | 11 | XGBoost + age-heuristic rookie filter. Overfit on small N |
-| 4.2x | XGBoost | 0.732 | 1487 | 11 | Replaced age-heuristic rookie filter with draft_data.csv-based filter. More precise, +271 rows |
+| v1.10.1 (4.0) | Ridge | 0.645 | 1739 | 11 | Year-1 filter (drop CBA escalator rows). Removed all leaked features. Clean 11-feature set |
+| v1.11.0 (4.1) | Ridge | 0.671 | 1739 | 11 | Added `mpg` (minutes/games) instead of raw minutes. Better signal for per-game workload |
+| v1.12.0 (4.1x) | XGBoost | 0.707 | 1216 | 11 | XGBoost + age-heuristic rookie filter. Overfit on small N |
+| v1.13.0 (4.2x) | XGBoost | 0.732 | 1487 | 11 | Replaced age-heuristic rookie filter with draft_data.csv-based filter. More precise, +271 rows |
 
 ## Phase 4: Ablation + hyperparameter tuning
 
 | Ver | Model | CV R² | N | Feat | Change |
 |-----|-------|-------|---|------|--------|
-| 5.0 | Ridge | 0.659 | 1487 | 13 | Systematic ablation: removed 16 rejected candidates (BPM, shooting, playoff, agent features). 13 clean features |
-| 5.0x | XGBoost | 0.749 | 1487 | 13 | XGBoost on ablated feature set. Default hyperparams |
-| 5.1x | XGBoost | 0.749 | 1487 | 13 | Phase 1 grid search: depth × n_estimators × lr (64 combos × 10 seeds). Best: depth=4, n_est=500, lr=0.01 |
-| 5.2x | XGBoost | 0.751 | 1487 | 13 | Phase 2 grid search: mcw × subsample × colsample (27 combos × 10 seeds). +regularization: mcw=10, sub=0.7, col=0.7 |
-| 5.3x | XGBoost | 0.751 | 1487 | 13 | Fixed award forward-fill bug (cumulative score wasn't persisting to non-award seasons) |
+| v1.14.0 (5.0) | Ridge | 0.659 | 1487 | 13 | Systematic ablation: removed 16 rejected candidates (BPM, shooting, playoff, agent features). 13 clean features |
+| v1.15.0 (5.0x) | XGBoost | 0.749 | 1487 | 13 | XGBoost on ablated feature set. Default hyperparams |
+| v1.16.0 (5.1x) | XGBoost | 0.749 | 1487 | 13 | Phase 1 grid search: depth × n_estimators × lr (64 combos × 10 seeds). Best: depth=4, n_est=500, lr=0.01 |
+| v1.17.0 (5.2x) | XGBoost | 0.751 | 1487 | 13 | Phase 2 grid search: mcw × subsample × colsample (27 combos × 10 seeds). +regularization: mcw=10, sub=0.7, col=0.7 |
+| v1.17.1 (5.3x) | XGBoost | 0.751 | 1487 | 13 | Fixed award forward-fill bug (cumulative score wasn't persisting to non-award seasons) |
 
 ## Phase 5: Feature additions (clean evaluation)
 
@@ -49,11 +124,11 @@ All R² values in this phase use 10-seed means.
 
 | Ver | Model | 10-seed CV R² | 10-seed Holdout R² | N | Feat | Change |
 |-----|-------|---------------|-------------------|---|------|--------|
-| 6.0x | XGBoost | 0.7583 ± 0.0009 | 0.8289 ± 0.0029 | 1487 | 14 | +`prev_cap_pct` (previous contract anchoring). +0.008 CV vs 13-feature baseline |
-| 6.1x | XGBoost | 0.7575 ± 0.0008 | 0.8206 ± 0.0037 | 1487 | 14 | Comprehensive awards (Wikipedia). Exp decay 0.85/yr. +All-Star/Starter. −All-Star MVP. Slightly worse than 6.0x |
-| **6.2x** | **XGBoost** | **0.7598 ± 0.0009** | **0.8341 ± 0.0038** | **1487** | **14** | **Award ablation: awards_full 2017-26, −All-Star, step decay [1, 0.85, 0.65, 0.4, 0.1]. +0.0015 CV vs v6.0x** |
+| v1.18.0 (6.0x) | XGBoost | 0.7583 ± 0.0009 | 0.8289 ± 0.0029 | 1487 | 14 | +`prev_cap_pct` (previous contract anchoring). +0.008 CV vs 13-feature baseline |
+| v1.19.0 (6.1x) | XGBoost | 0.7575 ± 0.0008 | 0.8206 ± 0.0037 | 1487 | 14 | Comprehensive awards (Wikipedia). Exp decay 0.85/yr. +All-Star/Starter. −All-Star MVP. Slightly worse than 6.0x |
+| **v1.20.0** (6.2x) | **XGBoost** | **0.7598 ± 0.0009** | **0.8341 ± 0.0038** | **1487** | **14** | **Award ablation: awards_full 2017-26, −All-Star, step decay [1, 0.85, 0.65, 0.4, 0.1]. +0.0015 CV vs v1.18.0** |
 
-v6.2x award ablation results (all 10-seed, awards_full.csv + step decay):
+v1.20.0 award ablation results (all 10-seed, awards_full.csv + step decay):
 - K (adopted): 2017-26, −All-Star → CV 0.7598, HO 0.8341 ← best
 - J: 2017-26, +All-Star → CV 0.7584, HO 0.8312
 - G: 2014-26, +All-Star → CV 0.7575, HO 0.8281
@@ -63,15 +138,15 @@ v6.2x award ablation results (all 10-seed, awards_full.csv + step decay):
 
 | Ver | Model | 10-seed CV R² | 10-seed Holdout R² | N | Feat | Change |
 |-----|-------|---------------|-------------------|---|------|--------|
-| 7.0x | XGBoost (Grabit) | **0.7612 ± 0.0012** | **0.8382 ± 0.0040** | 1487 | 14 | Two-stage: nonlinear Tobit (censored loss) + CBA cap. σ=0.02, gated censoring |
+| v2.0.0 (7.0x) | XGBoost (Grabit) | **0.7612 ± 0.0012** | **0.8382 ± 0.0040** | 1487 | 14 | Two-stage: nonlinear Tobit (censored loss) + CBA cap. σ=0.02, gated censoring |
 
-v7.0x pipeline:
+v2.0.0 pipeline:
 - **Stage 1 (Grabit)**: XGBoost with custom censored-normal loss. Max-contract players (cap_pct ≥ 90% × max_eligible) are right-censored — their observed salary is a ceiling, not true value. The censored loss pushes latent predictions past the ceiling to estimate unconstrained market value.
 - **Stage 2 (CBA cap)**: `min(latent, max_eligible_pct)` clips predictions to CBA salary limits.
 - **Gated censoring**: only censor max rows where baseline prediction ≥ 55% of max_eligible (filters albatross contracts like John Wall, Gordon Hayward).
 - **Rose Rule / Supermax detection**: non-lagged elite award lookup (All-NBA, MVP, DPOY) determines max_eligible tiers — 25% (0-6 yrs), 30% (Rose Rule or 7-9 yrs), 35% (10+ yrs or Supermax).
 
-Experiments leading to v7.0x:
+Experiments leading to v2.0.0:
 - Simple CBA cap on baseline XGB: CV -0.0008. XGB already learns ceiling; problem is underprediction, not overprediction.
 - Linear Tobit: CV 0.6692. Far too weak — linear model can't capture non-linearities.
 - Hybrid (XGB + linear Tobit): best variant CV 0.7605. Only helped 35% tier, 30% tier untouched.
@@ -81,7 +156,7 @@ Experiments leading to v7.0x:
 
 Signing type breakdown (OOF, $M):
 
-| Type | N | Bias (v6.2x) | Bias (v7.0x) | MAE (v6.2x) | MAE (v7.0x) |
+| Type | N | Bias (v1.20.0) | Bias (v2.0.0) | MAE (v1.20.0) | MAE (v2.0.0) |
 |------|---|-------------|-------------|------------|------------|
 | Bird Rights | 58 | -$2.6M | -$2.7M | $4.9M | $4.9M |
 | Sign & Trade | 17 | -$2.6M | -$2.3M | $6.2M | $6.1M |
@@ -95,35 +170,35 @@ Signing type breakdown (OOF, $M):
 
 | Ver | Model | 10-seed CV R² | Forward R² (24-26) | N | Feat | Change |
 |-----|-------|---------------|-------------------|---|------|--------|
-| 7.1x | XGBoost (Grabit) | 0.7581 | 0.8249 | 1556 | 14 | 2026 signings refreshed, 2025/26 caps corrected, four-layer evaluation suite |
-| 7.2x | XGBoost (Grabit) | 0.7588 | 0.8216 | 1297 | 14 | Prorated partial-season salaries removed from training |
-| 7.3x | XGBoost (Grabit) | 0.7622 | 0.8237 | 1297 | 14 | First-contract `prev_cap_pct` filled from the rookie scale by draft slot. 2020 season tested and kept |
-| 7.4x | XGBoost (Grabit) | 0.7609 | 0.8240 | 1297 | 14 | Stage-2 ceiling audit — no-decrease rule, supermax `s-3` lookback, prehistory backfill. Over-cap rows 13 → 0 |
-| 7.5x | XGBoost (Grabit) | 0.7610 | 0.8239 | 1297 | 14 | Curated early-supermax list replaces the blanket `s-3` lookback, which had un-censored two genuine max signings |
-| 7.6x | XGBoost (Grabit) | 0.7635 | 0.8200 | 1291 | 14 | Year-1 rows paid above their *tier* ceiling demoted — 6 provable escalator mislabels |
-| 7.7x | XGBoost (Grabit) | 0.7647 | 0.8283 | 1172 | 14 | Three-signal continuation demotion — 119 stale escalator rows out. Largest paired gain of the phase |
-| 7.8x | XGBoost (Grabit v4) | 0.7653 | 0.8324 | 1172 | 14 | Two-sided Grabit — left-censoring at the CBA floor. Pooled MAE $3.18M → $3.07M |
-| 7.9x | XGBoost (Grabit v4) | 0.7631 | 0.8191 | 949 | 14 | Continuation filter v2 — dated-span demotion. Frame 1,172 → 949 (342 demoted, 0 contradicted) |
-| 7.10x | XGBoost (Grabit v4) | 0.7849 | 0.8276 | 944 | 14 | `prev_cap_pct` repair + 2026 cap correction. Paired ΔSel +0.0135 (t 7.6). Frame 949 → 944 |
-| 7.11x | XGBoost (Grabit v4) | 0.7856 | 0.8298 | 944 | 14 | `prev_cap_pct` = previous-season pay (feature-batch Arm C, boundary call). ΔSel +0.00178 (t 1.96) |
-| 7.12x | XGBoost (Grabit v4) | 0.7878 | 0.8303 | 944 | 14 | Designated-ceiling award-path fix. Max zone 56 → 68, zone MAE 6.18 → 4.44 |
-| **7.13x** | **XGBoost (Grabit v4)** | **0.7865** | **0.8342** | **944** | **14** | **Real service years + correctness debt. Max zone 68 → 70; awards name-join repair (83 dirty rows); Kanter alias; canonical 10-seed CV; `predict.py` rewired to champion stack** |
+| v3.0.0 (7.1x) | XGBoost (Grabit) | 0.7581 | 0.8249 | 1556 | 14 | 2026 signings refreshed, 2025/26 caps corrected, four-layer evaluation suite |
+| v3.0.1 (7.2x) | XGBoost (Grabit) | 0.7588 | 0.8216 | 1297 | 14 | Prorated partial-season salaries removed from training |
+| v3.0.2 (7.3x) | XGBoost (Grabit) | 0.7622 | 0.8237 | 1297 | 14 | First-contract `prev_cap_pct` filled from the rookie scale by draft slot. 2020 season tested and kept |
+| v3.0.3 (7.4x) | XGBoost (Grabit) | 0.7609 | 0.8240 | 1297 | 14 | Stage-2 ceiling audit — no-decrease rule, supermax `s-3` lookback, prehistory backfill. Over-cap rows 13 → 0 |
+| v3.0.4 (7.5x) | XGBoost (Grabit) | 0.7610 | 0.8239 | 1297 | 14 | Curated early-supermax list replaces the blanket `s-3` lookback, which had un-censored two genuine max signings |
+| v3.0.5 (7.6x) | XGBoost (Grabit) | 0.7635 | 0.8200 | 1291 | 14 | Year-1 rows paid above their *tier* ceiling demoted — 6 provable escalator mislabels |
+| v3.0.6 (7.7x) | XGBoost (Grabit) | 0.7647 | 0.8283 | 1172 | 14 | Three-signal continuation demotion — 119 stale escalator rows out. Largest paired gain of the phase |
+| v3.1.0 (7.8x) | XGBoost (Grabit v4) | 0.7653 | 0.8324 | 1172 | 14 | Two-sided Grabit — left-censoring at the CBA floor. Pooled MAE $3.18M → $3.07M |
+| v3.1.1 (7.9x) | XGBoost (Grabit v4) | 0.7631 | 0.8191 | 949 | 14 | Continuation filter v2 — dated-span demotion. Frame 1,172 → 949 (342 demoted, 0 contradicted) |
+| v3.1.2 (7.10x) | XGBoost (Grabit v4) | 0.7849 | 0.8276 | 944 | 14 | `prev_cap_pct` repair + 2026 cap correction. Paired ΔSel +0.0135 (t 7.6). Frame 949 → 944 |
+| v3.2.0 (7.11x) | XGBoost (Grabit v4) | 0.7856 | 0.8298 | 944 | 14 | `prev_cap_pct` = previous-season pay (feature-batch Arm C, boundary call). ΔSel +0.00178 (t 1.96) |
+| v3.2.1 (7.12x) | XGBoost (Grabit v4) | 0.7878 | 0.8303 | 944 | 14 | Designated-ceiling award-path fix. Max zone 56 → 68, zone MAE 6.18 → 4.44 |
+| **v3.2.2** (7.13x) | **XGBoost (Grabit v4)** | **0.7865** | **0.8342** | **944** | **14** | **Real service years + correctness debt. Max zone 68 → 70; awards name-join repair (83 dirty rows); Kanter alias; canonical 10-seed CV; `predict.py` rewired to champion stack** |
 
 ### Versioning convention
 
 Every change that moves a published number — data, target, features, model, or
 evaluation protocol — takes the next `vN.Mx` and is tagged on its landing commit
 with the headline A1/A2/B1 in the tag message, so any quoted figure can be
-reproduced with a checkout. Bug fixes count (v5.3x was one); the *kind* of change
+reproduced with a checkout. Bug fixes count (v1.17.1 was one); the *kind* of change
 belongs in the Change column, not the numbering. Diagnostics, tooling and
 documentation changes do not consume a number.
 
-Tags: `v7.1x` `09dbe4e` · `v7.2x` `cb27319` · `v7.3x` `b31a6fb` · `v7.4x` `ecdf3da` ·
-`v7.5x` `c17880d` · `v7.6x` `d7c72ef` · `v7.7x` `63e290c` · `v7.8x` `c03eb9a` ·
-`v7.9x` `ddf4bae` · `v7.10x` `c56116b` · `v7.11x` `643124f` ·
-`v7.12x` `61bdfcd` · `v7.13x` `981e6dc`.
+Tags: `v3.0.0` `09dbe4e` · `v3.0.1` `cb27319` · `v3.0.2` `b31a6fb` · `v3.0.3` `ecdf3da` ·
+`v3.0.4` `c17880d` · `v3.0.5` `d7c72ef` · `v3.0.6` `63e290c` · `v3.1.0` `c03eb9a` ·
+`v3.1.1` `ddf4bae` · `v3.1.2` `c56116b` · `v3.2.0` `643124f` ·
+`v3.2.1` `61bdfcd` · `v3.2.2` `981e6dc`.
 
-### v7.1x: refreshed data and corrected caps
+### v3.0.0 (legacy v7.1x): refreshed data and corrected caps
 
 **The headline numbers fell and that is the correct outcome.** Three separate
 corrections, none of them a model change:
@@ -143,11 +218,11 @@ corrections, none of them a model change:
    larger. Those comparisons remain valid because they were paired on identical
    folds, but the intervals understated the uncertainty on any single R².
 
-v7.1x is therefore **not** comparable to v7.0x and earlier: different rows,
+v3.0.0 is therefore **not** comparable to v2.0.0 and earlier: different rows,
 different target values for two seasons. It is the first entry measured under
 the protocol in `src/model/evaluate_suite.py`.
 
-### v7.2x: prorated salaries removed
+### v3.0.1 (legacy v7.2x): prorated salaries removed
 
 259 of the 1,556 training rows (17%) paid less than 1.2% of the cap, a median of
 $0.29M against a veteran minimum that never drops below 1.30% of the cap in any
@@ -162,10 +237,10 @@ champion on the same 1,297 clean rows, varying only the training set:
 
 | trained on | CV R² | MAE | bias |
 |---|---|---|---|
-| all rows (v7.1x) | 0.7534 | $3.289M | **−$0.423M** |
-| prorated removed (v7.2x) | **0.7588** | $3.327M | **+$0.101M** |
+| all rows (v3.0.0) | 0.7534 | $3.289M | **−$0.423M** |
+| prorated removed (v3.0.1) | **0.7588** | $3.327M | **+$0.101M** |
 
-The R² gain of +0.0054 is almost entirely the intercept: re-centring the v7.2x
+The R² gain of +0.0054 is almost entirely the intercept: re-centring the v3.0.1
 predictions by their mean shift returns R² to 0.7522, within noise of the
 unfiltered model. The conditional pricing function did not change — the level
 did. Bias falls monotonically as the floor rises (−$0.481M at no filter,
@@ -194,7 +269,7 @@ trips it wherever a segment was already overpredicted. **The guard needs to
 measure segment bias relative to the global level; until it does, treat a C2
 breach on a calibration change as uninformative.**
 
-### v7.3x: rookie-scale fill for first contracts
+### v3.0.2 (legacy v7.3x): rookie-scale fill for first contracts
 
 `prev_cap_pct` anchors a player's next deal on his previous one, but a first
 contract has no previous deal to observe. The old fill was a single number for
@@ -209,7 +284,7 @@ forced monotone in pick — with minimum-level money past pick 30. Derived from 
 data rather than the CBA tables, so it needs no maintenance and is stable under
 refreshes because the rookie scale itself is.
 
-| Layer | v7.2x | v7.3x | paired Δ |
+| Layer | v3.0.1 | v3.0.2 | paired Δ |
 |---|---|---|---|
 | A1 pooled CV | 0.7588 | **0.7622** | **+0.0034 ± 0.0007, t = +4.91** (all five folds positive) |
 | A2 2024-26 | 0.8343 | 0.8370 | same direction |
@@ -225,7 +300,7 @@ protect: non-2020 rows fell 0.7686 → 0.7650. The COVID season's 167 rows carry
 real pricing signal despite the frozen cap. No code change; the open question is
 closed.
 
-### v7.4x: Stage-2 ceiling audit
+### v3.0.3 (legacy v7.4x): Stage-2 ceiling audit
 
 A ceiling below observed pay is provably wrong — the salary happened, so it was
 legal — and it does damage twice: the row is mislabelled as censored at a
@@ -249,7 +324,7 @@ rows in three classes, all now closed.
 3. **Two rows were float dust** at exactly the tier (Giannis, Adebayo at
    35.00/25.00). The audit uses a $17K tolerance; no code changed.
 
-| Layer | v7.3x | v7.4x |
+| Layer | v3.0.2 | v3.0.3 |
 |---|---|---|
 | A1 pooled CV | 0.7622 | 0.7609 |
 | A2 2024-26 | 0.8370 | 0.8366 |
@@ -259,7 +334,7 @@ rows in three classes, all now closed.
 
 **Part of Grabit's measured advantage was this bug.** With honest ceilings the
 pooled paired delta against baseline XGBoost is −0.0001 (t = −0.07) — zero — where
-it read +0.0011 (t = +2.72) at v7.2x. The clip toward too-low ceilings had been
+it read +0.0011 (t = +2.72) at v3.0.1. The clip toward too-low ceilings had been
 landing on the mislabelled rows it was clipping onto.
 
 That is not a reason to drop Grabit, and the evaluation protocol changed to say
@@ -279,19 +354,19 @@ MAE delta is negative, drop it when the zone itself turns positive. The pooled
 hyperparameters — which act on every row.
 
 **A guard to watch.** The locked confirmation split has drifted apart from the
-selection pool over these two versions: 0.7611 / 0.7461 (gap +0.0150) at v7.2x
-against 0.7643 / 0.7415 (gap +0.0228) at v7.4x. The levels are not comparable to
+selection pool over these two versions: 0.7611 / 0.7461 (gap +0.0150) at v3.0.1
+against 0.7643 / 0.7415 (gap +0.0228) at v3.0.3. The levels are not comparable to
 each other — different players, different difficulty — but the *trend* is the
 signal the split exists to give, and n=186 puts a single reading well inside
-noise. Neither change looks like metric-mining (v7.3x was a semantic fix; v7.4x
+noise. Neither change looks like metric-mining (v3.0.2 was a semantic fix; v3.0.3
 *lowered* pooled R²), so no action now. At the next version bump, re-score each
 accepted change on confirmation rows only; if accepted changes are systematically
 ≤0 there while >0 on the selection pool, tighten the protocol so selection
 metrics exclude the confirmation split.
 
-### v7.5x: the early-supermax list
+### v3.0.4 (legacy v7.5x): the early-supermax list
 
-v7.4x widened the supermax award window to `s-3` to reach two extensions signed
+v3.0.3 widened the supermax award window to `s-3` to reach two extensions signed
 two summers before they began. The window was too blunt: it handed 35% ceilings
 to eleven rows, and two of them were genuine 30% max signings — Klay Thompson
 2019 and De'Aaron Fox 2026 fell to 86% of an inflated ceiling and dropped out of
@@ -319,7 +394,7 @@ of every clone. The exclusion is now `data/raw/*` and both tables are tracked
 (`0f667cd`). Without them `_compute_max_eligible` silently degrades to an age
 heuristic.
 
-### v7.6x: year-1 rows above their tier ceiling
+### v3.0.5 (legacy v7.6x): year-1 rows above their tier ceiling
 
 No fresh signing can exceed its tier maximum. A year-1 label on a salary above
 that ceiling is therefore *proof* the row is a later year of an older deal, not
@@ -328,14 +403,14 @@ trainer and in the suite.
 
 The test deliberately uses the **tier-only** ceiling, exposed as
 `tier_ceiling_pct` alongside the floored `max_eligible_pct`. The no-decrease
-floor added in v7.4x exists to legalise escalator pay for Stage-2 scoring, and
+floor added in v3.0.3 exists to legalise escalator pay for Stage-2 scoring, and
 escalator pay is exactly what a fresh contract cannot be; including it would
 make the test vacuous.
 
 Six rows fall: Curry, Paul, Westbrook, Wiggins and McCollum 2019, Wall 2020.
 Rule-based rather than a data edit, so it survives rebuilds and refreshes.
 
-| Layer | v7.5x | v7.6x |
+| Layer | v3.0.4 | v3.0.5 |
 |---|---|---|
 | A1, common rows | 0.7589 | **0.7635** (+0.0046) |
 | A1, headline | 0.7610 | 0.7635 |
@@ -358,18 +433,18 @@ every later season.
 
 *No version number — the evaluation protocol changed, no published figure moved.*
 
-The v7.4x entry promised to re-score accepted changes on confirmation rows at
-the next bump. Done, and the signal held. Over v7.2x → v7.5x, on identical rows
+The v3.0.3 entry promised to re-score accepted changes on confirmation rows at
+the next bump. Done, and the signal held. Over v3.0.1 → v3.0.4, on identical rows
 with identical fold assignment:
 
-| Slice | v7.2x | v7.5x | Δ |
+| Slice | v3.0.1 | v3.0.4 | Δ |
 |---|---|---|---|
 | Selection pool (n=1107) | 0.7568 | 0.7603 | **+0.0035** |
 | Confirmation split (n=184) | 0.7533 | 0.7481 | **−0.0052** |
 
 Difference-in-differences on row-level squared-error improvement, bootstrapped
 by player cluster: **+5.6 × 10⁻⁵, 95% CI [+8.5, +111.1] × 10⁻⁶ — excluding
-zero**, and it survives removing the six v7.6x rows. Dozens of accept/reject
+zero**, and it survives removing the six v3.0.5 rows. Dozens of accept/reject
 reads had begun fitting the rows they were watching.
 
 `oof_groupkfold` now returns a second fold × seed matrix computed on
@@ -380,14 +455,14 @@ data in other folds — they are excluded only from the metric that decides.
 Headline A1/A2/B1 stay pooled for continuity.
 
 The honest limits: the CI's lower bound sits near zero, and one plausible
-channel is innocent — v7.3x's fill table is estimated from the whole dataset,
+channel is innocent — v3.0.2's fill table is estimated from the whole dataset,
 85% of which is selection-pool players. The evidence is *moderate and
 directionally clear*, not a verdict. Tightening costs 7% of the decision sample,
 so it is a free precaution either way.
 
-### v7.7x: continuations, and why one signal was not enough
+### v3.0.6 (legacy v7.7x): continuations, and why one signal was not enough
 
-The class v7.6x exposed spans every season, not just 2019 — the salary-chain
+The class v3.0.5 exposed spans every season, not just 2019 — the salary-chain
 detector breaks mid-deal whenever ratios drift. The instrument is the anchored
 contract span from `scripts/refresh_spotrac.py`: a row covered by a contract
 that *starts earlier* is a continuation, whatever its label says.
@@ -416,7 +491,7 @@ price in training is cheaper than a deleted real one.
 119 rows fall (2019: 35, tapering to 2026: 1). The largest are all verifiable
 mid-contract seasons — LeBron 2019, Ben Simmons 2021, Gordon Hayward 2023.
 
-| Layer | v7.6x | v7.7x |
+| Layer | v3.0.5 | v3.0.6 |
 |---|---|---|
 | A1, common rows | 0.7545 | **0.7647 (+0.0102)** |
 | A2 2024-26 | 0.8269 | 0.8431 |
@@ -433,7 +508,7 @@ The confirmation canary moved *with* this change (confirmation 0.786 against
 selection 0.761), which is what a genuine cleanup looks like and not what
 metric-fitting looks like.
 
-### v7.8x: the CBA floor is a bound too
+### v3.1.0 (legacy v7.8x): the CBA floor is a bound too
 
 Grabit had censored one side for eight versions. The other bound was visible in
 plain sight: the champion overpredicted the 297 rows pinned at the veteran
@@ -460,11 +535,11 @@ Mechanics, all mirrors of the right side:
   3.0}, adopted at 2.0). A ring-chasing veteran priced well above his pay stays
   uncensored, so his latent keeps meaning.
 - Stage 2 becomes `clip(latent, floor_pct, max_eligible_pct)`.
-- `floor_gate_k=0` reproduces v7.7x exactly.
+- `floor_gate_k=0` reproduces v3.0.6 exactly.
 
 Results, 10 seeds, against the one-sided champion on identical rows:
 
-| | v7.7x | v7.8x | 95% cluster CI |
+| | v3.0.6 | v3.1.0 | 95% cluster CI |
 |---|---|---|---|
 | **Floor zone** MAE (n=297) | $2.40M | **$1.98M** | per-row \|err\| **[−0.469, −0.374]** |
 | Floor zone bias | +$2.37M | +$1.93M | 254/43 better/worse |
@@ -493,9 +568,9 @@ calibration axis. Fixed-row segments showed every non-floor band flat or better.
 **When comparing two models, define the segments on fixed rows, never on either
 model's predictions.**
 
-### v7.9x: continuation filter v2 — dated spans
+### v3.1.1 (legacy v7.9x): continuation filter v2 — dated spans
 
-The three-signal filter (v7.7x) caught the easy cases — rows whose escalator
+The three-signal filter (v3.0.6) caught the easy cases — rows whose escalator
 step, span, and FA-list veto all agreed — but left the mid-contract years where
 the step signal failed. Two data-layer fixes widened the span instrument's
 reach, and the filter was then swapped from a three-signal consensus to a
@@ -530,7 +605,7 @@ dates cannot decide fall back to the unchanged three-signal consensus. Frame
 **1,172 → 949** (342 demoted — 335 by dated span, 7 by fallback — 0
 contradicted by any instrument).
 
-| Layer | v7.8x (1,172 rows) | v7.9x (949 rows) |
+| Layer | v3.1.0 (1,172 rows) | v3.1.1 (949 rows) |
 |---|---|---|
 | A1 | 0.7653 | 0.7631 |
 | A2 | 0.8465 | 0.8160 |
@@ -552,9 +627,9 @@ signal that ISSUES #8 measured as the signature of the remaining stale prices �
 it collapses to noise on the new frame. The common-row neutrality confirms the
 change did no harm; the `is2019` collapse is where the benefit shows up.
 
-Tags: `v7.9x` `ddf4bae`.
+Tags: `v3.1.1` `ddf4bae`.
 
-### v7.10x: `prev_cap_pct` repair + 2026 cap correction
+### v3.1.2 (legacy v7.10x): `prev_cap_pct` repair + 2026 cap correction
 
 The model's second-strongest anchor was fabricated for a large minority of rows.
 `phase3.build_contract_features` derived `prev_cap_pct` by looking back inside
@@ -604,9 +679,9 @@ Rookie-exit anchor arms (flag / NaN / slot-average) all failed a gate and were
 not adopted. The breakout-class bias (−$3.16M) is assigned to the max
 classifier.
 
-Tags: `v7.10x` `(see git tag)`.
+Tags: `v3.1.2` `(see git tag)`.
 
-### v7.11x: `prev_cap_pct` = previous-season pay (feature batch)
+### v3.2.0 (legacy v7.11x): `prev_cap_pct` = previous-season pay (feature batch)
 
 Five candidate feature arms scored against the 14-feature Grabit champion on the
 944-row frame. Only one moved the model: **Arm C**, which replaces
@@ -646,9 +721,9 @@ expected growth, so current-season production beats signing-date production for
 extensions — breakout bias moved −$2.87M → −$5.06M, and only MPJ 2022
 (priced pre-injury) is the rare inversion.
 
-Tags: `v7.11x` `(see git tag)`.
+Tags: `v3.2.0` `(see git tag)`.
 
-### v7.12x: designated-ceiling award-path fix (ISSUES #19)
+### v3.2.1 (legacy v7.12x): designated-ceiling award-path fix (ISSUES #19)
 
 `_compute_max_eligible` granted the 35% Designated-Veteran / 30% Rose ceiling
 from All-NBA + experience alone, blind to the CBA's team-continuity requirement.
@@ -675,9 +750,9 @@ signing-date team-match test. Frame unchanged at 944.
 
 Evidence: the landing commit `61bdfcd`.
 
-Tags: `v7.12x` `61bdfcd` · `v7.13x` `981e6dc`.
+Tags: `v3.2.1` `61bdfcd` · `v3.2.2` `981e6dc`.
 
-### v7.13x: real service years + the correctness debt
+### v3.2.2 (legacy v7.13x): real service years + the correctness debt
 
 `_compute_max_eligible` derived service years as `season − draft_year`, falling
 back to `age − 19` for the 24% of rows without a draft entry. The fallback
@@ -691,7 +766,7 @@ covering 99.5% of training-data players.
 119 base-tier ceilings moved (117 down, 2 up), max zone 68 → 70. A second
 provably mis-tiered row became the max it is: Butler 2019 at exactly 30.000% of
 the cap, added to `designated_ineligible.csv` for the same team-change reason as
-Kawhi, Kyrie, and Kemba in v7.12x. Paired ΔSel +0.00001 (t 0.08) — a
+Kawhi, Kyrie, and Kemba in v3.2.1. Paired ΔSel +0.00001 (t 0.08) — a
 correctness fix, as expected, since the ceiling is not a model feature and
 affects only the censoring mask and the Stage-2 clip.
 
@@ -716,7 +791,7 @@ does not actively hurt (the pre-registered threshold was t > −2):
   no censoring and no Stage-2 clip; now runs the same Grabit + CBA-bound pipeline
   as `export_web.py`.
 
-| Layer | v7.12x | v7.13x |
+| Layer | v3.2.1 | v3.2.2 |
 |---|---|---|
 | A1 | 0.7878 | 0.7865 |
 | A2 | 0.8335 | 0.8341 |
@@ -733,28 +808,28 @@ Evidence: `docs/briefs/2026-07-26-service-years.RESULT.md`,
 
 | Ver | Model | A1 (told) | A2 (told) | B1 (told) | N | Feat | Change |
 |-----|-------|-----------|-----------|-----------|---|------|--------|
-| **8.17x** | **XGBoost (Grabit v4)** | **0.8422** | **0.8595** | **0.8273** | **870** | **21** | **Multi-year minimum contracts keep their salary (ISSUES #55). Correctness fix; 40 targets change** |
-| **8.16x** | **XGBoost (Grabit v4)** | **0.8423** | **0.8576** | **0.8259** | **870** | **21** | **Spotrac cap-hit salary migration. Source correction and new baseline; not comparable with v8.15x because rows and targets changed** |
-| **8.15x** | **XGBoost (Grabit v4)** | **0.8572†** | **0.8810†** | **0.8556** | **873** | **21** | **Web inference repair: every Value Board row gets a KF trajectory, while only genuine Year-1 market events can anchor it. Evaluation rows remain bit-identical. †Metrics unchanged from v8.14x** |
-| **8.14x** | **XGBoost (Grabit v4)** | **0.8572†** | **0.8810†** | **0.8556** | **873** | **21** | **KF hyperparameter tuning: Q_FLOOR 0.0005→0.04, prehistory+expand defaults. +0.0088 over v8.13x tuned baseline. †Nested-CV ablation** |
-| 8.13x | XGBoost (Grabit v4) | 0.8254† | 0.8491† | 0.8387 | 873 | 21 | `kf_market_value` replaces `prev_cap_pct` (SWAP). Paired ΔSel +0.00331 (t 1.75), gate override on three-protocol evidence. †Nested-CV ablation |
-| 8.10x | XGBoost (Grabit v4) | 0.8369 | 0.8581 | 0.8589 | 873 | 18 | `kalman_filtered_stats` (Kalman-filtered quality), the 18th feature. Paired ΔSel +0.0053 (t 2.78) |
-| 8.9x | XGBoost (Grabit v4) | 0.8301 | 0.8544 | 0.8604 | 873 | 17 | Mechanism cap clip + offset regen on 873-row frame. A1 +0.0132 vs v8.7x arm |
-| 8.8x | XGBoost (Grabit v4) | 0.8126 | 0.8672 | 0.8578 | 896 | 17 | Stage-3 signing-type offset. Leakage-aware k=20 shrunk per-type means |
-| 8.0x | XGBoost (Grabit v4) | 0.7989 | 0.8515 | 0.8356 | 944 | 14 | Stage 3 — the signing route enters the model. Push + extension clip in one composition module. Ex-ante A1 0.7865 (clip only) |
-| 8.1x | XGBoost (Grabit v4) | 0.8127 | 0.8588 | 0.8419 | 944 | 14 | Impact-source join repaired on `nba_id`. 2026 forward origin 0.7992 → 0.8311 |
-| **8.2x** | **XGBoost (Grabit v4)** | **0.8210** | **0.8625** | **0.8528** | **944** | **15** | **`is_waived`, the fifteenth feature + missingness-semantics repair** |
+| **v5.3.3** (8.17x) | **XGBoost (Grabit v4)** | **0.8422** | **0.8595** | **0.8273** | **870** | **21** | **Multi-year minimum contracts keep their salary (ISSUES #55). Correctness fix; 40 targets change** |
+| **v5.3.2** (8.16x) | **XGBoost (Grabit v4)** | **0.8423** | **0.8576** | **0.8259** | **870** | **21** | **Spotrac cap-hit salary migration. Source correction and new baseline; not comparable with v5.3.1 because rows and targets changed** |
+| **v5.3.1** (8.15x) | **XGBoost (Grabit v4)** | **0.8572†** | **0.8810†** | **0.8556** | **873** | **21** | **Web inference repair: every Value Board row gets a KF trajectory, while only genuine Year-1 market events can anchor it. Evaluation rows remain bit-identical. †Metrics unchanged from v5.3.0** |
+| **v5.3.0** (8.14x) | **XGBoost (Grabit v4)** | **0.8572†** | **0.8810†** | **0.8556** | **873** | **21** | **KF hyperparameter tuning: Q_FLOOR 0.0005→0.04, prehistory+expand defaults. +0.0088 over v5.2.0 tuned baseline. †Nested-CV ablation** |
+| v5.2.0 (8.13x) | XGBoost (Grabit v4) | 0.8254† | 0.8491† | 0.8387 | 873 | 21 | `kf_market_value` replaces `prev_cap_pct` (SWAP). Paired ΔSel +0.00331 (t 1.75), gate override on three-protocol evidence. †Nested-CV ablation |
+| v5.0.0 (8.10x) | XGBoost (Grabit v4) | 0.8369 | 0.8581 | 0.8589 | 873 | 18 | `kalman_filtered_stats` (Kalman-filtered quality), the 18th feature. Paired ΔSel +0.0053 (t 2.78) |
+| v4.5.0 (8.9x) | XGBoost (Grabit v4) | 0.8301 | 0.8544 | 0.8604 | 873 | 17 | Mechanism cap clip + offset regen on 873-row frame. A1 +0.0132 vs v4.3.1 arm |
+| v4.4.0 (8.8x) | XGBoost (Grabit v4) | 0.8126 | 0.8672 | 0.8578 | 896 | 17 | Stage-3 signing-type offset. Leakage-aware k=20 shrunk per-type means |
+| v4.0.0 (8.0x) | XGBoost (Grabit v4) | 0.7989 | 0.8515 | 0.8356 | 944 | 14 | Stage 3 — the signing route enters the model. Push + extension clip in one composition module. Ex-ante A1 0.7865 (clip only) |
+| v4.0.1 (8.1x) | XGBoost (Grabit v4) | 0.8127 | 0.8588 | 0.8419 | 944 | 14 | Impact-source join repaired on `nba_id`. 2026 forward origin 0.7992 → 0.8311 |
+| **v4.1.0** (8.2x) | **XGBoost (Grabit v4)** | **0.8210** | **0.8625** | **0.8528** | **944** | **15** | **`is_waived`, the fifteenth feature + missingness-semantics repair** |
 
 ### Convention change at Phase 8
 
-**From v8.0x onward, headline A1/A2/B1 are told-route numbers.** The model is
+**From v4.0.0 onward, headline A1/A2/B1 are told-route numbers.** The model is
 scored knowing the signing route, which the champion also had and merely
-ignored. The ex-ante figure that continues the v7.1x-v7.13x series is the
-clip-only arm's A1 0.7865 at v8.0x. Do not compare the two naively.
+ignored. The ex-ante figure that continues the v3.0.0-v3.2.2 series is the
+clip-only arm's A1 0.7865 at v4.0.0. Do not compare the two naively.
 
-Tags: `v8.0x` `a28b221` · `v8.1x` `29b6383` · `v8.2x` `800bed7`.
+Tags: `v4.0.0` `a28b221` · `v4.0.1` `29b6383` · `v4.1.0` `800bed7`.
 
-### v8.0x: Stage 3 — the signing route enters the model
+### v4.0.0 (legacy v8.0x): Stage 3 — the signing route enters the model
 
 Two layers, composed in one module (`src/model/stages.py`), all three consumers
 pointed at it: `latent -> push -> clip(lo, hi) -> stage 3`. The push moves
@@ -768,7 +843,7 @@ module) and the rebuilt `prev_cap_pct` feature, together worth +0.0002
 (t = 0.79) -- correctness, as expected.
 
 **Costs recorded, not argued away.** Paired dSel +0.00856 at t = 1.11, adopted
-on the legal-bound grounds v7.4x/v7.9x/v7.13x set. C1 relative calibration
+on the legal-bound grounds v3.0.3/v3.1.1/v3.2.2 set. C1 relative calibration
 fails by 0.0024 because the push only ever moves rows upward. And on the
 pooled metric the push alone is negative (-0.0057) with all of the gain coming
 from Stage 3 (+0.0143, t = 2.28). The push is kept because it is judged where
@@ -778,16 +853,16 @@ it acts -- max zone $4.30M -> $3.18M -- and because its row-level audit nets
 Confirmation split read at this bump: 0.8309 against a selection pool of 0.7928
 -- the canary improved more than the pool.
 
-| Layer | v7.13x (ex ante) | v8.0x (told route) |
+| Layer | v3.2.2 (ex ante) | v4.0.0 (told route) |
 |---|---|---|
 | A1 | 0.7865 | **0.7989** |
 | A2 | 0.8341 | 0.8515 |
 | B1 | 0.8342 | 0.8356 |
 | 2024 / 2025 / 2026 | 0.8757 / 0.8173 / 0.7964 | 0.8781 / 0.8167 / 0.7992 |
 
-### v8.1x: impact-source join repaired on nba_id
+### v4.0.1 (legacy v8.1x): impact-source join repaired on nba_id
 
-Same 944 rows, same 14 features, told-route convention unchanged from v8.0x.
+Same 944 rows, same 14 features, told-route convention unchanged from v4.0.0.
 Pure correctness: three impact sources (DARKO, LEBRON, LAKER) spelled the
 same player differently and the name-season merge left those rows split, so
 league-median minutes, usage and availability reached the model in place of the
@@ -800,16 +875,16 @@ recent seasons the holdout scores.
 
 Confirmation split read at this bump: 0.8339 against a selection pool of 0.8085.
 
-| Layer | v8.0x | v8.1x |
+| Layer | v4.0.0 | v4.0.1 |
 |---|---|---|
 | A1 | 0.7989 | **0.8127** |
 | A2 | 0.8515 | 0.8588 |
 | B1 | 0.8356 | 0.8419 |
 | 2024 / 2025 / 2026 | 0.8781 / 0.8167 / 0.7992 | 0.8679 / 0.8225 / 0.8311 |
 
-### v8.2x: `is_waived`, the fifteenth feature + missingness repair
+### v4.1.0 (legacy v8.2x): `is_waived`, the fifteenth feature + missingness repair
 
-Same 944 rows, told-route convention unchanged. Over v8.1x's 14-feature
+Same 944 rows, told-route convention unchanged. Over v4.0.1's 14-feature
 0.8127 / 0.8588 / 0.8419, the feature adds a paired dSel of +0.00666 at
 t = 2.29 -- the first new feature in a long run to clear t > 2 with every
 guardrail clean, and it does it on a fact the model previously had no way to
@@ -821,7 +896,7 @@ page" indicator is worth +0.00029 (t = 1.02), so the gain is not the collection
 channel that killed the supply features at v7.x. `is_waived_known` is kept as
 an audit column and deliberately not shipped despite scoring slightly better.
 
-**v8.2x's +0.0083 over v8.1x is not all `is_waived`.** A
+**v4.1.0's +0.0083 over v4.0.1 is not all `is_waived`.** A
 missingness-semantics repair landed inside the same tag, and its own isolated
 harness (holding `is_waived` in both arms so the two do not mix) measures
 +0.0088 selection-paired at t = 1.10. Both belong in this entry, separately
@@ -847,14 +922,14 @@ MAE and 2023 R2 goes 0.789 -> 0.843.
 Confirmation split read at this bump: 0.8521 against a selection pool of 0.8152
 -- the canary is again ahead of the pool.
 
-| Layer | v8.1x | v8.2x |
+| Layer | v4.0.1 | v4.1.0 |
 |---|---|---|
 | A1 | 0.8127 | **0.8210** |
 | A2 | 0.8588 | 0.8625 |
 | B1 | 0.8419 | 0.8528 |
 | 2024 / 2025 / 2026 | 0.8679 / 0.8225 / 0.8311 | 0.8711 / 0.8359 / 0.8499 |
 
-### v8.3x: rookie-contract filter (exp <= 1)
+### v4.1.1 (legacy v8.3x): rookie-contract filter (exp <= 1)
 
 Frame shrinks 944 → 868. Players in their first two NBA seasons (exp 0 or 1)
 are removed from training: their contracts are slotted by draft position, not
@@ -868,13 +943,13 @@ regression. Common-row paired delta is −0.0003, indistinguishable from zero
 under the fold reshuffle (ISSUES #35). Accepted on correctness: rookie-scale
 contracts are not market observations.
 
-| Layer | v8.2x (944) | v8.3x (868) |
+| Layer | v4.1.0 (944) | v4.1.1 (868) |
 |---|---|---|
 | A1 | 0.8210 | **0.8091** |
 | A2 | 0.8625 | 0.8606 |
 | B1 | 0.8528 | 0.8395 |
 
-### v8.4x: `mpg_x_waived` interaction (16th feature)
+### v4.2.0 (legacy v8.4x): `mpg_x_waived` interaction (16th feature)
 
 Gate override: the waiver interaction measured t = 1.96 on the 944-row frame,
 just below the t > 2 threshold. Override justified because:
@@ -889,19 +964,19 @@ Both arms tested on the 868-row frame. Arm A (`prev_cap_pct × is_waived`)
 regressed A1 by −0.0007. Arm B (`mpg × is_waived`) won on every metric.
 Adopted Arm B.
 
-| Layer | v8.3x | v8.4x |
+| Layer | v4.1.1 | v4.2.0 |
 |---|---|---|
 | A1 | 0.8091 | **0.8099** (+0.0008) |
 | A2 | 0.8606 | 0.8617 (+0.0011) |
 | B1 | 0.8395 | 0.8403 (+0.0008) |
 | 2026 origin | 0.8417 | 0.8452 (+0.0035) |
 
-### v8.5x: Wall contract-structure repair + error-board universe fix
+### v4.2.1 (legacy v8.5x): Wall contract-structure repair + error-board universe fix
 
 Data repair, no model change. John Wall's 4-year supermax (signed 2017,
 effective 2019) was split by the mid-contract trade to Houston into two fake
 year-1 rows in `contract_structure_v2.csv`. Hand-verified fix: 2019 → yr 2/4,
-2020 → yr 3/4, 2021 → yr 4/4. Net −1 training row on the v8.4x frame (Wall
+2020 → yr 3/4, 2021 → yr 4/4. Net −1 training row on the v4.2.0 frame (Wall
 2019; Wall 2020 was already caught by the tier-ceiling mislabel filter).
 
 The error board investigation that surfaced Wall also surfaced its own bug:
@@ -917,7 +992,7 @@ overstating errors the deployed pipeline does not make (Zubac 2025 $19.3M →
 $0.0M under the Stage-3 raise cap; Beal 2022 and Jaylen Brown 2024 vanish under
 the Stage-2 max push). Review state persists in `error_board_kicked.csv`.
 
-| Layer | v8.4x (n=868) | v8.5x (n=867) |
+| Layer | v4.2.0 (n=868) | v4.2.1 (n=867) |
 |---|---|---|
 | A1 | 0.8099 | 0.8147 |
 | A2 | 0.8617 | 0.8627 |
@@ -927,7 +1002,7 @@ the Stage-2 max push). Review state persists in `error_board_kicked.csv`.
 Row set changed by the repair itself, so the columns are not a paired
 comparison — recorded for continuity, not as a gain claim.
 
-### v8.6x: `playoff_mpg_diff` (17th feature), on a decoupled route classifier
+### v4.3.0 (legacy v8.6x): `playoff_mpg_diff` (17th feature), on a decoupled route classifier
 
 Two changes ship together because the first was blocking the second.
 
@@ -999,7 +1074,7 @@ the two arms differ only in the regression list):
 | 4 C2 worst mechanism segment | ≤ +$0.30M | +0.091 pooled / +0.105 selection (Sign & Trade, n=13) | PASS |
 | 5 B1 (large drop vetoes) | — | 0.8418 → 0.8431 | PASS |
 
-| Layer | v8.5x | v8.6x |
+| Layer | v4.2.1 | v4.3.0 |
 |---|---|---|
 | A1 | 0.8147 | **0.8209** (+0.0062) |
 | A2 | 0.8630 | 0.8674 (+0.0044) |
@@ -1012,15 +1087,15 @@ The locked confirmation split gains more than the selection pool (+0.0130
 against +0.0051), so the canary is ahead of the rows the decision watched — the
 opposite of the pattern the 2026-07-23 adoption audit caught.
 
-Both columns are suite runs at the suite's own seeds 0-9; the v8.5x column is
+Both columns are suite runs at the suite's own seeds 0-9; the v4.2.1 column is
 the incumbent re-measured on this tree (`evaluation_suite_prev.json`), not the
-figures published in the v8.5x entry, which read A2 0.8627 / B1 0.8446 from an
+figures published in the v4.2.1 entry, which read A2 0.8627 / B1 0.8446 from an
 earlier run of identical code. Two runs of the same code recording B1 0.8446 and
 0.8416 is the scale of run-to-run noise at n=305 forward rows — which is exactly
 why the decision above is a **paired, same-process** comparison rather than a
 difference of two published numbers.
 
-### v8.7x: Spotrac phantom-data cleanup + waiver recovery rebuild
+### v4.3.1 (legacy v8.7x): Spotrac phantom-data cleanup + waiver recovery rebuild
 
 **Data correction, not a model change — frame definition moved.**
 
@@ -1045,7 +1120,7 @@ Two fixes landed in one commit pair (8071745, 0c2acaf):
 Frame: 867 → **896** (+29 net: +64 gained, −35 lost). R² not comparable
 across frame sizes (#35).
 
-| Layer | v8.6x (n=867) | v8.7x (n=896) |
+| Layer | v4.3.0 (n=867) | v4.3.1 (n=896) |
 |---|---|---|
 | A1 | 0.8209 | 0.8021 |
 | A2 | 0.8674 | 0.8569 |
@@ -1061,7 +1136,7 @@ gained from the cleanup: n=305 → 318 (+13 rows), and the model now trains on
 correctly classified training data. MAE growth ($2.87→$3.02M) reflects the
 larger frame mixing in harder-to-price rows.
 
-### Post-v8.7x: data repairs and evaluation tooling (no version consumed)
+### Post-v4.3.1: data repairs and evaluation tooling (no version consumed)
 
 Four ISSUES resolved, training data rebuilt. No model or feature change — no
 version number consumed.
@@ -1075,7 +1150,7 @@ version number consumed.
 | `1ec3a48` | Nunn continuation: verified already fixed in commit `8071745`. Similar-case scan: OG Anunoby 2021 defensible, PJ Dozier 2020 negligible | #31 closed |
 
 Training data rebuilt on the corrected 896-row frame. Metrics unchanged from
-v8.7x: A1 = 0.8019, A2 = 0.8573, B1 = 0.8493, MAE = $3.02M.
+v4.3.1: A1 = 0.8019, A2 = 0.8573, B1 = 0.8493, MAE = $3.02M.
 
 Signing-type bias on the 896-row frame (OOF, selection-only):
 
@@ -1093,9 +1168,9 @@ The systematic pattern — Bird Rights underpredicted, MLE/Minimum overpredicted
 — is the motivation for Stage 3 signing-type work (in progress).
 
 (That table is a plain-XGBoost OOF, not the champion stack; the champion's own
-biases are smaller. See ISSUES #47 and the v8.8x entry below.)
+biases are smaller. See ISSUES #47 and the v4.4.0 entry below.)
 
-### v8.8x: the Stage-3 signing-type offset
+### v4.4.0 (legacy v8.8x): the Stage-3 signing-type offset
 
 **A told-parameter correction, not a feature.** The stack carried a systematic
 Signing Residual by mechanism that no feature removes. Rung 1 of the correction
@@ -1132,7 +1207,7 @@ rows including confirmation (an offset is a fitted parameter and confirmation
 rows already sit in every training fold); the deciding metric excludes them
 (ISSUES #20a).
 
-| Layer | v8.7x (n=896) | v8.8x (n=896) |
+| Layer | v4.3.1 (n=896) | v4.4.0 (n=896) |
 |---|---|---|
 | A1 | 0.8015 | **0.8126** (+0.0111) |
 | A2 | 0.8574 | 0.8672 (+0.0098) |
@@ -1148,7 +1223,7 @@ over the four eligible types, selection pool, paired by fold — it is
 **+$0.201M, t +2.48** ($3.673M → $3.472M), with |bias| reduction +$0.771M
 (t +3.07). Per-type bias, pooled:
 
-| Type | n | bias v8.7x | bias v8.8x | MAE v8.7x | MAE v8.8x |
+| Type | n | bias v4.3.1 | bias v4.4.0 | MAE v4.3.1 | MAE v4.4.0 |
 |---|---|---|---|---|---|
 | Bird Rights | 282 | −$1.74M | −$0.36M | $3.83M | $3.60M |
 | Cap Space | 71 | −$0.49M | −$0.20M | $3.70M | $3.69M |
@@ -1186,29 +1261,29 @@ published R². Regeneration is now step 5 of CLAUDE.md's refresh block; ISSUES
 #48 tracks making it mechanical. The evaluation suite is not exposed (it
 estimates its own offsets every run); the deployed single-fit consumers are.
 
-`predict.py` is **bit-identical to v8.7x** and correctly so: an unsigned free
+`predict.py` is **bit-identical to v4.3.1** and correctly so: an unsigned free
 agent has no signing mechanism, so every offset on that path is 0.0. The
 deployed offsets are passed in explicitly and the identity is asserted, so the
 no-op is demonstrated by the code. `scripts/export_web.py` has not been wired
-(ISSUES #46) — the site still shows the v8.7x composition.
+(ISSUES #46) — the site still shows the v4.3.1 composition.
 
 Both A1/A2/B1 above are **told-route numbers** under the 2026-07-26/27
 convention, now told-MECHANISM as well: told "he re-signed on Bird Rights", the
 price is still the whole problem, so the offset passes the convention's test the
 same way the extension clip does. The suite prints all four arms — clip only
-(v7.13x), + push, + extension clip (v8.7x), + signing offset (champion).
+(v3.2.2), + push, + extension clip (v4.3.1), + signing offset (champion).
 
 Evidence: `scripts/eval_stage3_signing.py`,
 `outputs/models/stage3_signing_offset_eval.json`,
 `outputs/models/evaluation_suite.json`. The suite reproduces the gating
 measurement to **0.000e+00** on A1, A2 and B1.
 
-### v8.9x: mechanism cap clip + deployed offset regeneration (873-row frame)
+### v4.5.0 (legacy v8.9x): mechanism cap clip + deployed offset regeneration (873-row frame)
 
-**Frame change.** The signing-label recovery at v8.8x (commit `3ff437c`) made
+**Frame change.** The signing-label recovery at v4.4.0 (commit `3ff437c`) made
 the continuation filter's three-signal consensus fire on 22 more rows, dropping
 the frame from 896 to 873. R2 across different row sets is not comparable
-(ISSUES #35), so v8.9x on 873 rows is compared against the v8.7x arm's own OOF
+(ISSUES #35), so v4.5.0 on 873 rows is compared against the v4.3.1 arm's own OOF
 on the same 873 rows.
 
 **Deployed offset regeneration.** `stages.SIGNING_OFFSETS_DEPLOYED` updated from
@@ -1245,7 +1320,7 @@ issue). Zero violations against actual salary. Legality guard checks
 `predict.py` is **bit-identical**: unsigned free agents have no signing mechanism
 and no mechanism cap (all NaN), so both are no-ops. Asserted in the code.
 
-| Layer | v8.7x arm (n=873) | v8.9x champion (n=873) |
+| Layer | v4.3.1 arm (n=873) | v4.5.0 champion (n=873) |
 |---|---|---|
 | A1 | 0.8169 | **0.8301** (+0.0132) |
 | A2 | 0.8447 | 0.8544 (+0.0097) |
@@ -1255,15 +1330,15 @@ and no mechanism cap (all NaN), so both are no-ops. Asserted in the code.
 | C1 slope | 0.963 | 0.953 |
 | D3 locked confirmation | — (sel 0.8157) | 0.8274 (sel 0.8303) |
 
-Signing offset alone (champion vs v8.7x arm): paired dSel **+0.01604, t +5.74**
-(stronger than v8.8x's +0.01287 at t +5.25 on the larger frame — the 23 dropped
+Signing offset alone (champion vs v4.3.1 arm): paired dSel **+0.01604, t +5.74**
+(stronger than v4.4.0's +0.01287 at t +5.25 on the larger frame — the 23 dropped
 rows were diluting the signal).
 
 Where the intervention acts — MAE over the four eligible types, selection pool,
 paired by fold: **+$0.30M** ($3.62M -> $3.32M). |bias| reduction +$1.09M.
 Per-type bias, pooled:
 
-| Type | n | bias v8.7x | bias v8.9x | MAE v8.7x | MAE v8.9x |
+| Type | n | bias v4.3.1 | bias v4.5.0 | MAE v4.3.1 | MAE v4.5.0 |
 |---|---|---|---|---|---|
 | Bird Rights | 292 | -$1.67M | -$0.35M | $3.73M | $3.46M |
 | Cap Space | 80 | -$0.93M | -$0.30M | $3.67M | $3.63M |
@@ -1278,9 +1353,9 @@ Evidence: `src/model/evaluate_suite.py`,
 `outputs/models/evaluation_suite.json`,
 `outputs/models/oof_reference.csv` (873 rows).
 
-Tags: `v8.9x` · `v8.10x` · `v8.11x` · `v8.12x` · `v8.13x`.
+Tags: `v4.5.0` · `v5.0.0` · `v5.0.1` · `v5.1.0` · `v5.2.0`.
 
-### v8.10x: `kalman_filtered_stats` — Kalman-filtered player quality (18th feature)
+### v5.0.0 (legacy v8.10x): `kalman_filtered_stats` — Kalman-filtered player quality (18th feature)
 
 A Kalman filter over the three impact metrics (DARKO DPM, LEBRON, LAKER) that
 produces a single filtered quality estimate per player-season. The filter runs
@@ -1310,7 +1385,7 @@ All five gates pass:
 | 4 C2 worst mechanism segment | <= +$0.30M | all improved or unchanged | PASS |
 | 5 B1 (large drop vetoes) | — | -0.0014 (within noise) | PASS |
 
-| Layer | v8.9x (n=873) | v8.10x (n=873) |
+| Layer | v4.5.0 (n=873) | v5.0.0 (n=873) |
 |---|---|---|
 | A1 | 0.8324 | **0.8369** (+0.0045) |
 | A2 | 0.8543 | 0.8581 (+0.0038) |
@@ -1327,7 +1402,7 @@ Max zone MAE: $2.41M -> $2.28M (-$0.13M). The feature improves pricing of
 players at their ceiling, consistent with the filter's ability to separate
 productive bigs from declining ones more precisely than any single metric.
 
-### v8.11x: vet-min cap-hold normalization (ISSUES #38 fix)
+### v5.0.1 (legacy v8.11x): vet-min cap-hold normalization (ISSUES #38 fix)
 
 **Data quality fix, not a model change.** Basketball Reference reports vet-min
 salaries inconsistently: some rows carry the player's **paid salary** (which
@@ -1344,7 +1419,7 @@ five production paths: `train.py` (filter chain), `stages.py` (route frame),
 `evaluate_suite.py` (evaluation frame), `predict.py` (training medians), and
 `export_web.py` (web export + signing membership).
 
-| Layer | v8.10x | v8.11x |
+| Layer | v5.0.0 | v5.0.1 |
 |---|---|---|
 | A1 | 0.8369 | 0.8373 (+0.0004) |
 
@@ -1356,7 +1431,7 @@ model is told about rows it already clips. The value is in **target consistency*
 actual salaries for vet-min players now match the cap-hold the team is charged
 rather than the experience-scaled pay the player receives.
 
-### v8.12x: O/D diff z-scores — offensive/defensive tilt (features 19-21)
+### v5.1.0 (legacy v8.12x): O/D diff z-scores — offensive/defensive tilt (features 19-21)
 
 Three new features: `darko_od_diff_z`, `lebron_od_diff_z`, `laker_od_diff_z`.
 Each is the offensive minus defensive component of the corresponding impact
@@ -1370,7 +1445,7 @@ was adopted at ΔSel = +0.0026, t = 2.01. Three rejected alternatives:
 - Arm C: 6 raw O/D, drop Kalman (−0.0049 — confirms composite Kalman is irreplaceable)
 - Arm D: O/D Kalman (two independent filters) (−0.0009 — loses cross-metric information)
 
-| Layer | v8.11x (n=873) | v8.12x (n=873) |
+| Layer | v5.0.1 (n=873) | v5.1.0 (n=873) |
 |---|---|---|
 | A1 | 0.8373 | 0.8384 (+0.0011) |
 | A2 | — | 0.8556 |
@@ -1381,13 +1456,13 @@ Code: `src/features/base_rating.py::attach_od_diffs()`, called from
 `load_training_data()`. Wired into all four production paths: train, predict,
 evaluate_suite, and export_web.
 
-Tags: `v8.11x` · `v8.12x` · `v8.13x`.
+Tags: `v5.0.1` · `v5.1.0` · `v5.2.0`.
 
-### v8.13x: `kf_market_value` — Kalman-filtered market trajectory (SWAP for `prev_cap_pct`)
+### v5.2.0 (legacy v8.13x): `kf_market_value` — Kalman-filtered market trajectory (SWAP for `prev_cap_pct`)
 
 Replaces `prev_cap_pct` with `kf_market_value` in the 21-feature regression
 list. Feature count unchanged; the route classifier's frozen `CLF_BASE_COLS`
-retains `prev_cap_pct` (v8.6x decoupling). Code:
+retains `prev_cap_pct` (v4.3.0 decoupling). Code:
 `src/features/kf_market_value.py`, wired into predict.py and export_web.py via
 a two-pass architecture (base model prices intermediate seasons, KF produces the
 feature, final model trains on it).
@@ -1437,7 +1512,7 @@ conservatively lower than evaluate_suite would report on the same model — the
 reliable quantity is the paired delta. B1 (0.8387) is from eval_kf_forward.py.
 Evaluate_suite integration is tracked in ISSUES.md.
 
-| Layer | v8.12x champion | v8.13x SWAP | Δ |
+| Layer | v5.1.0 champion | v5.2.0 SWAP | Δ |
 |---|---|---|---|
 | A1 (nested CV) | 0.8226 | **0.8254** | +0.0028 |
 | A2 (nested CV) | 0.8456 | 0.8491 | +0.0035 |
@@ -1452,9 +1527,9 @@ data window advances.
 Evidence: `scripts/ablation_kf_market_value_full.py` (`--anchor market`),
 `scripts/eval_kf_forward.py`, `docs/briefs/2026-08-09-kf-market-value-adoption.md`.
 
-### v8.14x: KF hyperparameter tuning (Q_FLOOR 0.0005 → 0.04)
+### v5.3.0 (legacy v8.14x): KF hyperparameter tuning (Q_FLOOR 0.0005 → 0.04)
 
-The v8.13x KF shipped with Q_FLOOR = 0.0005 — the best value in the original
+The v5.2.0 KF shipped with Q_FLOOR = 0.0005 — the best value in the original
 grid {0.0005, 0.001, 0.002, 0.005}. That was a grid-edge problem: the best point
 sat at the boundary, so the true optimum was off the map.
 
@@ -1482,7 +1557,7 @@ prior — P₀'s influence vanishes within one update.
 |---|---|---|---|---|---|
 | P₀=0.0005, Q=0.04 | **0.8572** | **0.8810** | **0.8556** | **0.8971** | **$2.60M** |
 | P₀=0.02, Q=0.04 | 0.8571 | — | — | — | — |
-| v8.13x baseline (Q=0.0005, prehistory+expand) | 0.8484 | — | 0.8516 | 0.8917 | $2.64M |
+| v5.2.0 baseline (Q=0.0005, prehistory+expand) | 0.8484 | — | 0.8516 | 0.8917 | $2.64M |
 
 Indistinguishable across P₀ — confirms P₀ does not matter at this Q. Adopted
 Q_FLOOR = 0.04, P₀ = 0.0005 unchanged.
@@ -1501,16 +1576,16 @@ Spotrac + BBRef, extending the KF anchor window back to 2015 (61 Spotrac AAV
 anchors for season 2015, plus 92 BBRef salary anchors for 2016-2018). Expand-
 anchors extends the anchor map to non-eval-frame Year-1 rows (prorated stints,
 rookie-scale contracts), providing observation points the filter would otherwise
-miss. Both were tested in the original v8.13x ablation and are now the defaults
+miss. Both were tested in the original v5.2.0 ablation and are now the defaults
 (disable with `--no-prehistory` / `--no-expand-anchors`).
 
-**Decomposition over the v8.13x published configuration:**
+**Decomposition over the v5.2.0 published configuration:**
 
 | Component | A1 Δ |
 |---|---|
 | Prehistory + expand-anchors (still Q=0.0005) | +0.0230 |
 | Q_FLOOR 0.0005 → 0.04 | +0.0088 |
-| **Total (v8.13x published → v8.14x)** | **+0.0318** |
+| **Total (v5.2.0 published → v5.3.0)** | **+0.0318** |
 
 Gates (SWAP Stage 3, 10-seed ablation harness):
 
@@ -1521,7 +1596,7 @@ Gates (SWAP Stage 3, 10-seed ablation harness):
 | C1 calibration slope excess | −0.003 | PASS |
 | C2 worst mechanism \|bias\| growth | Early Bird +$0.23M | PASS |
 
-| Layer | v8.13x published | v8.14x |
+| Layer | v5.2.0 published | v5.3.0 |
 |---|---|---|
 | A1 (nested CV) | 0.8254 | **0.8572** (+0.0318) |
 | A2 (nested CV) | 0.8491 | **0.8810** (+0.0319) |
@@ -1535,7 +1610,7 @@ Evidence: `scripts/tune_kf_hyperparams.py`,
 `outputs/models/kf_hyperparam_sweep_p0.json`,
 `outputs/models/ablation_kf_market_value_full_market_prehistory_expand_p00.0005_qf0.04.json`.
 
-### v8.15x: Web KF inference target/event separation
+### v5.3.1 (legacy v8.15x): Web KF inference target/event separation
 
 The Web export computed `kf_market_value` only on the filtered Year-1
 evaluation frame, then mapped those values back to the full Value Board. Rows
@@ -1557,7 +1632,7 @@ The repair separates the two roles explicitly:
 This is an inference-only correctness release. A runtime invariant compares the
 old and new KF values on all evaluation rows and aborts the export on any drift;
 the observed maximum difference is exactly zero. Therefore the model, feature
-count, sample count, and A1/A2/B1 headline metrics are unchanged from v8.14x.
+count, sample count, and A1/A2/B1 headline metrics are unchanged from v5.3.0.
 The corrected export prices Wembanyama's latent 2026 value above Evan Mobley's
 2025 value; both final percentages then meet the same 30% CBA maximum.
 
@@ -1568,7 +1643,7 @@ the 0.03 tolerance.
 Evidence: `tests/test_kf_market_value.py`, `scripts/export_web.py`,
 `src/features/kf_market_value.py`, `src/model/predict.py`.
 
-### v8.16x: Spotrac cap-hit salary migration
+### v5.3.2 (legacy v8.16x): Spotrac cap-hit salary migration
 
 The training salary source now passes through a Spotrac merge layer before
 feature construction. Basketball Reference remains the base identity table and
@@ -1600,7 +1675,7 @@ This is a source-correction release, not a feature adoption. A1/A2/B1 are the
 new baseline and were not used as a veto. The rebuilt evaluation frame has 870
 rows and 21 features:
 
-| Metric | v8.16x |
+| Metric | v5.3.2 |
 |---|---:|
 | A1 pooled CV R2 | **0.8423** |
 | A2 2024-26 CV R2 | **0.8576** |
@@ -1624,7 +1699,7 @@ Evidence: `scripts/build_merged_salaries.py`,
 `tests/test_salary_migration.py`, `tests/test_spotrac_scraper.py`, and
 `outputs/diagnostics/stage3_signing_offset_eval.csv`.
 
-### v8.17x: one-year rule for the minimum cap charge (ISSUES #55)
+### v5.3.3 (legacy v8.17x): one-year rule for the minimum cap charge (ISSUES #55)
 
 The CBA reduces the cap charge to the base minimum only for one-year minimum
 contracts. `train._normalize_vetmin_caphold` applied that charge to every
@@ -1646,7 +1721,7 @@ membership stays at 870 rows. Normalized rows fall from 100 to 60, and 40
 targets rise from a mean 1.48% to 1.93% of cap. LeBron James 2026 reads $3.88M
 instead of $2.45M.
 
-| Metric | v8.16x | v8.17x |
+| Metric | v5.3.2 | v5.3.3 |
 |---|---:|---:|
 | A1 pooled CV R2 | 0.8423 | **0.8422** |
 | A2 2024-26 CV R2 | 0.8587 | **0.8595** |
@@ -1655,10 +1730,10 @@ instead of $2.45M.
 | MAE | $2.71M | $2.72M |
 | Calibration slope | 0.959 | 0.958 |
 
-The v8.16x column is the same-day rerun, so both columns share code apart from
+The v5.3.2 column is the same-day rerun, so both columns share code apart from
 this change. Paired selection delta is -0.0003 (t = -0.46; per fold -0.00049,
 -0.00207, -0.00069, -0.00013, +0.00190). Scored against the corrected targets,
-the v8.16x predictions give A1 0.8426 and B1 0.8268.
+the v5.3.2 predictions give A1 0.8426 and B1 0.8268.
 
 Regenerated deployed k=20 signing offsets: Bird Rights +0.01494, Cap Space
 +0.00828, Early Bird +0.00424, and Non-Bird -0.00580. Legality and
@@ -1706,7 +1781,7 @@ the injury feature.
 
 ### Corrections to earlier findings
 
-- **The residual-by-salary-tier table reported in v7.0x was a statistical
+- **The residual-by-salary-tier table reported in v2.0.0 was a statistical
   artifact.** Binning residuals by the actual target produces a monotone bias
   gradient even for a perfectly calibrated model. Binned by predicted value
   instead, bias is flat within ±$0.65M. The model was never systematically
@@ -1717,7 +1792,7 @@ the injury feature.
   gains only +0.0137. The Minimum/MLE residual gap is the spread of a bimodal
   `y | x`, not recoverable error.
 
-  **v7.8x sharpened the scope of this.** What is dead is treating *good* players
+  **v3.1.0 sharpened the scope of this.** What is dead is treating *good* players
   on minimums as right-censored: they could have earned more elsewhere, so their
   salary is a choice and the censoring premise is false. Players whose
   unconstrained price sits *below* the minimum are the opposite case — the floor
@@ -1771,27 +1846,27 @@ Ridge      Ridge/XGB            Cleanup         Tuning         Features   Grabit
                   (removed in v4.0)                                                     †nested-CV; from v8.0x onward
 ```
 
-Phase 7 looks flat through v7.8x and then jumps. The v7.1x-v7.8x plateau was by
+Phase 7 looks flat through v3.1.0 and then jumps. The v3.0.0-v3.1.0 plateau was by
 design: six of those eight entries are correctness changes -- refreshed data,
 corrected caps, contaminated rows removed, a semantic fill, honest ceilings, four
-rows re-censored -- and two of them *lowered* the headline. v7.9x-v7.13x continue
+rows re-censored -- and two of them *lowered* the headline. v3.1.1-v3.2.2 continue
 that pattern (four filter/repair changes, one label fix, and a cleanup batch)
-but the compounding finally shows: v7.13x's B1 0.8342 was the highest forward R2
+but the compounding finally shows: v3.2.2's B1 0.8342 was the highest forward R2
 the project had recorded, and every point came from removing something wrong
 rather than adding modelling complexity.
 
-Phase 8 introduces a convention change (told-route numbers from v8.0x), the
-three-stage pipeline, and the first new feature since v6.2x. The correctness
+Phase 8 introduces a convention change (told-route numbers from v4.0.0), the
+three-stage pipeline, and the first new feature since v1.20.0. The correctness
 thread continues: seven of the last ten versions landed on a correctness argument
-rather than a metric win, and several did not clear t > 2: v7.9x (common-row A1
--0.0009), v7.13x (t = 0.08), v8.0x (t = 1.11), v8.1x, and the missingness
-repair inside v8.2x (t = 1.10). The standing rule these encode: **a wrong fact
+rather than a metric win, and several did not clear t > 2: v3.1.1 (common-row A1
+-0.0009), v3.2.2 (t = 0.08), v4.0.0 (t = 1.11), v4.0.1, and the missingness
+repair inside v4.1.0 (t = 1.10). The standing rule these encode: **a wrong fact
 is repaired on correctness; a suboptimal parameter must clear the gate.**
-v8.8x is the other kind: four fitted parameters, so it had to clear the gate
+v4.4.0 is the other kind: four fitted parameters, so it had to clear the gate
 where it acts, and did (+$0.201M eligible-type MAE, t +2.48; A1 paired t +5.25).
-v8.14x's KF hyperparameter tuning is the same kind — Q_FLOOR is a fitted
+v5.3.0's KF hyperparameter tuning is the same kind — Q_FLOOR is a fitted
 parameter, and the three-round sweep plus 10-seed validation (A1 +0.0088,
-t = 3.02) clears the gate cleanly. v8.15x returns to the correctness rule: it
+t = 3.02) clears the gate cleanly. v5.3.1 returns to the correctness rule: it
 changes only which inference rows receive the already-adopted KF feature and
 proves the evaluation frame is bit-identical.
 
@@ -1808,23 +1883,23 @@ pages, 4 stretched dead-money salaries filed as signed contracts, and a
 minimum-contract convention mixing paid and cap-charge values across seasons
 -- all closed or under active correction.
 
-v7.10x's `prev_cap_pct` repair (+0.0135, t 7.6) is the largest single paired
+v3.1.2's `prev_cap_pct` repair (+0.0135, t 7.6) is the largest single paired
 gain in the project's recent history -- repairing the #2 feature on the largest
-season's rows. v7.12x's max-zone MAE drop (6.18 -> 4.44) is the largest zone
+season's rows. v3.2.1's max-zone MAE drop (6.18 -> 4.44) is the largest zone
 improvement, from relabelling 12 genuine maxes the award path had mis-tiered.
-v8.0x continues that zone improvement (4.30 -> 3.18 with the push + Stage 3)
-and v8.2x's B1 0.8528 sets the forward-R2 high-water mark.
+v4.0.0 continues that zone improvement (4.30 -> 3.18 with the push + Stage 3)
+and v4.1.0's B1 0.8528 sets the forward-R2 high-water mark.
 
 ## Notes
 
 **R² comparability**: three boundaries in this table are not crossable.
-Phase 1–2 (v1.0–v3.5x) versus Phase 3+ (v4.0+) differ in training filters and
-leaked features — the apparent v3.5x 0.866 → v4.0 0.645 drop is that, not a
+Phase 1–2 (v0.0.0–v1.10.0) versus Phase 3+ (v1.10.1+) differ in training filters and
+leaked features — the apparent v1.10.0 0.866 → v1.10.1 0.645 drop is that, not a
 regression. Phase 7 versus everything before it differs in both the row set and
 the target values for two seasons. R²'s denominator moves with the dataset, so
 **whenever a training filter changes, the comparison has to be run on a fixed
 evaluation set** rather than by reading two R² figures off this table.
 
-**Phase 2 leaked features**: `is_vet_min`, `is_mle_range`, `is_rookie_scale` are derived from the target variable (salary determines contract type). They gave large R² gains in training but are unknowable at prediction time. All removed in v4.0.
+**Phase 2 leaked features**: `is_vet_min`, `is_mle_range`, `is_rookie_scale` are derived from the target variable (salary determines contract type). They gave large R² gains in training but are unknowable at prediction time. All removed in v1.10.1.
 
-**v6.2x award design**: Step decay [1, 0.85, 0.65, 0.4, 0.1] outperforms exp decay (0.85/yr) and no-decay across all data sources. Filtering to 2017+ removes noisy older data. All-Star selections add noise (−0.0014 CV); team awards (All-NBA, All-Defensive, All-Rookie) and individual awards are the useful signal.
+**v1.20.0 award design**: Step decay [1, 0.85, 0.65, 0.4, 0.1] outperforms exp decay (0.85/yr) and no-decay across all data sources. Filtering to 2017+ removes noisy older data. All-Star selections add noise (−0.0014 CV); team awards (All-NBA, All-Defensive, All-Rookie) and individual awards are the useful signal.

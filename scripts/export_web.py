@@ -161,9 +161,9 @@ SIGNING_LABELS = {
 
 
 def _model_version() -> str | None:
-    """The vN.Mx tag this export was built from, via `git describe`.
+    """The version tag this export was built from, via `git describe`.
 
-    Returns e.g. "v8.10x" on a tagged commit, or "v8.10x+3" three commits past
+    Returns e.g. "v5.3.3" on a tagged commit, or "v5.3.3+3" three commits past
     one — the "+N" is deliberate, so a site built from an untagged working
     state cannot silently claim to be the released version. None if the repo
     has no tags or git is unavailable, in which case the site falls back to the
