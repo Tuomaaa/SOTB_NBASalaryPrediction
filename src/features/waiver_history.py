@@ -24,6 +24,25 @@ def money_owed(waivers: pd.DataFrame) -> float:
     return float(waivers["tx_text"].astype(str).str.contains(MONEY_OWED).any())
 
 
+def since_last_signing(waivers: pd.DataFrame, player_tx: pd.DataFrame,
+                       before) -> pd.DataFrame:
+    """Waivers after the player's last signing before `before` (ISSUES #59).
+
+    The feature describes how the previous contract ended. A contract signed
+    after a waiver has already re-priced the player, so that waiver no longer
+    describes the previous contract.
+    """
+    if waivers.empty:
+        return waivers
+    signed = player_tx[player_tx["event_type"].eq("signed")
+                       & player_tx["transaction_date"].notna()
+                       & (player_tx["transaction_date"] < before)]
+    if signed.empty:
+        return waivers
+    last = signed["transaction_date"].max()
+    return waivers[waivers["transaction_date"] > last]
+
+
 def classify_transaction(text: str) -> str:
     """Classify the transaction types needed by the waiver feature."""
     low = str(text).strip().lower()
@@ -142,14 +161,17 @@ def _resolve_waiver_no_signing(
 ) -> tuple[float, pd.Timestamp | None, str | None, float] | None:
     """Try to resolve waiver status when signing date is unknown.
 
-    Uses conservative season-based date windows.  For season X the signing
-    happened roughly July–October of year X-1, so the 365-day lookback
-    spans roughly July of year X-2 to October of year X-1.
+    Uses conservative season-based date windows.  A season-X signing happens
+    roughly July–October of year X (`signing_season`), so the 365-day lookback
+    spans roughly July of year X-1 to October of year X (ISSUES #58: the
+    windows previously sat one year early).
 
     Three outcomes:
     - No waiver events at all → (0.0, None, None, 0.0)   (definitively not waived)
     - All waivers outside the widest possible window → (0.0, None, None, 0.0)
     - A waiver clearly inside the tightest window    → (1.0, date, text, owed)
+      unless a signing between it and July 1 of year X re-priced the player,
+      which gives (0.0, None, None, 0.0) (ISSUES #59)
     - Ambiguous (waiver between tight and wide)      → None  (leave unknown)
 
     `owed` is `money_owed` over every waiver in the tight window.
@@ -157,8 +179,8 @@ def _resolve_waiver_no_signing(
     The wide window brackets the earliest-possible lookback start (signing
     on July 1, lookback starts July 1 of the prior year) through the latest
     plausible signing date (Oct 25).  The tight window is the intersection of
-    every possible 365-day lookback: Oct 25 of year X-2 through July 1 of
-    year X-1.  A waiver in the tight window is inside any possible lookback;
+    every possible 365-day lookback: Oct 25 of year X-1 through July 1 of
+    year X.  A waiver in the tight window is inside any possible lookback;
     one outside the wide window is outside every possible lookback; one in
     between depends on the exact signing date we don't have.
     """
@@ -170,8 +192,8 @@ def _resolve_waiver_no_signing(
         return (0.0, None, None, 0.0)
 
     # Wide window: earliest possible lookback start → latest possible signing
-    wide_start = pd.Timestamp(f"{season - 2}-07-01")
-    wide_end = pd.Timestamp(f"{season - 1}-10-25")
+    wide_start = pd.Timestamp(f"{season - 1}-07-01")
+    wide_end = pd.Timestamp(f"{season}-10-25")
     in_wide = waivers[
         (waivers["transaction_date"] >= wide_start)
         & (waivers["transaction_date"] <= wide_end)
@@ -180,13 +202,16 @@ def _resolve_waiver_no_signing(
         return (0.0, None, None, 0.0)
 
     # Tight window: inside every possible 365-day lookback
-    tight_start = pd.Timestamp(f"{season - 2}-10-25")
-    tight_end = pd.Timestamp(f"{season - 1}-07-01")
+    tight_start = pd.Timestamp(f"{season - 1}-10-25")
+    tight_end = pd.Timestamp(f"{season}-07-01")
     in_tight = waivers[
         (waivers["transaction_date"] >= tight_start)
         & (waivers["transaction_date"] <= tight_end)
     ]
     if not in_tight.empty:
+        in_tight = since_last_signing(in_tight, player_tx, tight_end)
+        if in_tight.empty:
+            return (0.0, None, None, 0.0)
         hit = in_tight.sort_values("transaction_date").iloc[-1]
         return (1.0, hit["transaction_date"], hit["tx_text"],
                 money_owed(in_tight))
@@ -203,7 +228,9 @@ def attach_waiver_history(
 ) -> pd.DataFrame:
     """Attach whether a waiver occurred in the year before the current signing.
 
-    is_waived is 1/0 only when both the player's transaction page and the
+    is_waived is 1 when a waiver in the lookback falls after the player's
+    last signing before this one (`since_last_signing`), so it describes how
+    the previous contract ended. It is 1/0 only when both the player's transaction page and the
     signing date that prices the row are observed. It stays NaN otherwise.
     is_waived_known makes that source coverage explicit and is kept for the
     required coverage-control evaluation. prior_waiver_owed is 1 when any
@@ -311,6 +338,7 @@ def attach_waiver_history(
             prior["transaction_date"]
             >= signing - pd.Timedelta(days=lookback_days)
         ]
+        prior = since_last_signing(prior, tx_by_player[player], signing)
         out.at[i, "is_waived"] = float(not prior.empty)
         out.at[i, "prior_waiver_owed"] = (money_owed(prior)
                                           if not prior.empty else 0.0)
@@ -386,6 +414,8 @@ def attach_waiver_status_as_of(
             & (rows["transaction_date"] <= cutoff)
             & (rows["transaction_date"] >= start)
         ]
+        prior = since_last_signing(prior, rows,
+                                   cutoff + pd.Timedelta(days=1))
         out.at[i, "is_waived"] = float(not prior.empty)
         out.at[i, "prior_waiver_owed"] = (money_owed(prior)
                                           if not prior.empty else 0.0)

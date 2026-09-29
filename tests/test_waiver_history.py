@@ -216,6 +216,59 @@ class WaiverHistoryTests(unittest.TestCase):
             self.assertEqual(money_owed(pd.DataFrame({"tx_text": [text]})),
                              owed, text)
 
+    def test_resolve_no_signing_window_follows_signing_season(self):
+        """ISSUES #58: a waiver two summers before a season-X signing is out."""
+        player_tx = pd.DataFrame([{
+            "player_name_norm": "old", "event_type": "waived",
+            "transaction_date": pd.Timestamp("2022-03-01"),
+            "tx_text": "Waived by Brooklyn (BRK)",
+        }])
+        self.assertEqual(_resolve_waiver_no_signing(player_tx, 2023)[0], 0.0)
+        self.assertEqual(_resolve_waiver_no_signing(player_tx, 2022)[0], 1.0)
+
+    def test_resolve_no_signing_waiver_already_repriced(self):
+        """ISSUES #59: a signing after the waiver re-priced the player."""
+        player_tx = pd.DataFrame([
+            {"player_name_norm": "p", "event_type": "waived",
+             "transaction_date": pd.Timestamp("2023-02-01"),
+             "tx_text": "Waived by Utah (UTA) - agreed to buyout"},
+            {"player_name_norm": "p", "event_type": "signed",
+             "transaction_date": pd.Timestamp("2023-02-10"),
+             "tx_text": "Signed a Rest-of-Season contract"},
+        ])
+        self.assertEqual(_resolve_waiver_no_signing(player_tx, 2023),
+                         (0.0, None, None, 0.0))
+
+    def test_waiver_before_an_intervening_contract_is_stale(self):
+        """ISSUES #59: cut, re-signed elsewhere, then a new deal a year on."""
+        frame = pd.DataFrame([
+            {"player_name_norm": "okogie", "season": 2025, "salary": 2_300_000},
+            {"player_name_norm": "okogie", "season": 2026, "salary": 6_000_000},
+        ])
+        base = {"player_name_norm": "okogie", "contract_years": 1,
+                "is_extension": 0, "contract_class": "standard",
+                "fa_year_matched": np.nan, "match_confidence": "exact",
+                "tx_text": "Signed"}
+        signings = pd.DataFrame([
+            {**base, "signing_date": "2025-07-22", "signing_season": 2025,
+             "total_value": 2_300_000, "team": "HOU"},
+            {**base, "signing_date": "2026-07-09", "signing_season": 2026,
+             "contract_years": 2, "total_value": 12_000_000, "team": "UTA"},
+        ])
+        events = pd.DataFrame([
+            {"player_name_norm": "okogie", "transaction_date": "2025-07-15",
+             "event_type": "waived", "tx_text": "Waived by Charlotte (CHA)"},
+            {"player_name_norm": "okogie", "transaction_date": "2025-07-22",
+             "event_type": "signed", "tx_text": "Signed with Houston (HOU)"},
+            {"player_name_norm": "okogie", "transaction_date": "2026-07-09",
+             "event_type": "signed", "tx_text": "Signed with Utah (UTA)"},
+        ])
+
+        result = attach_waiver_history(frame, events, signings)
+
+        self.assertEqual(result["is_waived"].tolist(), [1.0, 0.0])
+        self.assertEqual(result["is_waived_known"].tolist(), [1.0, 1.0])
+
     def test_resolve_no_signing_no_waivers(self):
         """Player with transaction page but zero waiver events -> not waived."""
         player_tx = pd.DataFrame([{
@@ -241,10 +294,14 @@ class WaiverHistoryTests(unittest.TestCase):
         self.assertEqual(result[0], 0.0)
 
     def test_resolve_no_signing_waiver_in_tight_window(self):
-        """Waiver clearly inside every possible lookback -> waived."""
+        """Waiver clearly inside every possible lookback -> waived.
+
+        A season-2023 signing falls in July-October 2023 (ISSUES #58), so a
+        March 2023 waiver is inside every possible 365-day lookback.
+        """
         player_tx = pd.DataFrame([{
             "player_name_norm": "recent_waiver",
-            "transaction_date": pd.Timestamp("2022-03-01"),
+            "transaction_date": pd.Timestamp("2023-03-01"),
             "event_type": "waived",
             "tx_text": "Waived by Brooklyn (BRK)",
         }])
@@ -255,9 +312,9 @@ class WaiverHistoryTests(unittest.TestCase):
 
     def test_resolve_no_signing_waiver_ambiguous(self):
         """Waiver between tight and wide window -> None (leave unknown)."""
-        # Season 2023: wide window July 2021 - Oct 2022
-        # Tight window: Oct 2021 - July 2022
-        # A waiver in Aug 2022 is in wide but not tight -> ambiguous
+        # Season 2023 (signing July-October 2023): wide window July 2022 -
+        # Oct 2023, tight window Oct 2022 - July 2023. A waiver in Aug 2022
+        # is in wide but not tight -> ambiguous
         player_tx = pd.DataFrame([{
             "player_name_norm": "ambiguous",
             "transaction_date": pd.Timestamp("2022-08-15"),
