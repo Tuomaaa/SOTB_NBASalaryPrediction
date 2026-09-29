@@ -1790,7 +1790,8 @@ layer A is scored on ten fold partitions instead of one, and the frame changed.
 | v6.0.1 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | SHAME. Waiver fallback anchors on the first signing not cut before opening night; no published number moves |
 | v6.0.2 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | SHAME. Ring-chasing discount rejected; oracle diagnostics locate the failure in the concept |
 | v6.0.3 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | SHAME. Partially linear waiver term not adopted (selection t = +0.19); three failure mechanisms define the next arm |
-| **v6.0.4** | **XGBoost (Grabit v4)** | **0.8529** | **0.8565** | **0.8288** | **885** | **21** | **SHAME. KF anchor re-priced at in-season signings, the market's last observed price** |
+| v6.0.4 | XGBoost (Grabit v4) | 0.8529 | 0.8565 | 0.8288 | 885 | 21 | SHAME. KF anchor re-priced at in-season signings, the market's last observed price |
+| **v6.0.5** | **XGBoost (Grabit v4)** | **0.8527** | **0.8561** | **0.8293** | **885** | **21** | **SHAME. No-signing waiver window moved to the season convention (ISSUES #58)** |
 
 ### v6.0.0: repeated grouped CV and the completed Spotrac migration
 
@@ -1965,6 +1966,44 @@ Also recorded after v6.0.3, all rejected on their gates:
 Each Stage-1 training-set change moved other rows.
 
 Verification: `pytest` passes 84/84, including `tests/test_kf_reprice.py`.
+
+### v6.0.5: no-signing waiver window year (ISSUES #58)
+
+Rows without a signing date resolve `is_waived` in
+`_resolve_waiver_no_signing`. That function bracketed a season-X signing in
+July-October of year X-1, but `signing_season` puts it in year X. Both
+windows now follow the season convention.
+
+In the evaluation frame:
+
+- Enes Freedom 2019 and Goga Bitadze 2023 change from 0 to 1.
+- Brandon Williams 2025 and Joakim Noah 2020 change from unknown to 0.
+  Unknown was already median-filled to 0, so these two features do not move.
+
+The tests that encoded the shifted window are corrected.
+
+| Metric | v6.0.5 |
+|---|---:|
+| A1 pooled CV R2 | **0.8527** |
+| A2 2024-26 CV R2 | **0.8561** |
+| B1 rolling-origin R2 | **0.8293** |
+| B1 2024 / 2025 / 2026 | 0.8635 / 0.8097 / 0.8037 |
+| MAE | $2.60M |
+| Calibration slope | 0.961 |
+| Seed sd | 0.0074 |
+
+Deployed k=20 signing offsets:
+
+| Route | Offset |
+|---|---:|
+| Bird Rights | +0.01526 |
+| Cap Space | +0.00879 |
+| Early Bird | +0.00502 |
+| Non-Bird | -0.00559 |
+
+The offset harness still omits `kf_market_value` (ISSUES #60).
+
+Verification: `pytest` passes 85/85.
 
 ### Corrections to earlier findings
 

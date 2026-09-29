@@ -17,6 +17,7 @@ refer to them by number.
   case.
 - #35: fixed player-to-fold hash for repeated grouped CV, landed in v6.0.0.
 - #55: one-year rule for the minimum cap charge, landed in v5.3.3.
+- #58: no-signing waiver window year, landed in v6.0.5.
 
 ## 4. Three signing-mechanism labels remain unknown
 
@@ -453,33 +454,6 @@ those rows. Test it as a paired change on the affected rows.
 
 **Done:** Flagged rows use a representative season, and the paired gate on
 them is reported.
-
-## 58. The no-signing waiver window is one season early
-
-**Severity:** low. Two evaluation-frame feature values change.
-
-**Problem:** Rows without a signing date resolve `is_waived` in
-`_resolve_waiver_no_signing`. For season X, that function brackets the signing
-in July-October of year X-1. The project's season convention puts a season-X
-signing in July of year X (`signing_season(2025-07-22) == 2025`), so both
-windows read one year early. Among the 35 evaluation-frame rows resolved this
-way:
-
-- Enes Freedom 2019 and Goga Bitadze 2023 change from 0 to 1.
-- Brandon Williams 2025 and Joakim Noah 2020 change from unknown to 0.
-
-The tests in `tests/test_waiver_history.py` encode the shifted window.
-
-**Reproduce:** Call `_resolve_waiver_no_signing(player_tx, X)` and
-`_resolve_waiver_no_signing(player_tx, X + 1)` for every row that
-`attach_waiver_history` resolves without a signing date, and compare.
-
-**Fix:** Move the wide window to July 1 of X-1 through October 25 of X, and
-the tight window to October 25 of X-1 through July 1 of X. Update the three
-resolution tests, patch the waiver columns, and rerun the suite.
-
-**Done:** The windows follow `signing_season`, the tests pass, and the
-number-moving change has a version entry.
 
 ## 59. `is_waived` stays on after the market has re-priced the player
 
