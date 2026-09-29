@@ -58,7 +58,7 @@ parameter. On the latent, before push and clip, saturation falls out of the
 existing clip instead of corrupting the estimate.
 
 Usage:
-    python scripts/eval_ringchase_gated.py --seeds 3 [--gate earnings]
+    python scripts/eval_ringchase_gated.py --seeds 3 [--gate earnings|retire|continuous]
 """
 
 import argparse
@@ -149,12 +149,13 @@ def best_delta(latent, p, y, member, *, lo, hi, p_max, is_ext, ext_cap):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, default=3)
-    ap.add_argument("--gate", choices=["ringless", "earnings", "retire"],
+    ap.add_argument("--gate",
+                    choices=["ringless", "earnings", "retire", "continuous"],
                     default="ringless")
     args = ap.parse_args()
     global GATE_MODE, AGE_GRID, CIRC
     GATE_MODE = args.gate
-    if GATE_MODE == "retire":
+    if GATE_MODE in ("retire", "continuous"):
         AGE_GRID = RETIRE_GRID
         CIRC = ["career_earnings_thru_prev_cap_pct", "p_last_2y",
                 "rings_thru_prev"]
@@ -246,6 +247,38 @@ def main():
             pie, pec, ppr = cat("is_ext"), cat("ext_cap"), cat("p_ring")
             py, pdf = y[pool_idx], df.iloc[pool_idx]
 
+            if GATE_MODE == "continuous":
+                # No gate, no threshold, no shrinkage. The player gives up a
+                # share of what he is worth ABOVE the floor, in proportion to
+                # P(last contract): a near-minimum latent barely moves, so a
+                # declining role player the champion already prices low is
+                # left alone. delta is chosen on absolute error, because the
+                # squared-error choice ran to the grid edge on LeBron's row.
+                pp = pdf["p_last_2y"].values
+                best_raw, best_mae = 0.0, np.inf
+                for d in DELTA_GRID:
+                    lat = pl - d * pp * np.maximum(pl - plo, 0.0)
+                    pred = compose(lat, lo=plo, hi=phi, p_max=ppm,
+                                   is_extension=pie, ext_cap_pct=pec)
+                    mae = float(np.abs(pred - py).mean())
+                    if mae < best_mae:
+                        best_raw, best_mae = float(d), mae
+                delta = best_raw
+                chosen.append({"seed": seed, "fold": fi, "age": "continuous",
+                               "raw": best_raw, "delta": delta,
+                               "pool_n": len(py)})
+                pv_ = df.iloc[rec["va"]]["p_last_2y"].values
+                lat = rec["latent"] - delta * pv_ * np.maximum(
+                    rec["latent"] - rec["lo"], 0.0)
+                cand = compose(lat, lo=rec["lo"], hi=rec["hi"],
+                               p_max=rec["p_max"], is_extension=rec["is_ext"],
+                               ext_cap_pct=rec["ext_cap"])
+                cand_acc[rec["va"]] += cand
+                va, s = rec["va"], sel[rec["va"]]
+                rows.append({"champ": r2_score(y[va][s], rec["champ"][s]),
+                             "cand": r2_score(y[va][s], cand[s])})
+                continue
+
             best_age, best_score, best_raw = AGE_GRID[0], -np.inf, 0.0
             for a in AGE_GRID:
                 mem = gate(pdf, a, p75)
@@ -291,7 +324,12 @@ def main():
                                 mean_delta=("delta", "mean")).to_string())
 
     moved = np.abs(cand_oof - champ_oof) > 1e-12
-    mem_all = gate(df, ch["age"].mode().iloc[0], p75)
+    if GATE_MODE == "continuous":
+        at_edge = int((ch["raw"] >= DELTA_GRID[-1] - 1e-9).sum())
+        print(f"delta at the grid edge in {at_edge} of {len(ch)} pools")
+        mem_all = moved
+    else:
+        mem_all = gate(df, ch["age"].mode().iloc[0], p75)
     print(f"\nmoved {int(moved.sum())} rows; modal gate n = {int(mem_all.sum())}")
     print(f"bit-identity outside modal gate: "
           f"{'PASS' if not (moved & ~mem_all).any() else 'FAIL'}")

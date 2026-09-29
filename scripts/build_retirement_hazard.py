@@ -5,7 +5,8 @@ chance to win (LeBron James 2026, Chris Paul 2025, Stephen Curry's 2026
 extension). The quantity is the belief at signing, so it is estimated from
 completed careers that were already over before the evaluation seasons begin.
 
-The hazard h(age, BPM, minutes, games) = P(season T is the player's last) is
+The hazard h(age, BPM, BPM trend, minutes, games) = P(season T is the
+player's last) is
 fitted on Basketball Reference seasons 1997-2016 only, with retirement read
 from seasons up to 2018. Nothing from 2019 onward enters the fit, so every
 evaluation row (2019-2026) is scored by a model frozen before it.
@@ -14,7 +15,7 @@ A row priced after season S describes a signing for S+1 onward, so
 
     P(last contract within k seasons) = 1 - prod_{j=1..k} (1 - h(age + j, x))
 
-with the player's season-S BPM, minutes and games held fixed.
+with the player's season-S BPM, trend, minutes and games held fixed.
 
 Writes `data/processed/retirement_hazard.csv`: player_name_norm, season,
 p_last_1y, p_last_2y, p_last_3y for every `advanced_stats.csv` player-season.
@@ -42,9 +43,10 @@ OUT = PROCESSED_DIR / "retirement_hazard.csv"
 FIT_LAST_SEASON = 2016       # fit rows
 LABEL_LAST_SEASON = 2018     # retirement is read from seasons up to here
 MIN_FIT_AGE = 26
-FEATURES = ["age", "bpm_s", "mpg", "games"]
-# Age raises the hazard; quality, role and availability lower it.
-MONOTONE = [1, -1, -1, -1]
+FEATURES = ["age", "bpm_s", "d_bpm", "mpg", "games"]
+# Age raises the hazard; quality, its trend, role and availability lower it.
+# d_bpm separates a stable veteran from one in decline at the same level.
+MONOTONE = [1, -1, -1, -1, -1]
 # BPM is shrunk toward replacement level (-2) with a 500-minute prior, so a
 # 60-minute cameo does not read as a star.
 BPM_PRIOR, PRIOR_MIN = -2.0, 500.0
@@ -67,7 +69,20 @@ def player_seasons(df: pd.DataFrame) -> pd.DataFrame:
     df["mpg"] = df["minutes"] / df["games"].clip(lower=1)
     df["bpm_s"] = ((df["bpm"] * df["minutes"] + BPM_PRIOR * PRIOR_MIN)
                    / (df["minutes"] + PRIOR_MIN))
-    return df.dropna(subset=["age", "minutes", "games", "bpm"])
+    df = df.dropna(subset=["age", "minutes", "games", "bpm"])
+    return add_trend(df)
+
+
+def add_trend(df: pd.DataFrame) -> pd.DataFrame:
+    """d_bpm: change in shrunk BPM from the player's previous season.
+
+    A first season, or a gap of more than one season, has no trend and reads 0.
+    """
+    df = df.sort_values(["player_url", "season"]).copy()
+    prev = df.groupby("player_url")[["season", "bpm_s"]].shift(1)
+    consecutive = prev["season"].eq(df["season"] - 1)
+    df["d_bpm"] = np.where(consecutive, df["bpm_s"] - prev["bpm_s"], 0.0)
+    return df
 
 
 def fit_hazard(history: pd.DataFrame) -> HistGradientBoostingClassifier:
@@ -99,7 +114,11 @@ def main() -> None:
     """Fit on history, score every current player-season, write the table."""
     history = player_seasons(pd.read_csv(HISTORY))
     model = fit_hazard(history)
-    cur = player_seasons(pd.read_csv(CURRENT))
+    # Score 2019+ rows with a trend that can reach back into 2018.
+    both = pd.concat([pd.read_csv(HISTORY), pd.read_csv(CURRENT)],
+                     ignore_index=True)
+    cur = player_seasons(both)
+    cur = cur[cur["season"] >= 2019]
     out = pd.DataFrame({
         "player_name_norm": cur["player"].map(_norm),
         "season": cur["season"].astype(int),

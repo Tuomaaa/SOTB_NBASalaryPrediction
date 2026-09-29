@@ -48,6 +48,19 @@ The earnings-only gain is LeBron James 2026 alone; 23 of 50 moved rows get
 worse (Butler 2023 -$6.3M, Durant 2026 -$6.1M, Paul 2021 -$5.9M). Absolute
 age cannot separate discounters from full-price veterans.
 
+- Pre-registered 2026-09-29, before any result: the final arm is
+  `--gate continuous`: latent - delta * p_last_2y * (latent - floor), no gate,
+  no threshold, no shrinkage, delta chosen on absolute error in pool over
+  0-3.0. The hazard is v2 (age, BPM, BPM trend, minutes, games; frozen on
+  1997-2016). It is adopted only if, at 10 seeds on the rebuilt frame, paired
+  dSel t > 2, delta is interior in most pools, A1 without LeBron James 2026
+  improves, and C2 passes. Otherwise all ring-chase shapes are rejected and
+  no further shape is tried.
+- Screens so far (3 seeds): the hard retire gate reached t = +2.74 with delta
+  capped at 1.5, but with the cap at 3.0 delta ran to the edge in every pool,
+  t fell to +1.74 and moved rows split 14 better, 14 worse. The gate mixed
+  valuable veterans near the end (LeBron, Horford 2025) with declining role
+  players the champion already under-prices (Covington 2023, Paul 2024).
 - Next: gate on the probability that this is the player's last contract,
   estimated as P(retire within 1-2 years | age, BPM, minutes) and fitted on
   completed careers. Scrape
