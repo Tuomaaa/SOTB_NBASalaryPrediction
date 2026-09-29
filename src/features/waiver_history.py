@@ -142,9 +142,10 @@ def _resolve_waiver_no_signing(
 ) -> tuple[float, pd.Timestamp | None, str | None, float] | None:
     """Try to resolve waiver status when signing date is unknown.
 
-    Uses conservative season-based date windows.  For season X the signing
-    happened roughly July–October of year X-1, so the 365-day lookback
-    spans roughly July of year X-2 to October of year X-1.
+    Uses conservative season-based date windows.  A season-X signing happens
+    roughly July–October of year X (`signing_season`), so the 365-day lookback
+    spans roughly July of year X-1 to October of year X (ISSUES #58: the
+    windows previously sat one year early).
 
     Three outcomes:
     - No waiver events at all → (0.0, None, None, 0.0)   (definitively not waived)
@@ -157,8 +158,8 @@ def _resolve_waiver_no_signing(
     The wide window brackets the earliest-possible lookback start (signing
     on July 1, lookback starts July 1 of the prior year) through the latest
     plausible signing date (Oct 25).  The tight window is the intersection of
-    every possible 365-day lookback: Oct 25 of year X-2 through July 1 of
-    year X-1.  A waiver in the tight window is inside any possible lookback;
+    every possible 365-day lookback: Oct 25 of year X-1 through July 1 of
+    year X.  A waiver in the tight window is inside any possible lookback;
     one outside the wide window is outside every possible lookback; one in
     between depends on the exact signing date we don't have.
     """
@@ -170,8 +171,8 @@ def _resolve_waiver_no_signing(
         return (0.0, None, None, 0.0)
 
     # Wide window: earliest possible lookback start → latest possible signing
-    wide_start = pd.Timestamp(f"{season - 2}-07-01")
-    wide_end = pd.Timestamp(f"{season - 1}-10-25")
+    wide_start = pd.Timestamp(f"{season - 1}-07-01")
+    wide_end = pd.Timestamp(f"{season}-10-25")
     in_wide = waivers[
         (waivers["transaction_date"] >= wide_start)
         & (waivers["transaction_date"] <= wide_end)
@@ -180,8 +181,8 @@ def _resolve_waiver_no_signing(
         return (0.0, None, None, 0.0)
 
     # Tight window: inside every possible 365-day lookback
-    tight_start = pd.Timestamp(f"{season - 2}-10-25")
-    tight_end = pd.Timestamp(f"{season - 1}-07-01")
+    tight_start = pd.Timestamp(f"{season - 1}-10-25")
+    tight_end = pd.Timestamp(f"{season}-07-01")
     in_tight = waivers[
         (waivers["transaction_date"] >= tight_start)
         & (waivers["transaction_date"] <= tight_end)

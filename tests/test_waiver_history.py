@@ -240,11 +240,25 @@ class WaiverHistoryTests(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result[0], 0.0)
 
+    def test_resolve_no_signing_window_follows_signing_season(self):
+        """ISSUES #58: a waiver two springs before a season-X signing is out."""
+        player_tx = pd.DataFrame([{
+            "player_name_norm": "old", "event_type": "waived",
+            "transaction_date": pd.Timestamp("2022-03-01"),
+            "tx_text": "Waived by Brooklyn (BRK)",
+        }])
+        self.assertEqual(_resolve_waiver_no_signing(player_tx, 2023)[0], 0.0)
+        self.assertEqual(_resolve_waiver_no_signing(player_tx, 2022)[0], 1.0)
+
     def test_resolve_no_signing_waiver_in_tight_window(self):
-        """Waiver clearly inside every possible lookback -> waived."""
+        """Waiver clearly inside every possible lookback -> waived.
+
+        A season-2023 signing falls in July-October 2023 (ISSUES #58), so a
+        March 2023 waiver is inside every possible 365-day lookback.
+        """
         player_tx = pd.DataFrame([{
             "player_name_norm": "recent_waiver",
-            "transaction_date": pd.Timestamp("2022-03-01"),
+            "transaction_date": pd.Timestamp("2023-03-01"),
             "event_type": "waived",
             "tx_text": "Waived by Brooklyn (BRK)",
         }])
@@ -255,9 +269,9 @@ class WaiverHistoryTests(unittest.TestCase):
 
     def test_resolve_no_signing_waiver_ambiguous(self):
         """Waiver between tight and wide window -> None (leave unknown)."""
-        # Season 2023: wide window July 2021 - Oct 2022
-        # Tight window: Oct 2021 - July 2022
-        # A waiver in Aug 2022 is in wide but not tight -> ambiguous
+        # Season 2023 (signing July-October 2023): wide window July 2022 -
+        # Oct 2023, tight window Oct 2022 - July 2023. A waiver in Aug 2022
+        # is in wide but not tight -> ambiguous
         player_tx = pd.DataFrame([{
             "player_name_norm": "ambiguous",
             "transaction_date": pd.Timestamp("2022-08-15"),
