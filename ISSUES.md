@@ -4,8 +4,8 @@ This file contains active defects only. Each issue must include a problem,
 reproduction, fix, and completion check. Delete fixed entries and record the
 landed change in `VERSION_HISTORY.md`.
 
-Issue numbers are permanent. The highest assigned number is 57, so the next
-issue is 58. Keep entries in numeric order because code and historical reports
+Issue numbers are permanent. The highest assigned number is 59, so the next
+issue is 60. Keep entries in numeric order because code and historical reports
 refer to them by number.
 
 ## Retired references still used in code
@@ -453,3 +453,64 @@ those rows. Test it as a paired change on the affected rows.
 
 **Done:** Flagged rows use a representative season, and the paired gate on
 them is reported.
+
+## 58. The no-signing waiver window is one season early
+
+**Severity:** low. Two evaluation-frame feature values change.
+
+**Problem:** Rows without a signing date resolve `is_waived` in
+`_resolve_waiver_no_signing`. For season X, that function brackets the signing
+in July-October of year X-1. The project's season convention puts a season-X
+signing in July of year X (`signing_season(2025-07-22) == 2025`), so both
+windows read one year early. Among the 35 evaluation-frame rows resolved this
+way:
+
+- Enes Freedom 2019 and Goga Bitadze 2023 change from 0 to 1.
+- Brandon Williams 2025 and Joakim Noah 2020 change from unknown to 0.
+
+The tests in `tests/test_waiver_history.py` encode the shifted window.
+
+**Reproduce:** Call `_resolve_waiver_no_signing(player_tx, X)` and
+`_resolve_waiver_no_signing(player_tx, X + 1)` for every row that
+`attach_waiver_history` resolves without a signing date, and compare.
+
+**Fix:** Move the wide window to July 1 of X-1 through October 25 of X, and
+the tight window to October 25 of X-1 through July 1 of X. Update the three
+resolution tests, patch the waiver columns, and rerun the suite.
+
+**Done:** The windows follow `signing_season`, the tests pass, and the
+number-moving change has a version entry.
+
+## 59. `is_waived` stays on after the market has re-priced the player
+
+**Severity:** medium. It affects half of the waived rows.
+
+**Problem:** `is_waived` is 1 when any waiver falls in the 365 days before the
+signing, even when another contract was signed in between. That contract has
+already re-priced the player. Of the 120 waived evaluation rows, 62 carry such
+a stale flag, including:
+
+- Josh Okogie 2026: cut 2025-07-15, a minimum with Houston, then the MLE
+  with Utah 359 days after the cut.
+- Marcus Smart 2026 and Andre Drummond 2021.
+
+On plain waivers above the floor, the champion under-predicts both groups:
+
+| Flag | Rows | Bias |
+|---|---:|---:|
+| Stale | 17 | -$1.62M |
+| Fresh | 12 | -$0.91M |
+
+Fresh money-owed waivers above the floor are over-predicted by $6.40M on
+8 rows.
+
+**Reproduce:** For each `is_waived == 1` row, look for a `signed` event
+between `prior_waiver_date` and July 1 of the row's season in
+`data/processed/spotrac_transactions.csv`. Group the champion OOF error in
+`outputs/models/oof_reference.csv` by that result.
+
+**Fix:** Define the flag as a waiver since the player's last signing. Test it
+as a feature change, and use the targeted gate on the rows whose value
+changes.
+
+**Done:** The fresh definition is adopted or rejected with paired metrics.
