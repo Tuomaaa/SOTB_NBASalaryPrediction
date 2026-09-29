@@ -108,6 +108,23 @@ def named_rows(df: pd.DataFrame, oof: np.ndarray) -> dict:
     return out
 
 
+def targeted_gate(df: pd.DataFrame, ref: np.ndarray, cand: np.ndarray,
+                  affected: np.ndarray) -> dict:
+    """Targeted gate: paired squared-error gain on affected selection rows.
+
+    Gains are summed per player (rows of one player are not independent) and
+    tested across players. See `docs/worker-brief.md`.
+    """
+    y = df["cap_pct"].values
+    m = affected & ~df["is_confirmation"].astype(bool).values
+    gain = (ref - y) ** 2 - (cand - y) ** 2
+    per = pd.Series(gain[m]).groupby(df["player_name_norm"].values[m]).sum()
+    se = per.std(ddof=1) / np.sqrt(len(per))
+    return {"rows": int(m.sum()), "players": int(len(per)),
+            "mean_gain": float(per.mean()), "t": float(per.mean() / se),
+            "share_improved": float((per > 0).mean())}
+
+
 def main() -> None:
     """Score the requested arms and report the paired gates."""
     ap = argparse.ArgumentParser()
@@ -208,10 +225,22 @@ def main() -> None:
         rows.append(line)
 
     print("\n" + "\n".join(rows))
+    waived = (pd.to_numeric(df["is_waived"], errors="coerce")
+              .fillna(0.0).values == 1.0)
     for name in names[1:]:
         e = report[name]
         ok = e["dSel"] >= DSEL_BAR and e["t"] > T_BAR and e["C2_growth_m"] <= C2_BAR
         print(f"  {name:16s} selection+C2 gate: {'PASS' if ok else 'FAIL'}")
+        tg = targeted_gate(df, ref["oof"], results[name]["oof"], waived)
+        e["targeted_waived"] = tg
+        b1_ok = (e["B1"] is None or ref["m"].get("B1_forward_r2") is None
+                 or e["B1"] - ref["m"]["B1_forward_r2"] >= 0)
+        ok_t = (tg["t"] > T_BAR and e["dSel"] > 0 and b1_ok
+                and e["C2_growth_m"] <= C2_BAR and e["C1_slope_gap"] <= 0.005)
+        print(f"  {name:16s} targeted (waived selection rows): "
+              f"{tg['rows']} rows / {tg['players']} players, t {tg['t']:+.2f}, "
+              f"improved {tg['share_improved']:.0%} -> "
+              f"{'PASS' if ok_t else 'FAIL'}")
 
     OUT.mkdir(parents=True, exist_ok=True)
     tag = "full" if args.full else "screen"

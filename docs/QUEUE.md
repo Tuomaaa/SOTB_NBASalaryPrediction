@@ -36,9 +36,13 @@ The 85 plain waivers have bias -$0.13M.
      champion fitter.
 - Run: `python scripts/eval_waiver_challengers.py --seeds 10 --full --arms
   incumbent owed_branch`.
-- Gate: the same as v6.0.3. Paired dSel >= +0.002 and t > 2 on selection
-  rows, B1 moves the same way, C2 growth <= $0.3M, and the C1 relative gap
-  <= 0.005. The canary is reported and does not decide.
+- Gate, amended 2026-09-29 at the user's direction while the incumbent arm
+  was still running and before any score: use the targeted gate in
+  `docs/worker-brief.md`. The affected rows are `is_waived == 1`
+  (13.6% of the frame). On the waived selection rows, the player-clustered
+  paired squared-error t must exceed 2. Pooled selection dSel must exceed 0.
+  B1 must move the same way, C2 growth must be <= $0.3M, and the C1 relative
+  gap must be <= 0.005. The canary is reported and does not decide.
 - Report the gamma distribution, the number of waived rows whose push the
   exclusion removes, and the named rows.
 - If the arm fails, record it and do not amend it. With 26 money-owed
