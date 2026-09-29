@@ -331,16 +331,57 @@ def oof_route_proba(df: pd.DataFrame, features: list[str],
 # Grabit latent (champion regression, exposed before the Stage-2 clip)
 # ---------------------------------------------------------------------------
 
+# Experiment log for the partially linear waiver term: one beta per fit.
+WAIVER_BETA_LOG: list[float] = []
+
+
+def waiver_z(frame: pd.DataFrame) -> np.ndarray:
+    """Above-floor market value of a waived player, 0 for everyone else."""
+    waived = pd.to_numeric(frame["is_waived"], errors="coerce").fillna(0.0)
+    above = np.maximum(frame["kf_market_value"].values
+                       - frame["floor_pct"].values, 0.0)
+    return waived.values * above
+
+
+def waiver_beta(train: pd.DataFrame, features: list[str], seed: int,
+                n_inner: int = 4) -> float:
+    """Share of above-floor value a waived player gives up, fitted in-slice.
+
+    Least squares through the origin of fold-honest residuals on waived rows:
+    a plain XGBoost is fitted on n_inner player-grouped inner folds, so no
+    residual comes from a model that saw its own player. Clipped to [-1, 0].
+    """
+    from xgboost import XGBRegressor
+    z = waiver_z(train)
+    w = z > 0
+    if w.sum() < 10:
+        return 0.0
+    y = train[TARGET].values
+    oof = np.zeros(len(train))
+    groups = train["player_name_norm"].values
+    for itr, iva in GroupKFold(n_splits=n_inner).split(train, y, groups):
+        m = XGBRegressor(**{**_XGB_BASE, "random_state": seed})
+        m.fit(train.iloc[itr][features], y[itr])
+        oof[iva] = m.predict(train.iloc[iva][features])
+    r = y - oof
+    beta = float((r[w] * z[w]).sum() / (z[w] ** 2).sum())
+    return float(np.clip(beta, -1.0, 0.0))
+
+
 def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                   seed: int, sigma: float = 0.02, gate_frac: float = 0.55,
                   floor_gate_k: float = 2.0, sigma_left: float | None = None,
-                  censor_c: float | None = None):
+                  censor_c: float | None = None, waiver_term: bool = False):
     """Champion Grabit v4 latent on `test`, plus the Stage-2 bounds (lo, hi).
 
     Byte-for-byte the same training path as evaluate_suite.make_grabit_fitter,
     but returns the UNCLIPPED latent so a route branch can act on it before the
     clip. Clipping the returned latent into [lo, hi] reproduces the champion
     fitter exactly (asserted in the eval harness).
+
+    `waiver_term` (experiment, off by default) makes Stage 1 partially linear:
+    latent = GBM(x) + beta * waiver_z, with beta from `waiver_beta` and the
+    term passed to the Grabit fit and prediction as base_margin.
     """
     from xgboost import XGBRegressor
 
@@ -363,8 +404,17 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                                 gate, sigma, left_mask=gate_l,
                                 sigma_left=sigma_left),
                             "base_score": float(y_tr.mean())})
-    model.fit(train[features], y_tr)
-    latent = model.predict(test[features])
+    if waiver_term:
+        beta = waiver_beta(train, features, seed)
+        WAIVER_BETA_LOG.append(beta)
+        b0 = float(y_tr.mean())
+        model.fit(train[features], y_tr,
+                  base_margin=b0 + beta * waiver_z(train))
+        latent = model.predict(test[features],
+                               base_margin=b0 + beta * waiver_z(test))
+    else:
+        model.fit(train[features], y_tr)
+        latent = model.predict(test[features])
     lo = (test["floor_pct"].values if "floor_pct" in test.columns
           else np.zeros(len(test)))
     hi = test["max_eligible_pct"].values
