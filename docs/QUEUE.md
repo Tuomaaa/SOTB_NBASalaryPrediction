@@ -82,8 +82,11 @@ Production includes `is_waived` and `mpg_x_waived`. Kemba Walker 2021 shows
 that the binary signal cannot describe a value-dependent discount after a
 buyout.
 
-- Audit each positive `is_waived` event against information available before
-  the signing date. Separate an ordinary waiver from a buyout re-signing.
+- The leakage audit is clean after the 2026-09-29 fallback correction (see
+  `VERSION_HISTORY.md`, v6.0.0). Still open: separate an ordinary waiver from a
+  buyout re-signing.
+- Confirm the patched waiver columns with a full local
+  `python scripts/rebuild_training_data.py`; `validate()` should pass.
 - Remeasure `is_waived` and `mpg_x_waived` on the v6.0.0 frame.
 - Add `kf_market_value_x_waived = is_waived * kf_market_value` as a challenger.
   Build this interaction inside each CV fold after nested KF inference.

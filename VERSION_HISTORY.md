@@ -1850,6 +1850,21 @@ Evidence: `src/model/evaluate_suite.py`, `scripts/build_merged_salaries.py`,
 `data/raw/raw_external/signing_offsets.json`, and
 `outputs/diagnostics/stage3_signing_offset_eval.csv`.
 
+**Data correction after v6.0.0 (2026-09-29, no version bump).** The waiver
+fallback for rows without a covering dated contract anchored on the season's
+latest signing, so an in-season waiver before a later 10-day deal entered the
+lookback, and a late anchor pushed real prior waivers out of the 365-day
+window. `_choose_fallback_signing` now takes the first signing not cut before
+opening night (`SEASON_OPENERS` in `src/features/waiver_history.py`). In
+`training_data_v2.csv`, Brandon Williams 2024 and Tim Frazier 2020 change from
+0 to 1; Taj Gibson 2023, James Johnson 2022 and 2023, DeMarcus Cousins 2020 and
+2021, and Mo Bamba 2025 keep 1 with the correct waiver date. None of the 8 rows
+changes an `is_waived` value in the 885-row evaluation frame, and the ten-seed
+suite reproduces `oof_reference.csv` byte for byte, so no published number
+moves. The waiver columns were patched with `attach_waiver_history` because
+stage 0 and stage 2 of `scripts/rebuild_training_data.py` need local-only
+inputs.
+
 ### Corrections to earlier findings
 
 - **The residual-by-salary-tier table reported in v2.0.0 was a statistical
