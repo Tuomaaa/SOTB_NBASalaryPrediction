@@ -10,69 +10,37 @@ work in `VERSION_HISTORY.md`.
 
 ### Improve the waiver features
 
-Production includes `is_waived` and `mpg_x_waived`; both stay (three-seed
-ablations t = -0.45 and -0.53). The partially linear term failed at v6.0.3.
-See `docs/briefs/2026-09-29-waiver-term.RESULT.md` for the three failure
-mechanisms. Only money-owed waivers are mispriced: 35 rows, bias +$2.52M.
-The 85 plain waivers have bias -$0.13M.
+Results through v6.0.5 are in `VERSION_HISTORY.md` (v6.0.3, v6.0.4) and
+`docs/briefs/2026-09-29-waiver-term.RESULT.md`. On the v6.0.5 frame, two
+waived groups are mispriced; bias is prediction minus actual:
 
-- `prior_waiver_owed` (landed 2026-09-29) scans every waiver in the lookback.
-  36 of the 120 waived evaluation rows owe money: 26 are in selection, 10 in
-  confirmation, and 24 sit at the floor.
-- `owed_branch` (2026-09-29) failed at 10 seeds. Money-owed rows dropped
-  from the Grabit fit and priced as `gamma * latent` (gamma mean 0.24) gave a
-  targeted t of +0.73 on waived selection rows. Money-owed rows improved (MAE
-  $2.93M to $0.98M; t +1.15 over 21 players). Plain waivers rose by $0.64M on
-  average (t -2.12): they had borrowed the waiver discount the tree learned
-  from money-owed floor rows. Keeping money-owed rows as right-censored rows
-  raised plain waivers further in a one-seed prediction check (+$0.86M).
-- Pre-registered 2026-09-29, before any score, as one arm `waived_branch`:
-  1. Stage 1 fits Grabit only on rows with `is_waived != 1`. `FEATURE_COLS`
-     is unchanged, and `is_waived` is constant in that fit.
-  2. Every waived row is priced as `gamma_g * latent`. There are two groups:
-     money-owed (`prior_waiver_owed == 1`) and plain.
-  3. Each gamma is a Tobit fit on that group's training rows, with at-floor
-     rows left-censored, bounded to [0, 1]. A group with fewer than 10
-     training rows keeps gamma = 1.
-  4. P(max) = 0 on waived rows. The rest is as `owed_branch`.
-  5. Run: `python scripts/eval_waiver_challengers.py --seeds 10 --full --arms
-     incumbent waived_branch`.
-  6. Gate: the targeted gate in `docs/worker-brief.md` on `is_waived == 1`,
-     with pooled selection dSel > 0, B1 in the same direction, C2 growth
-     <= $0.3M and a C1 gap <= 0.005.
-  7. If it fails, record it. Future signings are a monitor after adoption,
-     not a gate.
-- `waived_branch` (2026-09-29) failed at 10 seeds: targeted t +1.06, and
-  pooled selection dSel -0.0005. Money-owed rows improved again (MAE $2.93M
-  to $1.01M). Plain waivers were flat (MAE $1.02M), and non-waived rows
-  worsened (t -1.99). Every arm that changes the Stage-1 training set moves
-  other rows. Plain waivers are the best-priced group (MAE $1.01M against
-  $2.78M for the frame) and never improved in any arm.
-- Pre-registered 2026-09-29, before any score, as one arm `owed_adjust`:
-  1. Stage 1 is the incumbent fit, unchanged.
-  2. Only test rows with `prior_waiver_owed == 1` are changed, to
-     `gamma * latent`.
-  3. Gamma is a Tobit fit (at-floor rows left-censored, bounded to [0, 1]) on
-     the training money-owed rows. Their latent comes from a 4-fold
-     player-grouped inner OOF of the same Grabit fit, so it is out-of-sample,
-     like a test row's.
-  4. P(max) = 0 on money-owed rows only. This narrows the user's earlier
-     `is_waived` exclusion, so that plain waivers are untouched.
-  5. Before Stage 3, every other row must be bit-identical to the incumbent.
-     Stage-3 signing offsets can move slightly, because they average
-     residuals that include money-owed rows.
-  6. Affected rows: `prior_waiver_owed == 1`. Gate: the targeted gate in
-     `docs/worker-brief.md`, with pooled selection dSel > 0, B1 in the same
-     direction, C2 growth <= $0.3M and a C1 gap <= 0.005.
-  7. Report two sensitivity checks next to the gate, not as the gate. The
-     first drops the rows the user flags as special cases: Deandre Ayton
-     2025, Marcus Smart 2025 and Marcus Smart 2026. The second drops the two
-     largest-gain money-owed selection rows. The user may override a FAIL
-     through an ADR. That ADR must state the gate result.
-  8. Run: `python scripts/eval_waiver_challengers.py --seeds 10 --full --arms
-     incumbent owed_adjust`.
-- Complete when `owed_adjust` is adopted, rejected, or overridden through an
-  ADR.
+| Group | Rows | Bias | Driven by |
+|---|---:|---:|---|
+| Fresh money-owed waivers above the floor | 8 | +$7.2M | Lillard 2025, Walker 2021, Beal 2025 |
+| Stale plain waivers above the floor | 18 | -$1.77M | Okogie 2026 (89% under-predicted) |
+
+"Stale" means a contract was signed between the waiver and this signing.
+The tree applies a near-uniform waiver discount, which is too weak for stars
+and too strong for mid-priced players. Arms that change the Stage-1 training
+set moved other rows. Turning stale flags off (ISSUES #59) lowered A1.
+
+- Pre-registered 2026-09-29, before any score, as one arm
+  `waiver_term_noflag`:
+  1. Drop `is_waived` and `mpg_x_waived` from the regression (19 features).
+     The route classifier and the KF measurement model keep their lists.
+  2. `latent = GBM(x) + beta * is_waived * kf_market_value`. Beta is a Tobit
+     fit on 4-fold inner OOF residuals of the same 19-feature base, with
+     at-floor rows left-censored and beta bounded to [-1, 0]. It enters as
+     `base_margin`.
+  3. P(max) = 0 on waived rows.
+  4. Run: `python scripts/eval_waiver_challengers.py --seeds 10 --full --arms
+     incumbent waiver_term_noflag`.
+  5. Gate, set by the user: pooled selection dSel > 0, B1 moves the same way
+     (B1 change >= 0), C2 growth <= $0.3M, and C1 gap <= 0.005 must all pass.
+     The targeted t on waived selection rows is reported, not required.
+  6. If the arm fails, record it and do not amend it.
+- Complete when `waiver_term_noflag` is adopted or rejected with paired
+  metrics.
 - Still open: confirm the patched waiver columns with a full local
   `python scripts/rebuild_training_data.py`.
 

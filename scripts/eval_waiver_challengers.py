@@ -87,6 +87,9 @@ def arms() -> dict:
                                      "exclude_waived_max": True}),
         "waived_branch": (base, None, {"waived_branch": True,
                                        "exclude_waived_max": True}),
+        "waiver_term_noflag": (
+            [f for f in base if f not in ("is_waived", "mpg_x_waived")],
+            None, {"waiver_term": True, "exclude_waived_max": True}),
     }
 
 
@@ -261,6 +264,13 @@ def main() -> None:
               f"{tg['rows']} rows / {tg['players']} players, t {tg['t']:+.2f}, "
               f"improved {tg['share_improved']:.0%} -> "
               f"{'PASS' if ok_t else 'FAIL'}")
+        # Gate without the targeted t, set by the user for waiver_term_noflag.
+        ok_u = (e["dSel"] > 0 and b1_ok and e["C2_growth_m"] <= C2_BAR
+                and e["C1_slope_gap"] <= 0.005)
+        print(f"  {name:16s} dSel>0 + B1 + C2 + C1 gate (targeted t "
+              f"reported only): {'PASS' if ok_u else 'FAIL'}  "
+              f"[dSel {e['dSel']:+.5f}, B1 ok {b1_ok}, C2 "
+              f"{e['C2_growth_m']:+.3f}M, C1 gap {e['C1_slope_gap']:+.4f}]")
 
     OUT.mkdir(parents=True, exist_ok=True)
     tag = "full" if args.full else "screen"
