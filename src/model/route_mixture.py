@@ -426,7 +426,7 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                   seed: int, sigma: float = 0.02, gate_frac: float = 0.55,
                   floor_gate_k: float = 2.0, sigma_left: float | None = None,
                   censor_c: float | None = None, waiver_term: bool = False,
-                  owed_branch: bool = False):
+                  owed_branch: bool | str = False):
     """Champion Grabit v4 latent on `test`, plus the Stage-2 bounds (lo, hi).
 
     Byte-for-byte the same training path as evaluate_suite.make_grabit_fitter,
@@ -439,14 +439,16 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
     fit, left-censored at the floor) and the term passed to the Grabit fit
     and prediction as base_margin.
 
-    `owed_branch` (experiment, off by default) fits the model without the
-    money-owed rows (`owed_mask`) and prices them as gamma * latent, where the
-    latent is out-of-sample for them and gamma is a Tobit fit on the training
+    `owed_branch` (experiment, off by default) prices money-owed rows
+    (`owed_mask`) as gamma * latent, with gamma a Tobit fit on the training
     money-owed rows, left-censored at the floor and bounded to [0, 1].
+    True drops those rows from the fit, so their latent is out-of-sample.
+    "censor" keeps them as right-censored rows (their pay is a lower bound on
+    undiscounted value) and exempts them from the left gate.
     """
     from xgboost import XGBRegressor
     full_train = train
-    if owed_branch:
+    if owed_branch is True:
         train = train[~owed_mask(train)]
 
     y_tr = train[TARGET].values
@@ -462,6 +464,10 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
         gate_l = train["is_at_floor"].values & (bp <= floor_gate_k * y_tr)
     else:
         gate_l = np.zeros(len(train), bool)
+    if owed_branch == "censor":
+        owed_tr_mask = owed_mask(train)
+        gate = gate | owed_tr_mask
+        gate_l = gate_l & ~owed_tr_mask
 
     model = XGBRegressor(**{**_XGB_BASE, "random_state": seed,
                             "objective": _make_tobit_obj(

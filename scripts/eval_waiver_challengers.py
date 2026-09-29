@@ -83,6 +83,8 @@ def arms() -> dict:
         "waiver_term": (base, None, {"waiver_term": True}),
         "owed_branch": (base, None, {"owed_branch": True,
                                      "exclude_waived_max": True}),
+        "owed_censor": (base, None, {"owed_branch": "censor",
+                                     "exclude_waived_max": True}),
     }
 
 
