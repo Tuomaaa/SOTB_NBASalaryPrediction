@@ -42,7 +42,8 @@ The 85 plain waivers have bias -$0.13M.
   (13.6% of the frame). On the waived selection rows, the player-clustered
   paired squared-error t must exceed 2. Pooled selection dSel must exceed 0.
   B1 must move the same way, C2 growth must be <= $0.3M, and the C1 relative
-  gap must be <= 0.005. The canary is reported and does not decide.
+  gap must be <= 0.005. The canary does not decide. Report it only on a
+  divergence above 0.005 (see `docs/worker-brief.md`).
 - Report the gamma distribution, the number of waived rows whose push the
   exclusion removes, and the named rows.
 - If the arm fails, record it and do not amend it. With 26 money-owed

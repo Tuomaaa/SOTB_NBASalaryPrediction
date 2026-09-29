@@ -215,11 +215,20 @@ def main() -> None:
         report[name] = entry
         b1 = "" if entry["B1"] is None else f"  B1 {entry['B1']:.4f}"
         line = (f"{name:16s} A1 {entry['A1']:.4f}  A2 {entry['A2']:.4f}{b1}"
-                f"  slope {entry['C1_slope']:.3f}  canary {entry['canary_r2']:.4f}")
+                f"  slope {entry['C1_slope']:.3f}")
         if name != "incumbent":
             line += (f"\n{'':16s} dSel {entry['dSel']:+.5f}  se {entry['se']:.5f}"
                      f"  t {entry['t']:+.2f}  C2 worst {entry['C2_worst']} "
                      f"{entry['C2_growth_m']:+.3f}M")
+        if name != "incumbent":
+            sel = ~conf.values
+            y = df["cap_pct"].values
+            d_sel = (r2_score(y[sel], r["oof"][sel])
+                     - r2_score(y[sel], ref["oof"][sel]))
+            d_can = entry["canary_r2"] - report["incumbent"]["canary_r2"]
+            if abs(d_can - d_sel) > 0.005:
+                line += (f"\n{'':16s} CANARY DIVERGENCE: selection {d_sel:+.4f}, "
+                         f"confirmation {d_can:+.4f}")
         line += (f"\n{'':16s} named errors ($M) clip / push / final: "
                  f"{entry['named_clip_push_final_m']}")
         rows.append(line)

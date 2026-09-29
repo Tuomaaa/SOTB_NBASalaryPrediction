@@ -52,6 +52,10 @@ its affected rows in the pre-registration. Gate 1 then becomes:
 Gates 2-4 and the C1 calibration gate are unchanged. The confirmation split
 never decides.
 
+Do not report the confirmation split. The exception is a divergence: its
+R-squared change differs from the selection change by more than 0.005. The
+2026-07 audit reached 0.0087, and v6.0.3 reached 0.045.
+
 Test the exact missing-value handling and transformations proposed for
 production.
 
