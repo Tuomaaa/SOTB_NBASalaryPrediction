@@ -509,8 +509,17 @@ between `prior_waiver_date` and July 1 of the row's season in
 `data/processed/spotrac_transactions.csv`. Group the champion OOF error in
 `outputs/models/oof_reference.csv` by that result.
 
-**Fix:** Define the flag as a waiver since the player's last signing. Test it
-as a feature change, and use the targeted gate on the rows whose value
-changes.
+**Evidence against the plain fix (2026-09-29):** The candidate run applied
+this definition together with #58 and was reverted in `b2843e1`. A1 fell
+from 0.8509 to 0.8471; paired selection dSel was -0.0013 (t = -0.35). The 63
+rows whose flag turned off worsened: MAE rose from $1.30M to $1.92M, and bias
+went from +$0.11M to +$1.19M. Marcus Smart 2026 rose from $6.07M to $11.03M
+against $6.06M, although his anchor had already been re-priced. A waiver
+inside the last year still carries signal after an intervening contract.
+`attach_waiver_history` documents that 365-day definition, so it is not a
+contract violation.
+
+**Fix:** Revisit after the KF anchor re-pricing item in `docs/QUEUE.md`
+resolves. Test any new definition as a feature change.
 
 **Done:** The fresh definition is adopted or rejected with paired metrics.

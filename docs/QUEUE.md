@@ -76,6 +76,33 @@ The 85 plain waivers have bias -$0.13M.
 - Still open: confirm the patched waiver columns with a full local
   `python scripts/rebuild_training_data.py`.
 
+### Re-price the KF anchor at in-season signings
+
+The KF anchor is the player's last evaluation-frame contract. A buyout
+followed by a rest-of-season minimum leaves the anchor on the old contract,
+because `df_full` holds one row per season, the main contract. Examples:
+Russell Westbrook 2023 is anchored at $47.6M and signed for $3.8M, Kyle
+Lowry 2024 at $33.8M for $3.3M, and Andre Drummond 2021 at $26.4M for
+$1.7M. `is_waived` is not touched here; ISSUES #58 and #59 stay open.
+
+- Pre-registered 2026-09-29, before any score, as one arm `kf_reprice`:
+  1. Re-pricing events come from `data/processed/contract_signing_dates.csv`.
+     - Rest-of-season contracts, and standard contracts signed after opening
+       night and before July 1, are strong anchors at the season's floor
+       (tier-1 prior, P0 = 0.0005).
+     - 10-day and two-way contracts are weak anchors at 0 (tier-2 prior,
+       P0 = r_var). A two-way contract counts 0 against the cap.
+  2. An event overrides the same season's evaluation-frame anchor, because it
+     comes later in that season. The latest event in a season wins.
+  3. The switch is `prepare_kf_context(reprice=True)`, off by default.
+     Nothing else changes.
+  4. Affected rows are those whose anchor value or tier changes. With fewer
+     than 20% of rows, use the targeted gate in `docs/worker-brief.md`;
+     otherwise use the standard selection gate. B1 must move the same way,
+     C2 growth must be <= $0.3M, and the C1 gap must be <= 0.005.
+  5. If the arm fails, record it and do not amend it.
+- Complete when `kf_reprice` is adopted or rejected with paired metrics.
+
 ### Fold P(max) into Stage 1
 
 Suggested by the user on 2026-09-29, after the partially linear waiver term:
