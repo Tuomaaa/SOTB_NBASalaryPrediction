@@ -16,15 +16,34 @@ See `docs/briefs/2026-09-29-waiver-term.RESULT.md` for the three failure
 mechanisms. Only money-owed waivers are mispriced: 35 rows, bias +$2.52M.
 The 85 plain waivers have bias -$0.13M.
 
-- Add a money-owed flag that scans every waiver in the lookback, not only the
-  last one. LaMarcus Aldridge 2021 lost his buyout to a later plain waiver.
-  Test it in `tests/test_waiver_history.py`.
-- Then pre-register path B: the main GBM trains without money-owed rows, and
-  those rows are priced by `max(floor, gamma * m(x))`. m is the main
-  model's out-of-sample latent, and gamma is a Tobit fit in each fold.
-  P(max) is 0 for every waived row, because no waived frame row signed a
-  maximum.
-- Complete when path B is adopted or rejected with paired metrics.
+- `prior_waiver_owed` (landed 2026-09-29) scans every waiver in the lookback.
+  36 of the 120 waived evaluation rows owe money: 26 are in selection, 10 in
+  confirmation, and 24 sit at the floor.
+- Pre-registered 2026-09-29, before any score, as one arm `owed_branch`:
+  1. Stage 1 fits the Grabit model on the training rows with
+     `prior_waiver_owed != 1`. Its bases and gates are computed on those rows,
+     and `FEATURE_COLS` is unchanged.
+  2. For money-owed rows, `m` is that model's latent. The rows never entered
+     the fit, so `m` is out-of-sample.
+  3. Fit gamma on the training money-owed rows by Tobit: `y = gamma * m + e`,
+     with at-floor rows left-censored and gamma bounded to [0, 1]. With
+     fewer than 10 such rows, gamma = 1.
+  4. The latent of a test money-owed row is `gamma * m`.
+  5. P(max) = 0 on every row with `is_waived == 1`, in both layers. No waived
+     frame row signed a maximum.
+  6. The rest of the pipeline is unchanged. Layer B fits gamma on seasons
+     before each origin. The layer-B signing-offset inner OOF still uses the
+     champion fitter.
+- Run: `python scripts/eval_waiver_challengers.py --seeds 10 --full --arms
+  incumbent owed_branch`.
+- Gate: the same as v6.0.3. Paired dSel >= +0.002 and t > 2 on selection
+  rows, B1 moves the same way, C2 growth <= $0.3M, and the C1 relative gap
+  <= 0.005. The canary is reported and does not decide.
+- Report the gamma distribution, the number of waived rows whose push the
+  exclusion removes, and the named rows.
+- If the arm fails, record it and do not amend it. With 26 money-owed
+  selection rows, a pass is not expected to be easy.
+- Complete when `owed_branch` is adopted or rejected with paired metrics.
 - Still open: confirm the patched waiver columns with a full local
   `python scripts/rebuild_training_data.py`.
 
