@@ -113,6 +113,64 @@ class WaiverHistoryTests(unittest.TestCase):
         self.assertEqual(result.loc[0, "is_waived_known"], 1.0)
 
 
+    def test_fallback_uses_first_signing_of_season(self):
+        """An in-season waiver must not leak through a later 10-day deal."""
+        frame = pd.DataFrame([
+            {"player_name_norm": "journeyman", "season": 2023,
+             "salary": 2_000_000},
+        ])
+        base = {
+            "player_name_norm": "journeyman", "signing_season": 2023,
+            "contract_years": np.nan, "total_value": np.nan,
+            "is_extension": 0, "team": "NYK", "fa_year_matched": np.nan,
+            "match_confidence": "unmatchable",
+        }
+        signings = pd.DataFrame([
+            {**base, "signing_date": "2023-09-15",
+             "contract_class": "standard", "tx_text": "Signed a contract"},
+            {**base, "signing_date": "2024-01-30",
+             "contract_class": "10-day", "tx_text": "Signed a 10-day contract"},
+        ])
+        events = pd.DataFrame([{
+            "player_name_norm": "journeyman",
+            "transaction_date": "2024-01-07",
+            "event_type": "waived",
+            "tx_text": "Waived by Washington (WAS)",
+        }])
+
+        result = attach_waiver_history(frame, events, signings)
+
+        self.assertEqual(result.loc[0, "is_waived"], 0.0)
+        self.assertEqual(result.loc[0, "is_waived_known"], 1.0)
+
+    def test_fallback_skips_camp_deal_cut_before_opener(self):
+        """A camp cut did not price the row; its waiver is prior information."""
+        frame = pd.DataFrame([
+            {"player_name_norm": "camp", "season": 2025, "salary": 1_755_198},
+        ])
+        base = {
+            "player_name_norm": "camp", "signing_season": 2025,
+            "contract_years": np.nan, "total_value": np.nan,
+            "is_extension": 0, "team": "GSW", "fa_year_matched": np.nan,
+            "match_confidence": "unmatchable",
+        }
+        signings = pd.DataFrame([
+            {**base, "signing_date": "2025-10-01",
+             "contract_class": "standard", "tx_text": "Exhibit 9"},
+            {**base, "signing_date": "2025-12-01",
+             "contract_class": "rest-of-season", "tx_text": "Rest-of-Season"},
+        ])
+        events = pd.DataFrame([{
+            "player_name_norm": "camp",
+            "transaction_date": "2025-10-18",
+            "event_type": "waived",
+            "tx_text": "Waived by Golden State (GSW)",
+        }])
+
+        result = attach_waiver_history(frame, events, signings)
+
+        self.assertEqual(result.loc[0, "is_waived"], 1.0)
+
     def test_resolve_no_signing_no_waivers(self):
         """Player with transaction page but zero waiver events -> not waived."""
         player_tx = pd.DataFrame([{

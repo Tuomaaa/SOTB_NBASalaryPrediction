@@ -60,10 +60,46 @@ def build_transaction_events(cache_dir: Path) -> pd.DataFrame:
     return out[columns].reset_index(drop=True)
 
 
+# Opening night by season start year. A deal waived before it is a camp cut
+# that never priced the season.
+SEASON_OPENERS = {
+    2015: "2015-10-27", 2016: "2016-10-25", 2017: "2017-10-17",
+    2018: "2018-10-16", 2019: "2019-10-22", 2020: "2020-12-22",
+    2021: "2021-10-19", 2022: "2022-10-18", 2023: "2023-10-24",
+    2024: "2024-10-22", 2025: "2025-10-21",
+}
+
+
+def _season_opener(season: int) -> pd.Timestamp:
+    """Opening night of a season, October 20 when the date is not listed."""
+    return pd.Timestamp(SEASON_OPENERS.get(season, f"{season}-10-20"))
+
+
+def _is_preseason_cut(signing_date, next_date, waivers, season: int) -> bool:
+    """True when a waiver ends this deal before opening night and before the
+    player's next signing."""
+    if pd.isna(signing_date) or waivers is None or waivers.empty:
+        return False
+    end = min(_season_opener(season),
+              next_date if pd.notna(next_date) else pd.Timestamp.max)
+    hit = waivers[(waivers["transaction_date"] >= signing_date)
+                  & (waivers["transaction_date"] <= end)]
+    return not hit.empty
+
+
 def _choose_fallback_signing(
-    rows: pd.DataFrame, season: int, salary: float
+    rows: pd.DataFrame, season: int, salary: float,
+    player_tx: pd.DataFrame | None = None,
 ):
-    """Choose a same-season signing when no dated span covers the row."""
+    """Choose a same-season signing when no dated span covers the row.
+
+    Without a priced candidate, take the season's first dated signing that was
+    not cut before opening night. A later in-season deal (10-day,
+    rest-of-season) follows any in-season waiver, so anchoring the lookback on
+    it reads events after the contract that priced the row. A camp deal cut
+    before the opener did not price the row, so the waiver that ended it is
+    prior information for the deal that did.
+    """
     cand = rows[rows["signing_season"] == season].copy()
     if cand.empty:
         return None
@@ -73,8 +109,19 @@ def _choose_fallback_signing(
     priced = cand[cand["_aav"].notna()]
     if not priced.empty:
         return priced.loc[(priced["_aav"] - salary).abs().idxmin()]
-    dated = cand.dropna(subset=["signing_date"])
-    return None if dated.empty else dated.sort_values("signing_date").iloc[-1]
+    dated = cand.dropna(subset=["signing_date"]).sort_values("signing_date")
+    if dated.empty:
+        return None
+    waivers = None
+    if player_tx is not None:
+        waivers = player_tx[player_tx["event_type"].eq("waived")
+                            & player_tx["transaction_date"].notna()]
+    nxt = dated["signing_date"].shift(-1)
+    for (_, row), next_date in zip(dated.iterrows(), nxt):
+        if not _is_preseason_cut(row["signing_date"], next_date, waivers,
+                                 season):
+            return row
+    return dated.iloc[0]
 
 
 def _resolve_waiver_no_signing(
@@ -209,7 +256,9 @@ def attach_waiver_history(
         if signing is None or pd.isna(signing):
             candidates = sd_by_player.get(player)
             if candidates is not None:
-                fallback = _choose_fallback_signing(candidates, season, salary)
+                fallback = _choose_fallback_signing(
+                    candidates, season, salary, tx_by_player.get(player)
+                )
                 if fallback is not None:
                     signing = fallback["signing_date"]
 

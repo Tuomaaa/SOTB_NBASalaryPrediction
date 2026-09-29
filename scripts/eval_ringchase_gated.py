@@ -59,6 +59,7 @@ existing clip instead of corrupting the estimate.
 
 Usage:
     python scripts/eval_ringchase_gated.py --seeds 3 [--gate earnings|retire|continuous]
+    python scripts/eval_ringchase_gated.py --seeds 10 --gate continuous --oracle last|last_rich
 """
 
 import argparse
@@ -106,6 +107,41 @@ OUT = OUTPUTS_DIR / "models"
 # wrong-signed: Marc Gasol took a minimum the summer after his ring, and LeBron
 # James holds four. Under "ringless" he can never enter the gate.
 GATE_MODE = "ringless"
+# Diagnostic only, never adoptable: replace the hazard with the realized
+# outcome to separate an estimator failure from a concept failure.
+ORACLE = "none"
+ORACLE_HORIZON = 2          # matches p_last_2y
+
+
+def realized_last_label(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Realized "last contract within ORACLE_HORIZON seasons" per frame row.
+
+    Frame season s is the contract signed after Basketball Reference season s,
+    so its seasons are s+1, s+2, ... The label is 1 when the player's last
+    Basketball Reference season is <= s + ORACLE_HORIZON. It is known when that
+    last season is before the latest scraped season (he has retired) or when
+    s + ORACLE_HORIZON + 1 is already observed; otherwise it is unknown.
+    Returns (label, known). Rows under 30 read 0, like the hazard.
+    """
+    from scripts.build_retirement_hazard import MIN_AGE, _norm
+    seasons = pd.concat([
+        pd.read_csv(PROCESSED_DIR / "advanced_stats_history.csv",
+                    usecols=["player", "season"]),
+        pd.read_csv(PROCESSED_DIR / "advanced_stats.csv",
+                    usecols=["player", "season"]),
+    ], ignore_index=True)
+    seasons["key"] = seasons["player"].map(_norm)
+    last = seasons.groupby("key")["season"].max()
+    latest = int(seasons["season"].max())
+    s = df["season"].astype(int).values
+    ls = df["player_name_norm"].map(last).values.astype(float)
+    horizon_end = s + ORACLE_HORIZON
+    label = (ls <= horizon_end).astype(float)
+    known = (ls < latest) | (horizon_end + 1 <= latest)
+    young = df["age"].values.astype(float) < MIN_AGE
+    label[young] = 0.0
+    known = known | young
+    return label, known
 
 
 # "retire" gates on the probability that this is the player's last contract
@@ -154,9 +190,15 @@ def main():
     ap.add_argument("--gate",
                     choices=["ringless", "earnings", "retire", "continuous"],
                     default="ringless")
+    ap.add_argument("--oracle", choices=["none", "last", "last_rich"],
+                    default="none",
+                    help="diagnostic: continuous arm on the realized label")
     args = ap.parse_args()
-    global GATE_MODE, AGE_GRID, CIRC
+    global GATE_MODE, AGE_GRID, CIRC, ORACLE
     GATE_MODE = args.gate
+    ORACLE = args.oracle
+    if ORACLE != "none" and GATE_MODE != "continuous":
+        ap.error("--oracle runs on --gate continuous")
     if GATE_MODE in ("retire", "continuous"):
         AGE_GRID = RETIRE_GRID
         CIRC = ["career_earnings_thru_prev_cap_pct", "p_last_2y",
@@ -188,6 +230,21 @@ def main():
     print(f"  p_last coverage: {df['p_last_2y'].notna().mean():.3f}")
     for c in ("p_last_1y", "p_last_2y", "p_last_3y"):
         df[c] = df[c].fillna(0.0)
+    df["p_hazard_2y"] = df["p_last_2y"]
+    oracle_known = np.ones(len(df), dtype=bool)
+    if ORACLE != "none":
+        label, oracle_known = realized_last_label(df)
+        # unknown outcomes are not pulled; read the clean result on known rows
+        label = np.where(oracle_known, label, 0.0)
+        if ORACLE == "last_rich":
+            rich = (df["career_earnings_thru_prev_cap_pct"].values
+                    >= np.nanquantile(
+                        df["career_earnings_thru_prev_cap_pct"].values,
+                        CELL_EARN_Q))
+            label = label * rich
+        df["p_last_2y"] = label
+        print(f"  ORACLE {ORACLE}: label=1 on {int(label.sum())} rows, "
+              f"unknown {int((~oracle_known).sum())} rows (not pulled)")
 
     y = df[TARGET].values
     cap_m = df["cap"].values / 1e6
@@ -354,6 +411,15 @@ def main():
     print(f"gate MAE  ${e_c[mem_all].mean():.3f}M -> ${e_d[mem_all].mean():.3f}M")
     print(f"frame MAE ${e_c.mean():.3f}M -> ${e_d.mean():.3f}M")
     print(f"A1 {r2_score(y, champ_oof):.4f} -> {r2_score(y, cand_oof):.4f}")
+    lbj = ((df["player_name_norm"] == "lebron james")
+           & (df["season"] == 2026)).values
+    print(f"A1 without LeBron 2026 {r2_score(y[~lbj], champ_oof[~lbj]):.4f} -> "
+          f"{r2_score(y[~lbj], cand_oof[~lbj]):.4f}")
+    if ORACLE != "none":
+        k = oracle_known & (df["season"].values <= 2023)
+        print(f"A1 on known-label seasons <= 2023 (n={int(k.sum())}) "
+              f"{r2_score(y[k], champ_oof[k]):.4f} -> "
+              f"{r2_score(y[k], cand_oof[k]):.4f}")
     print(f"\npaired dSel {fr['d'].mean():+.5f}  t = {t:+.2f}  p = {pv:.3g}  "
           f"n = {len(fr)}  [{'PASS' if t > DSEL_T_BAR else 'FAIL'}]")
 
@@ -372,16 +438,18 @@ def main():
           f"[{'PASS' if worst <= C2_BAR else 'FAIL'}]")
 
     OUT.mkdir(parents=True, exist_ok=True)
+    tag = GATE_MODE if ORACLE == "none" else f"{GATE_MODE}_oracle_{ORACLE}"
     pd.DataFrame({
         "player": df["player_name_norm"], "season": df["season"],
         "age": df["age"], "signing_cat": df["signing_cat"],
         "in_gate": mem_all, "moved": moved, "p_ring": p_oof,
+        "p_hazard_2y": df["p_hazard_2y"], "p_gate": df["p_last_2y"],
         "actual_m": y*cap_m, "champ_m": champ_oof*cap_m, "cand_m": cand_oof*cap_m,
         "err_champ_m": (champ_oof-y)*cap_m, "err_cand_m": (cand_oof-y)*cap_m,
-    }).to_csv(OUT / f"ringchase_gated_{GATE_MODE}_oof.csv", index=False)
-    (OUT / f"ringchase_gated_{GATE_MODE}_eval.json").write_text(json.dumps({
+    }).to_csv(OUT / f"ringchase_gated_{tag}_oof.csv", index=False)
+    (OUT / f"ringchase_gated_{tag}_eval.json").write_text(json.dumps({
         "PROVISIONAL": "migration will move ~15% of frame rows",
-        "adopted": False, "gate": GATE_MODE, "age_grid": [list(g) if isinstance(g, tuple) else g for g in AGE_GRID], "k_shrink": K_SHRINK,
+        "adopted": False, "gate": GATE_MODE, "oracle": ORACLE, "age_grid": [list(g) if isinstance(g, tuple) else g for g in AGE_GRID], "k_shrink": K_SHRINK,
         "selected_ages": {str(k): int(v) for k, v in
                           ch["age"].value_counts().items()},
         "mean_delta": float(ch["delta"].mean()),
@@ -391,7 +459,7 @@ def main():
         "c2_worst": float(worst),
         "pass": bool(t > DSEL_T_BAR and worst <= C2_BAR),
     }, indent=2), encoding="utf-8")
-    print(f"\nwrote {OUT / f'ringchase_gated_{GATE_MODE}_eval.json'}")
+    print(f"\nwrote {OUT / f'ringchase_gated_{tag}_eval.json'}")
 
 
 if __name__ == "__main__":
