@@ -47,7 +47,7 @@ adem bona,2025,1955377.0,spotrac,spotrac_cap_hit,1955377.0,1.0,,1.0
 adem bona,2026,2296271.0,spotrac,spotrac_cap_hit,2296271.0,1.0,,2.0
 admiral schofield,2019,1000000.0,spotrac,status_active,1000000.0,1.0,,1.0
 admiral schofield,2020,1517981.0,spotrac,status_active,1517981.0,1.0,,1.0
-admiral schofield,2021,1489065.0,spotrac,vet_min,300000.0,2.0,85578;85578,1.0
+admiral schofield,2021,,spotrac,retained_only,300000.0,2.0,85578;85578,1.0
 admiral schofield,2022,506508.0,spotrac,status_active,506508.0,1.0,,1.0
 adou thiero,2025,1272870.0,spotrac,spotrac_cap_hit,1272870.0,1.0,53093,1.0
 adou thiero,2026,2150917.0,spotrac,spotrac_cap_hit,2150917.0,1.0,,1.0
@@ -110,7 +110,7 @@ alfonzo mckinnie,2020,1762796.0,spotrac,status_active,1762796.0,1.0,,1.0
 alfonzo mckinnie,2021,1293926.0,spotrac,vet_min,1293926.0,1.0,102831;101088,1.0
 alijah martin,2026,2185116.0,spotrac,spotrac_cap_hit,2185116.0,1.0,,2.0
 alize johnson,2019,1416852.2666666666,spotrac,status_active,1416852.0,1.0,,1.0
-alize johnson,2020,1620564.0,spotrac,vet_min,621587.0,1.0,110998;110998,1.0
+alize johnson,2020,399591.0,spotrac,status_active,621587.0,1.0,110998;110998,1.0
 alize johnson,2021,,spotrac,retained_only,705598.0,3.0,99380;99380;99380,1.0
 alize johnson,2022,,spotrac,retained_only,192293.0,1.0,,1.0
 allen crabbe,2019,28594300.799999997,spotrac,status_active,17818456.0,2.0,17818456,1.0
@@ -154,7 +154,7 @@ andre jackson jr.,2024,1891857.0,spotrac,status_active,1891857.0,1.0,514970,1.0
 andre jackson jr.,2025,2221677.0,spotrac,status_active,2221677.0,1.0,,2.0
 andre jackson jr.,2026,2537526.0,bbref,fallback_bbref,2537526.0,,,1.0
 andre roberson,2019,10740740.266666668,spotrac,status_active,10740741.0,1.0,,1.0
-andre roberson,2020,1250503.0,spotrac,vet_min,274816.0,1.0,138945,1.0
+andre roberson,2020,,spotrac,retained_only,274816.0,1.0,138945,1.0
 andrew nembhard,2022,2244111.0,spotrac,spotrac_cap_hit,2244111.0,1.0,,3.0
 andrew nembhard,2023,2131905.0,spotrac,spotrac_cap_hit,2131905.0,1.0,200000,3.0
 andrew nembhard,2024,2019699.0,spotrac,spotrac_cap_hit,2019699.0,1.0,,3.0
@@ -347,7 +347,7 @@ bones hyland,2025,2296274.0,spotrac,vet_min,2296274.0,1.0,,1.0
 bones hyland,2026,2845883.0,spotrac,spotrac_cap_hit,2449421.0,1.0,,1.0
 brad wanamaker,2019,1445697.0666666667,spotrac,vet_min,1355341.0,1.0,,1.0
 brad wanamaker,2020,2250000.0,spotrac,signing_contract,2250000.0,2.0,1433219,1.0
-brad wanamaker,2021,1669178.0,spotrac,vet_min,715538.0,2.0,99380,1.0
+brad wanamaker,2021,,spotrac,retained_only,715538.0,2.0,99380,1.0
 bradley beal,2019,27093018.666666668,spotrac,single,25399705.0,1.0,,2.0
 bradley beal,2020,28751774.0,spotrac,single,28751774.0,1.0,,2.0
 bradley beal,2021,33724200.0,spotrac,single,33724200.0,1.0,,1.0
@@ -356,7 +356,7 @@ bradley beal,2023,46741590.0,spotrac,single,46741590.0,1.0,50000,3.0
 bradley beal,2024,50203930.0,spotrac,single,50203930.0,1.0,,3.0
 bradley beal,2025,5360000.0,curated,salary_override,5360000.0,2.0,5354000,5.0
 bradley beal,2026,5621700.0,spotrac,spotrac_cap_hit,19383010.0,1.0,,5.0
-branden carlson,2024,990895.0,spotrac,vet_min,365767.0,1.0,66503;66503;205988,1.0
+branden carlson,2024,,spotrac,retained_only,365767.0,1.0,66503;66503;205988,1.0
 branden carlson,2026,2449421.0,spotrac,spotrac_cap_hit,2449421.0,1.0,,1.0
 brandin podziemski,2023,3352440.0,spotrac,spotrac_cap_hit,3352440.0,1.0,,3.0
 brandin podziemski,2024,3519960.0,spotrac,spotrac_cap_hit,3519960.0,1.0,51497,3.0
@@ -386,7 +386,7 @@ brandon ingram,2024,36016200.0,spotrac,spotrac_cap_hit,36016200.0,2.0,22354883,8
 brandon ingram,2025,38095238.0,spotrac,spotrac_cap_hit,38095238.0,1.0,53093,8.0
 brandon ingram,2026,40000000.0,spotrac,spotrac_cap_hit,40000000.0,1.0,,8.0
 brandon knight,2019,14600834.133333333,spotrac,status_active,15643750.0,2.0,4231326,1.0
-brandon knight,2021,1669178.0,spotrac,vet_min,276038.0,1.0,138019,1.0
+brandon knight,2021,,spotrac,retained_only,276038.0,1.0,138019,1.0
 brandon miller,2023,10880400.0,spotrac,spotrac_cap_hit,10880400.0,1.0,,3.0
 brandon miller,2024,11424600.0,spotrac,spotrac_cap_hit,11424600.0,1.0,,3.0
 brandon miller,2025,11968800.0,spotrac,spotrac_cap_hit,11968800.0,1.0,,3.0
@@ -395,7 +395,7 @@ brandon williams,2021,,spotrac,retained_only,53176.0,1.0,,1.0
 brandon williams,2024,47989.0,spotrac,spotrac_cap_hit,47989.0,1.0,25749,1.0
 brandon williams,2025,2270735.0,spotrac,spotrac_cap_hit,2270735.0,1.0,,1.0
 brandon williams,2026,2449421.0,spotrac,spotrac_cap_hit,2625627.0,1.0,,1.0
-braxton key,2021,925258.0,spotrac,vet_min,53176.0,2.0,53176,1.0
+braxton key,2021,,spotrac,retained_only,53176.0,2.0,53176,1.0
 braxton key,2024,11997.0,spotrac,status_active,11997.0,1.0,,1.0
 brayden burries,2026,6417360.0,bbref,fallback_bbref,6417360.0,,,4.0
 brice sensabaugh,2023,2448600.0,spotrac,spotrac_cap_hit,2448600.0,1.0,,3.0
@@ -461,7 +461,7 @@ caleb homesley,2020,20000.0,bbref,fallback_bbref,20000.0,,,1.0
 caleb houstan,2022,2000000.0,spotrac,status_active,2000000.0,1.0,,3.0
 caleb houstan,2023,2000000.0,spotrac,status_active,2000000.0,1.0,,3.0
 caleb houstan,2024,2019699.0,spotrac,status_active,2019699.0,1.0,51497,3.0
-caleb houstan,2025,2296274.0,spotrac,vet_min,699440.0,1.0,442578,1.0
+caleb houstan,2025,,spotrac,retained_only,699440.0,1.0,442578,1.0
 caleb houstan,2026,2625627.0,bbref,fallback_bbref,2625627.0,,,1.0
 caleb love,2026,678882.0,spotrac,status_active,678882.0,1.0,,1.0
 caleb martin,2019,898310.4,spotrac,vet_min,842166.0,1.0,,1.0
@@ -555,7 +555,7 @@ charles bassey,2021,925258.0,spotrac,vet_min,925258.0,1.0,,1.0
 charles bassey,2022,2600000.0,spotrac,signing_contract,2600000.0,2.0,74742,2.0
 charles bassey,2023,2600000.0,spotrac,status_active,2600000.0,1.0,,2.0
 charles bassey,2024,2162606.0,spotrac,status_active,2087519.0,1.0,,1.0
-charles bassey,2025,2296274.0,spotrac,vet_min,263940.0,4.0,141463;141463;141463;141463;113171,1.0
+charles bassey,2025,113171.0,spotrac,status_active,263940.0,4.0,141463;141463;141463;141463;113171,1.0
 charles bassey,2026,2449421.0,spotrac,spotrac_cap_hit,2449421.0,1.0,,1.0
 charlie brown,2020,217844.0,bbref,fallback_bbref,217844.0,,,1.0
 charlie brown,2021,95930.0,bbref,fallback_bbref,95930.0,,,1.0
@@ -745,7 +745,7 @@ dalano banton,2021,925258.0,spotrac,vet_min,925258.0,1.0,,1.0
 dalano banton,2022,1563518.0,spotrac,status_active,1563518.0,1.0,,1.0
 dalano banton,2023,2019706.0,spotrac,vet_min,2019706.0,2.0,1253611;50000,2.0
 dalano banton,2024,2196970.0,spotrac,status_active,2196970.0,1.0,,2.0
-dalano banton,2025,2296274.0,spotrac,vet_min,131970.0,2.0,141463;28293,1.0
+dalano banton,2025,28293.0,spotrac,status_active,131970.0,2.0,141463;28293,1.0
 dalen terry,2022,3191400.0,spotrac,status_active,3191400.0,1.0,,3.0
 dalen terry,2023,3350760.0,spotrac,status_active,3350760.0,1.0,,3.0
 dalen terry,2024,3510480.0,spotrac,status_active,3510480.0,1.0,,3.0
@@ -775,7 +775,7 @@ damion lee,2023,2528233.0,bbref,fallback_bbref,2528233.0,,,1.0
 damion lee,2024,2087519.0,bbref,fallback_bbref,2087519.0,,,1.0
 damyean dotson,2019,1618520.5333333334,spotrac,vet_min,1618520.0,1.0,,1.0
 damyean dotson,2020,2000000.0,spotrac,status_active,2000000.0,1.0,,1.0
-damyean dotson,2021,1669178.0,spotrac,vet_min,205662.0,1.0,102831,1.0
+damyean dotson,2021,,spotrac,retained_only,205662.0,1.0,102831,1.0
 daniel gafford,2019,898310.4,spotrac,vet_min,898310.0,1.0,,1.0
 daniel gafford,2020,1517981.0,spotrac,status_active,1517981.0,2.0,966933,1.0
 daniel gafford,2021,1782621.0,spotrac,status_active,1782621.0,1.0,,2.0
@@ -836,7 +836,7 @@ darius bazley,2019,2284800.0,spotrac,status_active,2284800.0,1.0,,3.0
 darius bazley,2020,2399160.0,spotrac,status_active,2399160.0,1.0,,3.0
 darius bazley,2021,2513040.0,spotrac,status_active,2513040.0,1.0,,3.0
 darius bazley,2022,4264629.0,spotrac,status_active,4264629.0,2.0,1446052,1.0
-darius bazley,2023,2019706.0,spotrac,vet_min,116075.0,2.0,500000,1.0
+darius bazley,2023,500000.0,spotrac,status_active,116075.0,2.0,500000,1.0
 darius garland,2019,6827648.0,spotrac,status_active,6400920.0,1.0,,3.0
 darius garland,2020,6720720.0,spotrac,status_active,6720720.0,1.0,,3.0
 darius garland,2021,7040880.0,spotrac,status_active,7040880.0,1.0,,3.0
@@ -873,7 +873,7 @@ davis bertans,2021,16000000.0,bbref,fallback_bbref,16000000.0,,,2.0
 davis bertans,2022,16000000.0,bbref,fallback_bbref,16000000.0,,,2.0
 davis bertans,2023,17000000.0,bbref,fallback_bbref,17000000.0,,,1.0
 davis bertans,2024,5250000.0,bbref,fallback_bbref,5250000.0,,,1.0
-davon reed,2021,1669178.0,spotrac,vet_min,286164.0,1.0,95930;94304,1.0
+davon reed,2021,,spotrac,retained_only,286164.0,1.0,95930;94304,1.0
 davon reed,2022,1902133.0,spotrac,vet_min,1836090.0,2.0,644976,1.0
 day'ron sharpe,2021,2009160.0,spotrac,single,2009040.0,1.0,,3.0
 day'ron sharpe,2022,2109480.0,spotrac,single,2109480.0,1.0,,3.0
@@ -959,7 +959,7 @@ demar derozan,2024,23400000.0,spotrac,status_active,23400000.0,1.0,,3.0
 demar derozan,2025,24570000.0,spotrac,status_active,24570000.0,1.0,,3.0
 demarcus cousins,2019,,spotrac,retained_only,3500000.0,1.0,,1.0
 demarcus cousins,2020,1620564.0,spotrac,vet_min,1620564.0,2.0,159698;159698;2331593,1.0
-demarcus cousins,2021,1669178.0,spotrac,vet_min,1138659.0,2.0,151821;151821;151821;607285,1.0
+demarcus cousins,2021,683196.0,spotrac,status_active,1138659.0,2.0,151821;151821;151821;607285,1.0
 demarre carroll,2019,7298460.8,spotrac,signing_contract,811447.0,2.0,6842307,1.0
 demarre carroll,2020,,spotrac,retained_only,6119676.0,1.0,,1.0
 demarre carroll,2021,,spotrac,retained_only,1242340.0,1.0,,1.0
@@ -1043,7 +1043,7 @@ devin booker,2024,49205800.0,spotrac,spotrac_cap_hit,49205800.0,1.0,,6.0
 devin booker,2025,53142264.0,spotrac,spotrac_cap_hit,53142264.0,1.0,53093,6.0
 devin booker,2026,57078728.0,spotrac,spotrac_cap_hit,57078728.0,1.0,,6.0
 devin cannady,2020,,spotrac,retained_only,61528.0,1.0,,1.0
-devin cannady,2021,1489065.0,spotrac,vet_min,185578.0,1.0,85578,1.0
+devin cannady,2021,100000.0,spotrac,status_active,185578.0,1.0,85578,1.0
 devin carter,2024,4689000.0,spotrac,spotrac_cap_hit,4689000.0,1.0,,3.0
 devin carter,2025,4923720.0,spotrac,spotrac_cap_hit,4923720.0,1.0,,3.0
 devin carter,2026,5158080.0,spotrac,spotrac_cap_hit,5158080.0,1.0,,3.0
@@ -1111,7 +1111,7 @@ donovan mitchell,2023,32600060.0,spotrac,single,33162030.0,1.0,,4.0
 donovan mitchell,2024,34848340.0,spotrac,single,35410310.0,1.0,,4.0
 donovan mitchell,2025,46394100.0,spotrac,spotrac_cap_hit,46394100.0,1.0,,3.0
 donovan mitchell,2026,50105628.0,spotrac,spotrac_cap_hit,50105628.0,1.0,,3.0
-donta hall,2019,898310.0,spotrac,vet_min,101504.0,2.0,50752;50752,1.0
+donta hall,2019,108270.93333333333,spotrac,status_active,101504.0,2.0,50752;50752,1.0
 donta hall,2020,,spotrac,retained_only,277256.0,2.0,99020;79216;99020,1.0
 donte divincenzo,2019,2905800.533333333,spotrac,status_active,2905800.0,1.0,,2.0
 donte divincenzo,2020,3044160.0,spotrac,status_active,3044160.0,1.0,,2.0
@@ -1218,7 +1218,7 @@ egor dеmin,2025,6889200.0,bbref,fallback_bbref,6889200.0,,,3.0
 elfrid payton,2019,8000000.0,spotrac,status_active,8000000.0,1.0,,1.0
 elfrid payton,2020,4767000.0,spotrac,signing_contract,5767000.0,1.0,1000000,1.0
 elfrid payton,2021,2239544.0,spotrac,status_active,1669178.0,1.0,,1.0
-elfrid payton,2024,2087519.0,spotrac,vet_min,119972.0,2.0,171756;274809;171756;171756;51527,1.0
+elfrid payton,2024,51527.0,spotrac,status_active,119972.0,2.0,171756;274809;171756;171756;51527,1.0
 elie okobo,2019,1416852.2666666666,spotrac,status_active,1416852.0,1.0,,1.0
 elijah bryant,2020,24611.0,bbref,fallback_bbref,24611.0,,,1.0
 elijah harkless,2026,678882.0,spotrac,status_active,678882.0,1.0,,1.0
@@ -1324,7 +1324,7 @@ garrison mathews,2021,2000000.0,spotrac,status_active,2000000.0,1.0,,4.0
 garrison mathews,2022,2000000.0,spotrac,status_active,2000000.0,2.0,1321839,4.0
 garrison mathews,2023,2000000.0,spotrac,status_active,2000000.0,1.0,,4.0
 garrison mathews,2024,2230253.0,spotrac,status_active,2230253.0,1.0,102994,4.0
-garrison mathews,2025,2296274.0,spotrac,vet_min,429325.0,1.0,165197,1.0
+garrison mathews,2025,,spotrac,retained_only,429325.0,1.0,165197,1.0
 gary clark,2019,555409.0,spotrac,vet_min,708426.0,2.0,555409;81678;81678,1.0
 gary clark,2020,2000000.0,spotrac,signing_contract,2000000.0,2.0,1273973,1.0
 gary clark,2021,,spotrac,retained_only,377645.0,1.0,,1.0
@@ -1456,7 +1456,7 @@ hassan whiteside,2019,27093018.666666668,spotrac,status_active,27093018.0,1.0,,1
 hassan whiteside,2020,2320044.0,spotrac,status_active,1620564.0,1.0,,1.0
 hassan whiteside,2021,1669178.0,bbref,fallback_bbref,1669178.0,,,1.0
 hassani gravett,2021,106352.0,bbref,fallback_bbref,106352.0,,,1.0
-haywood highsmith,2021,1489065.0,spotrac,vet_min,547701.0,1.0,85578;85578;85578,1.0
+haywood highsmith,2021,290967.0,spotrac,status_active,547701.0,1.0,85578;85578;85578,1.0
 haywood highsmith,2022,1752638.0,spotrac,status_active,1752638.0,1.0,,2.0
 haywood highsmith,2023,1902137.0,spotrac,status_active,1902137.0,1.0,,2.0
 haywood highsmith,2024,5200000.0,spotrac,status_active,5200000.0,1.0,,2.0
@@ -1481,7 +1481,7 @@ ian mahinmi,2019,15450051.2,spotrac,status_active,15450051.0,1.0,,1.0
 ignas brazdeikis,2019,898310.4,spotrac,vet_min,898310.0,1.0,,1.0
 ignas brazdeikis,2020,49510.0,spotrac,vet_min,148530.0,3.0,99020;49510;551048,1.0
 iman shumpert,2019,,spotrac,retained_only,419443.0,1.0,,1.0
-iman shumpert,2020,1620564.0,spotrac,vet_min,558153.0,1.0,159698,1.0
+iman shumpert,2020,,spotrac,retained_only,558153.0,1.0,159698,1.0
 immanuel quickley,2020,2105520.0,spotrac,status_active,2105520.0,1.0,,3.0
 immanuel quickley,2021,2210640.0,spotrac,status_active,2210640.0,1.0,,3.0
 immanuel quickley,2022,2316240.0,spotrac,status_active,2316240.0,1.0,,3.0
@@ -1589,7 +1589,7 @@ ja'kobe walter,2025,3638160.0,spotrac,spotrac_cap_hit,3638160.0,1.0,53093,3.0
 ja'kobe walter,2026,3811800.0,spotrac,spotrac_cap_hit,3811800.0,1.0,,3.0
 jabari parker,2019,6500000.0,spotrac,signing_contract,6500000.0,2.0,2164371,1.0
 jabari parker,2020,430729.0,spotrac,status_active,430729.0,2.0,6500000,1.0
-jabari parker,2021,1669178.0,spotrac,vet_min,1168288.0,1.0,100000,1.0
+jabari parker,2021,,spotrac,retained_only,1168288.0,1.0,100000,1.0
 jabari smith jr.,2022,8882640.0,spotrac,status_active,8882640.0,1.0,,3.0
 jabari smith jr.,2023,9326520.0,spotrac,status_active,9326520.0,1.0,,3.0
 jabari smith jr.,2024,9770880.0,spotrac,status_active,9770880.0,1.0,102994,3.0
@@ -1743,7 +1743,7 @@ jamal murray,2026,50105628.0,spotrac,spotrac_cap_hit,50105628.0,1.0,,4.0
 jamal shead,2024,1862265.0,spotrac,spotrac_cap_hit,1862265.0,1.0,,2.0
 jamal shead,2025,1955377.0,spotrac,spotrac_cap_hit,1955377.0,1.0,53093,2.0
 jamal shead,2026,2296271.0,spotrac,spotrac_cap_hit,2296271.0,1.0,,1.0
-jamaree bouyea,2022,1017781.0,spotrac,vet_min,58493.0,2.0,58493,1.0
+jamaree bouyea,2022,116986.0,spotrac,split,58493.0,2.0,58493,1.0
 jamaree bouyea,2026,2584539.0,spotrac,spotrac_cap_hit,2584539.0,1.0,,1.0
 james bouknight,2021,4154400.0,spotrac,status_active,4154400.0,1.0,,3.0
 james bouknight,2022,4362240.0,spotrac,status_active,4362240.0,1.0,,3.0
@@ -1845,7 +1845,7 @@ javonte green,2019,898310.4,spotrac,vet_min,898310.0,1.0,,1.0
 javonte green,2020,1517981.0,spotrac,status_active,1517981.0,2.0,966933,3.0
 javonte green,2021,1669178.0,spotrac,vet_min,1669178.0,1.0,,3.0
 javonte green,2022,1815677.0,spotrac,status_active,1815677.0,1.0,,3.0
-javonte green,2023,2019706.0,spotrac,vet_min,127683.0,1.0,124425,1.0
+javonte green,2023,136868.0,spotrac,status_active,127683.0,1.0,124425,1.0
 javonte green,2024,2087519.0,spotrac,vet_min,1728488.0,2.0,696955,1.0
 javonte green,2025,2296274.0,spotrac,vet_min,2296274.0,1.0,,1.0
 javonte green,2026,3943679.0,spotrac,spotrac_cap_hit,3943679.0,1.0,,1.0
@@ -1861,7 +1861,7 @@ jay huff,2024,2088033.0,spotrac,spotrac_cap_hit,2088033.0,1.0,,4.0
 jay huff,2025,2349578.0,spotrac,spotrac_cap_hit,2349578.0,1.0,,4.0
 jay huff,2026,2667944.0,spotrac,spotrac_cap_hit,2667944.0,1.0,,4.0
 jayden quaintance,2026,3902760.0,bbref,fallback_bbref,3902760.0,,,4.0
-jaylen adams,2019,1445697.0,spotrac,vet_min,100000.0,2.0,163356,1.0
+jaylen adams,2019,174246.4,spotrac,status_active,100000.0,2.0,163356,1.0
 jaylen brown,2019,6534828.8,spotrac,status_active,6534829.0,1.0,,1.0
 jaylen brown,2020,22991071.0,spotrac,status_active,23437500.0,1.0,,2.0
 jaylen brown,2021,24830357.0,spotrac,status_active,24830357.0,1.0,,2.0
@@ -1873,14 +1873,14 @@ jaylen brown,2026,57736350.0,spotrac,spotrac_cap_hit,57078728.0,2.0,,5.0
 jaylen clark,2024,492323.0,spotrac,status_active,492323.0,1.0,,1.0
 jaylen clark,2025,2191897.0,spotrac,status_active,2191897.0,1.0,,1.0
 jaylen clark,2026,3086420.0,spotrac,spotrac_cap_hit,3086420.0,1.0,,3.0
-jaylen hoard,2021,1669178.0,spotrac,vet_min,191860.0,1.0,95930,1.0
+jaylen hoard,2021,,spotrac,retained_only,191860.0,1.0,95930,1.0
 jaylen morris,2021,95930.0,bbref,fallback_bbref,95930.0,,,1.0
 jaylen nowell,2019,1400000.0,spotrac,status_active,1400000.0,1.0,,2.0
 jaylen nowell,2020,1517981.0,spotrac,status_active,1517981.0,1.0,,2.0
 jaylen nowell,2021,1782621.0,spotrac,status_active,1782621.0,1.0,,2.0
 jaylen nowell,2022,1930681.0,spotrac,status_active,1930681.0,1.0,,2.0
-jaylen nowell,2023,2019706.0,spotrac,vet_min,116075.0,2.0,24885;124425;124425,1.0
-jaylen nowell,2024,2087519.0,spotrac,vet_min,278782.0,2.0,195147,1.0
+jaylen nowell,2023,,spotrac,retained_only,116075.0,2.0,24885;124425;124425,1.0
+jaylen nowell,2024,,spotrac,retained_only,278782.0,2.0,195147,1.0
 jaylen sims,2024,66503.0,bbref,fallback_bbref,66503.0,,,1.0
 jaylen wells,2024,1157153.0,spotrac,spotrac_cap_hit,1157153.0,1.0,,1.0
 jaylen wells,2025,1955377.0,spotrac,spotrac_cap_hit,1955377.0,1.0,,1.0
@@ -1907,7 +1907,7 @@ jd davison,2025,82030.0,spotrac,spotrac_cap_hit,2270735.0,1.0,618147,1.0
 jd davison,2026,2584539.0,spotrac,spotrac_cap_hit,2584539.0,1.0,,1.0
 jeenathan williams,2022,52644.0,spotrac,status_active,52644.0,1.0,,1.0
 jeenathan williams,2024,515881.0,spotrac,status_active,515881.0,1.0,51497,1.0
-jeff dowtin,2021,925258.0,spotrac,vet_min,53176.0,2.0,53176,1.0
+jeff dowtin,2021,,spotrac,retained_only,53176.0,2.0,53176,1.0
 jeff dowtin,2023,127683.0,spotrac,status_active,2196970.0,1.0,,1.0
 jeff green,2019,1620564.0,spotrac,vet_min,2564753.0,2.0,144901;2564753,2.0
 jeff green,2020,2564753.0,spotrac,vet_min,2564753.0,1.0,,2.0
@@ -1934,7 +1934,7 @@ jeremiah robinson-earl,2021,2000000.0,spotrac,status_active,2000000.0,1.0,,3.0
 jeremiah robinson-earl,2022,2000000.0,spotrac,status_active,2000000.0,1.0,,3.0
 jeremiah robinson-earl,2023,1900000.0,spotrac,vet_min,1900000.0,2.0,100000;1900000,3.0
 jeremiah robinson-earl,2024,2196970.0,spotrac,status_active,2196970.0,1.0,,1.0
-jeremiah robinson-earl,2025,2296274.0,spotrac,vet_min,131970.0,2.0,325365;141463;141463,1.0
+jeremiah robinson-earl,2025,,spotrac,retained_only,131970.0,2.0,325365;141463;141463,1.0
 jeremy lamb,2019,10500000.0,spotrac,status_active,10500000.0,1.0,,2.0
 jeremy lamb,2020,10500000.0,spotrac,status_active,10500000.0,1.0,,2.0
 jeremy lamb,2021,3681034.0,spotrac,status_active,10500000.0,1.0,,1.0
@@ -1984,7 +1984,7 @@ jock landale,2023,8000000.0,spotrac,status_active,8000000.0,1.0,,2.0
 jock landale,2024,8000000.0,spotrac,status_active,8000000.0,1.0,102994,2.0
 jock landale,2025,2296274.0,spotrac,vet_min,2296274.0,3.0,1499512;28293,1.0
 jock landale,2026,14100000.0,spotrac,spotrac_cap_hit,14100000.0,1.0,,1.0
-joe chealey,2019,1445697.0,spotrac,vet_min,163356.0,1.0,81678,1.0
+joe chealey,2019,,spotrac,retained_only,163356.0,1.0,81678,1.0
 joe harris,2019,7666666.666666667,spotrac,status_active,7666667.0,1.0,,1.0
 joe harris,2020,16071429.0,spotrac,status_active,16071429.0,1.0,,3.0
 joe harris,2021,17357143.0,spotrac,status_active,17357143.0,1.0,,3.0
@@ -2076,7 +2076,7 @@ jontay porter,2019,211128.53333333333,spotrac,status_active,197933.0,1.0,,1.0
 jontay porter,2020,1900000.0,spotrac,status_active,1620564.0,1.0,,1.0
 jontay porter,2021,,spotrac,retained_only,300000.0,1.0,,1.0
 jordan bell,2019,1620564.0,spotrac,vet_min,250000.0,4.0,9156;640901;970507,1.0
-jordan bell,2020,1620564.0,spotrac,vet_min,580062.0,2.0,114990;114990,1.0
+jordan bell,2020,810042.0,spotrac,status_active,580062.0,2.0,114990;114990,1.0
 jordan bell,2021,,spotrac,retained_only,102831.0,1.0,,1.0
 jordan caroline,2019,6000.0,bbref,fallback_bbref,6000.0,,,1.0
 jordan clarkson,2019,12541666.133333333,spotrac,status_active,13437500.0,2.0,4706921,1.0
@@ -2090,7 +2090,7 @@ jordan clarkson,2026,2449421.0,spotrac,spotrac_cap_hit,2449421.0,1.0,,1.0
 jordan goodwin,2021,53176.0,bbref,waived,53176.0,1.0,,1.0
 jordan goodwin,2022,900000.0,spotrac,single,900000.0,1.0,,1.0
 jordan goodwin,2023,2019706.0,spotrac,vet_min,1927896.0,3.0,116075;1196625;50000,1.0
-jordan goodwin,2024,2087519.0,spotrac,vet_min,223718.0,1.0,15000,1.0
+jordan goodwin,2024,223718.0,bbref,waived,223718.0,1.0,15000,1.0
 jordan goodwin,2025,2296274.0,bbref,waived,2296274.0,1.0,53093,1.0
 jordan goodwin,2026,5864198.0,spotrac,spotrac_cap_hit,5864198.0,1.0,,3.0
 jordan hall,2022,175479.0,bbref,fallback_bbref,175479.0,,,1.0
@@ -2200,7 +2200,7 @@ juan toscano-anderson,2019,373534.93333333335,spotrac,status_active,350189.0,1.0
 juan toscano-anderson,2020,358295.0,spotrac,status_active,358295.0,1.0,,2.0
 juan toscano-anderson,2021,1701593.0,spotrac,status_active,1701593.0,1.0,,1.0
 juan toscano-anderson,2022,1836090.0,spotrac,vet_min,1836090.0,2.0,644976,1.0
-juan toscano-anderson,2023,1517989.0,spotrac,vet_min,323506.0,1.0,124425,1.0
+juan toscano-anderson,2023,,spotrac,retained_only,323506.0,1.0,124425,1.0
 juancho hernangomez,2019,3321030.0,bbref,fallback_bbref,3321030.0,,,1.0
 juancho hernangomez,2020,5718000.0,bbref,fallback_bbref,5718000.0,,,1.0
 juancho hernangomez,2021,6175440.0,bbref,fallback_bbref,6175440.0,,,1.0
@@ -2225,9 +2225,9 @@ julius randle,2023,25660800.0,spotrac,single,28226880.0,1.0,,1.0
 julius randle,2024,31745840.0,spotrac,split,33073920.0,2.0,4134240;50000,4.0
 julius randle,2025,30864198.0,spotrac,spotrac_cap_hit,30864198.0,1.0,,4.0
 julius randle,2026,33333334.0,spotrac,spotrac_cap_hit,33333334.0,1.0,,4.0
-justin anderson,2019,1620564.0,spotrac,vet_min,294432.0,1.0,196288,1.0
+justin anderson,2019,209373.86666666667,spotrac,status_active,294432.0,1.0,196288,1.0
 justin anderson,2020,,spotrac,retained_only,125000.0,1.0,,1.0
-justin anderson,2021,1669178.0,spotrac,vet_min,111457.0,2.0,111457;111457;111457,1.0
+justin anderson,2021,,spotrac,retained_only,111457.0,2.0,111457;111457;111457,1.0
 justin champagnie,2022,825000.0,bbref,waived,825000.0,2.0,28241,1.0
 justin champagnie,2023,116075.0,bbref,waived,116075.0,1.0,,1.0
 justin champagnie,2024,1800000.0,spotrac,spotrac_cap_hit,1800000.0,1.0,,1.0
@@ -2244,7 +2244,7 @@ justin holiday,2022,819832.0,spotrac,vet_min,569821.0,3.0,819832;2133643,1.0
 justin holiday,2023,2019706.0,spotrac,spotrac_cap_hit,2019706.0,1.0,,1.0
 justin jackson,2019,3280920.533333333,spotrac,status_active,3280920.0,1.0,,1.0
 justin jackson,2020,5029650.0,spotrac,status_active,5029650.0,1.0,,1.0
-justin jackson,2021,1669178.0,spotrac,vet_min,102831.0,2.0,102831;102831,1.0
+justin jackson,2021,,spotrac,retained_only,102831.0,2.0,102831;102831,1.0
 justin jackson,2022,1836090.0,spotrac,vet_min,1836090.0,2.0,723353,1.0
 justin jackson,2023,,spotrac,retained_only,116075.0,1.0,,1.0
 justin james,2019,898310.4,spotrac,vet_min,898310.0,1.0,,1.0
@@ -2253,7 +2253,7 @@ justin james,2021,,spotrac,retained_only,95930.0,1.0,,1.0
 justin minaya,2022,35096.0,bbref,fallback_bbref,35096.0,,,1.0
 justin patton,2019,183115.0,spotrac,vet_min,1620564.0,3.0,183115;860639,1.0
 justin robinson,2019,,spotrac,retained_only,395866.0,1.0,,1.0
-justin robinson,2020,898310.0,spotrac,vet_min,198040.0,1.0,99020,1.0
+justin robinson,2020,,spotrac,retained_only,198040.0,1.0,99020,1.0
 justin robinson,2021,,spotrac,retained_only,95930.0,2.0,95930,1.0
 justin tillman,2021,53176.0,bbref,fallback_bbref,53176.0,,,1.0
 justise winslow,2019,13000000.0,spotrac,signing_contract,13000000.0,2.0,7858757,2.0
@@ -2271,7 +2271,7 @@ jusuf nurkic,2025,19375000.0,spotrac,status_active,19375000.0,1.0,,4.0
 jusuf nurkic,2026,11458333.0,spotrac,spotrac_cap_hit,10576923.0,1.0,,1.0
 juwan morgan,2019,795790.9333333333,spotrac,status_active,746054.0,1.0,,1.0
 juwan morgan,2020,1517981.0,spotrac,status_active,1517981.0,1.0,,1.0
-juwan morgan,2021,1669178.0,spotrac,vet_min,115116.0,2.0,95930;95930,1.0
+juwan morgan,2021,19186.0,spotrac,status_active,115116.0,2.0,95930;95930,1.0
 juwan morgan,2022,576230.0,spotrac,status_active,576230.0,1.0,,3.0
 juwan morgan,2023,,spotrac,retained_only,576230.0,1.0,,3.0
 juwan morgan,2024,,spotrac,retained_only,576229.0,1.0,,3.0
@@ -2415,7 +2415,7 @@ kevin knox,2020,4588680.0,spotrac,status_active,4588680.0,1.0,,2.0
 kevin knox,2021,8768967.0,spotrac,status_active,5845978.0,2.0,2922989,1.0
 kevin knox,2022,3000000.0,spotrac,signing_contract,3000000.0,2.0,1017241,1.0
 kevin knox,2023,2144320.0,curated,salary_override,2144320.0,2.0,825686,1.0
-kevin knox,2024,2087519.0,spotrac,vet_min,263939.0,1.0,150179;150179,1.0
+kevin knox,2024,330394.0,spotrac,status_active,263939.0,1.0,150179;150179,1.0
 kevin love,2019,28942829.866666667,spotrac,status_active,28942830.0,1.0,,3.0
 kevin love,2020,31258256.0,spotrac,status_active,31258256.0,1.0,,3.0
 kevin love,2021,31258256.0,spotrac,status_active,31258256.0,1.0,,3.0
@@ -2461,13 +2461,13 @@ khris middleton,2024,31000000.0,spotrac,status_active,31000000.0,2.0,514970;1924
 khris middleton,2025,53580246.0,spotrac,status_active,33296296.0,2.0,20283950,3.0
 khris middleton,2026,5591122.0,spotrac,spotrac_cap_hit,5591122.0,1.0,,3.0
 khyri thomas,2019,1416852.2666666666,spotrac,status_active,1416852.0,1.0,,1.0
-khyri thomas,2020,1620564.0,spotrac,vet_min,744684.0,2.0,250000;110998,1.0
+khyri thomas,2020,1105682.0,spotrac,status_active,744684.0,2.0,250000;110998,1.0
 killian hayes,2020,5307120.0,spotrac,status_active,5307120.0,1.0,,3.0
 killian hayes,2021,5572680.0,spotrac,status_active,5572680.0,1.0,,3.0
 killian hayes,2022,5837760.0,spotrac,status_active,5837760.0,1.0,,3.0
 killian hayes,2023,,spotrac,retained_only,7413955.0,1.0,,1.0
 killian hayes,2024,,spotrac,retained_only,119972.0,1.0,,1.0
-killian hayes,2025,2296274.0,spotrac,vet_min,263940.0,1.0,165197;165197,1.0
+killian hayes,2025,444658.0,spotrac,status_active,263940.0,1.0,165197;165197,1.0
 killian tillie,2021,1901625.0,spotrac,status_active,1901625.0,1.0,,2.0
 killian tillie,2022,,spotrac,retained_only,1901625.0,1.0,,2.0
 kingston flemings,2026,7348680.0,bbref,fallback_bbref,7348680.0,,,4.0
@@ -2533,7 +2533,7 @@ kyle anderson,2026,2449421.0,spotrac,spotrac_cap_hit,2449421.0,1.0,,1.0
 kyle filipowski,2024,3000000.0,spotrac,spotrac_cap_hit,3000000.0,1.0,,4.0
 kyle filipowski,2025,3000000.0,spotrac,spotrac_cap_hit,3000000.0,1.0,,4.0
 kyle filipowski,2026,3000000.0,spotrac,spotrac_cap_hit,3000000.0,1.0,,4.0
-kyle guy,2021,1669178.0,spotrac,vet_min,191860.0,1.0,95930,1.0
+kyle guy,2021,,spotrac,retained_only,191860.0,1.0,95930,1.0
 kyle korver,2019,1620564.0,spotrac,vet_min,1620564.0,2.0,3440000,1.0
 kyle kuzma,2019,1620564.0,spotrac,vet_min,1974600.0,1.0,,1.0
 kyle kuzma,2020,3562178.0,spotrac,status_active,3562178.0,1.0,,1.0
@@ -2576,7 +2576,7 @@ lamar stevens,2020,652366.0,spotrac,status_active,652366.0,1.0,,1.0
 lamar stevens,2021,1517981.0,spotrac,status_active,1517981.0,1.0,,1.0
 lamar stevens,2022,1782621.0,spotrac,vet_min,1782621.0,1.0,,1.0
 lamar stevens,2023,2019706.0,spotrac,vet_min,2019706.0,3.0,1286677;805677;400000,1.0
-lamar stevens,2024,2087519.0,spotrac,vet_min,383912.0,1.0,128603;128603,1.0
+lamar stevens,2024,411529.0,spotrac,status_active,383912.0,1.0,128603;128603,1.0
 lamarcus aldridge,2019,26000000.0,spotrac,status_active,26000000.0,1.0,,1.0
 lamarcus aldridge,2020,878340.0,spotrac,vet_min,554988.0,2.0,16750000,1.0
 lamarcus aldridge,2021,1669178.0,spotrac,vet_min,1669178.0,1.0,,1.0
@@ -2594,12 +2594,12 @@ landry shamet,2020,2090040.0,spotrac,single,2090040.0,1.0,,2.0
 landry shamet,2021,3768342.0,spotrac,single,3768342.0,1.0,,1.0
 landry shamet,2022,9500000.0,spotrac,single,9500000.0,1.0,,2.0
 landry shamet,2023,10250000.0,spotrac,single,10250000.0,1.0,,2.0
-landry shamet,2024,2087519.0,spotrac,vet_min,1343690.0,1.0,15000,1.0
+landry shamet,2024,1343690.0,bbref,waived,1343690.0,1.0,15000,1.0
 landry shamet,2025,2296274.0,spotrac,vet_min,2296274.0,1.0,530933,1.0
 landry shamet,2026,5490967.0,spotrac,spotrac_cap_hit,5357143.0,1.0,,4.0
 langston galloway,2019,7333333.333333333,spotrac,status_active,7333333.0,1.0,,1.0
 langston galloway,2020,1620564.0,spotrac,vet_min,1620564.0,1.0,,1.0
-langston galloway,2021,1669178.0,spotrac,vet_min,257418.0,2.0,128709;128709,1.0
+langston galloway,2021,,spotrac,retained_only,257418.0,2.0,128709;128709,1.0
 larry nance jr.,2019,12727272.533333333,spotrac,status_active,12727273.0,1.0,,6.0
 larry nance jr.,2020,11709091.0,spotrac,status_active,11709091.0,1.0,,6.0
 larry nance jr.,2021,10690909.0,spotrac,status_active,10690909.0,2.0,6942947,6.0
@@ -2698,7 +2698,7 @@ luke kennard,2025,11000000.0,spotrac,signing_contract,11000000.0,2.0,4172414,1.0
 luke kennard,2026,6064000.0,spotrac,spotrac_cap_hit,6064000.0,1.0,,2.0
 luke kornet,2019,2250000.0,spotrac,single,2250000.0,1.0,,2.0
 luke kornet,2020,2250000.0,spotrac,split,2250000.0,2.0,1433219,2.0
-luke kornet,2021,1669178.0,spotrac,vet_min,606702.0,3.0,102831;102831,1.0
+luke kornet,2021,606702.0,bbref,waived,606702.0,3.0,102831;102831,1.0
 luke kornet,2022,2133278.0,spotrac,single,2133278.0,1.0,,2.0
 luke kornet,2023,2413304.0,spotrac,single,2413304.0,1.0,50000,2.0
 luke kornet,2024,2087519.0,spotrac,vet_min,2087519.0,1.0,,1.0
@@ -2708,7 +2708,7 @@ luol deng,2019,2564753.0,curated,salary_override,2564753.0,1.0,,3.0
 luol deng,2020,,spotrac,retained_only,5000000.0,1.0,,3.0
 luol deng,2021,,spotrac,retained_only,5000000.0,1.0,,3.0
 m.j. walker,2021,53176.0,bbref,fallback_bbref,53176.0,,,1.0
-mac mcclung,2021,925258.0,spotrac,vet_min,106352.0,1.0,53176,1.0
+mac mcclung,2021,,spotrac,retained_only,106352.0,1.0,53176,1.0
 mac mcclung,2025,245064.0,spotrac,status_active,164060.0,2.0,245064,1.0
 malachi flynn,2020,1950600.0,spotrac,status_active,1950600.0,1.0,,3.0
 malachi flynn,2021,2048040.0,spotrac,status_active,2048040.0,1.0,,3.0
@@ -2725,7 +2725,7 @@ malcolm brogdon,2020,20700000.0,spotrac,status_active,20700000.0,1.0,,3.0
 malcolm brogdon,2021,21700000.0,spotrac,status_active,21700000.0,1.0,,3.0
 malcolm brogdon,2022,22600000.0,spotrac,status_active,22600000.0,1.0,,1.0
 malcolm brogdon,2023,22500000.0,spotrac,status_active,22500000.0,1.0,,1.0
-malcolm hill,2021,925258.0,spotrac,vet_min,53176.0,2.0,53176,1.0
+malcolm hill,2021,,spotrac,retained_only,53176.0,2.0,53176,1.0
 malcolm hill,2023,,spotrac,retained_only,116075.0,1.0,,1.0
 malcolm miller,2019,1588231.4666666666,spotrac,status_active,1588231.0,1.0,,1.0
 malevy leons,2024,126356.0,bbref,fallback_bbref,126356.0,,,1.0
@@ -2737,7 +2737,7 @@ malik beasley,2023,2709849.0,spotrac,status_active,2019706.0,1.0,100000,1.0
 malik beasley,2024,6000000.0,spotrac,spotrac_cap_hit,6000000.0,1.0,,1.0
 malik ellison,2021,53176.0,bbref,fallback_bbref,53176.0,,,1.0
 malik fitts,2020,,spotrac,retained_only,61528.0,1.0,,1.0
-malik fitts,2021,1489065.0,spotrac,vet_min,402218.0,1.0,85578;85578,1.0
+malik fitts,2021,231062.0,spotrac,status_active,402218.0,1.0,85578;85578,1.0
 malik fitts,2022,555217.0,spotrac,status_active,555217.0,1.0,,3.0
 malik fitts,2023,,spotrac,retained_only,555217.0,1.0,,3.0
 malik fitts,2024,,spotrac,retained_only,555216.0,1.0,,3.0
@@ -2754,7 +2754,7 @@ malik newman,2021,85578.0,bbref,fallback_bbref,85578.0,,,1.0
 malik williams,2023,64343.0,bbref,fallback_bbref,64343.0,,,1.0
 mamadi diakite,2020,160173.0,spotrac,status_active,160173.0,1.0,,1.0
 mamadi diakite,2021,,spotrac,retained_only,1040234.0,1.0,85578;85578;85578,1.0
-mamadi diakite,2023,2019706.0,spotrac,vet_min,252525.0,1.0,120250,1.0
+mamadi diakite,2023,252525.0,spotrac,status_active,252525.0,1.0,120250,1.0
 mamadi diakite,2024,464050.0,spotrac,status_active,464050.0,1.0,,3.0
 mamadi diakite,2025,,spotrac,retained_only,464050.0,1.0,,3.0
 mamadi diakite,2026,,spotrac,retained_only,464050.0,1.0,,3.0
@@ -2812,9 +2812,9 @@ marko simonovic,2021,925258.0,spotrac,vet_min,925258.0,1.0,,1.0
 marko simonovic,2022,1563518.0,spotrac,status_active,1563518.0,1.0,,1.0
 marques bolden,2019,50752.0,bbref,fallback_bbref,50752.0,,,1.0
 marques bolden,2023,116075.0,bbref,fallback_bbref,116075.0,,,1.0
-marquese chriss,2019,1620564.0,spotrac,vet_min,1413272.0,1.0,654468,1.0
+marquese chriss,2019,698099.2,spotrac,status_active,1413272.0,1.0,654468,1.0
 marquese chriss,2020,1824003.0,spotrac,status_active,1824003.0,2.0,662138,1.0
-marquese chriss,2021,1669178.0,spotrac,vet_min,1292900.0,1.0,111457;111457;111457,1.0
+marquese chriss,2021,1292900.0,spotrac,status_active,1292900.0,1.0,111457;111457;111457,1.0
 marquese chriss,2022,2193920.0,spotrac,status_active,2193920.0,1.0,,1.0
 marvin bagley iii,2019,8556120.533333333,spotrac,status_active,8556120.0,1.0,,2.0
 marvin bagley iii,2020,8963640.0,spotrac,status_active,8963640.0,1.0,,2.0
@@ -2967,7 +2967,7 @@ mo bamba,2021,7568743.0,spotrac,single,7568742.0,1.0,,1.0
 mo bamba,2022,10300000.0,spotrac,signing_contract,10300000.0,2.0,6807471,1.0
 mo bamba,2023,2346614.0,spotrac,single,2019706.0,1.0,,2.0
 mo bamba,2024,2087519.0,spotrac,vet_min,2087519.0,3.0,150179;1546847,2.0
-mo bamba,2025,2296274.0,spotrac,vet_min,194771.0,2.0,177064;177064,1.0
+mo bamba,2025,194771.0,bbref,waived,194771.0,2.0,177064;177064,1.0
 mo bamba,2026,3506659.0,spotrac,spotrac_cap_hit,3286399.0,1.0,,2.0
 mohamed diawara,2025,1272870.0,spotrac,vet_min,1272870.0,1.0,530933,1.0
 mohamed diawara,2026,2622139.0,spotrac,spotrac_cap_hit,2232143.0,1.0,,4.0
@@ -2997,9 +2997,9 @@ moritz wagner,2025,5000000.0,spotrac,single,5000000.0,1.0,106187,1.0
 moritz wagner,2026,9000000.0,spotrac,spotrac_cap_hit,9268293.0,1.0,,2.0
 moses brown,2020,1250000.0,spotrac,status_active,1250000.0,1.0,,1.0
 moses brown,2021,1669178.0,curated,salary_override,1669178.0,2.0,95930;19186;1701593,1.0
-moses brown,2022,1836090.0,spotrac,vet_min,105522.0,1.0,109318,1.0
+moses brown,2022,,spotrac,retained_only,105522.0,1.0,109318,1.0
 moses brown,2023,2019706.0,spotrac,vet_min,2019706.0,1.0,,1.0
-moses brown,2024,2087519.0,spotrac,vet_min,119972.0,2.0,306660,1.0
+moses brown,2024,,spotrac,retained_only,119972.0,2.0,306660,1.0
 moses moody,2021,3562200.0,spotrac,status_active,3562080.0,1.0,,3.0
 moses moody,2022,3740160.0,spotrac,status_active,3740160.0,1.0,,3.0
 moses moody,2023,3918480.0,spotrac,status_active,3918480.0,1.0,,3.0
@@ -3111,7 +3111,7 @@ nicolo melli,2019,4102564.0,bbref,fallback_bbref,4102564.0,,,1.0
 nicolo melli,2020,3897436.0,bbref,fallback_bbref,3897436.0,,,1.0
 nigel hayes-davis,2025,2048494.0,bbref,fallback_bbref,2048494.0,,,1.0
 nigel williams-goss,2019,1500000.0,bbref,fallback_bbref,1500000.0,,,1.0
-nik stauskas,2021,1669178.0,spotrac,vet_min,423536.0,2.0,111457,1.0
+nik stauskas,2021,423536.0,spotrac,status_active,423536.0,2.0,111457,1.0
 nik stauskas,2022,702311.0,spotrac,status_active,702311.0,1.0,,3.0
 nik stauskas,2023,,spotrac,retained_only,702311.0,1.0,,3.0
 nik stauskas,2024,,spotrac,retained_only,702310.0,1.0,,3.0
@@ -3151,8 +3151,8 @@ noah clowney,2026,5414034.0,spotrac,spotrac_cap_hit,5414034.0,1.0,,1.0
 noah penda,2025,1272870.0,spotrac,spotrac_cap_hit,1272870.0,1.0,106187,1.0
 noah penda,2026,2150917.0,spotrac,spotrac_cap_hit,2150917.0,1.0,,1.0
 noah vonleh,2019,2000000.0,spotrac,signing_contract,2000000.0,2.0,1197740,1.0
-noah vonleh,2020,1620564.0,spotrac,vet_min,263995.0,2.0,97261,1.0
-noah vonleh,2022,1836090.0,spotrac,vet_min,1160955.0,2.0,28316,1.0
+noah vonleh,2020,,spotrac,retained_only,263995.0,2.0,97261,1.0
+noah vonleh,2022,1160955.0,spotrac,status_active,1160955.0,2.0,28316,1.0
 nolan traore,2025,3811560.0,spotrac,spotrac_cap_hit,3811560.0,1.0,,3.0
 nolan traore,2026,4002000.0,spotrac,spotrac_cap_hit,4002000.0,1.0,,3.0
 norman powell,2019,10116576.0,spotrac,single,10116576.0,1.0,,2.0
@@ -3164,7 +3164,7 @@ norman powell,2024,19241379.0,spotrac,single,19241379.0,1.0,,5.0
 norman powell,2025,20482758.0,spotrac,single,20482758.0,1.0,53093,5.0
 norman powell,2026,21500000.0,spotrac,spotrac_cap_hit,21500000.0,1.0,,2.0
 norvel pelle,2019,373534.93333333335,spotrac,status_active,350189.0,1.0,,1.0
-norvel pelle,2020,1445697.0,spotrac,vet_min,217845.0,3.0,500000;99020;99020;99020,1.0
+norvel pelle,2020,500000.0,spotrac,status_active,217845.0,3.0,500000;99020;99020;99020,1.0
 norvel pelle,2021,,spotrac,retained_only,95930.0,2.0,95930,1.0
 obi toppin,2020,4862040.0,spotrac,status_active,4862040.0,1.0,,3.0
 obi toppin,2021,5105160.0,spotrac,status_active,5105160.0,1.0,,3.0
@@ -3206,7 +3206,7 @@ onyeka okongwu,2024,14000000.0,spotrac,spotrac_cap_hit,14000000.0,1.0,102994,4.0
 onyeka okongwu,2025,15000000.0,spotrac,spotrac_cap_hit,15000000.0,1.0,,4.0
 onyeka okongwu,2026,16100000.0,spotrac,spotrac_cap_hit,16120000.0,1.0,,4.0
 orlando robinson,2023,1801769.0,spotrac,vet_min,1801769.0,1.0,,1.0
-orlando robinson,2024,2087519.0,spotrac,vet_min,959779.0,2.0,491887;119972;119972,1.0
+orlando robinson,2024,,spotrac,retained_only,959779.0,2.0,491887;119972;119972,1.0
 oscar tshiebwe,2026,2537526.0,bbref,fallback_bbref,2537526.0,,,1.0
 oshae brissett,2020,1255493.0,spotrac,vet_min,955493.0,2.0,99020;99020;300000,1.0
 oshae brissett,2021,1701593.0,spotrac,status_active,1701593.0,1.0,,2.0
@@ -3271,7 +3271,7 @@ pat spencer,2026,678882.0,spotrac,status_active,678882.0,1.0,,1.0
 patrick baldwin jr.,2022,2226000.0,spotrac,status_active,2226000.0,1.0,,3.0
 patrick baldwin jr.,2023,2337720.0,spotrac,status_active,2337720.0,1.0,,3.0
 patrick baldwin jr.,2024,2448840.0,spotrac,status_active,2448840.0,2.0,1519970,3.0
-patrick baldwin jr.,2025,2296274.0,spotrac,vet_min,131970.0,3.0,136717;182884,1.0
+patrick baldwin jr.,2025,182884.0,spotrac,status_active,131970.0,3.0,136717;182884,1.0
 patrick beverley,2019,12345680.0,spotrac,status_active,12345679.0,1.0,,2.0
 patrick beverley,2020,13333333.0,spotrac,status_active,13333333.0,1.0,,2.0
 patrick beverley,2021,14320987.0,spotrac,status_active,14320988.0,1.0,,1.0
@@ -3337,7 +3337,7 @@ phillip wheeler,2024,66503.0,bbref,fallback_bbref,66503.0,,,1.0
 pj dozier,2019,195322.66666666666,spotrac,status_active,183115.0,1.0,,1.0
 pj dozier,2020,1762796.0,spotrac,status_active,1762796.0,1.0,,1.0
 pj dozier,2021,1669178.0,spotrac,vet_min,1910860.0,3.0,1021322;647935,1.0
-pj dozier,2022,1836090.0,spotrac,vet_min,539450.0,1.0,122602;122602,1.0
+pj dozier,2022,539450.0,spotrac,status_active,539450.0,1.0,122602;122602,1.0
 pj dozier,2024,,spotrac,retained_only,1051255.0,1.0,,1.0
 precious achiuwa,2020,2582160.0,spotrac,status_active,2582160.0,1.0,,3.0
 precious achiuwa,2021,2711280.0,spotrac,status_active,2711280.0,1.0,,3.0
@@ -3377,7 +3377,7 @@ rayan rupert,2025,146307.0,spotrac,status_active,2221677.0,2.0,131970;146307,1.0
 rayan rupert,2026,678882.0,spotrac,status_active,678882.0,1.0,,1.0
 rayjon tucker,2019,617144.5333333333,spotrac,status_active,578573.0,1.0,,1.0
 rayjon tucker,2020,340000.0,spotrac,status_active,340000.0,1.0,,1.0
-rayjon tucker,2021,1669178.0,spotrac,vet_min,95930.0,3.0,28779;95930,1.0
+rayjon tucker,2021,28779.0,spotrac,status_active,95930.0,3.0,28779;95930,1.0
 reed sheppard,2024,10098960.0,spotrac,spotrac_cap_hit,10098960.0,1.0,102994,3.0
 reed sheppard,2025,10603560.0,spotrac,spotrac_cap_hit,10603560.0,1.0,,3.0
 reed sheppard,2026,11108880.0,spotrac,spotrac_cap_hit,11108880.0,1.0,,3.0
@@ -3392,7 +3392,7 @@ reggie jackson,2021,10384500.0,spotrac,status_active,10384500.0,1.0,,1.0
 reggie jackson,2022,918516.0,spotrac,vet_min,10876844.0,3.0,918516;7412384,1.0
 reggie jackson,2023,5000000.0,spotrac,status_active,5000000.0,1.0,,1.0
 reggie jackson,2024,2087519.0,spotrac,vet_min,1946229.0,3.0,2050616;1253155,1.0
-reggie perry,2021,1489065.0,spotrac,vet_min,85578.0,2.0,85578;17116;85578,1.0
+reggie perry,2021,,spotrac,retained_only,85578.0,2.0,85578;17116;85578,1.0
 richaun holmes,2019,4767000.533333333,spotrac,status_active,4767000.0,1.0,,2.0
 richaun holmes,2020,5005350.0,spotrac,status_active,5005350.0,1.0,,2.0
 richaun holmes,2021,10384500.0,spotrac,status_active,10384500.0,1.0,,2.0
@@ -3426,7 +3426,7 @@ robert covington,2020,12138345.0,spotrac,status_active,12138345.0,1.0,,1.0
 robert covington,2021,12975471.0,spotrac,status_active,12975471.0,2.0,8128312,2.0
 robert covington,2022,12307692.0,spotrac,status_active,12307692.0,1.0,,2.0
 robert covington,2023,11692308.0,spotrac,status_active,11692308.0,2.0,11221928,1.0
-robert franks,2020,1445697.0,spotrac,vet_min,198040.0,1.0,99020,1.0
+robert franks,2020,,spotrac,retained_only,198040.0,1.0,99020,1.0
 robert williams,2019,1937520.0,bbref,fallback_bbref,1937520.0,,,2.0
 robert williams,2020,2029920.0,bbref,fallback_bbref,2029920.0,,,2.0
 robert williams,2021,3661976.0,bbref,fallback_bbref,3661976.0,,,1.0
@@ -3461,7 +3461,7 @@ ron holland,2024,8245320.0,bbref,fallback_bbref,8245320.0,,,3.0
 ron holland,2025,8657280.0,bbref,fallback_bbref,8657280.0,,,3.0
 ron holland,2026,9069600.0,bbref,fallback_bbref,9069600.0,,,3.0
 rondae hollis-jefferson,2019,2500000.0,spotrac,status_active,2500000.0,1.0,,1.0
-rondae hollis-jefferson,2020,1620564.0,spotrac,vet_min,432891.0,1.0,128963;128963,1.0
+rondae hollis-jefferson,2020,245031.0,spotrac,status_active,432891.0,1.0,128963;128963,1.0
 royce o'neale,2019,1618520.5333333334,spotrac,vet_min,1618520.0,1.0,,1.0
 royce o'neale,2020,8500000.0,spotrac,status_active,8500000.0,1.0,,8.0
 royce o'neale,2021,8800000.0,spotrac,status_active,8800000.0,1.0,,8.0
@@ -3503,7 +3503,7 @@ ryan anderson,2020,,spotrac,retained_only,5214583.0,1.0,,2.0
 ryan anderson,2021,,spotrac,retained_only,5214584.0,1.0,,2.0
 ryan arcidiacono,2019,3000000.0,spotrac,status_active,3000000.0,1.0,,2.0
 ryan arcidiacono,2020,3000000.0,spotrac,status_active,3000000.0,1.0,,2.0
-ryan arcidiacono,2021,1669178.0,spotrac,vet_min,791798.0,1.0,102831;102831,1.0
+ryan arcidiacono,2021,586136.0,spotrac,status_active,791798.0,1.0,102831;102831,1.0
 ryan arcidiacono,2022,1836090.0,spotrac,vet_min,1836090.0,2.0,723353,1.0
 ryan arcidiacono,2023,2019706.0,spotrac,vet_min,2019706.0,2.0,50000;1569248,1.0
 ryan broekhoff,2019,163356.0,spotrac,vet_min,1416852.0,1.0,163356,1.0
@@ -3608,8 +3608,8 @@ shake milton,2024,2875000.0,spotrac,signing_contract,2875000.0,2.0,1734914,1.0
 shaq buchanan,2021,53176.0,bbref,fallback_bbref,53176.0,,,1.0
 shaquille harrison,2019,898310.4,spotrac,vet_min,898310.0,1.0,,1.0
 shaquille harrison,2020,,spotrac,retained_only,770433.0,1.0,,1.0
-shaquille harrison,2021,1669178.0,spotrac,vet_min,205662.0,2.0,102831;102831,1.0
-shaquille harrison,2022,1836090.0,spotrac,vet_min,12260.0,2.0,122602,1.0
+shaquille harrison,2021,,spotrac,retained_only,205662.0,2.0,102831;102831,1.0
+shaquille harrison,2022,12260.0,spotrac,status_active,12260.0,2.0,122602,1.0
 shaquille harrison,2023,,spotrac,retained_only,116075.0,1.0,,1.0
 sharife cooper,2023,103550.0,bbref,fallback_bbref,103550.0,,,1.0
 shaun livingston,2019,,spotrac,retained_only,666667.0,1.0,,3.0
@@ -3626,7 +3626,7 @@ simone fontecchio,2024,7692308.0,spotrac,status_active,7692308.0,1.0,,2.0
 simone fontecchio,2025,8307692.0,spotrac,status_active,8307692.0,1.0,53093,2.0
 simone fontecchio,2026,2449421.0,spotrac,spotrac_cap_hit,2449421.0,1.0,,1.0
 sindarius thornwell,2019,195322.66666666666,spotrac,status_active,183115.0,1.0,,1.0
-sindarius thornwell,2020,1620564.0,spotrac,vet_min,943480.0,1.0,114990;114990,1.0
+sindarius thornwell,2020,,spotrac,retained_only,943480.0,1.0,114990;114990,1.0
 sion james,2025,2296274.0,spotrac,spotrac_cap_hit,2296274.0,1.0,,4.0
 sion james,2026,2411090.0,spotrac,spotrac_cap_hit,2411090.0,1.0,,4.0
 sir'dominic pointer,2019,50752.0,bbref,fallback_bbref,50752.0,,,1.0
@@ -3634,7 +3634,7 @@ skal labissiere,2019,2338847.0,bbref,fallback_bbref,2338847.0,,,1.0
 skal labissiere,2024,119972.0,bbref,fallback_bbref,119972.0,,,2.0
 skal labissiere,2025,131970.0,bbref,fallback_bbref,131970.0,,,2.0
 skylar mays,2021,34231.0,spotrac,status_active,34231.0,1.0,,1.0
-skylar mays,2022,1836090.0,spotrac,vet_min,105522.0,1.0,10552,1.0
+skylar mays,2022,,spotrac,retained_only,105522.0,1.0,10552,1.0
 skylar mays,2023,,spotrac,retained_only,1799163.0,1.0,,1.0
 solomon hill,2019,12758780.8,spotrac,status_active,12758781.0,2.0,4248422,1.0
 solomon hill,2020,2174318.0,spotrac,status_active,1620564.0,1.0,,1.0
@@ -3650,7 +3650,7 @@ spencer jones,2025,623967.0,spotrac,vet_min,623967.0,1.0,442578,1.0
 spencer jones,2026,6000000.0,spotrac,spotrac_cap_hit,6000000.0,1.0,,2.0
 stanley johnson,2019,3623000.533333333,spotrac,status_active,3623000.0,1.0,,2.0
 stanley johnson,2020,3804150.0,spotrac,status_active,3804150.0,1.0,,2.0
-stanley johnson,2021,1669178.0,spotrac,vet_min,120083.0,2.0,888616;120083;120083;120083,1.0
+stanley johnson,2021,888616.0,spotrac,status_active,120083.0,2.0,888616;120083;120083;120083,1.0
 stanley johnson,2022,1670643.0,spotrac,vet_min,1245164.0,2.0,2351521,1.0
 stanley umude,2022,,spotrac,retained_only,58493.0,1.0,,1.0
 stanley umude,2023,538460.0,spotrac,status_active,538460.0,1.0,,1.0
@@ -3785,7 +3785,7 @@ theo maledon,2020,2000000.0,bbref,fallback_bbref,2000000.0,,,2.0
 theo maledon,2021,2000000.0,bbref,fallback_bbref,2000000.0,,,2.0
 theo maledon,2022,1900000.0,bbref,fallback_bbref,1900000.0,,,1.0
 theo pinson,2019,1445697.0666666667,spotrac,vet_min,1445697.0,1.0,,1.0
-theo pinson,2021,1669178.0,spotrac,vet_min,197076.0,1.0,99380,1.0
+theo pinson,2021,,spotrac,retained_only,197076.0,1.0,99380,1.0
 theo pinson,2022,1836090.0,spotrac,vet_min,1836090.0,1.0,,1.0
 thomas bryant,2019,8000000.0,spotrac,status_active,8000000.0,1.0,,3.0
 thomas bryant,2020,8333333.0,spotrac,status_active,8333333.0,1.0,,3.0
@@ -3835,7 +3835,7 @@ tony bradley,2019,1962360.5333333334,spotrac,status_active,1962360.0,1.0,,1.0
 tony bradley,2020,3542060.0,spotrac,status_active,3542060.0,2.0,2256244,1.0
 tony bradley,2021,1789256.0,spotrac,vet_min,1789256.0,1.0,,2.0
 tony bradley,2022,,spotrac,retained_only,2036318.0,1.0,,2.0
-tony bradley,2024,2087519.0,spotrac,vet_min,330394.0,1.0,150179;150179,1.0
+tony bradley,2024,330394.0,spotrac,status_active,330394.0,1.0,150179;150179,1.0
 tony bradley,2025,92379.0,spotrac,spotrac_cap_hit,3204816.0,2.0,177064;177064;123945,1.0
 tony snell,2019,11392856.533333333,spotrac,status_active,11392857.0,1.0,,1.0
 tony snell,2020,12178571.0,spotrac,status_active,12178571.0,1.0,,1.0
@@ -3881,7 +3881,7 @@ tre mann,2025,8000000.0,spotrac,spotrac_cap_hit,8000000.0,1.0,,3.0
 tre mann,2026,8000000.0,spotrac,spotrac_cap_hit,8000000.0,1.0,,3.0
 tre scott,2021,53176.0,bbref,fallback_bbref,53176.0,,,1.0
 tre scott,2025,129503.0,bbref,fallback_bbref,129503.0,,,1.0
-tremont waters,2021,1669178.0,spotrac,vet_min,95930.0,2.0,95930,1.0
+tremont waters,2021,,spotrac,retained_only,95930.0,2.0,95930,1.0
 trendon watford,2021,436482.0,spotrac,single,436482.0,1.0,,1.0
 trendon watford,2022,1563518.0,bbref,waived,1563518.0,1.0,,1.0
 trendon watford,2023,2019706.0,spotrac,vet_min,2019706.0,1.0,,1.0
@@ -3902,7 +3902,7 @@ trey burke,2019,1620564.0,spotrac,vet_min,229220.0,2.0,2028594,1.0
 trey burke,2020,3000000.0,spotrac,status_active,3000000.0,1.0,,2.0
 trey burke,2021,3150000.0,spotrac,status_active,3150000.0,1.0,,2.0
 trey burke,2022,3423750.0,bbref,waived,3423750.0,2.0,,1.0
-trey jemison,2023,1119563.0,spotrac,vet_min,64343.0,1.0,64343,1.0
+trey jemison,2023,,spotrac,retained_only,64343.0,1.0,64343,1.0
 trey jemison,2026,678882.0,spotrac,status_active,678882.0,1.0,,1.0
 trey lyles,2019,5500000.0,spotrac,status_active,5500000.0,1.0,,2.0
 trey lyles,2020,5500000.0,spotrac,status_active,5500000.0,1.0,,2.0
@@ -3946,8 +3946,8 @@ ty jerome,2023,2439025.0,spotrac,single,2439025.0,1.0,,2.0
 ty jerome,2024,2560975.0,spotrac,single,2560975.0,1.0,,2.0
 ty jerome,2025,8781000.0,spotrac,spotrac_cap_hit,8781000.0,1.0,,3.0
 ty jerome,2026,9220050.0,spotrac,spotrac_cap_hit,9220050.0,1.0,,3.0
-tyler cook,2019,527821.0,spotrac,vet_min,151504.0,1.0,50752;50000,1.0
-tyler cook,2020,1445697.0,spotrac,vet_min,99020.0,2.0,396081;99020;99020,1.0
+tyler cook,2019,,spotrac,retained_only,151504.0,1.0,50752;50000,1.0
+tyler cook,2020,396081.0,spotrac,status_active,99020.0,2.0,396081;99020;99020,1.0
 tyler hall,2020,25000.0,bbref,fallback_bbref,25000.0,,,1.0
 tyler hall,2021,53176.0,bbref,fallback_bbref,53176.0,,,1.0
 tyler herro,2019,3640200.533333333,spotrac,status_active,3640200.0,1.0,,3.0
@@ -4072,7 +4072,7 @@ wendell moore,2023,2421720.0,bbref,fallback_bbref,2421720.0,,,2.0
 wendell moore,2024,2537040.0,bbref,fallback_bbref,2537040.0,,,1.0
 wenyen gabriel,2019,1445697.0,spotrac,vet_min,1445697.0,2.0,743268,1.0
 wenyen gabriel,2020,1620564.0,spotrac,vet_min,1620564.0,1.0,,1.0
-wenyen gabriel,2021,1669178.0,spotrac,vet_min,99380.0,4.0,99380;99380;29814;99380,1.0
+wenyen gabriel,2021,29814.0,spotrac,status_active,99380.0,4.0,99380;99380;29814;99380,1.0
 wenyen gabriel,2022,1878720.0,spotrac,status_active,1836090.0,1.0,,1.0
 wenyen gabriel,2023,,spotrac,retained_only,116075.0,1.0,,1.0
 wes iwundu,2019,1618520.5333333334,spotrac,vet_min,1618520.0,1.0,,1.0
@@ -4095,7 +4095,7 @@ william howard,2019,50000.0,bbref,fallback_bbref,50000.0,,,1.0
 willie cauley-stein,2019,2177482.666666667,spotrac,signing_contract,2177483.0,2.0,1168706,1.0
 willie cauley-stein,2020,4100000.0,spotrac,status_active,4100000.0,1.0,,2.0
 willie cauley-stein,2021,,spotrac,retained_only,4100000.0,2.0,120083,2.0
-willie cauley-stein,2022,1836090.0,spotrac,vet_min,105522.0,1.0,14158,1.0
+willie cauley-stein,2022,14158.0,spotrac,status_active,105522.0,1.0,14158,1.0
 willy hernangomez,2019,1676735.0,bbref,fallback_bbref,1676735.0,,,1.0
 willy hernangomez,2020,1620564.0,bbref,fallback_bbref,1620564.0,,,1.0
 willy hernangomez,2021,2327220.0,bbref,fallback_bbref,2327220.0,,,2.0
@@ -4119,7 +4119,7 @@ yanic konan niederhauser,2026,2880960.0,bbref,fallback_bbref,2880960.0,,,3.0
 yante maten,2019,,spotrac,retained_only,100000.0,1.0,,1.0
 yaxel lendeborg,2026,6096240.0,bbref,fallback_bbref,6096240.0,,,4.0
 yogi ferrell,2019,3150000.0,spotrac,status_active,3150000.0,1.0,,1.0
-yogi ferrell,2020,1620564.0,spotrac,vet_min,110998.0,2.0,214169;118983,1.0
+yogi ferrell,2020,214169.0,spotrac,status_active,110998.0,2.0,214169;118983,1.0
 yuki kawamura,2026,2449421.0,bbref,fallback_bbref,2449421.0,,,1.0
 yuri collins,2024,66503.0,bbref,fallback_bbref,66503.0,,,1.0
 yuta watanabe,2020,321893.0,spotrac,status_active,321893.0,1.0,,1.0
@@ -4179,4 +4179,4 @@ zion williamson,2025,39446090.0,spotrac,spotrac_cap_hit,39446090.0,1.0,,5.0
 zion williamson,2026,42166510.0,spotrac,spotrac_cap_hit,42166510.0,1.0,,5.0
 zuby ejiofor,2026,3453360.0,bbref,fallback_bbref,3453360.0,,,4.0
 zylan cheatham,2020,1445697.0,spotrac,vet_min,1445697.0,1.0,,1.0
-zylan cheatham,2021,1489065.0,spotrac,vet_min,85578.0,3.0,89057;89057,1.0
+zylan cheatham,2021,,spotrac,retained_only,85578.0,3.0,89057;89057,1.0
