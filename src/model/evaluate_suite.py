@@ -78,8 +78,8 @@ from src.model.train import (
 from src.model.extension_cap import attach_extension_cap
 from src.model.mechanism_cap import attach_mechanism_caps
 from src.model.route_mixture import (
-    attach_clf_features, grabit_latent, route_proba, train_route_classifier,
-    MAX_IDX,
+    attach_clf_features, exclude_waived_max, grabit_latent, route_proba,
+    train_route_classifier, MAX_IDX,
 )
 from src.model.stages import (
     compose, stage3_signing, signing_offsets, TAU, MARGIN, SIGNING_K,
@@ -229,12 +229,15 @@ def make_stage_arms_fitter(clf_features: list[str], grabit_params: dict | None =
     test slice, so it is fold-honest. P(max) is an OUTPUT composition weight and
     never joins `features`, which stays FEATURE_COLS for the regression.
     """
-    gp = grabit_params or {}
+    gp = dict(grabit_params or {})
+    no_waived_max = gp.pop("exclude_waived_max", False)
 
     def fitter(train, test, features, seed):
         latent, lo, hi = grabit_latent(train, test, features, seed, **gp)
         clf = train_route_classifier(train, clf_features, seed)
         p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
+        if no_waived_max:
+            p_max = exclude_waived_max(p_max, test, TAU)
         is_ext = test["is_extension"].values
         ext_cap = test["ext_cap_pct"].values
         return {
@@ -420,7 +423,8 @@ def make_kf_stage_arms_fitter(kf_ctx: KFContext, clf_features: list[str],
     `augment`, if given, maps a frame to a frame after kf_market_value is
     attached, so a challenger built from kf_market_value stays fold-honest.
     """
-    gp = grabit_params or {}
+    gp = dict(grabit_params or {})
+    no_waived_max = gp.pop("exclude_waived_max", False)
 
     def fitter(train, test, features, seed):
         train_aug, test_aug = _compute_kf_nested(kf_ctx, train, test,
@@ -431,6 +435,8 @@ def make_kf_stage_arms_fitter(kf_ctx: KFContext, clf_features: list[str],
                                        seed, **gp)
         clf = train_route_classifier(train_aug, clf_features, seed)
         p_max = route_proba(clf, test_aug, clf_features)[:, MAX_IDX]
+        if no_waived_max:
+            p_max = exclude_waived_max(p_max, test_aug, TAU)
         is_ext = test["is_extension"].values
         ext_cap = test["ext_cap_pct"].values
         return {

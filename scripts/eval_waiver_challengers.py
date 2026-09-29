@@ -11,7 +11,10 @@ offsets) with identical folds and seeds:
     waiver_term       partially linear Stage 1: latent = GBM(x) + beta * z,
                       z = is_waived * kf_market_value,
                       beta fitted in each training slice (see
-                      route_mixture.waiver_beta; pre-registered in QUEUE)
+                      route_mixture.waiver_beta; not adopted, v6.0.3)
+    owed_branch       money-owed waivers leave the Grabit fit and are priced
+                      as gamma * latent (Tobit, left-censored at the floor);
+                      P(max) = 0 on waived rows (pre-registered in QUEUE)
 
 The interactions are built after nested KF inference inside every fold
 (`augment`), so no fold sees a kf value informed by its own players. The KF
@@ -78,6 +81,8 @@ def arms() -> dict:
                        _times_kf("is_waived_known", "kf_market_value_x_known"),
                        None),
         "waiver_term": (base, None, {"waiver_term": True}),
+        "owed_branch": (base, None, {"owed_branch": True,
+                                     "exclude_waived_max": True}),
     }
 
 
@@ -129,6 +134,8 @@ def main() -> None:
         features, augment, gp = spec[name]
         print(f"\nARM {name}: {len(features)} regression features", flush=True)
         rm.WAIVER_BETA_LOG.clear()
+        rm.OWED_GAMMA_LOG.clear()
+        rm.EXCLUDED_PUSH_LOG.clear()
         fitter = make_kf_stage_arms_fitter(kf_ctx, clf_features,
                                            grabit_params=gp, augment=augment)
         if args.full:
@@ -144,9 +151,13 @@ def main() -> None:
             oof, fold_r2, sel_cells = store[ARM_CHAMPION]
             metrics = {**layer_a(df, oof, fold_r2), **layer_c(df, oof)}
             stages = {k: store[k][0] for k in (ARM_CLIP, ARM_EXANTE)}
-        betas = list(rm.WAIVER_BETA_LOG)
+        betas = list(rm.WAIVER_BETA_LOG) or list(rm.OWED_GAMMA_LOG)
+        if rm.EXCLUDED_PUSH_LOG:
+            print(f"  exclusion removed the push on "
+                  f"{sum(rm.EXCLUDED_PUSH_LOG)} waived test rows over "
+                  f"{len(rm.EXCLUDED_PUSH_LOG)} fits", flush=True)
         if betas:
-            print(f"  beta over {len(betas)} fits: mean {np.mean(betas):+.3f} "
+            print(f"  beta/gamma over {len(betas)} fits: mean {np.mean(betas):+.3f} "
                   f"min {np.min(betas):+.3f} max {np.max(betas):+.3f}",
                   flush=True)
         results[name] = {"oof": oof, "sel": sel_cells, "m": metrics,

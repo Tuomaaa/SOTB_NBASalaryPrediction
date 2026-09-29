@@ -284,6 +284,19 @@ def train_route6_classifier(train: pd.DataFrame, features: list[str], seed: int,
 # Classifier
 # ---------------------------------------------------------------------------
 
+# Experiment log: waived test rows whose push the exclusion removed.
+EXCLUDED_PUSH_LOG: list[int] = []
+
+
+def exclude_waived_max(p_max: np.ndarray, test: pd.DataFrame,
+                       tau: float) -> np.ndarray:
+    """P(max) = 0 on known-waived rows; no waived frame row signed a maximum."""
+    waived = (pd.to_numeric(test["is_waived"], errors="coerce")
+              .fillna(0.0).values == 1.0)
+    EXCLUDED_PUSH_LOG.append(int((waived & (p_max >= tau)).sum()))
+    return np.where(waived, 0.0, p_max)
+
+
 def train_route_classifier(train: pd.DataFrame, features: list[str], seed: int,
                            labels: np.ndarray | None = None) -> xgb.Booster:
     """Fit the 4-class softprob booster on one training slice.
@@ -333,6 +346,17 @@ def oof_route_proba(df: pd.DataFrame, features: list[str],
 
 # Experiment log for the partially linear waiver term: one beta per fit.
 WAIVER_BETA_LOG: list[float] = []
+# Experiment log for the money-owed branch: one gamma per fit.
+OWED_GAMMA_LOG: list[float] = []
+OWED_MIN_ROWS = 10
+
+
+def owed_mask(frame: pd.DataFrame) -> np.ndarray:
+    """Rows whose previous team still pays them (`prior_waiver_owed == 1`)."""
+    if "prior_waiver_owed" not in frame.columns:
+        return np.zeros(len(frame), bool)
+    return (pd.to_numeric(frame["prior_waiver_owed"], errors="coerce")
+            .fillna(0.0).values == 1.0)
 
 
 def waiver_z(frame: pd.DataFrame) -> np.ndarray:
@@ -346,7 +370,9 @@ def waiver_z(frame: pd.DataFrame) -> np.ndarray:
 
 
 def _tobit_beta(y: np.ndarray, base: np.ndarray, z: np.ndarray,
-                floor: np.ndarray, at_floor: np.ndarray) -> float:
+                floor: np.ndarray, at_floor: np.ndarray,
+                bounds: tuple[float, float] = (-1.0, 0.0),
+                x0: float = -0.3) -> float:
     """MLE of beta in y = base + beta * z + e, left-censored at the floor.
 
     A row at the floor only says its discounted value is at or below the
@@ -366,8 +392,8 @@ def _tobit_beta(y: np.ndarray, base: np.ndarray, z: np.ndarray,
         ll += norm.logcdf((floor[at_floor] - mu[at_floor]) / s).sum()
         return -ll
 
-    fit = minimize(nll, x0=[-0.3, np.log(max(s0, 1e-4))], method="L-BFGS-B",
-                   bounds=[(-1.0, 0.0), (np.log(1e-4), np.log(1.0))])
+    fit = minimize(nll, x0=[x0, np.log(max(s0, 1e-4))], method="L-BFGS-B",
+                   bounds=[bounds, (np.log(1e-4), np.log(1.0))])
     return float(fit.x[0])
 
 
@@ -399,7 +425,8 @@ def waiver_beta(train: pd.DataFrame, features: list[str], seed: int,
 def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                   seed: int, sigma: float = 0.02, gate_frac: float = 0.55,
                   floor_gate_k: float = 2.0, sigma_left: float | None = None,
-                  censor_c: float | None = None, waiver_term: bool = False):
+                  censor_c: float | None = None, waiver_term: bool = False,
+                  owed_branch: bool = False):
     """Champion Grabit v4 latent on `test`, plus the Stage-2 bounds (lo, hi).
 
     Byte-for-byte the same training path as evaluate_suite.make_grabit_fitter,
@@ -411,8 +438,16 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
     latent = GBM(x) + beta * waiver_z, with beta from `waiver_beta` (a Tobit
     fit, left-censored at the floor) and the term passed to the Grabit fit
     and prediction as base_margin.
+
+    `owed_branch` (experiment, off by default) fits the model without the
+    money-owed rows (`owed_mask`) and prices them as gamma * latent, where the
+    latent is out-of-sample for them and gamma is a Tobit fit on the training
+    money-owed rows, left-censored at the floor and bounded to [0, 1].
     """
     from xgboost import XGBRegressor
+    full_train = train
+    if owed_branch:
+        train = train[~owed_mask(train)]
 
     y_tr = train[TARGET].values
     max_elig_tr = train["max_eligible_pct"].values
@@ -444,6 +479,18 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
     else:
         model.fit(train[features], y_tr)
         latent = model.predict(test[features])
+    if owed_branch:
+        owed_tr = full_train[owed_mask(full_train)]
+        gamma = 1.0
+        if len(owed_tr) >= OWED_MIN_ROWS:
+            m_tr = model.predict(owed_tr[features])
+            gamma = _tobit_beta(
+                owed_tr[TARGET].values, np.zeros(len(owed_tr)), m_tr,
+                owed_tr["floor_pct"].values,
+                owed_tr["is_at_floor"].values.astype(bool),
+                bounds=(0.0, 1.0), x0=0.5)
+        OWED_GAMMA_LOG.append(gamma)
+        latent = np.where(owed_mask(test), gamma * latent, latent)
     lo = (test["floor_pct"].values if "floor_pct" in test.columns
           else np.zeros(len(test)))
     hi = test["max_eligible_pct"].values
