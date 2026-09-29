@@ -294,8 +294,8 @@ def exclude_waived_max(p_max: np.ndarray, test: pd.DataFrame,
                        tau: float) -> np.ndarray:
     """P(max) = 0 on known-waived rows; no waived frame row signed a maximum.
 
-    Champion since v6.1.0: the Stage-1 waiver term lowers a waived player's
-    latent, and a push must not lift it back.
+    Champion since v6.1.0: no waived frame row signed a maximum, and a push
+    must not lift a latent the Stage-1 waiver term lowered.
     """
     waived = (pd.to_numeric(test["is_waived"], errors="coerce")
               .fillna(0.0).values == 1.0)
@@ -386,7 +386,7 @@ def owed_mask(frame: pd.DataFrame) -> np.ndarray:
 def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                   seed: int, sigma: float = 0.02, gate_frac: float = 0.55,
                   floor_gate_k: float = 2.0, sigma_left: float | None = None,
-                  censor_c: float | None = None, waiver_term: bool | str = True,
+                  censor_c: float | None = None, waiver_term: bool | str = "owed",
                   owed_branch: bool | str = False,
                   waived_branch: bool = False):
     """Champion Grabit v4 latent on `test`, plus the Stage-2 bounds (lo, hi).
@@ -396,13 +396,13 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
     clip. Clipping the returned latent into [lo, hi] reproduces the champion
     fitter exactly (asserted in the eval harness).
 
-    `waiver_term` (champion since v6.1.0; False reproduces v6.0.6 when the
-    waiver features are also restored) makes Stage 1 partially linear:
-    latent = GBM(x) + beta * waiver_z, with beta from `train.waiver_beta` (a
-    Tobit fit, left-censored at the floor) and the term passed to the Grabit
-    fit and prediction as base_margin. "owed" (experiment) fits beta the same
-    way but applies the term only to money-owed waivers (`owed_mask`), in both
-    the fit and the prediction.
+    `waiver_term` makes Stage 1 partially linear: latent = GBM(x) +
+    beta * waiver_z, with beta from `train.waiver_beta` (a Tobit fit on every
+    waived row, left-censored at the floor) and the term passed to the Grabit
+    fit and prediction as base_margin. "owed" (champion since v6.2.0) applies
+    the term only to money-owed waivers, in both the fit and the prediction.
+    True applies it to every waived row (v6.1.0, with the waiver features
+    dropped); False reproduces v6.0.6.
 
     `owed_branch` (experiment, off by default) prices money-owed rows
     (`owed_mask`) as gamma * latent, with gamma a Tobit fit on the training
@@ -449,14 +449,11 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
         beta = waiver_beta(train, features, seed)
         WAIVER_BETA_LOG.append(beta)
         b0 = float(y_tr.mean())
-        if waiver_term == "owed":
-            def zf(frame):
-                return waiver_z(frame) * owed_mask(frame)
-        else:
-            zf = waiver_z
-        model.fit(train[features], y_tr, base_margin=b0 + beta * zf(train))
-        latent = model.predict(test[features],
-                               base_margin=b0 + beta * zf(test))
+        owed_only = waiver_term == "owed"
+        model.fit(train[features], y_tr, base_margin=b0 + beta * waiver_z(
+            train, owed_only=owed_only))
+        latent = model.predict(test[features], base_margin=b0 + beta * waiver_z(
+            test, owed_only=owed_only))
     else:
         model.fit(train[features], y_tr)
         latent = model.predict(test[features])

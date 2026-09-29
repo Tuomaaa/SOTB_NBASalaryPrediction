@@ -128,11 +128,14 @@ FEATURE_LABELS = {
     "draft_pick": "Draft pick",
     "kf_market_value": "Market trajectory",
     "playoff_mpg_diff": "Playoff minutes swing",
-    "waiver_term": "Waiver discount",
+    "is_waived": "Recently waived",
+    "mpg_x_waived": "Minutes x waived",
+    "waiver_term": "Buyout discount",
 }
 
-# The Stage-1 waiver term (v6.1.0) is not a tree feature. It is appended as one
-# more attribution column, so the SHAP row still sums to the latent.
+# The Stage-1 waiver term (money-owed waivers only since v6.2.0) is not a tree
+# feature. It is appended as one more attribution column, so the SHAP row
+# still sums to the latent.
 WAIVER_SHAP_KEY = "waiver_term"
 
 
@@ -404,10 +407,11 @@ _TREE_ARRAYS = (
 )
 
 
-def _waived_flag(frame: pd.DataFrame) -> np.ndarray:
-    """0/1 `is_waived` as the waiver term reads it (missing means 0)."""
-    return (pd.to_numeric(frame["is_waived"], errors="coerce")
-            .fillna(0.0).values == 1.0).astype(int)
+def _waiver_term_flag(frame: pd.DataFrame) -> np.ndarray:
+    """0/1: the Stage-1 waiver term applies (a money-owed waiver, v6.2.0)."""
+    def one(col):
+        return pd.to_numeric(frame[col], errors="coerce").fillna(0.0).values == 1.0
+    return (one("is_waived") & one("prior_waiver_owed")).astype(int)
 
 
 def _compact_split_condition(value: float) -> float:
@@ -478,8 +482,8 @@ def _assert_model_parity(stripped: dict, out: pd.DataFrame,
     """Reproduce browser traversal with float32 split inputs for every row.
 
     The latent is the tree sum plus the waiver term
-    waiver_beta * is_waived * kf_market_value (v6.1.0), with is_waived from the
-    row's `wv` flag and kf_market_value from its model inputs.
+    waiver_beta * wv * kf_market_value (v6.2.0), with wv the row's
+    money-owed-waiver flag and kf_market_value from its model inputs.
     """
     base = float(json.loads(stripped["base_score"])[0])
     beta = float(stripped["waiver_beta"])
@@ -500,7 +504,8 @@ def _assert_model_parity(stripped: dict, out: pd.DataFrame,
                 else:
                     node = tree["right_children"][node]
             total += tree["base_weights"][node]
-        predictions[i] = total + beta * out["is_waived"].values[i] * values[kf_idx]
+        predictions[i] = (total + beta * out["waiver_term_flag"].values[i]
+                          * values[kf_idx])
 
     drift = float(np.max(np.abs(predictions - out["latent_cap_pct"].values)))
     if drift > tolerance:
@@ -691,7 +696,7 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
               "signing-board membership")
 
     out["base_salary"] = expected * out["cap"]
-    out["is_waived"] = _waived_flag(full)
+    out["waiver_term_flag"] = _waiver_term_flag(full)
     out["is_fa"] = False
     # Full-precision, median-filled inputs in serialized feature order. The
     # browser joins these to model.json.feature_names rather than assuming a
@@ -870,7 +875,7 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         "award_score_cum": fa["award_score_cum"].values,
         "signing_type": np.nan,
         "base_salary": expected * cap,
-        "is_waived": _waived_flag(fa),
+        "waiver_term_flag": _waiver_term_flag(fa),
         "is_fa": True,
         "model_x": list(X.to_numpy(dtype=float)),
     })
@@ -943,8 +948,9 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
             "sg": bool(r.is_signing),
             "pr": bool(r.is_prorated),
             "fa": bool(r.is_fa),
-            # Stage-1 waiver term input: latent = trees + beta * wv * kf.
-            "wv": int(r.is_waived),
+            # Stage-1 waiver term input: latent = trees + beta * wv * kf,
+            # wv = 1 on money-owed waivers only (v6.2.0).
+            "wv": int(r.waiver_term_flag),
             "st": None if pd.isna(r.signing_type) else r.signing_type,
             "dk": _round(r.darko_dpm_z),
             "lb": _round(r.lebron_z),
@@ -1029,8 +1035,8 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
         "nExtCapped": int(out["is_ext_capped"].sum()),
         "features": [{"key": f, "label": FEATURE_LABELS.get(f, f)}
                      for f in features],
-        # Not a tree feature: latent = trees + beta * is_waived * kf, with the
-        # row's `wv` flag. shap.json carries it under this key.
+        # Not a tree feature: latent = trees + beta * wv * kf, with the row's
+        # `wv` money-owed-waiver flag. shap.json carries it under this key.
         "waiverTerm": {"key": WAIVER_SHAP_KEY,
                        "label": FEATURE_LABELS[WAIVER_SHAP_KEY],
                        "beta": results["waiver_beta"]},

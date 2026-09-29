@@ -1,12 +1,14 @@
 """Remeasure the waiver features and test kf_market_value_x_waived.
 
 Arms, all scored on the champion pipeline (nested KF, Stage 2/3, signing
-offsets) with identical folds and seeds. Since v6.1.0 `incumbent` is the
-champion (waiver_term_noflag); `v606` and every historical arm carry the v6.0.6
+offsets) with identical folds and seeds. `incumbent` is the current champion
+(v6.2.0, term_flags_owed); `v606`, `v610` and every historical arm carry their
 feature list and switches explicitly, so their definitions do not move:
 
-    incumbent         FEATURE_COLS, waiver term, P(max) = 0 on waived rows
+    incumbent         FEATURE_COLS, waiver term on money-owed waivers,
+                      P(max) = 0 on waived rows
     v606              v6.0.6 champion (is_waived and mpg_x_waived features)
+    v610              v6.1.0 champion (waiver_term_noflag)
     no_is_waived      without is_waived
     no_mpg_x_waived   without mpg_x_waived
     kf_x_waived       + is_waived * kf_market_value
@@ -89,6 +91,8 @@ def arms() -> dict:
     return {
         "incumbent": (list(FEATURE_COLS), None, None),
         "v606": (base, None, V606),
+        "v610": ([f for f in base if f not in ("is_waived", "mpg_x_waived")],
+                 None, {"waiver_term": True, "exclude_waived_max": True}),
         "no_is_waived": ([f for f in base if f != "is_waived"], None, V606),
         "no_mpg_x_waived": ([f for f in base if f != "mpg_x_waived"], None,
                             V606),

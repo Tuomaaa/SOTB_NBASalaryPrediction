@@ -481,8 +481,7 @@ def deployed_p_max(train: pd.DataFrame, test: pd.DataFrame,
     below, so filling it here would raise a KeyError on the test frame.
 
     Waived rows (`is_waived == 1`) get P(max) = 0 (v6.1.0), as in the suite's
-    `exclude_waived_max`: the Stage-1 waiver term lowers their latent, and a
-    push must not lift it back.
+    `exclude_waived_max`: no waived frame row signed a maximum.
     """
     from src.model.route_mixture import (
         attach_clf_features, train_route_classifier, route_proba, MAX_IDX,

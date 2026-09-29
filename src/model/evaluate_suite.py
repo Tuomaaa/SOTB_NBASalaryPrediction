@@ -420,7 +420,7 @@ def make_kf_stage_arms_fitter(kf_ctx: KFContext, clf_features: list[str],
     kf_market_value via `_compute_kf_nested` before fitting the final model.
 
     The `features` argument this fitter receives should be FEATURE_COLS
-    (19 features including kf_market_value). The base model used for KF
+    (21 features including kf_market_value). The base model used for KF
     measurements uses MEASUREMENT_FEATURES (prev_cap_pct, not kf).
 
     `grabit_params["exclude_waived_max"]` (default True since v6.1.0) sets
@@ -542,8 +542,8 @@ def load_evaluation_frame(keep_prorated: bool = False,
     if "prev_cap_pct" in df.columns and "prev_cap_pct" not in features:
         df["prev_cap_pct"] = df["prev_cap_pct"].fillna(
             df["prev_cap_pct"].median()).fillna(0)
-    # The waiver columns left FEATURE_COLS in v6.1.0 but still feed the KF
-    # measurement model, the route classifier and the Stage-1 waiver term.
+    # Fill the waiver columns even if a caller's list omits them: the KF
+    # measurement model, the route classifier and the waiver term read them.
     for col in ("is_waived", "mpg_x_waived"):
         if col in df.columns and col not in features:
             df[col] = df[col].fillna(df[col].median()).fillna(0)

@@ -35,6 +35,7 @@ FEATURE_COLS = [
     "age", "age_squared",
     "mpg",
     "availability_3yr",
+    "is_waived",
     "usage_pct",
     "height_inches",
     "cba_era",
@@ -42,6 +43,7 @@ FEATURE_COLS = [
     "award_score_cum",
     "draft_pick",
     "kf_market_value",
+    "mpg_x_waived",
     "playoff_mpg_diff",
     "kalman_filtered_stats",
     "darko_od_diff_z",
@@ -946,18 +948,24 @@ _XGB_BASE = dict(
 
 
 # ---------------------------------------------------------------------------
-# Stage-1 waiver term (v6.1.0): latent = GBM(x) + beta * is_waived * kf
+# Stage-1 waiver term (v6.2.0): latent = GBM(x) + beta * owed * kf
 # ---------------------------------------------------------------------------
 
-def waiver_z(frame: pd.DataFrame) -> np.ndarray:
+def waiver_z(frame: pd.DataFrame, owed_only: bool = False) -> np.ndarray:
     """Market value of a waived player, 0 for everyone else.
 
-    No floor term: the discount is a share of the whole market value, and the
-    Stage-2 clip alone keeps the prediction at or above the minimum.
-    `is_waived` is not a regression feature; it enters only through this term.
+    owed_only=True keeps only money-owed waivers (`prior_waiver_owed == 1`),
+    the rows the deployed term applies to since v6.2.0. Beta is still fitted
+    on every waived row (`waiver_beta`). No floor term: the discount is a
+    share of the whole market value, and the Stage-2 clip alone keeps the
+    prediction at or above the minimum.
     """
     waived = pd.to_numeric(frame["is_waived"], errors="coerce").fillna(0.0)
-    return waived.values * frame["kf_market_value"].values
+    z = waived.values * frame["kf_market_value"].values
+    if owed_only:
+        owed = pd.to_numeric(frame["prior_waiver_owed"], errors="coerce")
+        z = z * (owed.fillna(0.0).values == 1.0)
+    return z
 
 
 def _tobit_beta(y: np.ndarray, base: np.ndarray, z: np.ndarray,
@@ -1016,10 +1024,11 @@ def grabit_predict(model, results: dict, X: pd.DataFrame,
                    frame: pd.DataFrame) -> np.ndarray:
     """Stage-1 latent from a `train_grabit` fit: trees plus the waiver term.
 
-    `X` is the median-filled feature matrix; `frame` supplies `is_waived`,
-    row-aligned with `X`. The term uses X's filled `kf_market_value`, the value
-    the trees saw. The model was fit with base_margin = base_score + beta * z,
-    so `model.predict(X)` without a margin is base_score plus the trees.
+    `X` is the median-filled feature matrix; `frame` supplies `is_waived` and
+    `prior_waiver_owed`, row-aligned with `X`. The term uses X's filled
+    `kf_market_value`, the value the trees saw. The model was fit with
+    base_margin = base_score + beta * z, so `model.predict(X)` without a
+    margin is base_score plus the trees.
     """
     beta = float(results.get("waiver_beta", 0.0))
     latent = model.predict(X)
@@ -1027,7 +1036,8 @@ def grabit_predict(model, results: dict, X: pd.DataFrame,
         return latent
     return latent + beta * waiver_z(pd.DataFrame({
         "is_waived": np.asarray(frame["is_waived"]),
-        "kf_market_value": X["kf_market_value"].values}))
+        "prior_waiver_owed": np.asarray(frame["prior_waiver_owed"]),
+        "kf_market_value": X["kf_market_value"].values}), owed_only=True)
 
 
 def train_ridge(df: pd.DataFrame, alpha: float = 1.0) -> tuple[dict, object]:
@@ -1172,8 +1182,9 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     training-loss mask off cap_pct, never a feature). sigma_left=None ties the
     left side's sigma to the right's. See the 2026-07-24 censor-widening brief.
 
-    waiver_term adds beta * is_waived * kf_market_value to Stage 1 as a
-    base_margin (v6.1.0), with beta from `waiver_beta` on the fitted rows.
+    waiver_term adds beta * kf_market_value on money-owed waivers to Stage 1
+    as a base_margin (v6.2.0), with beta from `waiver_beta` on every waived
+    fitted row.
     None turns it on for the champion feature list (features=None) and off for
     any other list, so the KF measurement model keeps its plain fit. Predict
     with `grabit_predict(model, results, X, frame)`, not `model.predict`.
@@ -1197,7 +1208,7 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
         # The term reads the filled feature values the trees see.
         fit_df = df.copy()
         fit_df[features] = X
-        z = waiver_z(fit_df)
+        z = waiver_z(fit_df, owed_only=True)
         seed = _XGB_BASE["random_state"]
     seasons = df["season"].values
     max_elig = df["max_eligible_pct"].values
@@ -1265,7 +1276,7 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
         beta = waiver_beta(fit_df, features, seed)
         m_final.fit(X, y, base_margin=b0 + beta * z)
         print(f"  Waiver term: beta {beta:+.3f} on "
-              f"{int((z != 0).sum())} waived rows")
+              f"{int((z != 0).sum())} money-owed waived rows")
     else:
         m_final.fit(X, y)
 
