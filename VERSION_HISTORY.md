@@ -2069,7 +2069,15 @@ test. Bias and MAE on the champion OOF, v6.0.6 -> v6.1.0:
 | Never waived | +$0.41M -> +$0.50M | |
 
 Fresh plain waivers are now under-predicted more, and never-waived rows lost
-a little (summed squared error +573). Largest single gains are Lillard 2025
+a little (summed squared error +573).
+
+A follow-up arm, `term_flags`, keeps the two waiver features beside the term
+and the P(max) exclusion (layer A, 10 seeds, tag `flagcmp`). Fresh plain
+waivers above the floor stay at -$1.71M bias / $2.28M MAE against the
+champion's -$1.76M / $2.33M, so the term, not the dropped features, causes
+their under-prediction. Against the champion, `term_flags` scores dSel
++0.00243 (t = +0.98), A1 0.8599, A2 0.8631, mostly on never-waived rows.
+It was not pre-registered and has no B1; it is not adopted. Largest single gains are Lillard 2025
 (+$25.1M), Walker 2021 (+$14.9M) and Beal 2025 (+$8.8M). Largest losses are
 Paul 2024 (-$6.2M), Hill 2019 (-$5.6M) and James 2026 (-$3.9M).
 
