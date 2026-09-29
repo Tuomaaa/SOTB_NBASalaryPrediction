@@ -6,7 +6,7 @@ extension). The quantity is the belief at signing, so it is estimated from
 completed careers that were already over before the evaluation seasons begin.
 
 The hazard h(age, BPM, BPM trend, minutes, games) = P(season T is the
-player's last) is
+player's last), with minutes and games averaged over two seasons, is
 fitted on Basketball Reference seasons 1997-2016 only, with retirement read
 from seasons up to 2018. Nothing from 2019 onward enters the fit, so every
 evaluation row (2019-2026) is scored by a model frozen before it.
@@ -42,7 +42,10 @@ OUT = PROCESSED_DIR / "retirement_hazard.csv"
 
 FIT_LAST_SEASON = 2016       # fit rows
 LABEL_LAST_SEASON = 2018     # retirement is read from seasons up to here
-MIN_FIT_AGE = 26
+# The belief is about veterans. Below 30 a "final season" is a player washed
+# out of the league, not a last contract, and the hazard is not extrapolated
+# to ages it was not fitted on: younger rows are written as 0.
+MIN_AGE = 30
 FEATURES = ["age", "bpm_s", "d_bpm", "mpg", "games"]
 # Age raises the hazard; quality, its trend, role and availability lower it.
 # d_bpm separates a stable veteran from one in decline at the same level.
@@ -79,9 +82,13 @@ def add_trend(df: pd.DataFrame) -> pd.DataFrame:
     A first season, or a gap of more than one season, has no trend and reads 0.
     """
     df = df.sort_values(["player_url", "season"]).copy()
-    prev = df.groupby("player_url")[["season", "bpm_s"]].shift(1)
+    prev = df.groupby("player_url")[["season", "bpm_s", "games", "mpg"]].shift(1)
     consecutive = prev["season"].eq(df["season"] - 1)
     df["d_bpm"] = np.where(consecutive, df["bpm_s"] - prev["bpm_s"], 0.0)
+    # One injury-shortened season must not read as the end of a career
+    # (De'Anthony Melton 2025 scored 0.71 on a single season's games).
+    for c in ("games", "mpg"):
+        df[c] = np.where(consecutive, (df[c] + prev[c]) / 2.0, df[c])
     return df
 
 
@@ -89,9 +96,9 @@ def fit_hazard(history: pd.DataFrame) -> HistGradientBoostingClassifier:
     """Fit P(this season is the last) on seasons <= FIT_LAST_SEASON."""
     h = history[history["season"] <= LABEL_LAST_SEASON]
     last = h.groupby("player_url")["season"].max()
-    fit = h[(h["season"] <= FIT_LAST_SEASON) & (h["age"] >= MIN_FIT_AGE)].copy()
+    fit = h[(h["season"] <= FIT_LAST_SEASON) & (h["age"] >= MIN_AGE)].copy()
     fit["last"] = fit["player_url"].map(last).eq(fit["season"])
-    print(f"hazard fit: {len(fit)} player-seasons age >= {MIN_FIT_AGE}, "
+    print(f"hazard fit: {len(fit)} player-seasons age >= {MIN_AGE}, "
           f"{int(fit['last'].sum())} final seasons, "
           f"{int((fit['age'] >= 38).sum())} at 38+")
     model = HistGradientBoostingClassifier(
@@ -125,8 +132,10 @@ def main() -> None:
         "age": cur["age"],
         "bpm_s": cur["bpm_s"].round(3),
     })
+    veteran = (cur["age"] >= MIN_AGE).values
     for k in (1, 2, 3):
-        out[f"p_last_{k}y"] = p_last(model, cur, k).round(4)
+        out[f"p_last_{k}y"] = np.where(veteran, p_last(model, cur, k),
+                                       0.0).round(4)
     out = (out.sort_values(["player_name_norm", "season"])
               .drop_duplicates(["player_name_norm", "season"]))
     out.to_csv(OUT, index=False)

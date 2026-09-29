@@ -4,8 +4,8 @@ This file contains active defects only. Each issue must include a problem,
 reproduction, fix, and completion check. Delete fixed entries and record the
 landed change in `VERSION_HISTORY.md`.
 
-Issue numbers are permanent. The highest assigned number is 56, so the next
-issue is 57. Keep entries in numeric order because code and historical reports
+Issue numbers are permanent. The highest assigned number is 57, so the next
+issue is 58. Keep entries in numeric order because code and historical reports
 refer to them by number.
 
 ## Retired references still used in code
@@ -449,3 +449,24 @@ reads the corrected table at load time and would override it.
 
 **Done:** Every Minimum frame row's `contract_years` matches its Spotrac block
 or has a documented reason, and the number-moving rebuild has a version entry.
+
+## 57. A partial or held-out season distorts workload features
+
+**Severity:** medium. It produces large single-row misses.
+
+**Problem:** Workload features (`mpg`, games, `availability_3yr`) read the
+season before the signing. A player who sat out most of it by choice or
+injury looks like a fringe player. Andre Iguodala 2020 sat out his Memphis
+season and played 21 games for Miami, so the champion priced him at $2.33M
+against a $14.06M extension.
+
+**Reproduce:** In `outputs/models/oof_reference.csv`, list rows whose
+champion error exceeds $8M and whose priced-season games are under 30;
+compare each with the player's previous full season.
+
+**Fix:** Flag held-out and injury-shortened seasons from the transaction log
+and games played, and read workload from the last representative season for
+those rows. Test it as a paired change on the affected rows.
+
+**Done:** Flagged rows use a representative season, and the paired gate on
+them is reported.

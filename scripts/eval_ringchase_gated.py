@@ -112,6 +112,8 @@ GATE_MODE = "ringless"
 # (scripts/build_retirement_hazard.py, frozen on careers before 2019) instead
 # of absolute age. Grid entries are (window in seasons, threshold).
 RETIRE_GRID = ((2, 0.15), (2, 0.25), (2, 0.35), (3, 0.25), (3, 0.35), (3, 0.45))
+# continuous: weight = (p - p0) / (1 - p0) above p0, zero below; p0 in pool.
+P0_GRID = (0.2, 0.35, 0.5)
 
 
 def gate(sub, g, p75):
@@ -248,26 +250,32 @@ def main():
             py, pdf = y[pool_idx], df.iloc[pool_idx]
 
             if GATE_MODE == "continuous":
-                # No gate, no threshold, no shrinkage. The player gives up a
-                # share of what he is worth ABOVE the floor, in proportion to
-                # P(last contract): a near-minimum latent barely moves, so a
+                # A floor p0 (chosen in pool) and no shrinkage. The player gives
+                # up a share of what he is worth ABOVE the salary floor, rising
+                # with P(last contract) above p0: a near-minimum latent barely
+                # moves and a veteran below p0 not at all, so a
                 # declining role player the champion already prices low is
                 # left alone. delta is chosen on absolute error, because the
                 # squared-error choice ran to the grid edge on LeBron's row.
+                def weight(p, p0):
+                    return np.clip((p - p0) / (1.0 - p0), 0.0, 1.0)
+
                 pp = pdf["p_last_2y"].values
-                best_raw, best_mae = 0.0, np.inf
-                for d in DELTA_GRID:
-                    lat = pl - d * pp * np.maximum(pl - plo, 0.0)
-                    pred = compose(lat, lo=plo, hi=phi, p_max=ppm,
-                                   is_extension=pie, ext_cap_pct=pec)
-                    mae = float(np.abs(pred - py).mean())
-                    if mae < best_mae:
-                        best_raw, best_mae = float(d), mae
+                best_raw, best_mae, best_p0 = 0.0, np.inf, P0_GRID[0]
+                for p0 in P0_GRID:
+                    w = weight(pp, p0)
+                    for d in DELTA_GRID:
+                        lat = pl - d * w * np.maximum(pl - plo, 0.0)
+                        pred = compose(lat, lo=plo, hi=phi, p_max=ppm,
+                                       is_extension=pie, ext_cap_pct=pec)
+                        mae = float(np.abs(pred - py).mean())
+                        if mae < best_mae:
+                            best_raw, best_mae, best_p0 = float(d), mae, p0
                 delta = best_raw
-                chosen.append({"seed": seed, "fold": fi, "age": "continuous",
+                chosen.append({"seed": seed, "fold": fi, "age": best_p0,
                                "raw": best_raw, "delta": delta,
-                               "pool_n": len(py)})
-                pv_ = df.iloc[rec["va"]]["p_last_2y"].values
+                               "pool_n": int((weight(pp, best_p0) > 0).sum())})
+                pv_ = weight(df.iloc[rec["va"]]["p_last_2y"].values, best_p0)
                 lat = rec["latent"] - delta * pv_ * np.maximum(
                     rec["latent"] - rec["lo"], 0.0)
                 cand = compose(lat, lo=rec["lo"], hi=rec["hi"],
