@@ -146,8 +146,46 @@ def load_prehistory_anchors() -> dict[str, dict[int, tuple[float, bool]]]:
     return events
 
 
+REPRICE_STRONG = ("rest-of-season",)
+REPRICE_WEAK = ("10-day", "two-way")
+
+
+def load_reprice_events() -> dict[str, dict[int, tuple[pd.Timestamp, bool]]]:
+    """In-season signings that re-price a player (experiment `kf_reprice`).
+
+    Rest-of-season contracts, and standard non-extension contracts signed
+    after opening night, re-price the player at the minimum (strong). 10-day
+    and two-way contracts re-price him at 0 (weak): a two-way contract counts
+    0 against the cap, and a 10-day deal is a trial. Returns
+    player -> {season: (signing_date, weak)}, keeping each season's latest
+    event.
+    """
+    from src.features.waiver_history import _season_opener
+    sd = pd.read_csv(PROCESSED_DIR / "contract_signing_dates.csv",
+                     parse_dates=["signing_date"])
+    sd = sd.dropna(subset=["signing_date", "signing_season"])
+    out: dict[str, dict[int, tuple[pd.Timestamp, bool]]] = {}
+    for r in sd.itertuples():
+        s = int(r.signing_season)
+        cls = str(r.contract_class).lower()
+        if cls in REPRICE_WEAK:
+            weak = True
+        elif cls in REPRICE_STRONG:
+            weak = False
+        elif (cls == "standard" and not bool(r.is_extension)
+              and r.signing_date > _season_opener(s)):
+            weak = False
+        else:
+            continue
+        prev = out.setdefault(r.player_name_norm, {}).get(s)
+        if prev is None or r.signing_date > prev[0]:
+            out[r.player_name_norm][s] = (r.signing_date, weak)
+    return out
+
+
 def build_anchor_map(df_eval, df_full, extra_events=None,
-                     expand_anchors=True, market_events=None):
+                     expand_anchors=True, market_events=None,
+                     reprice_events=None):
     """Three-tier anchor map.
 
     Args:
@@ -161,6 +199,10 @@ def build_anchor_map(df_eval, df_full, extra_events=None,
         extra_events: optional pre-2019 Year-1 cap_pct anchors (from
             load_prehistory_anchors). Merged BEFORE eval-frame events so
             an eval-frame anchor at the same (player, season) wins.
+        reprice_events: optional in-season re-pricing events
+            (`load_reprice_events`). Each overrides that season's anchor:
+            strong events at the season floor, weak events at 0 with the
+            tier-2 prior.
         expand_anchors: two tier-2 expansions (v8.14x default):
             (a) First-contract mirror: undrafted/2nd-round first contracts
                 (exp <= 1, not rookie-scale) provide tier-2 anchors.
@@ -204,6 +246,12 @@ def build_anchor_map(df_eval, df_full, extra_events=None,
             if y1 == 1 and c < PRORATED_FLOOR:
                 events.setdefault(p, {}).setdefault(
                     s, (season_floor.get(s, floor_min), True))
+
+    if reprice_events:
+        for p, p_events in reprice_events.items():
+            for s, (_, weak) in p_events.items():
+                val = 0.0 if weak else season_floor.get(int(s), floor_min)
+                events.setdefault(p, {})[int(s)] = (val, True, weak)
 
     rookie_seasons: dict[str, list[int]] = {}
     for (p, s) in rs:
@@ -262,6 +310,8 @@ def build_anchor_map(df_eval, df_full, extra_events=None,
             t0 = max(market)
             tier[i] = 1
             anchor_val[i] = events[p][t0][0]
+            if len(events[p][t0]) > 2 and events[p][t0][2]:
+                tier[i] = 2
         else:
             rook = [s for s in rookie_seasons.get(p, ()) if s < T]
             if rook:

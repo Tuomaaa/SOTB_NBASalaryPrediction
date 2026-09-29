@@ -595,6 +595,7 @@ def prepare_full_frame(df_eval: pd.DataFrame,
 def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
                        prehistory: bool = True,
                        expand_anchors: bool = True,
+                       reprice: bool = False,
                        n_inner: int = N_INNER,
                        verbose: bool = True) -> KFContext:
     """Build the KFContext for nested-CV kf_market_value computation.
@@ -611,6 +612,8 @@ def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
                        by default, as in production since v8.14x; a caller
                        that left it off scored a pre-v8.14x champion.
         expand_anchors: enable v8.14x tier-2 anchor expansions.
+        reprice:       experiment `kf_reprice` (off by default): anchor at
+                       in-season signings (`load_reprice_events`).
         n_inner:       inner folds for nested CV (default 4).
     """
     mf = list(MEASUREMENT_FEATURES)
@@ -630,9 +633,13 @@ def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
             print("Loading pre-2019 Year-1 anchors (--prehistory):")
         extra_events = load_prehistory_anchors()
 
+    reprice_events = None
+    if reprice:
+        from src.features.kf_market_value import load_reprice_events
+        reprice_events = load_reprice_events()
     inter_idx, needed_idx, tier, anchor_val = kf_build_anchor_map(
         df_eval, df_full, extra_events=extra_events,
-        expand_anchors=expand_anchors)
+        expand_anchors=expand_anchors, reprice_events=reprice_events)
 
     prev = df_eval["prev_cap_pct"].values
     anchor = np.where(tier > 0, anchor_val, prev)
