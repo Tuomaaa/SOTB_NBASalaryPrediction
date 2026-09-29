@@ -9,7 +9,7 @@ offsets) with identical folds and seeds:
     kf_x_waived       + is_waived * kf_market_value
     kf_x_known        + is_waived_known * kf_market_value (coverage control)
     waiver_term       partially linear Stage 1: latent = GBM(x) + beta * z,
-                      z = is_waived * max(kf_market_value - floor_pct, 0),
+                      z = is_waived * kf_market_value,
                       beta fitted in each training slice (see
                       route_mixture.waiver_beta; pre-registered in QUEUE)
 

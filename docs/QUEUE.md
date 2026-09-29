@@ -23,10 +23,12 @@ interaction into a region with four rows.
   rows unchanged, and the coverage control gives t = +0.24. Keep both
   features, and drop the interaction without a 10-seed run.
 - Pre-registered 2026-09-29, before any score: a partially linear Stage 1,
-  `latent = GBM(x) + beta * z`, where
-  `z = is_waived * max(kf_market_value - floor_pct, 0)`. Beta is the share
-  of above-floor value a waived player gives up; the CBA set-off makes pay
-  above the minimum partly worthless to him. Estimate beta inside each
+  `latent = GBM(x) + beta * z`, where `z = is_waived * kf_market_value`.
+  Beta is the share of market value a waived player gives up; the CBA set-off
+  makes pay above the minimum partly worthless to him. Amended before any
+  result at the user's direction: the first draft used
+  `max(kf_market_value - floor_pct, 0)`, and the run was stopped during the
+  incumbent arm. The Stage-2 clip alone enforces the minimum. Estimate beta inside each
   training slice by least squares through the origin of 4-fold inner OOF
   residuals, from the plain base XGBoost, on waived rows, and clip it to
   [-1, 0]. Apply it as `base_margin` in the Grabit fit and prediction.

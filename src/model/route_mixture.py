@@ -336,16 +336,18 @@ WAIVER_BETA_LOG: list[float] = []
 
 
 def waiver_z(frame: pd.DataFrame) -> np.ndarray:
-    """Above-floor market value of a waived player, 0 for everyone else."""
+    """Market value of a waived player, 0 for everyone else.
+
+    No floor term: the discount is a share of the whole market value, and the
+    Stage-2 clip alone keeps the prediction at or above the minimum.
+    """
     waived = pd.to_numeric(frame["is_waived"], errors="coerce").fillna(0.0)
-    above = np.maximum(frame["kf_market_value"].values
-                       - frame["floor_pct"].values, 0.0)
-    return waived.values * above
+    return waived.values * frame["kf_market_value"].values
 
 
 def waiver_beta(train: pd.DataFrame, features: list[str], seed: int,
                 n_inner: int = 4) -> float:
-    """Share of above-floor value a waived player gives up, fitted in-slice.
+    """Share of market value a waived player gives up, fitted in-slice.
 
     Least squares through the origin of fold-honest residuals on waived rows:
     a plain XGBoost is fitted on n_inner player-grouped inner folds, so no
