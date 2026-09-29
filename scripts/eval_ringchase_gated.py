@@ -106,10 +106,20 @@ OUT = OUTPUTS_DIR / "models"
 GATE_MODE = "ringless"
 
 
-def gate(sub, age_min, p75):
-    """Rows the pull may touch: old, well paid, and (ringless) without a ring."""
-    member = ((sub["age"].values.astype(float) >= age_min)
-              & (sub["career_earnings_thru_prev_cap_pct"].values >= p75))
+# "retire" gates on the probability that this is the player's last contract
+# (scripts/build_retirement_hazard.py, frozen on careers before 2019) instead
+# of absolute age. Grid entries are (window in seasons, threshold).
+RETIRE_GRID = ((2, 0.15), (2, 0.25), (2, 0.35), (3, 0.25), (3, 0.35), (3, 0.45))
+
+
+def gate(sub, g, p75):
+    """Rows the pull may touch: near the end (by age or by P(last contract))
+    and well paid; under "ringless" also without a ring."""
+    rich = sub["career_earnings_thru_prev_cap_pct"].values >= p75
+    if GATE_MODE == "retire":
+        k, thr = g
+        return rich & (np.nan_to_num(sub[f"p_last_{k}y"].values, nan=0.0) >= thr)
+    member = rich & (sub["age"].values.astype(float) >= g)
     if GATE_MODE == "ringless":
         member &= np.nan_to_num(sub["rings_thru_prev"].values, nan=-1) == 0
     return member
@@ -137,11 +147,15 @@ def best_delta(latent, p, y, member, *, lo, hi, p_max, is_ext, ext_cap):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, default=3)
-    ap.add_argument("--gate", choices=["ringless", "earnings"],
+    ap.add_argument("--gate", choices=["ringless", "earnings", "retire"],
                     default="ringless")
     args = ap.parse_args()
-    global GATE_MODE
+    global GATE_MODE, AGE_GRID, CIRC
     GATE_MODE = args.gate
+    if GATE_MODE == "retire":
+        AGE_GRID = RETIRE_GRID
+        CIRC = ["career_earnings_thru_prev_cap_pct", "p_last_2y",
+                "rings_thru_prev"]
     seeds = tuple(DEFAULT_SEEDS[:args.seeds])
 
     df, base_features = load_evaluation_frame(verbose=False,
@@ -161,6 +175,14 @@ def main():
     df["career_earnings_thru_prev_cap_pct"] = (
         df["career_earnings_thru_prev_cap_pct"].fillna(0.0))
     df["rings_thru_prev"] = df["rings_thru_prev"].fillna(0)
+    rh = pd.read_csv(PROCESSED_DIR / "retirement_hazard.csv")
+    df = df.merge(rh[["player_name_norm", "season", "p_last_1y", "p_last_2y",
+                      "p_last_3y"]],
+                  on=["player_name_norm", "season"], how="left")
+    assert len(df) == n0, "hazard merge changed the row count"
+    print(f"  p_last coverage: {df['p_last_2y'].notna().mean():.3f}")
+    for c in ("p_last_1y", "p_last_2y", "p_last_3y"):
+        df[c] = df[c].fillna(0.0)
 
     y = df[TARGET].values
     cap_m = df["cap"].values / 1e6
@@ -267,7 +289,7 @@ def main():
                                 mean_delta=("delta", "mean")).to_string())
 
     moved = np.abs(cand_oof - champ_oof) > 1e-12
-    mem_all = gate(df, int(ch["age"].mode().iloc[0]), p75)
+    mem_all = gate(df, ch["age"].mode().iloc[0], p75)
     print(f"\nmoved {int(moved.sum())} rows; modal gate n = {int(mem_all.sum())}")
     print(f"bit-identity outside modal gate: "
           f"{'PASS' if not (moved & ~mem_all).any() else 'FAIL'}")
@@ -304,8 +326,9 @@ def main():
     }).to_csv(OUT / f"ringchase_gated_{GATE_MODE}_oof.csv", index=False)
     (OUT / f"ringchase_gated_{GATE_MODE}_eval.json").write_text(json.dumps({
         "PROVISIONAL": "migration will move ~15% of frame rows",
-        "adopted": False, "gate": GATE_MODE, "age_grid": list(AGE_GRID), "k_shrink": K_SHRINK,
-        "selected_ages": ch["age"].value_counts().to_dict(),
+        "adopted": False, "gate": GATE_MODE, "age_grid": [list(g) if isinstance(g, tuple) else g for g in AGE_GRID], "k_shrink": K_SHRINK,
+        "selected_ages": {str(k): int(v) for k, v in
+                          ch["age"].value_counts().items()},
         "mean_delta": float(ch["delta"].mean()),
         "dSel": {"delta": float(fr["d"].mean()), "t": float(t), "p": float(pv)},
         "A1_champ": float(r2_score(y, champ_oof)),
