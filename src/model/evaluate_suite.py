@@ -595,7 +595,7 @@ def prepare_full_frame(df_eval: pd.DataFrame,
 def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
                        prehistory: bool = True,
                        expand_anchors: bool = True,
-                       reprice: bool = False,
+                       reprice: bool = True,
                        n_inner: int = N_INNER,
                        verbose: bool = True) -> KFContext:
     """Build the KFContext for nested-CV kf_market_value computation.
@@ -612,8 +612,8 @@ def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
                        by default, as in production since v8.14x; a caller
                        that left it off scored a pre-v8.14x champion.
         expand_anchors: enable v8.14x tier-2 anchor expansions.
-        reprice:       experiment `kf_reprice` (off by default): anchor at
-                       in-season signings (`load_reprice_events`).
+        reprice:       anchor at in-season signings (`load_reprice_events`);
+                       on since v6.0.4, False reproduces v6.0.3.
         n_inner:       inner folds for nested CV (default 4).
     """
     mf = list(MEASUREMENT_FEATURES)

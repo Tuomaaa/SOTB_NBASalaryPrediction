@@ -151,7 +151,7 @@ REPRICE_ZERO = ("10-day", "two-way")
 
 
 def load_reprice_events() -> dict[str, dict[int, tuple]]:
-    """In-season signings: the market's later observed prices (KF anchor).
+    """In-season signings: the market's later observed prices (KF anchor, v6.0.4).
 
     - A rest-of-season contract is the prorated minimum, so it anchors at the
       season floor.
@@ -372,7 +372,8 @@ def build_anchor_map(df_eval, df_full, extra_events=None,
 
 def compute_kf_column(df_eval, df_full, predict_fn, r_var,
                       players=None, extra_events=None,
-                      expand_anchors=True, market_events=None):
+                      expand_anchors=True, market_events=None,
+                      reprice=True):
     """Compute kf_market_value for every row in df_eval.
 
     Args:
@@ -390,6 +391,8 @@ def compute_kf_column(df_eval, df_full, predict_fn, r_var,
         market_events: filtered Year-1 frame supplying historical market
                     anchors. Defaults to df_eval, preserving training-time
                     and nested-CV behaviour.
+        reprice:    anchor at in-season signings (`load_reprice_events`),
+                    on since v6.0.4.
 
     Returns:
         kf_values: array of kf_market_value, one per df_eval row.
@@ -397,7 +400,8 @@ def compute_kf_column(df_eval, df_full, predict_fn, r_var,
     """
     inter_idx, needed_idx, tier, anchor_val = build_anchor_map(
         df_eval, df_full, extra_events=extra_events,
-        expand_anchors=expand_anchors, market_events=market_events)
+        expand_anchors=expand_anchors, market_events=market_events,
+        reprice_events=load_reprice_events() if reprice else None)
 
     if players is None:
         player_frame = df_eval if market_events is None else market_events

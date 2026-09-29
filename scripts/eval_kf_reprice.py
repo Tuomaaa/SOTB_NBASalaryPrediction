@@ -46,7 +46,7 @@ def main() -> None:
     df, base_features = load_evaluation_frame(allow_missing_computed=True)
     df, clf_features = attach_clf_features(df)
     ladder = baseline_ladder(df, base_features, seeds)
-    ctx = {"incumbent": prepare_kf_context(df, base_features),
+    ctx = {"incumbent": prepare_kf_context(df, base_features, reprice=False),
            "kf_reprice": prepare_kf_context(df, base_features, reprice=True)}
     a0 = np.nan_to_num(ctx["incumbent"].anchor, nan=-1.0)
     a1 = np.nan_to_num(ctx["kf_reprice"].anchor, nan=-1.0)
