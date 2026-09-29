@@ -11,6 +11,7 @@ feature list and switches explicitly, so their definitions do not move:
     no_mpg_x_waived   without mpg_x_waived
     kf_x_waived       + is_waived * kf_market_value
     kf_x_known        + is_waived_known * kf_market_value (coverage control)
+    term_flags        v6.1.0 champion with is_waived and mpg_x_waived kept
     waiver_term       partially linear Stage 1: latent = GBM(x) + beta * z,
                       z = is_waived * kf_market_value,
                       beta fitted in each training slice (see
@@ -97,6 +98,10 @@ def arms() -> dict:
                        _times_kf("is_waived_known", "kf_market_value_x_known"),
                        V606),
         "waiver_term": (base, None, {**V606, "waiver_term": True}),
+        # The v6.1.0 champion with the two waiver features kept: isolates
+        # the effect of dropping them.
+        "term_flags": (base, None, {"waiver_term": True,
+                                    "exclude_waived_max": True}),
         "owed_branch": (base, None, {**V606, "owed_branch": True,
                                      "exclude_waived_max": True}),
         "owed_censor": (base, None, {**V606, "owed_branch": "censor",
@@ -155,6 +160,8 @@ def main() -> None:
     ap.add_argument("--full", action="store_true",
                     help="all four layers (B1 included), not only layer A")
     ap.add_argument("--arms", nargs="+", default=list(arms()))
+    ap.add_argument("--tag", default=None,
+                    help="artifact name suffix (default: full or screen)")
     args = ap.parse_args()
     seeds = tuple(DEFAULT_SEEDS[:args.seeds])
     spec = arms()
@@ -289,7 +296,7 @@ def main() -> None:
               f"{e['C2_growth_m']:+.3f}M, C1 gap {e['C1_slope_gap']:+.4f}]")
 
     OUT.mkdir(parents=True, exist_ok=True)
-    tag = "full" if args.full else "screen"
+    tag = args.tag or ("full" if args.full else "screen")
     (OUT / f"waiver_challengers_{tag}.json").write_text(
         json.dumps({"seeds": list(seeds), "arms": report}, indent=2),
         encoding="utf-8")
