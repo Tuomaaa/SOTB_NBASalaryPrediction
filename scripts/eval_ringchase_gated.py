@@ -91,7 +91,9 @@ from src.model.train import FEATURE_COLS, _XGB_BASE
 AGE_GRID = (33, 35, 37)          # selected inside the pool, never on the fold
 CELL_EARN_Q = 0.75
 K_SHRINK = SIGNING_K             # 20, imported, never swept
-DELTA_GRID = np.round(np.arange(0.0, 1.55, 0.05), 3)
+# Widened from 1.5: the retire gate selected 1.5, the old edge, in 12 of 15
+# pools, so the optimum may lie beyond it (see ISSUES #25 on edge optima).
+DELTA_GRID = np.round(np.arange(0.0, 3.05, 0.05), 3)
 LABEL_OVER_M = 2.0
 CIRC = ["career_earnings_thru_prev_cap_pct", "age", "rings_thru_prev"]
 C2_BAR = 0.30
