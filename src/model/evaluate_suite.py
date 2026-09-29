@@ -230,7 +230,7 @@ def make_stage_arms_fitter(clf_features: list[str], grabit_params: dict | None =
     never joins `features`, which stays FEATURE_COLS for the regression.
     """
     gp = dict(grabit_params or {})
-    no_waived_max = gp.pop("exclude_waived_max", False)
+    no_waived_max = gp.pop("exclude_waived_max", True)
 
     def fitter(train, test, features, seed):
         latent, lo, hi = grabit_latent(train, test, features, seed, **gp)
@@ -265,7 +265,8 @@ def make_champion_fitter(clf_features: list[str], push: bool = True,
     passes this fitter as the inner-OOF engine, estimates the offsets from its
     residuals over seasons < T, and applies them outside.
     """
-    gp = grabit_params or {}
+    gp = dict(grabit_params or {})
+    no_waived_max = gp.pop("exclude_waived_max", True)
 
     def fitter(train, test, features, seed):
         latent, lo, hi = grabit_latent(train, test, features, seed, **gp)
@@ -273,6 +274,8 @@ def make_champion_fitter(clf_features: list[str], push: bool = True,
         if push:
             clf = train_route_classifier(train, clf_features, seed)
             p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
+            if no_waived_max:
+                p_max = exclude_waived_max(p_max, test, TAU)
         kw = {}
         if stage3:
             kw = {"is_extension": test["is_extension"].values,
@@ -417,14 +420,17 @@ def make_kf_stage_arms_fitter(kf_ctx: KFContext, clf_features: list[str],
     kf_market_value via `_compute_kf_nested` before fitting the final model.
 
     The `features` argument this fitter receives should be FEATURE_COLS
-    (21 features including kf_market_value). The base model used for KF
+    (19 features including kf_market_value). The base model used for KF
     measurements uses MEASUREMENT_FEATURES (prev_cap_pct, not kf).
+
+    `grabit_params["exclude_waived_max"]` (default True since v6.1.0) sets
+    P(max) = 0 on waived rows; the other keys go to `grabit_latent`.
 
     `augment`, if given, maps a frame to a frame after kf_market_value is
     attached, so a challenger built from kf_market_value stays fold-honest.
     """
     gp = dict(grabit_params or {})
-    no_waived_max = gp.pop("exclude_waived_max", False)
+    no_waived_max = gp.pop("exclude_waived_max", True)
 
     def fitter(train, test, features, seed):
         train_aug, test_aug = _compute_kf_nested(kf_ctx, train, test,
@@ -457,7 +463,8 @@ def make_kf_champion_fitter(kf_ctx: KFContext, clf_features: list[str],
     Same shape as `make_champion_fitter` — returns predictions through
     the extension clip — but computes kf_market_value internally per fold.
     """
-    gp = grabit_params or {}
+    gp = dict(grabit_params or {})
+    no_waived_max = gp.pop("exclude_waived_max", True)
 
     def fitter(train, test, features, seed):
         train_aug, test_aug = _compute_kf_nested(kf_ctx, train, test,
@@ -468,6 +475,8 @@ def make_kf_champion_fitter(kf_ctx: KFContext, clf_features: list[str],
         if push:
             clf = train_route_classifier(train_aug, clf_features, seed)
             p_max = route_proba(clf, test_aug, clf_features)[:, MAX_IDX]
+            if no_waived_max:
+                p_max = exclude_waived_max(p_max, test_aug, TAU)
         kw = {}
         if stage3:
             kw = {"is_extension": test["is_extension"].values,
@@ -533,6 +542,11 @@ def load_evaluation_frame(keep_prorated: bool = False,
     if "prev_cap_pct" in df.columns and "prev_cap_pct" not in features:
         df["prev_cap_pct"] = df["prev_cap_pct"].fillna(
             df["prev_cap_pct"].median()).fillna(0)
+    # The waiver columns left FEATURE_COLS in v6.1.0 but still feed the KF
+    # measurement model, the route classifier and the Stage-1 waiver term.
+    for col in ("is_waived", "mpg_x_waived"):
+        if col in df.columns and col not in features:
+            df[col] = df[col].fillna(df[col].median()).fillna(0)
     df["is_confirmation"] = df["player_name_norm"].map(_in_confirmation_set)
     # Diagnostic label only, never a feature. Salary-aware: when a mid-season
     # buyout puts two contracts on one season, the one that produced this

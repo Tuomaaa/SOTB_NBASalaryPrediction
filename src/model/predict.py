@@ -30,7 +30,8 @@ import pandas as pd
 from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON
 from src.model import stages
 from src.model.train import (
-    load_training_data, train_grabit, _compute_max_eligible, _compute_floor,
+    load_training_data, train_grabit, grabit_predict, _compute_max_eligible,
+    _compute_floor,
     _filter_year1, _filter_rookie_scale, _filter_rookie_contracts, _filter_prorated,
     _filter_mislabeled_year1, _filter_continuations, _normalize_vetmin_caphold,
     _prepare_Xy, FEATURE_COLS, TARGET,
@@ -217,7 +218,7 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
 
     # Predict: latent value from Grabit, then Stage-2 CBA clip
     X_pred = pred_df.reindex(columns=features).fillna(medians).fillna(0)
-    latent = model.predict(X_pred)
+    latent = grabit_predict(model, results, X_pred, pred_df)
 
     # Compute CBA bounds for the prediction rows
     pred_df["cap_pct"] = latent  # temporary for _compute_max_eligible

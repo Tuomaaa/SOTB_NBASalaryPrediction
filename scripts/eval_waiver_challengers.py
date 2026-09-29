@@ -1,9 +1,12 @@
 """Remeasure the waiver features and test kf_market_value_x_waived.
 
 Arms, all scored on the champion pipeline (nested KF, Stage 2/3, signing
-offsets) with identical folds and seeds:
+offsets) with identical folds and seeds. Since v6.1.0 `incumbent` is the
+champion (waiver_term_noflag); `v606` and every historical arm carry the v6.0.6
+feature list and switches explicitly, so their definitions do not move:
 
-    incumbent         FEATURE_COLS
+    incumbent         FEATURE_COLS, waiver term, P(max) = 0 on waived rows
+    v606              v6.0.6 champion (is_waived and mpg_x_waived features)
     no_is_waived      without is_waived
     no_mpg_x_waived   without mpg_x_waived
     kf_x_waived       + is_waived * kf_market_value
@@ -66,26 +69,39 @@ def _times_kf(source: str, name: str):
     return augment
 
 
+# v6.0.6 regression list, in its original order (column order changes which
+# columns colsample_bytree draws).
+V606_FEATURES = [
+    "darko_dpm_z", "lebron_z", "laker_z", "age", "age_squared", "mpg",
+    "availability_3yr", "is_waived", "usage_pct", "height_inches", "cba_era",
+    "ast_pct", "award_score_cum", "draft_pick", "kf_market_value",
+    "mpg_x_waived", "playoff_mpg_diff", "kalman_filtered_stats",
+    "darko_od_diff_z", "lebron_od_diff_z", "laker_od_diff_z",
+]
+V606 = {"waiver_term": False, "exclude_waived_max": False}
+
+
 def arms() -> dict:
     """Arm name -> (regression features, augment or None, grabit params)."""
-    base = list(FEATURE_COLS)
+    base = list(V606_FEATURES)
     return {
-        "incumbent": (base, None, None),
-        "no_is_waived": ([f for f in base if f != "is_waived"], None, None),
+        "incumbent": (list(FEATURE_COLS), None, None),
+        "v606": (base, None, V606),
+        "no_is_waived": ([f for f in base if f != "is_waived"], None, V606),
         "no_mpg_x_waived": ([f for f in base if f != "mpg_x_waived"], None,
-                            None),
+                            V606),
         "kf_x_waived": (base + ["kf_market_value_x_waived"],
                         _times_kf("is_waived", "kf_market_value_x_waived"),
-                        None),
+                        V606),
         "kf_x_known": (base + ["kf_market_value_x_known"],
                        _times_kf("is_waived_known", "kf_market_value_x_known"),
-                       None),
-        "waiver_term": (base, None, {"waiver_term": True}),
-        "owed_branch": (base, None, {"owed_branch": True,
+                       V606),
+        "waiver_term": (base, None, {**V606, "waiver_term": True}),
+        "owed_branch": (base, None, {**V606, "owed_branch": True,
                                      "exclude_waived_max": True}),
-        "owed_censor": (base, None, {"owed_branch": "censor",
+        "owed_censor": (base, None, {**V606, "owed_branch": "censor",
                                      "exclude_waived_max": True}),
-        "waived_branch": (base, None, {"waived_branch": True,
+        "waived_branch": (base, None, {**V606, "waived_branch": True,
                                        "exclude_waived_max": True}),
         "waiver_term_noflag": (
             [f for f in base if f not in ("is_waived", "mpg_x_waived")],

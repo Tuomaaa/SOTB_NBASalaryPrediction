@@ -37,7 +37,9 @@ import xgboost as xgb
 from sklearn.model_selection import GroupKFold
 
 from config import CAP_BY_SEASON, RAW_DIR
-from src.model.train import _XGB_BASE, _make_tobit_obj, TARGET
+from src.model.train import (
+    _XGB_BASE, _make_tobit_obj, TARGET, _tobit_beta, waiver_beta, waiver_z,
+)
 
 # Class order is fixed: the integer label IS the softprob column index, so
 # P(max) is always column 1 regardless of which classes a training fold holds.
@@ -290,7 +292,11 @@ EXCLUDED_PUSH_LOG: list[int] = []
 
 def exclude_waived_max(p_max: np.ndarray, test: pd.DataFrame,
                        tau: float) -> np.ndarray:
-    """P(max) = 0 on known-waived rows; no waived frame row signed a maximum."""
+    """P(max) = 0 on known-waived rows; no waived frame row signed a maximum.
+
+    Champion since v6.1.0: the Stage-1 waiver term lowers a waived player's
+    latent, and a push must not lift it back.
+    """
     waived = (pd.to_numeric(test["is_waived"], errors="coerce")
               .fillna(0.0).values == 1.0)
     EXCLUDED_PUSH_LOG.append(int((waived & (p_max >= tau)).sum()))
@@ -377,73 +383,10 @@ def owed_mask(frame: pd.DataFrame) -> np.ndarray:
             .fillna(0.0).values == 1.0)
 
 
-def waiver_z(frame: pd.DataFrame) -> np.ndarray:
-    """Market value of a waived player, 0 for everyone else.
-
-    No floor term: the discount is a share of the whole market value, and the
-    Stage-2 clip alone keeps the prediction at or above the minimum.
-    """
-    waived = pd.to_numeric(frame["is_waived"], errors="coerce").fillna(0.0)
-    return waived.values * frame["kf_market_value"].values
-
-
-def _tobit_beta(y: np.ndarray, base: np.ndarray, z: np.ndarray,
-                floor: np.ndarray, at_floor: np.ndarray,
-                bounds: tuple[float, float] = (-1.0, 0.0),
-                x0: float = -0.3) -> float:
-    """MLE of beta in y = base + beta * z + e, left-censored at the floor.
-
-    A row at the floor only says its discounted value is at or below the
-    minimum, so it enters through the normal CDF, not as an exact value.
-    Treating those rows as exact would shrink the discount toward zero.
-    """
-    from scipy.optimize import minimize
-    from scipy.stats import norm
-    free = ~at_floor
-    s0 = float(np.std((y - base)[free])) if free.sum() > 2 else 0.01
-
-    def nll(theta):
-        beta, log_s = theta
-        s = np.exp(log_s)
-        mu = base + beta * z
-        ll = norm.logpdf((y[free] - mu[free]) / s).sum() - free.sum() * log_s
-        ll += norm.logcdf((floor[at_floor] - mu[at_floor]) / s).sum()
-        return -ll
-
-    fit = minimize(nll, x0=[x0, np.log(max(s0, 1e-4))], method="L-BFGS-B",
-                   bounds=[bounds, (np.log(1e-4), np.log(1.0))])
-    return float(fit.x[0])
-
-
-def waiver_beta(train: pd.DataFrame, features: list[str], seed: int,
-                n_inner: int = 4) -> float:
-    """Share of market value a waived player gives up, fitted in-slice.
-
-    Fold-honest base predictions come from a plain XGBoost fitted on n_inner
-    player-grouped inner folds, so no row is predicted by a model that saw its
-    own player. Beta is then a Tobit MLE on waived rows with the at-floor rows
-    left-censored (`_tobit_beta`), bounded to [-1, 0].
-    """
-    from xgboost import XGBRegressor
-    z = waiver_z(train)
-    w = pd.to_numeric(train["is_waived"], errors="coerce").fillna(0.0).values > 0
-    if w.sum() < 10:
-        return 0.0
-    y = train[TARGET].values
-    oof = np.zeros(len(train))
-    groups = train["player_name_norm"].values
-    for itr, iva in GroupKFold(n_splits=n_inner).split(train, y, groups):
-        m = XGBRegressor(**{**_XGB_BASE, "random_state": seed})
-        m.fit(train.iloc[itr][features], y[itr])
-        oof[iva] = m.predict(train.iloc[iva][features])
-    return _tobit_beta(y[w], oof[w], z[w], train["floor_pct"].values[w],
-                       train["is_at_floor"].values[w].astype(bool))
-
-
 def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                   seed: int, sigma: float = 0.02, gate_frac: float = 0.55,
                   floor_gate_k: float = 2.0, sigma_left: float | None = None,
-                  censor_c: float | None = None, waiver_term: bool = False,
+                  censor_c: float | None = None, waiver_term: bool = True,
                   owed_branch: bool | str = False,
                   waived_branch: bool = False):
     """Champion Grabit v4 latent on `test`, plus the Stage-2 bounds (lo, hi).
@@ -453,10 +396,11 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
     clip. Clipping the returned latent into [lo, hi] reproduces the champion
     fitter exactly (asserted in the eval harness).
 
-    `waiver_term` (experiment, off by default) makes Stage 1 partially linear:
-    latent = GBM(x) + beta * waiver_z, with beta from `waiver_beta` (a Tobit
-    fit, left-censored at the floor) and the term passed to the Grabit fit
-    and prediction as base_margin.
+    `waiver_term` (champion since v6.1.0; False reproduces v6.0.6 when the
+    waiver features are also restored) makes Stage 1 partially linear:
+    latent = GBM(x) + beta * waiver_z, with beta from `train.waiver_beta` (a
+    Tobit fit, left-censored at the floor) and the term passed to the Grabit
+    fit and prediction as base_margin.
 
     `owed_branch` (experiment, off by default) prices money-owed rows
     (`owed_mask`) as gamma * latent, with gamma a Tobit fit on the training

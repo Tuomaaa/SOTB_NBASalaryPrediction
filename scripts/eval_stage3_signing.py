@@ -373,7 +373,7 @@ def main():
     df, base_features = load_evaluation_frame(verbose=True,
                                               allow_missing_computed=True)
     df, clf_features = rm.attach_clf_features(df)
-    # The deployed champion: 21 features with nested-CV kf_market_value
+    # The deployed champion: FEATURE_COLS with nested-CV kf_market_value
     # (ISSUES #60), built exactly as evaluate_suite builds it.
     kf_ctx = prepare_kf_context(df, base_features)
     fitter = make_kf_stage_arms_fitter(kf_ctx, clf_features)

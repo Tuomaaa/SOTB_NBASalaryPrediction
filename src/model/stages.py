@@ -479,6 +479,10 @@ def deployed_p_max(train: pd.DataFrame, test: pd.DataFrame,
     The fill list is CLF_BASE_COLS, not FEATURE_COLS: since v8.6x the two are
     separate lists, and a regression-only feature is dropped by the reindex
     below, so filling it here would raise a KeyError on the test frame.
+
+    Waived rows (`is_waived == 1`) get P(max) = 0 (v6.1.0), as in the suite's
+    `exclude_waived_max`: the Stage-1 waiver term lowers their latent, and a
+    push must not lift it back.
     """
     from src.model.route_mixture import (
         attach_clf_features, train_route_classifier, route_proba, MAX_IDX,
@@ -501,4 +505,7 @@ def deployed_p_max(train: pd.DataFrame, test: pd.DataFrame,
         test_x[fill] = test_x[fill].fillna(train_x[fill].median()).fillna(0)
 
     clf = train_route_classifier(train_x, clf_features, seed)
-    return route_proba(clf, test_x, clf_features)[:, MAX_IDX]
+    p_max = route_proba(clf, test_x, clf_features)[:, MAX_IDX]
+    waived = (pd.to_numeric(test["is_waived"], errors="coerce")
+              .fillna(0.0).values == 1.0)
+    return np.where(waived, 0.0, p_max)

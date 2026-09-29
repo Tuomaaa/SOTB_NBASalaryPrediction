@@ -163,7 +163,7 @@ continuation, but its 2025-26 salary was raised $11.6M by the renegotiation on
 2025-07-13 — structurally identical to Markkanen 2024 and Turner 2022. Resolved
 as fresh.
 
-## Feature Set (21 features)
+## Feature Set (19 features)
 
 ### Performance Metrics (z-scored within season)
 | Feature | Description |
@@ -296,8 +296,16 @@ Code: `src/features/kalman_quality.py`, attached at load time in
 |---------|-------------|
 | `cba_era` | Binary: 0 = pre-2023 CBA, 1 = post-2023 CBA |
 | `kf_market_value` | Kalman-filtered market trajectory (v5.2.0, replaces `prev_cap_pct`). For a player at season T: anchor a random-walk KF at the market's last observed price, update through model-predicted intermediate seasons. Three-tier anchor: (1) most recent Year-1 eval-frame row, (2) earliest rookie-scale season for first-rounders, (3) fallback to `prev_cap_pct`. Since v6.0.4 a later in-season signing overrides that season's anchor as the later observed price (`load_reprice_events`): a rest-of-season contract at the floor, a mid-season standard contract at its own AAV (floored at the minimum), and two-way and 10-day contracts at 0 with the tier-2 prior. A two-way contract counts 0 against the cap; 10-day at 0 is a declared choice. The window for a standard contract closes on June 20, so a late-June deal is never the prior-season anchor of its own row. At inference time, a base model (21 features with `prev_cap_pct`) prices intermediate seasons — no circularity because the measurement model never sees `kf_market_value`. See `src/features/kf_market_value.py`. |
-| `is_waived` | 1 when Spotrac records a waiver or buyout in the fixed 365 days before the signing that prices this row. Events after signing are excluded. Unknown source/signing coverage remains auditable through `is_waived_known`, which is not a model feature. |
-| `mpg_x_waived` | `mpg × is_waived` (v4.2.0). A waiver erases most of a player's price history — the OLS slope of pay on prior pay drops 0.750 → 0.140 across it — so the market re-prices him off current workload instead. NaN where `is_waived` is unknown, never 0. |
+
+#### Waiver inputs (not regression features since v6.1.0)
+
+| Input | Description |
+|---------|-------------|
+| `is_waived` | 1 when Spotrac records a waiver or buyout in the fixed 365 days before the signing that prices this row. Events after signing are excluded. Unknown source/signing coverage remains auditable through `is_waived_known`, which is not a model input. Enters Stage 1 only through the waiver term, and sets P(max) = 0 in Stage 2. |
+| `mpg_x_waived` | `mpg × is_waived` (v4.2.0). NaN where `is_waived` is unknown, never 0. |
+
+Both left the regression in v6.1.0. They stay in the KF measurement model
+(`MEASUREMENT_FEATURES`) and the route classifier (`CLF_BASE_COLS`).
 
 #### Filling `prev_cap_pct` for first contracts (v3.0.2)
 
@@ -493,6 +501,30 @@ with no CBA bounds at all.
 Both gates encode the same rule: **the model must corroborate that the bound
 binds.**
 
+#### Waiver term (v6.1.0)
+
+Stage 1 is partially linear in one term:
+
+```
+latent = GBM(x) + beta * is_waived * kf_market_value
+```
+
+A waived player gives up a share of his market value, so the discount scales
+with `kf_market_value`. The trees could not learn that share: a split on
+`is_waived` applied a near-uniform discount, too weak for waived stars and too
+strong for mid-priced players, and too few rows sit in that region to split
+further. The waiver features therefore left `FEATURE_COLS`.
+
+Beta is fitted inside every training slice (`train.waiver_beta`). A plain
+XGBoost on 4 player-grouped inner folds gives out-of-fold base predictions,
+and beta is the Tobit MLE of the waived rows' pay on `base + beta * z`, with
+at-floor rows left-censored and beta bounded to [-1, 0]. An at-floor row only
+says the discounted value is at or below the minimum; treating it as exact
+would shrink beta toward zero. The term enters the Grabit fit and prediction
+as `base_margin`, so the trees learn the rest. Production code predicts with
+`train.grabit_predict`, which adds the term to the tree output. There is no
+floor term: the Stage-2 clip keeps the prediction at or above the minimum.
+
 #### Why the floor is censorable and "good players on minimums" is not
 
 METHODOLOGY previously recorded that extending censoring to the lower bound was
@@ -514,6 +546,9 @@ flipped, and it was worth $0.42M per row on 297 rows.
 pushed = latent + P(max) * (MARGIN * ceiling - latent)   where P(max) >= TAU
 final  = clip(pushed, floor_pct, max_eligible_pct)
 ```
+
+Waived rows (`is_waived == 1`) get P(max) = 0 (v6.1.0). The Stage-1 waiver
+term lowers their latent, and a push must not lift it back.
 
 TAU = 0.52 and MARGIN = 1.05 are pre-registered constants in `stages.py`. TAU
 was chosen from the expected-win-minus-expected-collateral rule before any score
@@ -1210,8 +1245,10 @@ per-row |error| −$0.42M with a cluster-bootstrap CI of [−0.469, −0.374].
 2. Compute `max_eligible_pct` (Rose Rule / supermax / no-decrease floor) and
    `floor_pct` (season × experience bucket)
 3. Train baseline XGBoost → compute both gated censoring masks
-4. Train Grabit XGBoost (two-sided censored loss) on all training data
-5. Predict latent value → apply CBA bounds: `clip(latent, floor_pct, max_eligible_pct)`
+4. Fit the waiver-term beta, then train Grabit XGBoost (two-sided censored
+   loss) on all training data with the term as `base_margin`
+5. Predict latent value with `grabit_predict` → apply the push and CBA
+   bounds: `clip(pushed, floor_pct, max_eligible_pct)`
 6. Convert cap_pct to salary dollars
 7. Output: predictions CSV + free agents CSV
 

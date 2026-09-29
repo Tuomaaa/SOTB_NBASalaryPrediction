@@ -82,6 +82,7 @@ from src.model.train import (
     _load_rookie_scale_set,
     _normalize_vetmin_caphold,
     _prepare_Xy,
+    grabit_predict,
     load_training_data,
     train_grabit,
 )
@@ -125,11 +126,14 @@ FEATURE_LABELS = {
     "ast_pct": "Assist %",
     "award_score_cum": "Awards",
     "draft_pick": "Draft pick",
-    "is_waived": "Recently waived",
     "kf_market_value": "Market trajectory",
-    "mpg_x_waived": "Minutes x waived",
     "playoff_mpg_diff": "Playoff minutes swing",
+    "waiver_term": "Waiver discount",
 }
+
+# The Stage-1 waiver term (v6.1.0) is not a tree feature. It is appended as one
+# more attribution column, so the SHAP row still sums to the latent.
+WAIVER_SHAP_KEY = "waiver_term"
 
 
 # Spotrac writes signing mechanisms in a mix of styles, and refresh_spotrac.py
@@ -400,6 +404,12 @@ _TREE_ARRAYS = (
 )
 
 
+def _waived_flag(frame: pd.DataFrame) -> np.ndarray:
+    """0/1 `is_waived` as the waiver term reads it (missing means 0)."""
+    return (pd.to_numeric(frame["is_waived"], errors="coerce")
+            .fillna(0.0).values == 1.0).astype(int)
+
+
 def _compact_split_condition(value: float) -> float:
     """Shortest decimal in (previous float32, value] for an exact JS split."""
     exact = float(np.float32(value))
@@ -465,8 +475,15 @@ def _strip_model(model, features: list[str], medians: pd.Series,
 
 def _assert_model_parity(stripped: dict, out: pd.DataFrame,
                          tolerance: float = 1e-6) -> float:
-    """Reproduce browser traversal with float32 split inputs for every row."""
+    """Reproduce browser traversal with float32 split inputs for every row.
+
+    The latent is the tree sum plus the waiver term
+    waiver_beta * is_waived * kf_market_value (v6.1.0), with is_waived from the
+    row's `wv` flag and kf_market_value from its model inputs.
+    """
     base = float(json.loads(stripped["base_score"])[0])
+    beta = float(stripped["waiver_beta"])
+    kf_idx = stripped["feature_names"].index("kf_market_value")
     predictions = np.empty(len(out), dtype=float)
     for i, values in enumerate(out["model_x"]):
         total = base
@@ -483,7 +500,7 @@ def _assert_model_parity(stripped: dict, out: pd.DataFrame,
                 else:
                     node = tree["right_children"][node]
             total += tree["base_weights"][node]
-        predictions[i] = total
+        predictions[i] = total + beta * out["is_waived"].values[i] * values[kf_idx]
 
     drift = float(np.max(np.abs(predictions - out["latent_cap_pct"].values)))
     if drift > tolerance:
@@ -495,7 +512,7 @@ def _assert_model_parity(stripped: dict, out: pd.DataFrame,
 
 
 def build_frame(df: pd.DataFrame, model, features: list[str],
-                medians: pd.Series, train_df: pd.DataFrame
+                medians: pd.Series, train_df: pd.DataFrame, results: dict
                 ) -> tuple[pd.DataFrame, np.ndarray]:
     """Predict latent + bounded value for every player-season, with SHAP.
 
@@ -548,7 +565,7 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     X = full.reindex(columns=features).copy()
     X = X.fillna(medians).fillna(0)
 
-    latent = model.predict(X)
+    latent = grabit_predict(model, results, X, full)
     max_elig = full["max_eligible_pct"].values
     floor_pct = full["floor_pct"].values
     # Stage 2 is two-sided in BOTH directions now: the push lifts a max-worthy
@@ -576,7 +593,8 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
                                mech_cap_pct=mech_cap)
 
     explainer = shap.TreeExplainer(model)
-    shap_vals = explainer.shap_values(X)
+    shap_vals = np.column_stack([explainer.shap_values(X),
+                                 latent - model.predict(X)])
     expected = float(np.ravel(explainer.expected_value)[0])
 
     # Sanity: SHAP decomposes the *latent* (pre-cap) prediction.
@@ -673,6 +691,7 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
               "signing-board membership")
 
     out["base_salary"] = expected * out["cap"]
+    out["is_waived"] = _waived_flag(full)
     out["is_fa"] = False
     # Full-precision, median-filled inputs in serialized feature order. The
     # browser joins these to model.json.feature_names rather than assuming a
@@ -685,7 +704,7 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
                      features: list[str], medians: pd.Series, expected: float,
                      df: pd.DataFrame, train_df: pd.DataFrame, *,
                      kf_full: pd.DataFrame, kf_market_events: pd.DataFrame,
-                     kf_predict_fn, kf_r_var: float
+                     kf_predict_fn, kf_r_var: float, results: dict
                      ) -> tuple[pd.DataFrame, np.ndarray]:
     """Append holdout-season free agents the salary data does not yet cover.
 
@@ -765,8 +784,9 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         market_events=kf_market_events)
 
     X = fa.reindex(columns=features).fillna(medians).fillna(0)
-    latent = model.predict(X)
-    shap_fa = shap.TreeExplainer(model).shap_values(X)
+    latent = grabit_predict(model, results, X, fa)
+    shap_fa = np.column_stack([shap.TreeExplainer(model).shap_values(X),
+                               latent - model.predict(X)])
 
     # An unsigned free agent has no contract, so Stage 3 is inert (no extension
     # span) and the DOWNWARD half of Stage 2 stays off as before: the Value
@@ -850,6 +870,7 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         "award_score_cum": fa["award_score_cum"].values,
         "signing_type": np.nan,
         "base_salary": expected * cap,
+        "is_waived": _waived_flag(fa),
         "is_fa": True,
         "model_x": list(X.to_numpy(dtype=float)),
     })
@@ -922,6 +943,8 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
             "sg": bool(r.is_signing),
             "pr": bool(r.is_prorated),
             "fa": bool(r.is_fa),
+            # Stage-1 waiver term input: latent = trees + beta * wv * kf.
+            "wv": int(r.is_waived),
             "st": None if pd.isna(r.signing_type) else r.signing_type,
             "dk": _round(r.darko_dpm_z),
             "lb": _round(r.lebron_z),
@@ -940,11 +963,12 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
     keys = [_row_key(n, s) for n, s in
             zip(out["player_name_norm"], out["season"])]
 
+    shap_keys = list(features) + [WAIVER_SHAP_KEY]
     shap_out = {}
     for i, key in enumerate(keys):
         shap_out[key] = {
             f: _round(shap_dollars[i, j])
-            for j, f in enumerate(features)
+            for j, f in enumerate(shap_keys)
         }
 
     payload = {
@@ -1005,6 +1029,11 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
         "nExtCapped": int(out["is_ext_capped"].sum()),
         "features": [{"key": f, "label": FEATURE_LABELS.get(f, f)}
                      for f in features],
+        # Not a tree feature: latent = trees + beta * is_waived * kf, with the
+        # row's `wv` flag. shap.json carries it under this key.
+        "waiverTerm": {"key": WAIVER_SHAP_KEY,
+                       "label": FEATURE_LABELS[WAIVER_SHAP_KEY],
+                       "beta": results["waiver_beta"]},
         "mleBySeason": _mle_by_season(),
         "floorBySeasonExperience": _display_floor_table(source_df),
         "capBySeason": {str(k): v for k, v in CAP_BY_SEASON.items()},
@@ -1028,6 +1057,7 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
 
     stripped = _strip_model(model, features, medians,
                             _zscore_basis(source_df), dest)
+    stripped["waiver_beta"] = results["waiver_beta"]
     drift = _assert_model_parity(stripped, out)
     model_bytes = json.dumps(
         stripped, ensure_ascii=True, separators=(",", ":")
@@ -1307,13 +1337,14 @@ def main() -> None:
     if tr_features != features:
         raise SystemExit("feature list drifted between fit and export")
 
-    out, shap_vals, expected = build_frame(df, model, features, medians, train_df)
+    out, shap_vals, expected = build_frame(df, model, features, medians,
+                                           train_df, results)
     out, shap_vals = _add_free_agents(out, shap_vals, model, features, medians,
                                       expected, df, train_df,
                                       kf_full=df_full_prep,
                                       kf_market_events=eval_all,
                                       kf_predict_fn=_kf_predict_fn,
-                                      kf_r_var=r_var)
+                                      kf_r_var=r_var, results=results)
 
     # The headline the Signing Board quotes is the forward number: accuracy on
     # the signings the model never saw. Membership is the training filter chain
@@ -1340,7 +1371,8 @@ def main() -> None:
     write_json(out, shap_vals, features, medians, df, model, results,
                fwd_metrics, args.out)
     print("\nCharts:")
-    write_charts(out, shap_vals, features, args.out / "charts")
+    write_charts(out, shap_vals, list(features) + [WAIVER_SHAP_KEY],
+                 args.out / "charts")
 
     # Keep a copy in-repo so the export is reproducible without the site.
     if not args.no_snapshot:

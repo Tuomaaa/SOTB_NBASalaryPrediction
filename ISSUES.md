@@ -4,8 +4,8 @@ This file contains active defects only. Each issue must include a problem,
 reproduction, fix, and completion check. Delete fixed entries and record the
 landed change in `VERSION_HISTORY.md`.
 
-Issue numbers are permanent. The highest assigned number is 60, so the next
-issue is 61. Keep entries in numeric order because code and historical reports
+Issue numbers are permanent. The highest assigned number is 61, so the next
+issue is 62. Keep entries in numeric order because code and historical reports
 refer to them by number.
 
 ## Retired references still used in code
@@ -494,7 +494,31 @@ inside the last year still carries signal after an intervening contract.
 `attach_waiver_history` documents that 365-day definition, so it is not a
 contract violation.
 
-**Fix:** Revisit after the KF anchor re-pricing item in `docs/QUEUE.md`
-resolves. Test any new definition as a feature change.
+**Fix:** Since v6.1.0 `is_waived` enters Stage 1 only through the waiver
+term and the P(max) exclusion, and the bias table above predates it. Re-measure
+the stale and fresh groups on the v6.1.0 champion first, then test any new
+definition as a change to that input.
 
 **Done:** The fresh definition is adopted or rejected with paired metrics.
+
+## 61. The site's what-if ignores the Stage-1 waiver term
+
+**Severity:** medium. It affects waived rows on the Value Board.
+
+**Problem:** Since v6.1.0 the latent is the tree sum plus
+`beta * is_waived * kf_market_value`. `scripts/export_web.py` writes beta to
+`model.json` (`waiver_beta`) and `meta.json` (`waiverTerm`), the row flag to
+`valuations.json` (`wv`), and the term's attribution to `shap.json` under
+`waiver_term`. The site (`WebPage/`, outside this repository) traverses only
+the trees, so its what-if value for a waived row misses the discount, and its
+SHAP waterfall does not render the `waiver_term` key.
+
+**Reproduce:** Export, open a waived row (`wv == 1`) in the what-if, and
+compare its unedited value with `latent_cap_pct` in `valuations.json`.
+
+**Fix:** In the site, add `waiver_beta * wv * kf_market_value` (the row's
+edited `kf_market_value` input) to the tree sum, and render `waiver_term`
+with the `waiverTerm.label` from `meta.json`.
+
+**Done:** The site's unedited what-if value equals `latent_cap_pct` on every
+waived row, and the waterfall sums to it.
