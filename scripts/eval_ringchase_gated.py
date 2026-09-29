@@ -194,8 +194,9 @@ def main():
     sel = ~df["is_confirmation"].values
     p75 = float(np.nanquantile(df["career_earnings_thru_prev_cap_pct"].values,
                                CELL_EARN_Q))
-    for a in AGE_GRID:
-        print(f"  gate age>={a}: n = {int(gate(df, a, p75).sum())}")
+    if GATE_MODE != "continuous":
+        for a in AGE_GRID:
+            print(f"  gate age>={a}: n = {int(gate(df, a, p75).sum())}")
 
     # Same KF configuration as the production suite (prehistory anchors on,
     # v8.14x). The function's own default is prehistory=False, which silently
