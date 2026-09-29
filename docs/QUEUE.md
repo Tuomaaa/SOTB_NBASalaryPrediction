@@ -85,23 +85,31 @@ Russell Westbrook 2023 is anchored at $47.6M and signed for $3.8M, Kyle
 Lowry 2024 at $33.8M for $3.3M, and Andre Drummond 2021 at $26.4M for
 $1.7M. `is_waived` is not touched here; ISSUES #58 and #59 stay open.
 
-- Pre-registered 2026-09-29, before any score, as one arm `kf_reprice`:
-  1. Re-pricing events come from `data/processed/contract_signing_dates.csv`.
-     - Rest-of-season contracts, and standard contracts signed after opening
-       night and before July 1, are strong anchors at the season's floor
-       (tier-1 prior, P0 = 0.0005).
-     - 10-day and two-way contracts are weak anchors at 0 (tier-2 prior,
-       P0 = r_var). A two-way contract counts 0 against the cap.
-  2. An event overrides the same season's evaluation-frame anchor, because it
-     comes later in that season. The latest event in a season wins.
-  3. The switch is `prepare_kf_context(reprice=True)`, off by default.
-     Nothing else changes.
-  4. Affected rows are those whose anchor value or tier changes. With fewer
-     than 20% of rows, use the targeted gate in `docs/worker-brief.md`;
-     otherwise use the standard selection gate. B1 must move the same way,
-     C2 growth must be <= $0.3M, and the C1 gap must be <= 0.005.
-  5. If the arm fails, record it and do not amend it.
-- Complete when `kf_reprice` is adopted or rejected with paired metrics.
+- The first `kf_reprice` arm (2026-09-29) failed its targeted gate: t -1.02
+  over 76 players, B1 -0.0036. Its "standard after opening night" class
+  anchored at the floor contracts whose observed price was far higher. Those
+  were June FA deals that belong to the next season (Patrick Williams 2024,
+  Thaddeus Young 2022), 2011 lockout signings, and an unflagged extension.
+  Westbrook 2023, Lowry 2024 and Dieng 2021 did not move, because `is_waived`
+  already priced them.
+- Reclassified by the user as a definition correction (SHAME), not a gated
+  feature change. The KF anchor is documented as "the market's last observed
+  price", and a later signing is a later observed price. Paired metrics are
+  reported. Stop and discuss before adoption if damage is broad, as with
+  ISSUES #59.
+- Corrected rule, `prepare_kf_context(reprice=True)`:
+  - A rest-of-season contract anchors at the season floor (strong).
+  - A two-way contract anchors at 0 (weak, tier-2 prior); it counts 0
+    against the cap.
+  - A 10-day contract anchors at 0 (weak). This is the user's declared
+    modeling choice: its observed cap price is the prorated minimum.
+  - A standard non-extension contract signed after opening night and before
+    June 20 of the following year anchors at its own AAV over the cap
+    (strong). Later June signings start the next season, and anchoring on
+    them would leak a row's own contract.
+  - An event overrides the same season's evaluation-frame anchor.
+- Complete when the corrected rule is adopted or reverted with paired metrics
+  reported.
 
 ### Fold P(max) into Stage 1
 
