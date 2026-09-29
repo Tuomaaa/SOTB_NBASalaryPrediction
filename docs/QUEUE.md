@@ -1,6 +1,6 @@
 # Work queue
 
-Last updated 2026-09-29 after v6.0.4 (KF anchor re-pricing).
+Last updated 2026-09-29 after v6.1.0 (Stage-1 waiver term).
 
 Keep only active work here. Each item needs an action and a completion check.
 Use a dated brief for additional detail. Put defects in `ISSUES.md` and landed
@@ -8,47 +8,12 @@ work in `VERSION_HISTORY.md`.
 
 ## In progress
 
-### Improve the waiver features
-
-Results through v6.0.5 are in `VERSION_HISTORY.md` (v6.0.3, v6.0.4) and
-`docs/briefs/2026-09-29-waiver-term.RESULT.md`. On the v6.0.5 frame, two
-waived groups are mispriced; bias is prediction minus actual:
-
-| Group | Rows | Bias | Driven by |
-|---|---:|---:|---|
-| Fresh money-owed waivers above the floor | 8 | +$7.2M | Lillard 2025, Walker 2021, Beal 2025 |
-| Stale plain waivers above the floor | 18 | -$1.77M | Okogie 2026 (89% under-predicted) |
-
-"Stale" means a contract was signed between the waiver and this signing.
-The tree applies a near-uniform waiver discount, which is too weak for stars
-and too strong for mid-priced players. Arms that change the Stage-1 training
-set moved other rows. Turning stale flags off (ISSUES #59) lowered A1.
-
-- Pre-registered 2026-09-29, before any score, as one arm
-  `waiver_term_noflag`:
-  1. Drop `is_waived` and `mpg_x_waived` from the regression (19 features).
-     The route classifier and the KF measurement model keep their lists.
-  2. `latent = GBM(x) + beta * is_waived * kf_market_value`. Beta is a Tobit
-     fit on 4-fold inner OOF residuals of the same 19-feature base, with
-     at-floor rows left-censored and beta bounded to [-1, 0]. It enters as
-     `base_margin`.
-  3. P(max) = 0 on waived rows.
-  4. Run: `python scripts/eval_waiver_challengers.py --seeds 10 --full --arms
-     incumbent waiver_term_noflag`.
-  5. Gate, set by the user: pooled selection dSel > 0, B1 moves the same way
-     (B1 change >= 0), C2 growth <= $0.3M, and C1 gap <= 0.005 must all pass.
-     The targeted t on waived selection rows is reported, not required.
-  6. If the arm fails, record it and do not amend it.
-- Complete when `waiver_term_noflag` is adopted or rejected with paired
-  metrics.
-- Still open: confirm the patched waiver columns with a full local
-  `python scripts/rebuild_training_data.py`.
-
 ### Fold P(max) into Stage 1
 
 Suggested by the user on 2026-09-29, after the partially linear waiver term:
-the max push is also a structural term, not a separate stage. Write a brief
-after the waiver arm resolves. Complete when the brief exists.
+the max push is also a structural term, not a separate stage. The waiver arm
+resolved in v6.1.0, which already zeroes P(max) on waived rows. Write a brief.
+Complete when the brief exists.
 
 ### Grabit hyperparameter tuning — PAUSED
 
@@ -118,10 +83,21 @@ Build the public accuracy panel from
 - From the machine that holds the tags, run `git push origin --tags`. Local
   tags carry legacy `vN.Mx` names; add the renumbered name beside each landed
   release (for example `v5.3.3` beside `v8.17x`) with its headline metrics.
-- Tag v6.0.0 on `30aa82e`, v6.0.1 on `093b2e0` and v6.0.2 on the commit that
-  records it, each with the headline metrics A1 0.8509 / A2 0.8559 / B1 0.8304.
+- Tag v6.0.0 on `30aa82e`, v6.0.1 on `093b2e0`, and each later version
+  through v6.1.0 on the commit that records it. Each tag carries the
+  headline metrics in its `VERSION_HISTORY.md` row.
 - Complete when `git ls-remote --tags origin` lists `pre-tidy-2026-09-28`,
-  `v5.3.2`, `v5.3.3`, `v6.0.0`, `v6.0.1` and `v6.0.2`.
+  `v5.3.2`, `v5.3.3`, and `v6.0.0` through `v6.1.0`.
+
+### Confirm the patched waiver columns
+
+The waiver columns in `data/processed/training_data_v2.csv` were patched in
+place for v6.0.1 and v6.0.5, and `prior_waiver_owed` was added.
+
+- Run `python scripts/rebuild_training_data.py` locally with the HTML cache.
+- Complete when the rebuilt `is_waived`, `prior_waiver_date` and
+  `prior_waiver_owed` columns match the committed file, or the diff is
+  recorded as a SHAME version.
 
 ### Add P(max) to the Value Board
 

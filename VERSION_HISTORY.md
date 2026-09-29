@@ -1792,7 +1792,8 @@ layer A is scored on ten fold partitions instead of one, and the frame changed.
 | v6.0.3 | XGBoost (Grabit v4) | 0.8509 | 0.8559 | 0.8304 | 885 | 21 | SHAME. Partially linear waiver term not adopted (selection t = +0.19); three failure mechanisms define the next arm |
 | v6.0.4 | XGBoost (Grabit v4) | 0.8529 | 0.8565 | 0.8288 | 885 | 21 | SHAME. KF anchor re-priced at in-season signings, the market's last observed price |
 | v6.0.5 | XGBoost (Grabit v4) | 0.8527 | 0.8561 | 0.8293 | 885 | 21 | SHAME. No-signing waiver window moved to the season convention (ISSUES #58) |
-| **v6.0.6** | **XGBoost (Grabit v4)** | **0.8527** | **0.8561** | **0.8293** | **885** | **21** | **SHAME. Deployed signing offsets refitted on the KF champion (ISSUES #60); no published number moves** |
+| v6.0.6 | XGBoost (Grabit v4) | 0.8527 | 0.8561 | 0.8293 | 885 | 21 | SHAME. Deployed signing offsets refitted on the KF champion (ISSUES #60); no published number moves |
+| **v6.1.0** | **XGBoost (Grabit v4)** | **0.8581** | **0.8605** | **0.8500** | **885** | **19** | **DEFAULT. Stage-1 waiver term replaces the two waiver features; no push on waived rows** |
 
 ### v6.0.0: repeated grouped CV and the completed Spotrac migration
 
@@ -2028,6 +2029,84 @@ Deployed k=20 offsets, with dollars at the 2026 cap ($165.0M):
 Published A1, A2 and B1 do not move, because the suite estimates its own
 fold-honest offsets. The new constants reach `predict.py` and
 `export_web.py`, and the Value Board changes by the same amounts.
+
+### v6.1.0: Stage-1 waiver term replaces the waiver features
+
+Pre-registered in `docs/QUEUE.md` (commit `940646e`) as `waiver_term_noflag`,
+before any score:
+
+1. `is_waived` and `mpg_x_waived` leave the regression (19 features). The
+   KF measurement model and the route classifier keep them.
+2. `latent = GBM(x) + beta * is_waived * kf_market_value`, entered as
+   `base_margin`. Beta is a Tobit MLE on 4-fold inner OOF residuals, with
+   at-floor rows left-censored and beta bounded to [-1, 0].
+3. P(max) = 0 on waived rows.
+
+The gate, set by the user for this arm: pooled selection dSel > 0, B1 change
+>= 0, C2 growth <= $0.3M and C1 gap <= 0.005. The targeted t on waived
+selection rows is reported, not required. Paired against v6.0.6 in
+`scripts/eval_waiver_challengers.py --seeds 10 --full`:
+
+| Check | Result | Gate |
+|---|---:|---|
+| Selection dSel | +0.00081 (t = +0.08) | pass |
+| Targeted t, waived selection rows | +0.92 (81 players, 40% improved) | reported |
+| B1 | 0.8293 -> 0.8489 | pass |
+| C2 worst growth | +$0.035M | pass |
+| C1 gap | -0.0011 | pass |
+
+Beta averaged -0.531 over the fits (range -0.634 to -0.433). A waived player
+is priced at about half of his market value before the trees adjust it.
+
+The gain sits on waived rows and is almost invisible to the pooled selection
+test. Bias and MAE on the champion OOF, v6.0.6 -> v6.1.0:
+
+| Group | Bias | MAE |
+|---|---|---|
+| Fresh money-owed waivers above the floor | +$7.24M -> -$1.07M | $7.98M -> $2.44M |
+| Stale plain waivers above the floor | -$1.77M -> -$1.37M | |
+| Fresh plain waivers above the floor | -$0.55M -> -$1.76M | |
+| Never waived | +$0.41M -> +$0.50M | |
+
+Fresh plain waivers are now under-predicted more, and never-waived rows lost
+a little (summed squared error +573). Largest single gains are Lillard 2025
+(+$25.1M), Walker 2021 (+$14.9M) and Beal 2025 (+$8.8M). Largest losses are
+Paul 2024 (-$6.2M), Hill 2019 (-$5.6M) and James 2026 (-$3.9M).
+
+The confirmation split diverges from selection by more than 0.005, so it is
+reported: selection +0.0003, confirmation 0.8625 -> 0.8990 (+0.0365). The
+waived stars fall in the confirmation players. It did not enter the decision.
+
+The official suite reproduces the harness A1 and A2 exactly. Its B1 is
+0.8500 against the harness 0.8489. `layer_b_kf` fitted the B1 signing-offset
+inner model with `make_champion_fitter(clf_features)` and dropped
+`grabit_params`, so a challenger's B1 offsets came from the incumbent's
+Stage 1. The inner fitter now takes the arm's parameters; 0.8500 is the
+consistent number.
+
+Production: `train_grabit` fits the term when `features` is the champion
+list, and `train.grabit_predict` adds it to the tree output in `predict.py`
+and `export_web.py`. `stages.deployed_p_max` zeroes P(max) on waived rows.
+The web export adds the term as a `waiver_term` SHAP column, writes beta to
+`model.json` and `meta.json`, and flags waived rows with `wv`. The site's
+what-if does not read them yet (ISSUES #61).
+
+Deployed k=20 offsets, refitted by `scripts/eval_stage3_signing.py` on this
+champion:
+
+OFFSETS_TABLE
+
+| Metric | v6.1.0 |
+|---|---:|
+| A1 | 0.8581 |
+| A2 | 0.8605 |
+| B1 | 0.8500 |
+| C1 slope | 0.962 |
+| MAE (A1) | $2.56M |
+
+Artifacts: `outputs/models/waiver_challengers_full.json`,
+`outputs/models/waiver_challengers_full_oof.csv`,
+`outputs/models/evaluation_suite.json` and `outputs/models/oof_reference.csv`.
 
 ### Corrections to earlier findings
 

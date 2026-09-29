@@ -1077,7 +1077,9 @@ def layer_b_kf(df: pd.DataFrame, kf_ctx: KFContext,
         if verbose:
             print(f"    B1 inner OOF for signing offsets over {n_tr} rows...",
                   flush=True)
-        inner_fitter = make_champion_fitter(clf_features)
+        # Same Stage-1 settings as the scored arm, or the offsets come
+        # from a different model (it did until v6.1.0).
+        inner_fitter = make_champion_fitter(clf_features, grabit_params=gp)
         inner_oof, _, _ = oof_groupkfold(train_aug, features,
                                           inner_fitter, seeds)
         offs = signing_offsets(train_aug[TARGET].values - inner_oof,
