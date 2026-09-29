@@ -163,7 +163,7 @@ continuation, but its 2025-26 salary was raised $11.6M by the renegotiation on
 2025-07-13 — structurally identical to Markkanen 2024 and Turner 2022. Resolved
 as fresh.
 
-## Feature Set (19 features)
+## Feature Set (21 features)
 
 ### Performance Metrics (z-scored within season)
 | Feature | Description |
@@ -297,15 +297,16 @@ Code: `src/features/kalman_quality.py`, attached at load time in
 | `cba_era` | Binary: 0 = pre-2023 CBA, 1 = post-2023 CBA |
 | `kf_market_value` | Kalman-filtered market trajectory (v5.2.0, replaces `prev_cap_pct`). For a player at season T: anchor a random-walk KF at the market's last observed price, update through model-predicted intermediate seasons. Three-tier anchor: (1) most recent Year-1 eval-frame row, (2) earliest rookie-scale season for first-rounders, (3) fallback to `prev_cap_pct`. Since v6.0.4 a later in-season signing overrides that season's anchor as the later observed price (`load_reprice_events`): a rest-of-season contract at the floor, a mid-season standard contract at its own AAV (floored at the minimum), and two-way and 10-day contracts at 0 with the tier-2 prior. A two-way contract counts 0 against the cap; 10-day at 0 is a declared choice. The window for a standard contract closes on June 20, so a late-June deal is never the prior-season anchor of its own row. At inference time, a base model (21 features with `prev_cap_pct`) prices intermediate seasons — no circularity because the measurement model never sees `kf_market_value`. See `src/features/kf_market_value.py`. |
 
-#### Waiver inputs (not regression features since v6.1.0)
+#### Waiver features
 
-| Input | Description |
+| Feature | Description |
 |---------|-------------|
-| `is_waived` | 1 when Spotrac records a waiver or buyout in the fixed 365 days before the signing that prices this row. Events after signing are excluded. Unknown source/signing coverage remains auditable through `is_waived_known`, which is not a model input. Enters Stage 1 only through the waiver term, and sets P(max) = 0 in Stage 2. |
-| `mpg_x_waived` | `mpg × is_waived` (v4.2.0). NaN where `is_waived` is unknown, never 0. |
+| `is_waived` | 1 when Spotrac records a waiver or buyout in the fixed 365 days before the signing that prices this row. Events after signing are excluded. Unknown source/signing coverage remains auditable through `is_waived_known`, which is not a model input. Also sets P(max) = 0 in Stage 2. |
+| `mpg_x_waived` | `mpg × is_waived` (v4.2.0). A waiver erases most of a player's price history — the OLS slope of pay on prior pay drops 0.750 → 0.140 across it — so the market re-prices him off current workload instead. NaN where `is_waived` is unknown, never 0. |
 
-Both left the regression in v6.1.0. They stay in the KF measurement model
-(`MEASUREMENT_FEATURES`) and the route classifier (`CLF_BASE_COLS`).
+Both left the regression in v6.1.0 and returned in v6.2.0. The waiver term in
+Stage 1 reads `prior_waiver_owed`, which is not a feature: 1 when any waiver
+in the lookback carries buyout, stretch, dead-cap or gave-back wording.
 
 #### Filling `prev_cap_pct` for first contracts (v3.0.2)
 
@@ -377,7 +378,7 @@ closes the gap.
 | 6 raw O/D z-scores replacing 3 composites | +0.0044 (t = 1.14) | Arm A of the O/D split ablation (v5.1.0). Replacing `darko_dpm_z`, `lebron_z`, `laker_z` with their 6 offensive and defensive components costs 3 degrees of freedom and mostly re-expresses total quality. Gains are fold-unstable: range −0.00000 to +0.01931 across 5 folds |
 | O/D Kalman (two independent filters) | −0.0009 (Arm D) | Two scalar Kalman filters (one from O metrics, one from D) replacing the composite `kalman_filtered_stats`. Correlation with composite is only 0.775 — independent filters lose cross-metric information between O and D measurements. Recovers half the value at best |
 | `kf_market_value_x_waived` | -0.00051 (t = -0.32), three-seed screen | Tested 2026-09-29. A tree splitting on `is_waived` already has every product with it, and the four overpriced waived stars sit in a region with too few rows to split. The interaction leaves them unchanged. See `docs/briefs/2026-09-29-waiver-term.RESULT.md`. |
-| Partially linear waiver term (`beta * is_waived * kf_market_value`) | +0.00114 (t = +0.19), 10 seeds | Not adopted 2026-09-29 (v6.0.3). It discounts plain waivers, which owe nothing and are already priced without bias. The tree compensates on high-value players at the floor, and the max push re-inflates Lillard. Adopted in v6.1.0 in another form: the waiver features leave the regression and P(max) = 0 on waived rows (see Stage 1). |
+| Partially linear waiver term (`beta * is_waived * kf_market_value`) | +0.00114 (t = +0.19), 10 seeds | Not adopted 2026-09-29 (v6.0.3). It discounts plain waivers, which owe nothing and are already priced without bias. The tree compensates on high-value players at the floor, and the max push re-inflates Lillard. Adopted in another form: v6.1.0 applied it to every waived row without the waiver features; v6.2.0 applies it to money-owed waivers only (see Stage 1). |
 | `mpg × impact` interactions (4 forms) | −0.0018 to −0.0008 (t −1.00 to −0.49) | Tested 2026-08-29 on the hypothesis that minutes inflate the price of high-volume, low-efficiency players. Four forms — `mpg × composite impact z`, `mpg ×` each of the three metrics separately, `mpg × availability_3yr × composite` (a minute-weighted "total value" term), and the composite impact z on its own — every one negative on the pooled selection pool. It also **fails in the zone it targets**: on high-mpg / sub-average-impact rows (n=89) MAE moves $4.61M → $4.65M, and on the narrower volume-scorer slice (high mpg, high usage, impact < 0.25, n=47) $5.91M → $6.02M. The premise does not hold either — that zone's OOF bias is $+0.05M, and the volume-scorer slice is *under*-priced by $0.73M. Its problem is spread, not level: MAE $5.91M against $3.19M for everyone else, the bimodal `y | x` documented above. A gradient-boosted model already represents `mpg × metric` by splitting on one and then the other, so the explicit product only adds a collinear column. Arm: baseline XGBoost on the 20 base features, GroupKFold, 10 seeds, paired by fold. |
 
 ### Training-set choices tested and rejected
@@ -501,27 +502,35 @@ with no CBA bounds at all.
 Both gates encode the same rule: **the model must corroborate that the bound
 binds.**
 
-#### Waiver term (v6.1.0)
+#### Waiver term (v6.1.0, money-owed waivers only since v6.2.0)
 
 Stage 1 is partially linear in one term:
 
 ```
-latent = GBM(x) + beta * is_waived * kf_market_value
+latent = GBM(x) + beta * is_waived * prior_waiver_owed * kf_market_value
 ```
 
-A waived player gives up a share of his market value, so the discount scales
-with `kf_market_value`. The trees could not learn that share: a split on
-`is_waived` applied a near-uniform discount, too weak for waived stars and too
-strong for mid-priced players, and too few rows sit in that region to split
-further. The waiver features therefore left `FEATURE_COLS`.
+A bought-out player gives up a share of his market value, so the discount
+scales with `kf_market_value`. The trees could not learn that share: a split
+on `is_waived` applied a near-uniform discount, too weak for bought-out stars,
+and too few rows sit in that region to split further. A buyout means a team
+paid to leave a large guaranteed contract, so that contract, the KF anchor,
+overstates the player's price.
 
-Beta is fitted inside every training slice (`train.waiver_beta`). A plain
+v6.1.0 applied the term to every waived row and dropped the waiver features.
+That over-discounted expensive plain waivers such as Paul 2024 and Hill 2019,
+whose waivers were contract-structure moves (a declined non-guarantee, a
+waive-and-re-sign). v6.2.0 applies the term to money-owed waivers only and
+returns the plain waivers to the trees through the waiver features.
+
+Beta is fitted inside every training slice (`train.waiver_beta`) on every
+waived row, not only the money-owed ones. A plain
 XGBoost on 4 player-grouped inner folds gives out-of-fold base predictions,
 and beta is the Tobit MLE of the waived rows' pay on `base + beta * z`, with
 at-floor rows left-censored and beta bounded to [-1, 0]. An at-floor row only
 says the discounted value is at or below the minimum; treating it as exact
-would shrink beta toward zero. The term enters the Grabit fit and prediction
-as `base_margin`, so the trees learn the rest. Production code predicts with
+would shrink beta toward zero. The term, on money-owed waivers only, enters the
+Grabit fit and prediction as `base_margin`, so the trees learn the rest. Production code predicts with
 `train.grabit_predict`, which adds the term to the tree output. There is no
 floor term: the Stage-2 clip keeps the prediction at or above the minimum.
 
@@ -547,8 +556,8 @@ pushed = latent + P(max) * (MARGIN * ceiling - latent)   where P(max) >= TAU
 final  = clip(pushed, floor_pct, max_eligible_pct)
 ```
 
-Waived rows (`is_waived == 1`) get P(max) = 0 (v6.1.0). The Stage-1 waiver
-term lowers their latent, and a push must not lift it back.
+Waived rows (`is_waived == 1`) get P(max) = 0 (v6.1.0). No waived frame row
+signed a maximum, and a push must not lift a latent the waiver term lowered.
 
 TAU = 0.52 and MARGIN = 1.05 are pre-registered constants in `stages.py`. TAU
 was chosen from the expected-win-minus-expected-collateral rule before any score
@@ -1246,7 +1255,8 @@ per-row |error| −$0.42M with a cluster-bootstrap CI of [−0.469, −0.374].
    `floor_pct` (season × experience bucket)
 3. Train baseline XGBoost → compute both gated censoring masks
 4. Fit the waiver-term beta, then train Grabit XGBoost (two-sided censored
-   loss) on all training data with the term as `base_margin`
+   loss) on all training data with the money-owed waiver term as
+   `base_margin`
 5. Predict latent value with `grabit_predict` → apply the push and CBA
    bounds: `clip(pushed, floor_pct, max_eligible_pct)`
 6. Convert cap_pct to salary dollars

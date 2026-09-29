@@ -113,7 +113,7 @@ Training uses Year-1 Contracts. Scoring can include later contract years. Keep
 **Signing Residual** (Year-1 model error) distinct from **Contract Surplus**
 (team outcome on any contract year).
 
-The 19 production features are defined in `METHODOLOGY.md`.
+The 21 production features are defined in `METHODOLOGY.md`.
 `kf_market_value` replaced `prev_cap_pct` in v5.2.0. Inference is two-pass
 so the Kalman-filtered trajectory exists before the final fit. Review the
 rejected-feature table before proposing another feature.
