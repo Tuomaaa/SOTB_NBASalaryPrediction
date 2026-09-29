@@ -86,7 +86,7 @@ MEASUREMENT PROTOCOL (CLAUDE.md, "judge a targeted intervention where it acts")
   guards    A1 / A2 paired R2 deltas (pooled and selection), bit-identity of
             the non-eligible rows, and a legality audit of every corrected row.
   layer B   rolling-origin B1: for target season T the offsets come only from
-            seasons < T, via an inner GroupKFold OOF inside the training window.
+            seasons < T, via an inner repeated grouped OOF inside the training window.
 
 Run:  OMP_NUM_THREADS=6 python scripts/eval_stage3_signing.py
       [--seeds N] [--skip-b]
@@ -102,11 +102,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np
 import pandas as pd
 from sklearn.metrics import r2_score
-from sklearn.model_selection import GroupKFold
 
 from config import CAP_BY_SEASON, OUTPUTS_DIR
 from src.model.evaluate_suite import (
     load_evaluation_frame, paired_delta, _dollars, N_SPLITS, DEFAULT_SEEDS,
+    fold_splits,
     TARGET, FORWARD_ORIGINS,
 )
 from src.model import route_mixture as rm
@@ -191,16 +191,14 @@ def apply_correction(pred, cat, offs, *, lo, hi, is_ext, ext_cap) -> np.ndarray:
 def champion_fold_pass(df, features, clf_features, seeds, tag=""):
     """Champion OOF predictions per (fold, seed), on the suite's exact split.
 
-    GroupKFold(N_SPLITS) over player_name_norm on the frame's row order — the
-    identical protocol `evaluate_suite.oof_groupkfold` uses, so the champion
-    reproduced here is the champion the suite scores.
+    Seed i is fitted on partition i of the fixed player-to-fold hash
+    (`evaluate_suite.fold_splits`), the protocol `evaluate_suite._fold_pass`
+    uses, so the champion reproduced here is the champion the suite scores.
     """
-    y = df[TARGET].values
-    folds = list(GroupKFold(n_splits=N_SPLITS).split(
-        df, y, df["player_name_norm"].values))
+    folds = {si: fold_splits(df, si) for si in range(len(seeds))}
     store = []
     for si, seed in enumerate(seeds):
-        for fi, (tr, va) in enumerate(folds):
+        for fi, (tr, va) in enumerate(folds[si]):
             train, test = df.iloc[tr], df.iloc[va]
             latent, lo, hi = rm.grabit_latent(train, test, features, seed)
             clf = rm.train_route_classifier(train, clf_features, seed)
@@ -315,7 +313,7 @@ def inner_oof_offsets(train_df, features, clf_features, seeds, k, tag):
     """k-shrunk per-type offsets from an OOF run INSIDE the training window.
 
     The only honest way to learn a season-T offset without seeing season T: the
-    residuals come from a GroupKFold OOF over seasons < T alone.
+    residuals come from a repeated grouped OOF over seasons < T alone.
     """
     store, folds = champion_fold_pass(train_df, features, clf_features, seeds,
                                       tag=tag)
@@ -411,10 +409,12 @@ def main():
     # ---- fit pass ---------------------------------------------------------
     print("\nFIT PASS — champion Grabit latent + route classifier + Stage 2/3")
     store, folds = champion_fold_pass(df, features, clf_features, seeds)
-    n_folds, n_seeds = len(folds), len(seeds)
-    fold_of = np.empty(len(df), dtype=int)
-    for fi, (_, va) in enumerate(folds):
-        fold_of[va] = fi
+    n_folds, n_seeds = N_SPLITS, len(seeds)
+    fold_of = {}
+    for si, splits in folds.items():
+        fold_of[si] = np.empty(len(df), dtype=int)
+        for fi, (_, va) in enumerate(splits):
+            fold_of[si][va] = fi
 
     champ_oof = seed_average(store, len(df), "champ", n_seeds)
     resid = y - champ_oof                      # actual - predicted, cap_pct
@@ -461,12 +461,13 @@ def main():
     # ---- candidate arms (fold-honest, leave-fold-out offsets) -------------
     print("\n  LEAVE-FOLD-OUT offsets used for scoring (fold f corrected from "
           "rows outside fold f):")
-    lfo = {}
+    # One offset per (partition, fold) cell; partition 0 is reported.
+    lfo, lfo_cells = {}, {}
     for k_val, key in ((K_SHRINK, "cand20"), (K_REFERENCE, "cand0")):
-        lfo[key] = {}
-        for fi in range(n_folds):
-            pool = fold_of != fi
-            lfo[key][fi] = type_offsets(resid, cat, pool, k=k_val)
+        lfo_cells[key] = {
+            (si, fi): type_offsets(resid, cat, fold_of[si] != fi, k=k_val)
+            for si in fold_of for fi in range(n_folds)}
+        lfo[key] = {fi: lfo_cells[key][(0, fi)] for fi in range(n_folds)}
     print(f"    {'fold':>4s} " + "  ".join(f"{t:>13s}" for t in ELIGIBLE_TYPES))
     for fi in range(n_folds):
         print(f"    {fi:4d} " + "  ".join(
@@ -481,7 +482,7 @@ def main():
         va = rec["va"]
         for key in ("cand20", "cand0"):
             rec[key] = apply_correction(
-                rec["champ"], cat[va], lfo[key][rec["fi"]],
+                rec["champ"], cat[va], lfo_cells[key][(rec["si"], rec["fi"])],
                 lo=lo_all[va], hi=hi_all[va],
                 is_ext=is_ext[va], ext_cap=ext_cap[va])
 

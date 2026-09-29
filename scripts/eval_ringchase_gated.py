@@ -74,13 +74,13 @@ import pandas as pd
 from scipy import stats
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import r2_score
-from sklearn.model_selection import GroupKFold
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
 
 from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR
 from src.model.evaluate_suite import (
     DEFAULT_SEEDS, N_SPLITS, TARGET, _compute_kf_nested, abs_bias_growth,
+    fold_splits, paired_delta,
     load_evaluation_frame, prepare_kf_context,
 )
 from src.model import route_mixture as rm
@@ -206,8 +206,8 @@ def main():
     features = list(FEATURE_COLS)
     base_feats = [c if c != "kf_market_value" else "prev_cap_pct" for c in features]
     base_feats = [c for c in base_feats if c in df.columns]
-    folds = list(GroupKFold(n_splits=N_SPLITS).split(
-        df, y, df["player_name_norm"].values))
+    # Seed i uses partition i of the suite's fixed player-to-fold hash.
+    fold_sets = {si: fold_splits(df, si) for si in range(len(seeds))}
 
     champ_acc = np.zeros(len(df))
     cand_acc = np.zeros(len(df))
@@ -216,7 +216,7 @@ def main():
 
     for si, seed in enumerate(seeds):
         per_fold = []
-        for fi, (tr, va) in enumerate(folds):
+        for fi, (tr, va) in enumerate(fold_sets[si]):
             train, test = df.iloc[tr], df.iloc[va]
             tr_aug, te_aug = _compute_kf_nested(kf_ctx, train, test,
                                                 clf_features, seed)
@@ -324,7 +324,13 @@ def main():
     p_oof = p_acc / len(seeds)
     fr = pd.DataFrame(rows)
     fr["d"] = fr["cand"] - fr["champ"]
-    t, pv = stats.ttest_1samp(fr["d"], 0)
+    # rows run seed-major, fold-minor. The cells share rows across seeds, so a
+    # plain one-sample t over them overstates the evidence; use the suite's
+    # corrected repeated-CV statistic.
+    as_matrix = lambda col: fr[col].to_numpy().reshape(len(seeds), N_SPLITS).T
+    pdlt = paired_delta(as_matrix("champ"), as_matrix("cand"))
+    t = pdlt["t"]
+    pv = float(2 * stats.t.sf(abs(t), df=len(fr) - 1))
     ch = pd.DataFrame(chosen)
 
     print("\nSELECTED IN POOL")

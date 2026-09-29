@@ -2,7 +2,8 @@
 
 Each layer answers a different question and they must not be mixed:
 
-  A  selection      pooled GroupKFold CV. Estimates the market's pricing
+  A  selection      pooled repeated grouped CV (a fixed player-to-fold hash,
+                    one partition per seed). Estimates the market's pricing
                     function, so training on a later season to score an earlier
                     one is legitimate — the estimand is structural, not a
                     forecast. Player grouping blocks the leakage that does
@@ -653,8 +654,31 @@ def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
 # Prediction engines
 # ---------------------------------------------------------------------------
 
+def fold_ids(players, partition: int) -> np.ndarray:
+    """Fixed player-to-fold map for one CV partition (ISSUES #35).
+
+    A player's fold is a hash of the partition number and his name, so adding
+    or removing rows never moves any other player between folds. The 2026-09-29
+    migration rebuild added 16 rows; GroupKFold then moved 298 of 483 players
+    and the same model's A2 read 0.8359 on the new split against 0.8699 on the
+    old one. Folds are balanced in players, not rows.
+    """
+    import hashlib
+    return np.array([
+        int(hashlib.md5(f"{partition}:{p}".encode()).hexdigest(), 16) % N_SPLITS
+        for p in players
+    ])
+
+
+def fold_splits(df: pd.DataFrame, partition: int) -> list[tuple]:
+    """(train_idx, test_idx) per fold for one partition of `df`."""
+    f = fold_ids(df["player_name_norm"].values, partition)
+    return [(np.where(f != k)[0], np.where(f == k)[0])
+            for k in range(N_SPLITS)]
+
+
 def _fold_pass(df: pd.DataFrame, features: list[str], fitter, seeds):
-    """One GroupKFold x seed sweep, KEEPING every (fold, seed) prediction.
+    """One fold x seed sweep, KEEPING every (fold, seed) prediction.
 
     `oof_groupkfold` collapses this to the seed average and the R2 matrices in
     the same loop; the signing correction needs the individual cells, because it
@@ -662,15 +686,18 @@ def _fold_pass(df: pd.DataFrame, features: list[str], fitter, seeds):
     offset and the legality clips are non-linear. Split out so there is one
     fitting loop rather than two that can drift.
 
+    Repeated CV: seed i is fitted on partition i (`fold_splits`), so the seed
+    average also averages over fold assignments at no extra cost.
+
     Returns:
         (store, folds, multi) — `store` is a list of
-        {"fi", "si", "va", "pred": {arm: array}} in fit order.
+        {"fi", "si", "va", "pred": {arm: array}} in fit order; `folds` maps the
+        seed index to that partition's splits.
     """
-    y = df[TARGET].values
-    folds = list(GroupKFold(n_splits=N_SPLITS).split(df, y, df["player_name_norm"].values))
+    folds = {si: fold_splits(df, si) for si in range(len(seeds))}
     store, multi = [], None
     for si, seed in enumerate(seeds):
-        for fi, (tr, va) in enumerate(folds):
+        for fi, (tr, va) in enumerate(folds[si]):
             out = fitter(df.iloc[tr], df.iloc[va], features, seed)
             if multi is None:
                 multi = isinstance(out, dict)
@@ -690,8 +717,8 @@ def _reduce_fold_pass(df: pd.DataFrame, store, folds, seeds) -> dict:
         for name, pred in rec["pred"].items():
             if name not in acc:
                 acc[name] = np.zeros(len(df))
-                fold_r2[name] = np.zeros((len(folds), len(seeds)))
-                fold_r2_sel[name] = np.zeros((len(folds), len(seeds)))
+                fold_r2[name] = np.zeros((N_SPLITS, len(seeds)))
+                fold_r2_sel[name] = np.zeros((N_SPLITS, len(seeds)))
             acc[name][va] += pred
             fold_r2[name][rec["fi"], rec["si"]] = r2_score(y[va], pred)
             vs = sel[va]
@@ -769,11 +796,17 @@ def oof_groupkfold_signing(df: pd.DataFrame, features: list[str], fitter,
 
     cat = df["signing_cat"].values
     resid = df[TARGET].values - src_oof          # actual - predicted, cap_pct
-    fold_of = np.empty(len(df), dtype=int)
-    for fi, (_, va) in enumerate(folds):
-        fold_of[va] = fi
-    lfo = {fi: signing_offsets(resid, cat, pool=fold_of != fi, k=k, detail=True)
-           for fi in range(len(folds))}
+    # One leave-fold-out offset per (partition, fold) cell; partition 0 is the
+    # one reported.
+    lfo_cells = {}
+    for si, splits in folds.items():
+        fold_of = np.empty(len(df), dtype=int)
+        for fi, (_, va) in enumerate(splits):
+            fold_of[va] = fi
+        for fi in range(N_SPLITS):
+            lfo_cells[(si, fi)] = signing_offsets(
+                resid, cat, pool=fold_of != fi, k=k, detail=True)
+    lfo = {fi: lfo_cells[(0, fi)] for fi in range(N_SPLITS)}
 
     lo, hi = df["floor_pct"].values, df["max_eligible_pct"].values
     is_ext, ext_cap = df["is_extension"].values, df["ext_cap_pct"].values
@@ -782,7 +815,7 @@ def oof_groupkfold_signing(df: pd.DataFrame, features: list[str], fitter,
     for rec in store:
         va = rec["va"]
         rec["pred"][new_arm] = stage3_signing(
-            rec["pred"][source_arm], cat[va], lfo[rec["fi"]],
+            rec["pred"][source_arm], cat[va], lfo_cells[(rec["si"], rec["fi"])],
             lo=lo[va], hi=hi[va],
             mech_cap_pct=mech_cap[va] if mech_cap is not None else None,
             is_extension=is_ext[va],
@@ -829,7 +862,7 @@ def rolling_forward_signing(df: pd.DataFrame, features: list[str],
     """Layer B with the signing offset, learned ONLY from seasons < T.
 
     The only honest way to learn a season-T offset without seeing season T: for
-    each origin, run a GroupKFold OOF INSIDE the training window (seasons < T)
+    each origin, run a repeated grouped OOF INSIDE the training window (seasons < T)
     with `inner_fitter`, take the shrunk per-type means of those residuals, and
     apply them to season T. Nothing from season T enters the offset in any
     capacity, so B1 is free even of the single-level-CV channel layer A pays.
@@ -1044,15 +1077,24 @@ def bootstrap_r2_ci(y: np.ndarray, pred: np.ndarray, n: int = 4000,
 
 
 def paired_delta(fold_r2_a: np.ndarray, fold_r2_b: np.ndarray) -> dict:
-    """Paired fold-level comparison of two variants scored on identical folds.
+    """Paired comparison of two variants scored on identical (fold, seed) cells.
 
-    Fold-to-fold variance (sd ~0.031) dwarfs seed variance (sd ~0.0008), so an
-    unpaired comparison of two reported means throws away nearly all the power.
-    Pairing cancels the fold effect; the fold is the unit of replication.
+    Pairing cancels the fold effect. Each seed uses its own fold partition, so
+    a row appears in several cells and the cells are not independent. The t
+    statistic therefore uses the Nadeau-Bengio correction for repeated k-fold
+    CV: var(d) * (1/J + n_test/n_train) over J cells, with
+    n_test/n_train = 1/(k - 1).
+
+    Args:
+        fold_r2_a: (folds, seeds) metric matrix of the reference.
+        fold_r2_b: the same matrix for the candidate.
     """
-    per_fold = fold_r2_b.mean(axis=1) - fold_r2_a.mean(axis=1)
-    mean = float(per_fold.mean())
-    se = float(per_fold.std(ddof=1) / np.sqrt(len(per_fold)))
+    d = np.asarray(fold_r2_b, float) - np.asarray(fold_r2_a, float)
+    cells = d[~np.isnan(d)]
+    k = d.shape[0]
+    mean = float(cells.mean())
+    se = float(np.sqrt((1.0 / cells.size + 1.0 / (k - 1)) * cells.var(ddof=1)))
+    per_fold = np.nanmean(d, axis=1)
     return {"delta": mean, "se": se, "t": mean / se if se > 0 else float("nan"),
             "per_fold": [round(v, 5) for v in per_fold]}
 
@@ -1558,7 +1600,7 @@ def print_report(df: pd.DataFrame, res: SuiteResult):
     line = "=" * 74
     print(f"\n{line}\n  {res.name}\n{line}")
 
-    print("\n  A — selection (pooled GroupKFold CV)")
+    print("\n  A — selection (repeated grouped CV, one partition per seed)")
     print(f"    A1  CV R2            {m['A1_cv_r2']:.4f}   "
           f"MAE ${m['A1_cv_mae_m']:.2f}M   bias ${m['A1_cv_bias_m']:+.2f}M   n={m['A1_n']}")
     print(f"    A2  CV R2 2024-26    {m['A2_cv_r2_2024_26']:.4f}   "
