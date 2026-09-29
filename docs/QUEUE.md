@@ -42,7 +42,37 @@ The 85 plain waivers have bias -$0.13M.
      <= $0.3M and a C1 gap <= 0.005.
   7. If it fails, record it. Future signings are a monitor after adoption,
      not a gate.
-- Complete when `waived_branch` is adopted or rejected with paired metrics.
+- `waived_branch` (2026-09-29) failed at 10 seeds: targeted t +1.06, and
+  pooled selection dSel -0.0005. Money-owed rows improved again (MAE $2.93M
+  to $1.01M). Plain waivers were flat (MAE $1.02M), and non-waived rows
+  worsened (t -1.99). Every arm that changes the Stage-1 training set moves
+  other rows. Plain waivers are the best-priced group (MAE $1.01M against
+  $2.78M for the frame) and never improved in any arm.
+- Pre-registered 2026-09-29, before any score, as one arm `owed_adjust`:
+  1. Stage 1 is the incumbent fit, unchanged.
+  2. Only test rows with `prior_waiver_owed == 1` are changed, to
+     `gamma * latent`.
+  3. Gamma is a Tobit fit (at-floor rows left-censored, bounded to [0, 1]) on
+     the training money-owed rows. Their latent comes from a 4-fold
+     player-grouped inner OOF of the same Grabit fit, so it is out-of-sample,
+     like a test row's.
+  4. P(max) = 0 on money-owed rows only. This narrows the user's earlier
+     `is_waived` exclusion, so that plain waivers are untouched.
+  5. Before Stage 3, every other row must be bit-identical to the incumbent.
+     Stage-3 signing offsets can move slightly, because they average
+     residuals that include money-owed rows.
+  6. Affected rows: `prior_waiver_owed == 1`. Gate: the targeted gate in
+     `docs/worker-brief.md`, with pooled selection dSel > 0, B1 in the same
+     direction, C2 growth <= $0.3M and a C1 gap <= 0.005.
+  7. Report two sensitivity checks next to the gate, not as the gate. The
+     first drops the rows the user flags as special cases: Deandre Ayton
+     2025, Marcus Smart 2025 and Marcus Smart 2026. The second drops the two
+     largest-gain money-owed selection rows. The user may override a FAIL
+     through an ADR. That ADR must state the gate result.
+  8. Run: `python scripts/eval_waiver_challengers.py --seeds 10 --full --arms
+     incumbent owed_adjust`.
+- Complete when `owed_adjust` is adopted, rejected, or overridden through an
+  ADR.
 - Still open: confirm the patched waiver columns with a full local
   `python scripts/rebuild_training_data.py`.
 
