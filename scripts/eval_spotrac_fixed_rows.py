@@ -40,9 +40,10 @@ from config import OUTPUTS_DIR
 KEY = ["player_name_norm", "season"]
 
 
-def _head_training() -> pd.DataFrame:
+def _head_training(ref: str = "HEAD") -> pd.DataFrame:
+    """The incumbent training table stored at a Git revision."""
     raw = subprocess.check_output(
-        ["git", "show", "HEAD:data/processed/training_data_v2.csv"]
+        ["git", "show", f"{ref}:data/processed/training_data_v2.csv"]
     )
     return pd.read_csv(io.BytesIO(raw))
 
@@ -129,6 +130,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument(
+        "--incumbent-ref",
+        default="HEAD",
+        help="Git revision whose training_data_v2.csv is the incumbent.",
+    )
+    parser.add_argument(
         "--candidate-seasons-from",
         type=int,
         help=(
@@ -143,7 +149,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    head_training = _head_training()
+    head_training = _head_training(args.incumbent_ref)
     candidate_training = pd.read_csv(args.candidate)
     if args.candidate_seasons_from is not None:
         cutoff = args.candidate_seasons_from
