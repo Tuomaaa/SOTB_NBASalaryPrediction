@@ -10,10 +10,11 @@ work in `VERSION_HISTORY.md`.
 
 ### Fold P(max) into Stage 1
 
-Suggested by the user on 2026-09-29, after the partially linear waiver term:
-the max push is also a structural term, not a separate stage. The waiver arm
-resolved in v6.1.0, which already zeroes P(max) on waived rows. Write a brief.
-Complete when the brief exists.
+Run `docs/briefs/2026-09-30-pmax-stage1.md`: arms `R` (v6.2.0), `N` (no
+push) and `F` (P(max) term in the Stage-1 base margin). The push alone is
+dSel -0.0032 (t -0.83) on 23 moved selection rows, so expect no significant
+change. Complete when `F` is adopted or rejected under the brief's gates and
+the `N` result is reported for the user's decision on deleting the push.
 
 ### Grabit hyperparameter tuning — PAUSED
 
