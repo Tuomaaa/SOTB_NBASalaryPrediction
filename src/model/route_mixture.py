@@ -383,12 +383,100 @@ def owed_mask(frame: pd.DataFrame) -> np.ndarray:
             .fillna(0.0).values == 1.0)
 
 
+# Experiment log for the Stage-1 P(max) term: one beta_max per fit.
+MAX_BETA_LOG: list[float] = []
+MAX_BETA_BOUNDS = (0.0, 1.0)
+
+
+def max_z(frame: pd.DataFrame, p_max: np.ndarray) -> np.ndarray:
+    """P(max) times the distance from market value up to the ceiling."""
+    gap = frame["max_eligible_pct"].values - frame["kf_market_value"].values
+    return p_max * np.maximum(gap, 0.0)
+
+
+def _tobit_beta_two_sided(y: np.ndarray, base: np.ndarray, z: np.ndarray,
+                          right: np.ndarray, left: np.ndarray,
+                          floor: np.ndarray, bounds: tuple[float, float],
+                          x0: float) -> float:
+    """MLE of beta in y = base + beta * z + e, censored on both sides.
+
+    A right-censored row (a gated maximum) says the latent is at or above the
+    observed pay. A left-censored row (at the floor) says it is at or below
+    the floor. Both enter through the normal tail, as in the Grabit loss.
+    """
+    from scipy.optimize import minimize
+    from scipy.stats import norm
+    free = ~right & ~left
+    s0 = float(np.std((y - base)[free])) if free.sum() > 2 else 0.01
+
+    def nll(theta):
+        beta, log_s = theta
+        s = np.exp(log_s)
+        mu = base + beta * z
+        ll = norm.logpdf((y[free] - mu[free]) / s).sum() - free.sum() * log_s
+        ll += norm.logsf((y[right] - mu[right]) / s).sum()
+        ll += norm.logcdf((floor[left] - mu[left]) / s).sum()
+        return -ll
+
+    fit = minimize(nll, x0=[x0, np.log(max(s0, 1e-4))], method="L-BFGS-B",
+                   bounds=[bounds, (np.log(1e-4), np.log(1.0))])
+    return float(fit.x[0])
+
+
+def max_term(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
+             seed: int, margin_tr: np.ndarray, gate: np.ndarray,
+             gate_l: np.ndarray, n_inner: int = 4):
+    """Stage-1 P(max) term: beta_max and z_max for the training and test rows.
+
+    Route labels come from the target, so P(max) on a training row must come
+    from a classifier that did not see that row's player: n_inner
+    player-grouped inner folds give OOF P(max) and OOF base predictions (a
+    plain XGBoost fitted with the same base margin as the Grabit fit, so the
+    waiver term is already in the base). Beta is a two-sided Tobit MLE,
+    right-censored on the gated maximum rows and left-censored on the gated
+    floor rows, bounded to MAX_BETA_BOUNDS. Test P(max) comes from a
+    classifier fitted on the whole training slice. Waived rows get P(max) = 0.
+
+    Returns:
+        (beta_max, z_train, z_test)
+    """
+    from xgboost import XGBRegressor
+    clf_features = list(CLF_BASE_COLS) + list(CLF_EXTRA_COLS)
+    y = train[TARGET].values
+    labels = compute_route_labels(train)
+    groups = train["player_name_norm"].values
+    p_oof = np.zeros(len(train))
+    base_oof = np.zeros(len(train))
+    for itr, iva in GroupKFold(n_splits=n_inner).split(train, y, groups):
+        clf = train_route_classifier(train.iloc[itr], clf_features, seed,
+                                     labels=labels[itr])
+        p_oof[iva] = route_proba(clf, train.iloc[iva], clf_features)[:, MAX_IDX]
+        m = XGBRegressor(**{**_XGB_BASE, "random_state": seed})
+        m.fit(train.iloc[itr][features], y[itr], base_margin=margin_tr[itr])
+        base_oof[iva] = m.predict(train.iloc[iva][features],
+                                  base_margin=margin_tr[iva])
+    p_oof = np.where(waived_mask(train), 0.0, p_oof)
+    z_tr_oof = max_z(train, p_oof)
+    use = z_tr_oof > 0
+    beta = 0.0
+    if use.sum() >= 10:
+        beta = _tobit_beta_two_sided(
+            y[use], base_oof[use], z_tr_oof[use], gate[use], gate_l[use],
+            train["floor_pct"].values[use], MAX_BETA_BOUNDS, x0=0.3)
+
+    # The Grabit fit sees the OOF z, the quantity beta was fitted on.
+    clf = train_route_classifier(train, clf_features, seed, labels=labels)
+    p_te = route_proba(clf, test, clf_features)[:, MAX_IDX]
+    p_te = np.where(waived_mask(test), 0.0, p_te)
+    return beta, z_tr_oof, max_z(test, p_te)
+
+
 def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                   seed: int, sigma: float = 0.02, gate_frac: float = 0.55,
                   floor_gate_k: float = 2.0, sigma_left: float | None = None,
                   censor_c: float | None = None, waiver_term: bool | str = "owed",
                   owed_branch: bool | str = False,
-                  waived_branch: bool = False):
+                  waived_branch: bool = False, max_term_on: bool = False):
     """Champion Grabit v4 latent on `test`, plus the Stage-2 bounds (lo, hi).
 
     Byte-for-byte the same training path as evaluate_suite.make_grabit_fitter,
@@ -414,6 +502,10 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
     `waived_branch` (experiment, off by default) fits the model on never-waived
     rows only and prices every waived row as gamma_g * latent, with one Tobit
     gamma for money-owed waivers and one for plain waivers (`_group_gamma`).
+
+    `max_term_on` (experiment, off by default) adds beta_max * z_max to the
+    base margin (`max_term`), after the waiver term. The fitters drop the
+    Stage-2 push for this arm (`grabit_params["push"] = False`).
     """
     from xgboost import XGBRegressor
     full_train = train
@@ -445,15 +537,24 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                                 gate, sigma, left_mask=gate_l,
                                 sigma_left=sigma_left),
                             "base_score": float(y_tr.mean())})
-    if waiver_term:
-        beta = waiver_beta(train, features, seed)
-        WAIVER_BETA_LOG.append(beta)
+    if waiver_term or max_term_on:
         b0 = float(y_tr.mean())
-        owed_only = waiver_term == "owed"
-        model.fit(train[features], y_tr, base_margin=b0 + beta * waiver_z(
-            train, owed_only=owed_only))
-        latent = model.predict(test[features], base_margin=b0 + beta * waiver_z(
-            test, owed_only=owed_only))
+        m_tr = np.full(len(train), b0)
+        m_te = np.full(len(test), b0)
+        if waiver_term:
+            beta = waiver_beta(train, features, seed)
+            WAIVER_BETA_LOG.append(beta)
+            owed_only = waiver_term == "owed"
+            m_tr = b0 + beta * waiver_z(train, owed_only=owed_only)
+            m_te = b0 + beta * waiver_z(test, owed_only=owed_only)
+        if max_term_on:
+            beta_m, z_tr, z_te = max_term(train, test, features, seed, m_tr,
+                                          gate, gate_l)
+            MAX_BETA_LOG.append(beta_m)
+            m_tr = m_tr + beta_m * z_tr
+            m_te = m_te + beta_m * z_te
+        model.fit(train[features], y_tr, base_margin=m_tr)
+        latent = model.predict(test[features], base_margin=m_te)
     else:
         model.fit(train[features], y_tr)
         latent = model.predict(test[features])

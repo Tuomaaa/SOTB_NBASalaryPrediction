@@ -231,13 +231,16 @@ def make_stage_arms_fitter(clf_features: list[str], grabit_params: dict | None =
     """
     gp = dict(grabit_params or {})
     no_waived_max = gp.pop("exclude_waived_max", True)
+    push_on = gp.pop("push", True)
 
     def fitter(train, test, features, seed):
         latent, lo, hi = grabit_latent(train, test, features, seed, **gp)
-        clf = train_route_classifier(train, clf_features, seed)
-        p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
-        if no_waived_max:
-            p_max = exclude_waived_max(p_max, test, TAU)
+        p_max = None
+        if push_on:
+            clf = train_route_classifier(train, clf_features, seed)
+            p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
+            if no_waived_max:
+                p_max = exclude_waived_max(p_max, test, TAU)
         is_ext = test["is_extension"].values
         ext_cap = test["ext_cap_pct"].values
         return {
@@ -267,11 +270,12 @@ def make_champion_fitter(clf_features: list[str], push: bool = True,
     """
     gp = dict(grabit_params or {})
     no_waived_max = gp.pop("exclude_waived_max", True)
+    push_on = gp.pop("push", True)
 
     def fitter(train, test, features, seed):
         latent, lo, hi = grabit_latent(train, test, features, seed, **gp)
         p_max = None
-        if push:
+        if push and push_on:
             clf = train_route_classifier(train, clf_features, seed)
             p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
             if no_waived_max:
@@ -431,6 +435,7 @@ def make_kf_stage_arms_fitter(kf_ctx: KFContext, clf_features: list[str],
     """
     gp = dict(grabit_params or {})
     no_waived_max = gp.pop("exclude_waived_max", True)
+    push_on = gp.pop("push", True)
 
     def fitter(train, test, features, seed):
         train_aug, test_aug = _compute_kf_nested(kf_ctx, train, test,
@@ -439,10 +444,12 @@ def make_kf_stage_arms_fitter(kf_ctx: KFContext, clf_features: list[str],
             train_aug, test_aug = augment(train_aug), augment(test_aug)
         latent, lo, hi = grabit_latent(train_aug, test_aug, features,
                                        seed, **gp)
-        clf = train_route_classifier(train_aug, clf_features, seed)
-        p_max = route_proba(clf, test_aug, clf_features)[:, MAX_IDX]
-        if no_waived_max:
-            p_max = exclude_waived_max(p_max, test_aug, TAU)
+        p_max = None
+        if push_on:
+            clf = train_route_classifier(train_aug, clf_features, seed)
+            p_max = route_proba(clf, test_aug, clf_features)[:, MAX_IDX]
+            if no_waived_max:
+                p_max = exclude_waived_max(p_max, test_aug, TAU)
         is_ext = test["is_extension"].values
         ext_cap = test["ext_cap_pct"].values
         return {
@@ -465,6 +472,7 @@ def make_kf_champion_fitter(kf_ctx: KFContext, clf_features: list[str],
     """
     gp = dict(grabit_params or {})
     no_waived_max = gp.pop("exclude_waived_max", True)
+    push_on = gp.pop("push", True)
 
     def fitter(train, test, features, seed):
         train_aug, test_aug = _compute_kf_nested(kf_ctx, train, test,
@@ -472,7 +480,7 @@ def make_kf_champion_fitter(kf_ctx: KFContext, clf_features: list[str],
         latent, lo, hi = grabit_latent(train_aug, test_aug, features,
                                        seed, **gp)
         p_max = None
-        if push:
+        if push and push_on:
             clf = train_route_classifier(train_aug, clf_features, seed)
             p_max = route_proba(clf, test_aug, clf_features)[:, MAX_IDX]
             if no_waived_max:
