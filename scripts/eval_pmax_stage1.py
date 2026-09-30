@@ -39,9 +39,10 @@ from src.model.evaluate_suite import (
 from src.model.train import FEATURE_COLS
 
 OUT = OUTPUTS_DIR / "models"
+# Explicit switches: the defaults moved to F in v6.3.0.
 ARMS = {
-    "R": None,
-    "N": {"push": False},
+    "R": {"push": True, "max_term_on": False},
+    "N": {"push": False, "max_term_on": False},
     "F": {"push": False, "max_term_on": True},
 }
 NAMED = [("demar derozan", 2024), ("lamarcus aldridge", 2019),

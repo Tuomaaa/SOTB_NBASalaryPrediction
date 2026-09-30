@@ -231,7 +231,7 @@ def make_stage_arms_fitter(clf_features: list[str], grabit_params: dict | None =
     """
     gp = dict(grabit_params or {})
     no_waived_max = gp.pop("exclude_waived_max", True)
-    push_on = gp.pop("push", True)
+    push_on = gp.pop("push", False)
 
     def fitter(train, test, features, seed):
         latent, lo, hi = grabit_latent(train, test, features, seed, **gp)
@@ -270,7 +270,7 @@ def make_champion_fitter(clf_features: list[str], push: bool = True,
     """
     gp = dict(grabit_params or {})
     no_waived_max = gp.pop("exclude_waived_max", True)
-    push_on = gp.pop("push", True)
+    push_on = gp.pop("push", False)
 
     def fitter(train, test, features, seed):
         latent, lo, hi = grabit_latent(train, test, features, seed, **gp)
@@ -428,14 +428,16 @@ def make_kf_stage_arms_fitter(kf_ctx: KFContext, clf_features: list[str],
     measurements uses MEASUREMENT_FEATURES (prev_cap_pct, not kf).
 
     `grabit_params["exclude_waived_max"]` (default True since v6.1.0) sets
-    P(max) = 0 on waived rows; the other keys go to `grabit_latent`.
+    P(max) = 0 on waived rows. `grabit_params["push"]` (default False since
+    v6.3.0, when P(max) moved into Stage 1) turns the Stage-2 push back on.
+    The other keys go to `grabit_latent`.
 
     `augment`, if given, maps a frame to a frame after kf_market_value is
     attached, so a challenger built from kf_market_value stays fold-honest.
     """
     gp = dict(grabit_params or {})
     no_waived_max = gp.pop("exclude_waived_max", True)
-    push_on = gp.pop("push", True)
+    push_on = gp.pop("push", False)
 
     def fitter(train, test, features, seed):
         train_aug, test_aug = _compute_kf_nested(kf_ctx, train, test,
@@ -472,7 +474,7 @@ def make_kf_champion_fitter(kf_ctx: KFContext, clf_features: list[str],
     """
     gp = dict(grabit_params or {})
     no_waived_max = gp.pop("exclude_waived_max", True)
-    push_on = gp.pop("push", True)
+    push_on = gp.pop("push", False)
 
     def fitter(train, test, features, seed):
         train_aug, test_aug = _compute_kf_nested(kf_ctx, train, test,

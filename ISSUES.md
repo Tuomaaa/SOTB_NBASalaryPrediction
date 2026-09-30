@@ -4,8 +4,8 @@ This file contains active defects only. Each issue must include a problem,
 reproduction, fix, and completion check. Delete fixed entries and record the
 landed change in `VERSION_HISTORY.md`.
 
-Issue numbers are permanent. The highest assigned number is 62, so the next
-issue is 63. Keep entries in numeric order because code and historical reports
+Issue numbers are permanent. The highest assigned number is 63, so the next
+issue is 64. Keep entries in numeric order because code and historical reports
 refer to them by number.
 
 ## Retired references still used in code
@@ -546,3 +546,28 @@ numbers.
 
 **Done:** Both environments give the same champion A1 to four decimals, or
 `VERSION_HISTORY.md` names the reference environment and the other's offset.
+
+## 63. The site's what-if ignores the Stage-1 P(max) term
+
+**Severity:** medium. It affects every row with P(max) > 0 on the Value
+Board.
+
+**Problem:** Since v6.3.0 the latent also adds
+`max_beta * pm * max(max_eligible_pct - kf_market_value, 0)`.
+`scripts/export_web.py` writes `max_beta` to `model.json`, `maxTerm` to
+`meta.json`, the row's P(max) as `pm` in `valuations.json`, and the term's
+attribution to `shap.json` under `max_term`. `meta.json` no longer has `tau`
+or `margin`. The site (`WebPage/`, outside this repository) traverses only
+the trees, so its what-if misses the term, and its waterfall does not render
+`max_term`.
+
+**Reproduce:** Export, open a row with a high `pm` in the what-if, and
+compare its unedited value with `latent_cap_pct` in `valuations.json`.
+
+**Fix:** In the site, add `max_beta * pm * max(max_eligible_pct - kf, 0)`
+(with the row's edited `kf_market_value`) to the tree sum, render
+`max_term` with `maxTerm.label`, and remove any use of `meta.tau` and
+`meta.margin`.
+
+**Done:** The site's unedited what-if value equals `latent_cap_pct` on every
+row, and the waterfall sums to it.

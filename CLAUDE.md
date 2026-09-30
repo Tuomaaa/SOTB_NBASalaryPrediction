@@ -96,12 +96,13 @@ order. Run `git diff --check`.
 
 `src/model/train.py` trains and evaluates the three-stage model:
 
-1. Stage 1 estimates latent value with a two-sided Grabit loss.
-2. Stage 2 applies the probability-based max push and CBA bounds.
+1. Stage 1 estimates latent value with a two-sided Grabit loss. The waiver
+   term and the P(max) term enter as `base_margin`.
+2. Stage 2 applies the CBA bounds.
 3. Stage 3 applies known signing-route adjustments and legal caps.
 
 ```text
-latent -> push -> clip[lo, hi] -> signing offset -> mechanism cap
+latent -> clip[lo, hi] -> signing offset -> mechanism cap
        -> extension cap -> clip[lo, hi]
 ```
 

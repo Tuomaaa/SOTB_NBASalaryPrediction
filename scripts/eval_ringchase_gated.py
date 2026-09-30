@@ -279,7 +279,8 @@ def main():
             train, test = df.iloc[tr], df.iloc[va]
             tr_aug, te_aug = _compute_kf_nested(kf_ctx, train, test,
                                                 clf_features, seed)
-            latent, lo, hi = rm.grabit_latent(tr_aug, te_aug, features, seed)
+            latent, lo, hi = rm.grabit_latent(tr_aug, te_aug, features, seed,
+                                                max_term_on=False)
             clf = rm.train_route_classifier(tr_aug, clf_features, seed)
             p_max = rm.route_proba(clf, te_aug, clf_features)[:, rm.MAX_IDX]
             champ = compose(latent, lo=lo, hi=hi, p_max=p_max,

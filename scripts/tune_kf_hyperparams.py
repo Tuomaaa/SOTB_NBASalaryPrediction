@@ -212,7 +212,8 @@ def _run_sweep_batch(cache_path, p0_val, q_floor_list, batch_idx):
 
                 # Inline champion fitter: grabit + route classifier + compose
                 latent, lo, hi = grabit_latent(
-                    train_tmpl, test_tmpl, features_swap, seed)
+                    train_tmpl, test_tmpl, features_swap, seed,
+                    max_term_on=False)
                 clf = train_route_classifier(
                     train_tmpl, clf_features, seed)
                 p_max = route_proba(clf, test_tmpl, clf_features)[:, MAX_IDX]

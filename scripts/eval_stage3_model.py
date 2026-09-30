@@ -341,7 +341,8 @@ def champion_fold_pass(df, features, clf_features, seeds, tag=""):
     for si, seed in enumerate(seeds):
         for fi, (tr, va) in enumerate(folds):
             train, test = df.iloc[tr], df.iloc[va]
-            latent, lo, hi = rm.grabit_latent(train, test, features, seed)
+            latent, lo, hi = rm.grabit_latent(train, test, features, seed,
+                                                max_term_on=False)
             clf = rm.train_route_classifier(train, clf_features, seed)
             p_max = rm.route_proba(clf, test, clf_features)[:, rm.MAX_IDX]
             pred = compose(latent, lo=lo, hi=hi, p_max=p_max,
@@ -503,7 +504,8 @@ def layer_b(df, features, clf_features, seeds):
         # Forward champion predictions: seed-average first, then correct
         acc = np.zeros(int(te.sum()))
         for seed in seeds:
-            latent, lo, hi = rm.grabit_latent(train, test, features, seed)
+            latent, lo, hi = rm.grabit_latent(train, test, features, seed,
+                                                max_term_on=False)
             clf = rm.train_route_classifier(train, clf_features, seed)
             p_max = rm.route_proba(clf, test, clf_features)[:, rm.MAX_IDX]
             acc += compose(latent, lo=lo, hi=hi, p_max=p_max,

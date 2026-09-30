@@ -1794,7 +1794,8 @@ layer A is scored on ten fold partitions instead of one, and the frame changed.
 | v6.0.5 | XGBoost (Grabit v4) | 0.8527 | 0.8561 | 0.8293 | 885 | 21 | SHAME. No-signing waiver window moved to the season convention (ISSUES #58) |
 | v6.0.6 | XGBoost (Grabit v4) | 0.8527 | 0.8561 | 0.8293 | 885 | 21 | SHAME. Deployed signing offsets refitted on the KF champion (ISSUES #60); no published number moves |
 | v6.1.0 | XGBoost (Grabit v4) | 0.8581 | 0.8605 | 0.8500 | 885 | 19 | DEFAULT. Stage-1 waiver term replaces the two waiver features; no push on waived rows |
-| **v6.2.0** | **XGBoost (Grabit v4)** | **0.8612** | **0.8648** | **0.8516** | **885** | **21** | **DEFAULT. Waiver term on money-owed waivers only; waiver features restored** |
+| v6.2.0 | XGBoost (Grabit v4) | 0.8612 | 0.8648 | 0.8516 | 885 | 21 | DEFAULT. Waiver term on money-owed waivers only; waiver features restored |
+| **v6.3.0** | **XGBoost (Grabit v4)** | **0.8679** | **0.8721** | **0.8592** | **885** | **21** | **DEFAULT. P(max) moves from the Stage-2 push into Stage 1; measured on the Windows machine (ISSUES #62)** |
 
 ### v6.0.0: repeated grouped CV and the completed Spotrac migration
 
@@ -2030,6 +2031,61 @@ Deployed k=20 offsets, with dollars at the 2026 cap ($165.0M):
 Published A1, A2 and B1 do not move, because the suite estimates its own
 fold-honest offsets. The new constants reach `predict.py` and
 `export_web.py`, and the Value Board changes by the same amounts.
+
+### v6.3.0: P(max) as a Stage-1 term
+
+The Stage-2 push (`TAU = 0.52`, `MARGIN = 1.05`) is replaced by a Stage-1
+term in the base margin:
+`beta_max * P(max) * max(max_eligible_pct - kf_market_value, 0)`. Training
+rows use inner-fold OOF P(max), and beta_max is a two-sided Tobit fit bounded
+to [0, 1]; see METHODOLOGY, "P(max) term". Brief and RESULT:
+`docs/briefs/2026-09-30-pmax-stage1.md` and `.RESULT.md`, pre-registered at
+`1a4cfaf`.
+
+Arms on one run (10 seeds, all layers, Windows machine):
+
+| Arm | A1 | A2 | B1 | dSel (t) | Targeted t |
+|---|---:|---:|---:|---:|---:|
+| `R` v6.2.0 composition | 0.8603 | 0.8641 | 0.8517 | | |
+| `N` no push | 0.8622 | 0.8682 | 0.8532 | +0.0042 (+0.81) | +1.08 |
+| `F` P(max) in Stage 1 | 0.8679 | 0.8721 | 0.8592 | +0.0096 (+1.59) | +1.68 |
+
+`F` failed the pre-registered targeted gate (t > 2). The user accepted it:
+the change is a structural refactor that removes the push, not a feature
+added for performance, so the targeted gate does not apply. It passes the
+other gates: dSel > 0, B1 +0.0075, C2 worst +$0.03M (Bird Rights), C1 gap
+-0.013.
+
+`R` reads A1 0.8603 against the recorded v6.2.0 0.8612. The code gives the
+same one-seed A1 before and after the harness, so the gap is environmental
+(ISSUES #62). Compare v6.3.0 with `R` from the same run, not with the v6.2.0
+row. The official suite reproduces arm `F` exactly.
+
+The KF measurement model still composes with the push, as in every scored
+arm; `TAU` and `MARGIN` stay in `stages.py` for it. The web export writes
+`max_beta`, per-row `pm`, and the `max_term` attribution; the site does not
+use them yet (ISSUES #63). Model parity in the export is 4.1e-07.
+
+Deployed k=20 offsets, refitted by `scripts/eval_stage3_signing.py`
+(dollars at the 2026 cap, $165.0M):
+
+| Route | v6.2.0 | v6.3.0 | v6.3.0 ($M, 2026) |
+|---|---:|---:|---:|
+| Bird Rights | +0.01246 | +0.01393 | +$2.30M |
+| Cap Space | +0.00689 | +0.00736 | +$1.22M |
+| Early Bird | +0.00890 | +0.00964 | +$1.59M |
+| Non-Bird | -0.00253 | -0.00213 | -$0.35M |
+
+| Metric | v6.3.0 |
+|---|---:|
+| A1 | 0.8679 |
+| A2 | 0.8721 |
+| B1 | 0.8592 |
+| C1 slope | 0.978 |
+| MAE (A1) | $2.50M |
+
+Artifacts: `outputs/models/pmax_stage1_full.json` and `_oof.csv`,
+`outputs/models/evaluation_suite.json`, `outputs/models/oof_reference.csv`.
 
 ### v6.2.0: waiver term on money-owed waivers only
 

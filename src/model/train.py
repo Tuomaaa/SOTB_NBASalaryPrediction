@@ -1021,23 +1021,40 @@ def waiver_beta(train: pd.DataFrame, features: list[str], seed: int,
 
 
 def grabit_predict(model, results: dict, X: pd.DataFrame,
-                   frame: pd.DataFrame) -> np.ndarray:
-    """Stage-1 latent from a `train_grabit` fit: trees plus the waiver term.
+                   frame: pd.DataFrame,
+                   p_max: np.ndarray | None = None) -> np.ndarray:
+    """Stage-1 latent from a `train_grabit` fit: trees plus the linear terms.
 
-    `X` is the median-filled feature matrix; `frame` supplies `is_waived` and
-    `prior_waiver_owed`, row-aligned with `X`. The term uses X's filled
-    `kf_market_value`, the value the trees saw. The model was fit with
-    base_margin = base_score + beta * z, so `model.predict(X)` without a
-    margin is base_score plus the trees.
+    `X` is the median-filled feature matrix; `frame` supplies `is_waived`,
+    `prior_waiver_owed` and `max_eligible_pct`, row-aligned with `X`. Both
+    terms use X's filled `kf_market_value`, the value the trees saw. The model
+    was fit with base_margin = base_score + beta * z_waiver + beta_max * z_max,
+    so `model.predict(X)` without a margin is base_score plus the trees.
+
+    `p_max` is the deployed P(max) for the rows (`stages.deployed_p_max`,
+    waived rows 0). It is required when the fit carries a P(max) term.
     """
     beta = float(results.get("waiver_beta", 0.0))
+    beta_max = float(results.get("max_beta", 0.0))
     latent = model.predict(X)
-    if beta == 0.0:
-        return latent
-    return latent + beta * waiver_z(pd.DataFrame({
-        "is_waived": np.asarray(frame["is_waived"]),
-        "prior_waiver_owed": np.asarray(frame["prior_waiver_owed"]),
-        "kf_market_value": X["kf_market_value"].values}), owed_only=True)
+    if beta != 0.0:
+        latent = latent + beta * waiver_z(pd.DataFrame({
+            "is_waived": np.asarray(frame["is_waived"]),
+            "prior_waiver_owed": np.asarray(frame["prior_waiver_owed"]),
+            "kf_market_value": X["kf_market_value"].values}), owed_only=True)
+    if beta_max != 0.0:
+        if p_max is None:
+            raise ValueError("this fit carries a P(max) term; pass p_max")
+        latent = latent + beta_max * max_term_z(
+            np.asarray(frame["max_eligible_pct"], dtype=float),
+            X["kf_market_value"].values, np.asarray(p_max, dtype=float))
+    return latent
+
+
+def max_term_z(max_eligible_pct: np.ndarray, kf_market_value: np.ndarray,
+               p_max: np.ndarray) -> np.ndarray:
+    """P(max) times the distance from market value up to the ceiling."""
+    return p_max * np.maximum(max_eligible_pct - kf_market_value, 0.0)
 
 
 def train_ridge(df: pd.DataFrame, alpha: float = 1.0) -> tuple[dict, object]:
@@ -1166,6 +1183,7 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
                  censor_c: float | None = None,
                  features: list[str] | None = None,
                  waiver_term: bool | None = None,
+                 max_term: bool | None = None,
                  ) -> tuple[dict, object, list[str]]:
     """Train Grabit v4: two-sided censored-normal loss + CBA bounds.
 
@@ -1186,8 +1204,12 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     as a base_margin (v6.2.0), with beta from `waiver_beta` on every waived
     fitted row.
     None turns it on for the champion feature list (features=None) and off for
-    any other list, so the KF measurement model keeps its plain fit. Predict
-    with `grabit_predict(model, results, X, frame)`, not `model.predict`.
+    any other list, so the KF measurement model keeps its plain fit.
+
+    max_term adds beta_max * P(max) * max(max_eligible_pct - kf_market_value,
+    0) to the same base margin (v6.3.0; `route_mixture.max_term_beta`), and
+    Stage 2 no longer pushes. None follows the waiver-term rule. Predict with
+    `grabit_predict(model, results, X, frame, p_max)`, not `model.predict`.
     """
     from xgboost import XGBRegressor
     from sklearn.metrics import r2_score, mean_absolute_error
@@ -1203,13 +1225,19 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
 
     if waiver_term is None:
         waiver_term = features is None
+    if max_term is None:
+        max_term = features is None
     X, y, groups, features = _prepare_Xy(df, features=features)
-    if waiver_term:
-        # The term reads the filled feature values the trees see.
+    seed = _XGB_BASE["random_state"]
+    if waiver_term or max_term:
+        # The terms read the filled feature values the trees see.
         fit_df = df.copy()
         fit_df[features] = X
+    if waiver_term:
         z = waiver_z(fit_df, owed_only=True)
-        seed = _XGB_BASE["random_state"]
+    if max_term:
+        from src.model.route_mixture import attach_clf_features
+        fit_df, _ = attach_clf_features(fit_df)
     seasons = df["season"].values
     max_elig = df["max_eligible_pct"].values
     is_max = df["is_max_contract"].values
@@ -1246,10 +1274,22 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
         b0 = float(y[tr_i].mean())
         m = XGBRegressor(**{**_XGB_BASE, "objective": obj,
                             "base_score": b0})
-        if waiver_term:
-            beta_f = waiver_beta(fit_df.iloc[tr_i], features, seed)
-            m.fit(X.iloc[tr_i], y[tr_i], base_margin=b0 + beta_f * z[tr_i])
-            latent = m.predict(X.iloc[va_i], base_margin=b0 + beta_f * z[va_i])
+        if waiver_term or max_term:
+            m_tr = np.full(len(tr_i), b0)
+            m_va = np.full(len(va_i), b0)
+            if waiver_term:
+                beta_f = waiver_beta(fit_df.iloc[tr_i], features, seed)
+                m_tr = b0 + beta_f * z[tr_i]
+                m_va = b0 + beta_f * z[va_i]
+            if max_term:
+                from src.model.route_mixture import max_term as _max_term
+                bm, z_tr, z_va = _max_term(
+                    fit_df.iloc[tr_i], fit_df.iloc[va_i], features, seed,
+                    m_tr, gate[tr_i], gate_l[tr_i])
+                m_tr = m_tr + bm * z_tr
+                m_va = m_va + bm * z_va
+            m.fit(X.iloc[tr_i], y[tr_i], base_margin=m_tr)
+            latent = m.predict(X.iloc[va_i], base_margin=m_va)
         else:
             m.fit(X.iloc[tr_i], y[tr_i])
             latent = m.predict(X.iloc[va_i])
@@ -1272,11 +1312,21 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     m_final = XGBRegressor(**{**_XGB_BASE, "objective": obj_final,
                               "base_score": b0})
     beta = 0.0
-    if waiver_term:
-        beta = waiver_beta(fit_df, features, seed)
-        m_final.fit(X, y, base_margin=b0 + beta * z)
-        print(f"  Waiver term: beta {beta:+.3f} on "
-              f"{int((z != 0).sum())} money-owed waived rows")
+    beta_max = 0.0
+    if waiver_term or max_term:
+        margin = np.full(len(y), b0)
+        if waiver_term:
+            beta = waiver_beta(fit_df, features, seed)
+            margin = b0 + beta * z
+            print(f"  Waiver term: beta {beta:+.3f} on "
+                  f"{int((z != 0).sum())} money-owed waived rows")
+        if max_term:
+            from src.model.route_mixture import max_term_beta
+            beta_max, z_max_tr = max_term_beta(fit_df, features, seed, margin,
+                                               gate, gate_l)
+            margin = margin + beta_max * z_max_tr
+            print(f"  P(max) term: beta_max {beta_max:.3f}")
+        m_final.fit(X, y, base_margin=margin)
     else:
         m_final.fit(X, y)
 
@@ -1289,6 +1339,7 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
         "n_censored": int(gate.sum()),
         "n_left_censored": int(gate_l.sum()),
         "waiver_beta": float(beta),
+        "max_beta": float(beta_max),
         "features": features,
         "cv_r2_mean": float(np.mean(fold_r2)),
         "cv_r2_std": float(np.std(fold_r2)),

@@ -5,8 +5,7 @@ offsets) with identical folds and seeds. `incumbent` is the current champion
 (v6.2.0, term_flags_owed); `v606`, `v610` and every historical arm carry their
 feature list and switches explicitly, so their definitions do not move:
 
-    incumbent         FEATURE_COLS, waiver term on money-owed waivers,
-                      P(max) = 0 on waived rows
+    incumbent         the current champion (grabit_params None)
     v606              v6.0.6 champion (is_waived and mpg_x_waived features)
     v610              v6.1.0 champion (waiver_term_noflag)
     no_is_waived      without is_waived
@@ -82,7 +81,10 @@ V606_FEATURES = [
     "mpg_x_waived", "playoff_mpg_diff", "kalman_filtered_stats",
     "darko_od_diff_z", "lebron_od_diff_z", "laker_od_diff_z",
 ]
-V606 = {"waiver_term": False, "exclude_waived_max": False}
+# Every historical arm scored with the Stage-2 push and no Stage-1 P(max)
+# term, the defaults until v6.3.0.
+LEGACY = {"push": True, "max_term_on": False}
+V606 = {"waiver_term": False, "exclude_waived_max": False, **LEGACY}
 
 
 def arms() -> dict:
@@ -92,7 +94,7 @@ def arms() -> dict:
         "incumbent": (list(FEATURE_COLS), None, None),
         "v606": (base, None, V606),
         "v610": ([f for f in base if f not in ("is_waived", "mpg_x_waived")],
-                 None, {"waiver_term": True, "exclude_waived_max": True}),
+                 None, {"waiver_term": True, "exclude_waived_max": True, **LEGACY}),
         "no_is_waived": ([f for f in base if f != "is_waived"], None, V606),
         "no_mpg_x_waived": ([f for f in base if f != "mpg_x_waived"], None,
                             V606),
@@ -106,11 +108,12 @@ def arms() -> dict:
         # The v6.1.0 champion with the two waiver features kept: isolates
         # the effect of dropping them.
         "term_flags": (base, None, {"waiver_term": True,
-                                    "exclude_waived_max": True}),
+                                    "exclude_waived_max": True, **LEGACY}),
         # term_flags with the term applied to money-owed waivers only; beta
         # is still fitted on every waived row.
         "term_flags_owed": (base, None, {"waiver_term": "owed",
-                                         "exclude_waived_max": True}),
+                                         "exclude_waived_max": True,
+                                         **LEGACY}),
         "owed_branch": (base, None, {**V606, "owed_branch": True,
                                      "exclude_waived_max": True}),
         "owed_censor": (base, None, {**V606, "owed_branch": "censor",
@@ -119,7 +122,7 @@ def arms() -> dict:
                                        "exclude_waived_max": True}),
         "waiver_term_noflag": (
             [f for f in base if f not in ("is_waived", "mpg_x_waived")],
-            None, {"waiver_term": True, "exclude_waived_max": True}),
+            None, {"waiver_term": True, "exclude_waived_max": True, **LEGACY}),
     }
 
 

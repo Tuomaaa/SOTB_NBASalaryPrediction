@@ -38,7 +38,8 @@ from sklearn.model_selection import GroupKFold
 
 from config import CAP_BY_SEASON, RAW_DIR
 from src.model.train import (
-    _XGB_BASE, _make_tobit_obj, TARGET, _tobit_beta, waiver_beta, waiver_z,
+    _XGB_BASE, _make_tobit_obj, TARGET, _tobit_beta, max_term_z, waiver_beta,
+    waiver_z,
 )
 
 # Class order is fixed: the integer label IS the softprob column index, so
@@ -389,9 +390,9 @@ MAX_BETA_BOUNDS = (0.0, 1.0)
 
 
 def max_z(frame: pd.DataFrame, p_max: np.ndarray) -> np.ndarray:
-    """P(max) times the distance from market value up to the ceiling."""
-    gap = frame["max_eligible_pct"].values - frame["kf_market_value"].values
-    return p_max * np.maximum(gap, 0.0)
+    """`train.max_term_z` on a frame's ceiling and kf_market_value."""
+    return max_term_z(frame["max_eligible_pct"].values,
+                      frame["kf_market_value"].values, p_max)
 
 
 def _tobit_beta_two_sided(y: np.ndarray, base: np.ndarray, z: np.ndarray,
@@ -423,10 +424,10 @@ def _tobit_beta_two_sided(y: np.ndarray, base: np.ndarray, z: np.ndarray,
     return float(fit.x[0])
 
 
-def max_term(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
-             seed: int, margin_tr: np.ndarray, gate: np.ndarray,
-             gate_l: np.ndarray, n_inner: int = 4):
-    """Stage-1 P(max) term: beta_max and z_max for the training and test rows.
+def max_term_beta(train: pd.DataFrame, features: list[str], seed: int,
+                  margin_tr: np.ndarray, gate: np.ndarray, gate_l: np.ndarray,
+                  n_inner: int = 4) -> tuple[float, np.ndarray]:
+    """beta_max and the training rows' z_max for the Stage-1 P(max) term.
 
     Route labels come from the target, so P(max) on a training row must come
     from a classifier that did not see that row's player: n_inner
@@ -434,11 +435,11 @@ def max_term(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
     plain XGBoost fitted with the same base margin as the Grabit fit, so the
     waiver term is already in the base). Beta is a two-sided Tobit MLE,
     right-censored on the gated maximum rows and left-censored on the gated
-    floor rows, bounded to MAX_BETA_BOUNDS. Test P(max) comes from a
-    classifier fitted on the whole training slice. Waived rows get P(max) = 0.
+    floor rows, bounded to MAX_BETA_BOUNDS. Waived rows get P(max) = 0.
+    `train` must carry the classifier columns (`attach_clf_features`).
 
     Returns:
-        (beta_max, z_train, z_test)
+        (beta_max, z_train), z_train from the OOF P(max).
     """
     from xgboost import XGBRegressor
     clf_features = list(CLF_BASE_COLS) + list(CLF_EXTRA_COLS)
@@ -463,12 +464,28 @@ def max_term(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
         beta = _tobit_beta_two_sided(
             y[use], base_oof[use], z_tr_oof[use], gate[use], gate_l[use],
             train["floor_pct"].values[use], MAX_BETA_BOUNDS, x0=0.3)
+    return beta, z_tr_oof
 
+
+def max_term(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
+             seed: int, margin_tr: np.ndarray, gate: np.ndarray,
+             gate_l: np.ndarray, n_inner: int = 4):
+    """Stage-1 P(max) term: beta_max and z_max for the training and test rows.
+
+    Beta and the training z come from `max_term_beta`. Test P(max) comes from
+    a classifier fitted on the whole training slice; waived rows get 0.
+
+    Returns:
+        (beta_max, z_train, z_test)
+    """
+    beta, z_tr = max_term_beta(train, features, seed, margin_tr, gate, gate_l,
+                               n_inner)
     # The Grabit fit sees the OOF z, the quantity beta was fitted on.
-    clf = train_route_classifier(train, clf_features, seed, labels=labels)
+    clf_features = list(CLF_BASE_COLS) + list(CLF_EXTRA_COLS)
+    clf = train_route_classifier(train, clf_features, seed)
     p_te = route_proba(clf, test, clf_features)[:, MAX_IDX]
     p_te = np.where(waived_mask(test), 0.0, p_te)
-    return beta, z_tr_oof, max_z(test, p_te)
+    return beta, z_tr, max_z(test, p_te)
 
 
 def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
@@ -476,7 +493,7 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                   floor_gate_k: float = 2.0, sigma_left: float | None = None,
                   censor_c: float | None = None, waiver_term: bool | str = "owed",
                   owed_branch: bool | str = False,
-                  waived_branch: bool = False, max_term_on: bool = False):
+                  waived_branch: bool = False, max_term_on: bool = True):
     """Champion Grabit v4 latent on `test`, plus the Stage-2 bounds (lo, hi).
 
     Byte-for-byte the same training path as evaluate_suite.make_grabit_fitter,
@@ -503,9 +520,10 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
     rows only and prices every waived row as gamma_g * latent, with one Tobit
     gamma for money-owed waivers and one for plain waivers (`_group_gamma`).
 
-    `max_term_on` (experiment, off by default) adds beta_max * z_max to the
-    base margin (`max_term`), after the waiver term. The fitters drop the
-    Stage-2 push for this arm (`grabit_params["push"] = False`).
+    `max_term_on` (champion since v6.3.0) adds beta_max * z_max to the base
+    margin (`max_term`), after the waiver term; the Stage-2 push is off
+    (`grabit_params["push"]`, default False). False reproduces v6.2.0 when
+    the push is turned back on.
     """
     from xgboost import XGBRegressor
     full_train = train
@@ -619,7 +637,8 @@ def make_maxbranch_fitter(enabled: bool = False, arm: str = "push_clip",
     clf_seed_offset lets the classifier use a different seed stream from the
     regression if ever needed; 0 shares the seed.
     """
-    gp = grabit_params or {}
+    # This historical branch applies its own push, so Stage 1 stays v6.2.0.
+    gp = {"max_term_on": False, **(grabit_params or {})}
 
     def fitter(train, test, features, seed):
         latent, lo, hi = grabit_latent(train, test, features, seed, **gp)

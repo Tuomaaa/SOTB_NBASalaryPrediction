@@ -428,20 +428,18 @@ bit-identical to the composition it had before that layer existed — the web
 export has not yet opted into the v4.4.0 signing offset (ISSUES #46):
 
 ```
-latent  ->  push  ->  clip(lo, hi)  ->  stage 3  ->  stage 3 signing
-          \________  stage 2  _______/     \___ told-route components ___/
+latent  ->  clip(lo, hi)  ->  stage 3  ->  stage 3 signing
+            \_ stage 2 _/     \___ told-route components ___/
 ```
 
 - **Stage 1** estimates value under *default parameters* — what the market pays
   a player with these characteristics, with signing context averaged over the
   training distribution rather than fixed at any particular value.
-- **Stage 2** adjusts for *told parameters* — the CBA bounds that apply to the
-  player himself: his max tier and the league minimum. The push lives here
-  because it is the upward half of the same bound: the clip alone can only cap
-  from above and cannot reach a max-worthy player the model prices below his
-  ceiling. The push moves the latent toward the ceiling where the route
-  classifier says P(max) >= 0.52, and the clip then caps the result into
-  `[floor_pct, max_eligible_pct]`. Deterministic, needs no route.
+- **Stage 2** adjusts for *told parameters*: the CBA bounds that apply to the
+  player himself, his max tier and the league minimum. It clips the latent
+  into `[floor_pct, max_eligible_pct]`. Deterministic, needs no route. Until
+  v6.3.0 it also pushed the latent toward the ceiling where P(max) >= 0.52;
+  P(max) is now a Stage-1 term.
 - **Stage 3** adjusts for what only applies once the **signing route** is
   known, in two components. The extension raise cap (v4.0.0) only ever lowers,
   is a no-op where `is_extension` is false or `ext_cap_pct` is NaN, and never
@@ -534,6 +532,36 @@ Grabit fit and prediction as `base_margin`, so the trees learn the rest. Product
 `train.grabit_predict`, which adds the term to the tree output. There is no
 floor term: the Stage-2 clip keeps the prediction at or above the minimum.
 
+#### P(max) term (v6.3.0)
+
+Stage 1 has a second linear term:
+
+```
+latent = GBM(x) + waiver term
+         + beta_max * P(max) * max(max_eligible_pct - kf_market_value, 0)
+```
+
+P(max) is the route classifier's probability of a maximum contract. The term
+lifts a likely-max player part of the way from his market value to his
+ceiling. It replaced the Stage-2 push (`TAU = 0.52`, `MARGIN = 1.05`), which
+moved the latent after the fit. As a Stage-1 term, P(max) enters the Grabit
+fit, so the trees and the censored likelihood see it, and beta_max is fitted.
+
+Route labels come from the target, so a training row's P(max) comes from a
+classifier that did not see that row's player (4 player-grouped inner folds,
+`route_mixture.max_term_beta`). The same inner folds give base predictions
+from a plain XGBoost fitted with the waiver term in its base margin. beta_max
+is a two-sided Tobit MLE of pay on `base + beta_max * z`: gated maximum rows
+are right-censored, gated floor rows are left-censored, and beta_max is
+bounded to [0, 1]. A prediction row's P(max) comes from a classifier fitted
+on the whole training slice (`stages.deployed_p_max`). Waived rows get
+P(max) = 0. Production code passes P(max) to `train.grabit_predict`.
+
+The change was a structural refactor, so the user accepted it on the paired
+selection delta, B1, C1 and C2 without the targeted t > 2 gate; see
+`docs/briefs/2026-09-30-pmax-stage1.RESULT.md`. beta_max averaged 0.78 over
+230 evaluation fits.
+
 #### Why the floor is censorable and "good players on minimums" is not
 
 METHODOLOGY previously recorded that extending censoring to the lower bound was
@@ -549,21 +577,19 @@ The v3.1.0 population is the opposite one: players whose unconstrained price sit
 genuine constraint, mathematically identical to the max ceiling with the sign
 flipped, and it was worth $0.42M per row on 297 rows.
 
-### Stage 2: CBA bounds (push + clip)
+### Stage 2: CBA bounds (clip)
 
 ```
-pushed = latent + P(max) * (MARGIN * ceiling - latent)   where P(max) >= TAU
-final  = clip(pushed, floor_pct, max_eligible_pct)
+final = clip(latent, floor_pct, max_eligible_pct)
 ```
 
-Waived rows (`is_waived == 1`) get P(max) = 0 (v6.1.0). No waived frame row
-signed a maximum, and a push must not lift a latent the waiver term lowered.
-
-TAU = 0.52 and MARGIN = 1.05 are pre-registered constants in `stages.py`. TAU
-was chosen from the expected-win-minus-expected-collateral rule before any score
-on the arm was seen; MARGIN was frozen since route-mixture phase 1 and must not
-be tuned on zone MAE (the clip makes censored sides one-way valves, so zone MAE
-is monotone in the margin).
+Until v6.3.0, Stage 2 first pushed the latent:
+`latent + P(max) * (MARGIN * ceiling - latent)` where `P(max) >= TAU`. The
+P(max) term in Stage 1 replaced it. `TAU = 0.52` and `MARGIN = 1.05` stay in
+`stages.py` only because the KF measurement model still composes with the
+push (`predict_with_measurement`, `kf_market_value.py`); removing it there is
+a separate change with its own check. Waived rows get P(max) = 0 (v6.1.0): no
+waived frame row signed a maximum.
 
 #### The route classifier's inputs are curated, not inherited (v4.3.0)
 
@@ -1254,11 +1280,12 @@ per-row |error| −$0.42M with a cluster-bootstrap CI of [−0.469, −0.374].
 2. Compute `max_eligible_pct` (Rose Rule / supermax / no-decrease floor) and
    `floor_pct` (season × experience bucket)
 3. Train baseline XGBoost → compute both gated censoring masks
-4. Fit the waiver-term beta, then train Grabit XGBoost (two-sided censored
-   loss) on all training data with the money-owed waiver term as
+4. Fit the waiver-term beta and beta_max, then train Grabit XGBoost
+   (two-sided censored loss) on all training data with both terms in
    `base_margin`
-5. Predict latent value with `grabit_predict` → apply the push and CBA
-   bounds: `clip(pushed, floor_pct, max_eligible_pct)`
+5. Compute P(max) for the prediction rows, predict the latent with
+   `grabit_predict`, and apply the CBA bounds:
+   `clip(latent, floor_pct, max_eligible_pct)`
 6. Convert cap_pct to salary dollars
 7. Output: predictions CSV + free agents CSV
 
