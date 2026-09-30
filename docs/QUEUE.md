@@ -1,6 +1,6 @@
 # Work queue
 
-Last updated 2026-09-29 after v6.2.0 (waiver term on money-owed waivers).
+Last updated 2026-09-30 after the v6.2.0 tag push and rebuild check.
 
 Keep only active work here. Each item needs an action and a completion check.
 Use a dated brief for additional detail. Put defects in `ISSUES.md` and landed
@@ -74,30 +74,6 @@ Build the public accuracy panel from
 - Complete when the panel shows the three tiers, the trim curve, and the named
   misses, and its numbers match `public_accuracy_views.csv` for the current
   champion.
-
-### Push version tags
-
-`git ls-remote --tags origin` returns no tags. `VERSION_HISTORY.md` cites
-`pre-tidy-2026-09-28`, and `CLAUDE.md` requires a tag for each version bump.
-
-- From the machine that holds the tags, run `git push origin --tags`. Local
-  tags carry legacy `vN.Mx` names; add the renumbered name beside each landed
-  release (for example `v5.3.3` beside `v8.17x`) with its headline metrics.
-- Tag v6.0.0 on `30aa82e`, v6.0.1 on `093b2e0`, and each later version
-  through v6.2.0 on the commit that records it. Each tag carries the
-  headline metrics in its `VERSION_HISTORY.md` row.
-- Complete when `git ls-remote --tags origin` lists `pre-tidy-2026-09-28`,
-  `v5.3.2`, `v5.3.3`, and `v6.0.0` through `v6.2.0`.
-
-### Confirm the patched waiver columns
-
-The waiver columns in `data/processed/training_data_v2.csv` were patched in
-place for v6.0.1 and v6.0.5, and `prior_waiver_owed` was added.
-
-- Run `python scripts/rebuild_training_data.py` locally with the HTML cache.
-- Complete when the rebuilt `is_waived`, `prior_waiver_date` and
-  `prior_waiver_owed` columns match the committed file, or the diff is
-  recorded as a SHAME version.
 
 ### Add P(max) to the Value Board
 

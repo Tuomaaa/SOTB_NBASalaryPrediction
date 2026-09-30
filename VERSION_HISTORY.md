@@ -2105,6 +2105,18 @@ Artifacts: `outputs/models/waiver_challengers_owedcmp.json`,
 files, `outputs/models/evaluation_suite.json`,
 `outputs/models/oof_reference.csv`.
 
+Post-release checks (2026-09-30, no published number moves):
+
+- A full `python scripts/rebuild_training_data.py` from the HTML cache
+  reproduces `training_data_v2.csv` and `merged_salaries.csv` byte for byte,
+  apart from line endings. The waiver columns patched in place for v6.0.1 and
+  v6.0.5, and `prior_waiver_owed`, come from the build chain. On a machine
+  where OpenBLAS fails to allocate, set `OPENBLAS_NUM_THREADS=1`.
+- Tags pushed to origin: each legacy `vN.Mx` tag has its renumbered name
+  beside it, `v8.17x`/`v5.3.3` were added on `a4da6f3`, and `v6.0.0` through
+  `v6.2.0` sit on the commits that record them, each with headline metrics.
+  `v7.0x` (v2.0.0) and `v8.11x` (v5.0.1) never had a tag and still have none.
+
 ### v6.1.0: Stage-1 waiver term replaces the waiver features
 
 Pre-registered in `docs/QUEUE.md` (commit `940646e`) as `waiver_term_noflag`,
