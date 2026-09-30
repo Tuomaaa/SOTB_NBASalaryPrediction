@@ -19,37 +19,38 @@ refer to them by number.
 - #55: one-year rule for the minimum cap charge, landed in v5.3.3.
 - #58: no-signing waiver window year, landed in v6.0.5.
 - #60: signing-offset harness on the KF champion, landed in v6.0.6.
+- #50: BBRef future salaries, replaced by the Spotrac migration in v6.0.0.
 
-## 4. Three signing-mechanism labels remain unknown
+## 4. Seven signing-mechanism labels remain unknown
 
 **Severity:** low. Signing Mechanism is a diagnostic label.
 
-**Problem:** The current 873-row reference frame has three Unknown rows:
-Josh Gray 2020 has no Spotrac page; Abdel Nader 2020 falls between contracts;
-Ryan Anderson 2020 is stretched dead money. Batum 2020 and Noah 2020 are also
-mislabelled Minimum because dead money collides with a same-season minimum.
-Extensions are grouped with Bird Rights, so retention-premium analysis must
-split extensions first.
+**Problem:** The 885-row reference frame has seven Unknown rows. Josh Gray
+2020 has no Spotrac page. Abdel Nader 2020 falls between contracts. Brandon
+Williams 2026 and Nick Richards 2026 are unlabelled 2026 signings. Josh Hart
+2024, Terance Mann 2025, and Kevin Durant 2026 are extensions. Luol Deng 2019
+reads Cap Space on a minimum-scale salary. Extensions are grouped with Bird
+Rights, so retention-premium analysis must split extensions first.
 
-**Reproduce:** Rebuild `spotrac_signing_types.csv`, attach labels to the
-evaluation frame, and list Unknown rows plus Minimum rows above $6M.
+**Reproduce:** List `signing_cat == "Unknown"` rows in
+`outputs/models/oof_reference.csv`, and inspect Deng 2019.
 
-**Fix:** Add sourced overrides for decidable rows and distinguish dead money
-from signed salary. Keep Signing Mechanism out of `FEATURE_COLS`.
+**Fix:** Add sourced overrides for decidable rows. Keep Signing Mechanism out
+of `FEATURE_COLS`.
 
-**Done:** Every remaining Unknown row has a documented reason, dead-money rows
-do not receive a signing mechanism, and retention diagnostics separate
-extensions.
+**Done:** Every remaining Unknown row has a documented reason and retention
+diagnostics separate extensions.
 
-## 5. Team or position is missing on 5.4% of web rows
+## 5. Team or position is missing on 5.2% of web rows
 
 **Severity:** low. This affects display and filtering.
 
-**Problem:** The 2026-07-22 export had 167 of 3,113 rows without
-`team_abbreviation` or `position`. The board silently omits these rows from
-team filters. Team correctness is tracked in #54.
+**Problem:** The site export of 2026-09-27
+(`WebPage/public/data/nba/valuations.json`) has 168 of 3,257 rows without
+team (`t`, 122 rows) or position (`p`, 47 rows). They are exported as null, so
+the board silently omits them from filters. Team correctness is tracked in #54.
 
-**Reproduce:** Count null team and position values in the current web export and
+**Reproduce:** Count null `t` and `p` values in the current web export and
 compare them with the source tables.
 
 **Fix:** Resolve team through #54 and join position from the latest available
@@ -100,38 +101,38 @@ the known/imputed indicator in #42.
 
 **Severity:** medium.
 
-**Problem:** Adoption gates can still read zone metrics that include
-confirmation players. Some experiment scripts also define a predicted-value
-band separately for each model, so reference and candidate are scored on
-different rows. The shared absolute-bias calculation is already fixed.
+**Problem:** `evaluate_suite.zone_scorecard` takes a `sel_mask`, but only
+`scripts/eval_route_mixture_p3.py` passes it. The zone gates in
+`eval_floor_branch.py`, `eval_pmax_stage1.py`, and `eval_ringchase_gated.py`
+have not been checked for confirmation rows. Some experiment scripts also
+define a predicted-value band separately for each model, so reference and
+candidate are scored on different rows.
 
-**Reproduce:** Run
-`OMP_NUM_THREADS=6 python scripts/eval_route_mixture_p3.py`. Compare the
-selection-only and pooled zone gate. In the phase-2 harness, compare the 25%+
-band on each model's own rows with a band fixed from the reference.
+**Reproduce:** In each harness above, find the zone gate and check whether it
+excludes `is_confirmation` and fixes segment rows from the reference model.
 
-**Fix:** Provide shared helpers for selection-only zone gates and fixed-row
-model comparisons. Pooled zone metrics may remain labelled reporting metrics.
+**Fix:** Route every adoption gate through `zone_scorecard` with `sel_mask`
+and a reference-fixed segment. Pooled zone metrics may remain labelled
+reporting metrics.
 
 **Done:** Every adoption gate excludes `is_confirmation`, both models use the
 same segment rows, and the printed protocol identifies the decision metric.
 
-## 24. Two valid CBA boundaries need documentation
+## 24. The extension raise rule has no signing-season test
 
 **Severity:** low.
 
-**Problem:** `cba_era` starts in repo season 2024 because it represents the
-market response to apron rules. The extension raise multiple changes for deals
-signed in repo season 2023 because it is a legal term fixed at signing. Aligning
-the constants would break one definition.
+**Problem:** `cba_era` starts in repo season 2024; the extension raise multiple
+changes for deals signed in repo season 2023. `METHODOLOGY.md` documents both
+boundaries, but no test covers the signing-season rule.
 
-**Reproduce:** Compare deals at exactly 1.20 and 1.40 with their signing season.
-Jimmy Butler 2023 was signed in 2021 and belongs to the 1.20 rule.
+**Reproduce:** Search `tests/` for a case at 1.20 and 1.40. Jimmy Butler 2023
+was signed in 2021 and belongs to the 1.20 rule.
 
-**Fix:** State both definitions and boundaries in `METHODOLOGY.md`.
+**Fix:** Add a test that assigns the multiple by signing season, with Butler
+2023 as a fixture.
 
-**Done:** The methodology explains the two boundaries and tests cover the
-signing-season rule.
+**Done:** The test passes, and it fails if the multiple keys on `cba_era`.
 
 ## 25. Tau selection models only probability-weighted interventions
 
@@ -140,7 +141,9 @@ signing-season rule.
 **Problem:** The current collateral objective uses
 `sum(P * intervention)`, which estimates a probability-weighted push or pull.
 It understates an unconditional intervention and can select a threshold at the
-edge of the search grid.
+edge of the search grid. Since v6.3.0, `TAU` acts only in the KF measurement
+model; the queue item that removes the push decides whether this issue
+still applies.
 
 **Reproduce:** Run
 `OMP_NUM_THREADS=6 python scripts/eval_floor_branch.py` and inspect the
@@ -154,123 +157,122 @@ points beyond the registered grid so an edge optimum is visible.
 **Done:** Each threshold sweep reports expected and realized benefit and damage,
 and its objective matches the intervention form.
 
-## 27. Marcus Smart 2022 has an incorrect supermax ceiling
+## 27. Supermax ceilings lack a timing audit
 
 **Severity:** low.
 
-**Problem:** `train._compute_max_eligible` gives Smart 2022 a 35% ceiling by
-using an award earned after his 2021 signing. The correct tier is 30%.
+**Problem:** `bc5bda9` anchored the supermax award test on the signing season,
+and Marcus Smart 2022 now reads 30%. No record shows that every other
+supermax row was audited against its signing date.
 
-**Reproduce:** Load the evaluation frame and inspect `max_eligible_pct` and
-`tier_ceiling_pct` for Marcus Smart 2022.
+**Reproduce:** List rows with `max_eligible_pct == 0.35` and compare the award
+season with `contract_signing_dates.csv.signing_season`.
 
-**Fix:** Use the signing-date instrument in the Stage-1 ceiling calculation and
-audit all supermax rows. A curated `designated_ineligible.csv` override is the
-minimal fallback.
+**Fix:** Run the audit and add `designated_ineligible.csv` rows for any
+failure.
 
-**Done:** Smart 2022 reads 30%, all supermax rows pass the timing audit, and the
-number-moving change has paired metrics and a version entry.
+**Done:** All supermax rows pass the timing audit; a number-moving change has
+paired metrics and a version entry.
 
-## 28. Spotrac totals disagree with extension salary schedules
+## 28. Two salary corrections are inferred from the CBA rule
 
 **Severity:** medium.
 
-**Problem:** Zubac 2025, Gordon 2026, and Smart 2022 have BBRef salary schedules
-whose totals disagree with Spotrac contract totals. This changes
-`prev_cap_pct` and future target values. The Spotrac salary migration in #50
-may supersede the row-level repair.
+**Problem:** Salaries now come from Spotrac cap hits per season, but
+`salary_corrections.csv` still holds two `inferred` `prior_base` rows: Ivica
+Zubac 2024 (13,495,700) and Aaron Gordon 2025 (24,041,455). Both invert the
+1.40 extension rule through observed pay. Gordon's 2025 salary in
+`merged_salaries.csv` (22,841,455) duplicates his 2024 figure. Smart 2022's
+`pay_above_base` row is a residual.
 
-**Reproduce:** Compare each player's rows in `salaries.csv` with
-`contract_signing_dates.csv.total_value` and the cached per-season Spotrac cap
-hits.
+**Reproduce:** Filter `data/raw/raw_external/salary_corrections.csv` for
+`confidence != verified`, and compare Zubac and Gordon in
+`merged_salaries.csv` with `contract_signing_dates.csv.total_value`.
 
-**Fix:** Source each season from Spotrac. Update
-`salary_corrections.csv` only for residual discrepancies and remove inversions
-that were based on a presumed raise multiple.
+**Fix:** Source each prior season from Spotrac. Remove corrections that the
+sourced value makes redundant.
 
-**Done:** Per-season values reconcile with sourced contract totals and all
-affected corrections have `confidence=verified`.
+**Done:** Every correction has `confidence=verified` or a sourced residual,
+and the affected per-season values reconcile with contract totals.
 
-## 36. Stretched dead money enters training as signed salary
+## 36. Stretch annuities remain in contract structure
 
-**Severity:** medium. This fabricates target values.
+**Severity:** medium.
 
-**Problem:** Beal 2025, Noah 2020, Batum 2020, and Deng 2019 contain a waiving
-team's dead-money charge. Load-time salary overrides exist, but the persisted
-training CSV and contract-structure fields can remain wrong.
+**Problem:** Salaries for Beal 2025 and 2026, Noah 2020, Batum 2020, Deng
+2019, and Isaac 2026 now carry signed salary, and
+`scripts/audit_stretched_salaries.py` exits zero. Contract structure still
+describes the waiving team's contract: Beal 2025 and 2026 read
+`contract_years = 5` (the PHX stretch), and Deng 2019 reads 3 for a one-year
+Minnesota deal.
 
-**Reproduce:** Run `python scripts/audit_stretched_salaries.py`. Also compare
-Deng's salary team with his impact-metric team.
+**Reproduce:** Inspect `contract_years` and `year_in_contract` for these rows
+in `data/processed/training_data_v2.csv`.
 
-**Fix:** Apply verified salary overrides during dataset construction and add a
-contract-structure correction layer for the four rows. Coordinate with #51.
+**Fix:** Add `contract_structure_corrections.csv` rows sourced from each
+player's signing contract block.
 
-**Done:** The audit exits zero, persisted training rows carry signed salary, and
-`year_in_contract` plus `contract_years` no longer describe stretch
-annuities.
+**Done:** No row's `year_in_contract` or `contract_years` describes a stretch
+annuity.
 
-## 37. A prorated deal passes the flat floor filter
+## 37. No audit covers near-floor partial-season deals
 
 **Severity:** low.
 
-**Problem:** Javonte Green 2024 is a prorated in-season deal slightly above the
-1.2% cutoff and reaches the evaluation frame as annual salary.
+**Problem:** Javonte Green 2024 was a prorated in-season deal above the 1.2%
+cutoff. The vet-min normalization now stores him at the base minimum, but no
+audit checks other short in-season spans near the floor.
 
-**Reproduce:** Run `python scripts/make_error_board.py` or inspect Green 2024
-in `training_data_v2.csv`.
+**Reproduce:** List frame rows within 10% above the floor whose signing date
+falls after the season opener.
 
-**Fix:** Source his annualized pay and audit rows within 10% above the floor for
-short in-season spans.
+**Fix:** Source the annual rate for each flagged row or exclude it.
 
-**Done:** Green carries an annual-rate salary or is excluded, and the near-floor
-partial-season audit covers every season.
+**Done:** The near-floor partial-season audit covers every season.
 
-## 39. `laker_z` missingness is season-aligned
+## 39. `laker_z` coverage is low in 2023
 
 **Severity:** medium.
 
-**Problem:** After the 2026-08-05 recovery pass, 2023 and 2026 LAKER coverage
-remain below 85%. Missing values are median-filled. A tested
-`laker_known` feature failed the paired gate and is disabled.
+**Problem:** On the 885-row reference frame, `laker_z` coverage is 75.5% in
+2023 and at least 94.9% in every other season. Missing values are median-
+filled. A tested `laker_known` feature failed the paired gate and is disabled.
 
-**Reproduce:** Build the frame before imputation and cross-tab
-`laker_z.isna()` by season. Compare with source-table coverage.
+**Reproduce:** Join `training_data_v2.csv` to `oof_reference.csv` and
+cross-tab `laker_z.isna()` by season.
 
-**Fix:** Re-fetch when nbarapm.com adds the missing player-seasons, then retest
-`laker_known` as an increment over the production model.
+**Fix:** Re-fetch when nbarapm.com adds the missing 2023 player-seasons, then
+retest `laker_known` as an increment over the production model.
 
-**Done:** Source coverage is restored or a known/imputed signal passes the
+**Done:** 2023 coverage is at least 85%, or a known/imputed signal passes the
 paired gate.
 
 ## 40. Unknown waiver status is encoded as zero
 
 **Severity:** medium.
 
-**Problem:** Unknown `is_waived` values median-fill to 0, which is
-indistinguishable from known-not-waived. The recovery logic added on 2026-08-04
-has not been confirmed in a final rebuild. `is_waived_known` failed the paired
-gate and is disabled.
+**Problem:** On the 885-row reference frame, 53 rows have unknown `is_waived`
+(`is_waived_known == 0`). The model median-fills them to 0, the same as
+known-not-waived. `is_waived_known` failed the paired gate and is disabled.
 
-**Reproduce:** Build the frame before imputation and cross-tab `is_waived`
-with `is_waived_known`.
+**Reproduce:** Join `training_data_v2.csv` to `oof_reference.csv` and cross-tab
+`is_waived` with `is_waived_known`.
 
-**Fix:** Rebuild with `_resolve_waiver_no_signing()`, report the remaining
-unknown rows, and preserve the known flag for diagnostics.
+**Fix:** Report the unknown rows and try to resolve them from
+`spotrac_transactions.csv`. Keep the known flag for diagnostics.
 
-**Done:** The rebuild includes the recovered rows and every remaining unknown
-is reported separately from known zero.
+**Done:** Every remaining unknown has a reason in a tracked report.
 
 ## 42. `prev_cap_pct` hides its minimum fallback
 
 **Severity:** low-medium.
 
-**Problem:** Missing prior salary is stored as the same 0.014848 cap share in
-66 historical reference rows. NaN checks treat these imputed values as
+**Problem:** Missing prior salary is stored as the same 0.014848 cap share
+in 92 of the 885 reference rows. NaN checks treat these imputed values as
 observed.
 
-**Reproduce:** Count `prev_cap_pct` rounded to six places in
-`training_data_v2.csv` and compare 0.014848 with
-`min_2yr[season] / CAP_BY_SEASON[season]`.
+**Reproduce:** Join `training_data_v2.csv` to `oof_reference.csv` and count
+`prev_cap_pct` rounded to six places equal to 0.014848.
 
 **Fix:** Emit `prev_cap_pct_known` from `_load_prev_season_cap_pct` and carry
 it into the persisted frame and diagnostics.
@@ -283,16 +285,17 @@ it into the persisted frame and diagnostics.
 
 **Problem:** Historical web rows now pass `signing_type` and
 `SIGNING_OFFSETS_DEPLOYED`, and export metadata records the offsets. The
-metadata still omits `SIGNING_K`, and the historical export has not been
-closed against the current champion after the salary migration. Upcoming free
-agents must receive no outcome-dependent signing offset.
+metadata still omits `SIGNING_K`. The site data of 2026-09-27 predates
+v6.2.0 (its rows have no `wv` or `pm`), so no export has been checked against
+the v6.3.0 champion. Upcoming free agents must receive no outcome-dependent
+signing offset.
 
 **Reproduce:** Inspect both `stages.compose` calls in
 `scripts/export_web.py` and compare exported headline metrics with the
 `champion` block in `evaluation_suite.json`.
 
 **Fix:** Add `SIGNING_K` to export metadata and compare historical export
-metrics with the `champion` block after the salary migration.
+metrics with the `champion` block on a fresh export.
 
 **Done:** Historical export metrics match the champion and the upcoming-free-
 agent path applies a zero signing offset.
@@ -313,23 +316,24 @@ as a labelled baseline.
 **Done:** Each residual table names its model stack and reports champion-stack
 biases.
 
-## 48. Deployed signing offsets go stale after a rebuild
+## 48. Nothing detects stale signing offsets
 
 **Severity:** medium.
 
-**Problem:** `SIGNING_OFFSETS_DEPLOYED` is hard-coded from OOF residuals.
-Changing the frame invalidates it without a failing check. Evaluation layers A
-and B estimate fold-local offsets and are unaffected.
+**Problem:** `stages.py` loads the deployed offsets from
+`data/raw/raw_external/signing_offsets.json`, which
+`scripts/eval_stage3_signing.py` writes. A rebuild that changes the frame does
+not fail when the file is older than the frame. Evaluation layers A and B
+estimate fold-local offsets and are unaffected.
 
-**Reproduce:** After rebuilding, run
-`OMP_NUM_THREADS=6 python scripts/eval_stage3_signing.py` and compare the
-`DEPLOYED-FORM OFFSETS (k=20)` block with `src/model/stages.py`.
+**Reproduce:** Rebuild the training data without running
+`scripts/eval_stage3_signing.py`, then run `scripts/export_web.py`. It uses
+the old offsets without a warning.
 
-**Fix:** Write the deployed offsets to a tracked data file and make the rebuild
-or validation fail when the file is stale.
+**Fix:** Store a frame fingerprint in `signing_offsets.json` and make
+`export_web.py` fail when it does not match the current frame.
 
-**Done:** Offset regeneration is checked automatically and deployed consumers
-match the current frame.
+**Done:** A stale offset file stops the export with a regeneration command.
 
 ## 49. Rookie prior-pay fill pools contract years 2 through 4
 
@@ -348,47 +352,6 @@ the beyond-pick-30 fallback, then run the paired gate and #48 regeneration.
 
 **Done:** The fill uses earliest observed rookie pay and the number-moving
 rebuild has a version entry.
-
-## 50. BBRef future salaries are unreliable
-
-**Severity:** high.
-
-**Problem:** BBRef future columns retain stale max projections, declined
-options, and unmarked dead money. Five genuine 2026 max signings were removed
-by `_filter_mislabeled_year1` because their stale salaries exceeded the legal
-ceiling. `check_caps.py` also reads an uncorrected persisted frame.
-
-**Reproduce:**
-
-```text
-python scripts/check_caps.py
-rg "49,800,000" data/raw/html_cache -g "*contracts_MIA*"
-```
-
-**Fix:** Complete the Spotrac `Cap Hit` migration for current and future
-seasons. Make `check_caps.py` read corrected salaries and distinguish extension
-first-paying years from new free-agent contracts.
-
-**Done:** The salary chain no longer uses BBRef future values, the five max
-signings remain in frame, and `check_caps.py` passes for the correct reason.
-
-## 51. Stretch corrections do not cover all seasons
-
-**Severity:** medium.
-
-**Problem:** Beal's PHX stretch annuity persists in 2026 through 2029, and
-Jonathan Isaac 2026 combines an $8M dead-cap charge with his new Orlando salary.
-Both can enter salary-derived features or targets.
-
-**Reproduce:** Run `scripts/audit_stretched_salaries.py` over all seasons and
-inspect Beal plus Isaac in `salaries.csv`.
-
-**Fix:** Source each season from Spotrac cap hits, update salary overrides where
-the migration does not supersede them, and repair Beal's contract structure
-through #36.
-
-**Done:** No stretch annuity is stored as signed salary and the audit passes over
-the full table.
 
 ## 54. Training teams are one season stale
 

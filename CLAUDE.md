@@ -175,8 +175,8 @@ python scripts/refresh_spotrac.py --year N
 python scripts/eval_stage3_signing.py
 ```
 
-After the final command, copy `deployed_offsets_k20` into
-`src/model/stages.py`; see ISSUES #48.
+The final command writes `data/raw/raw_external/signing_offsets.json`, which
+`src/model/stages.py` loads. Run it after every rebuild; see ISSUES #48.
 
 `scripts/rebuild_training_data.py` runs:
 
@@ -190,8 +190,10 @@ scripts/phase3.py::build_contract_features
 - Wait at least 3 seconds between live requests.
 - Extend `data/processed/contract_structure_v2.csv` with
   `scripts/extend_contract_structure.py`. Preserve its historical rows.
-- The Spotrac salary migration is active. Read `docs/QUEUE.md` and ISSUES #50
-  and #51 before changing salary-source logic.
+- Salaries come from Spotrac cap hits through
+  `scripts/build_merged_salaries.py`, with BBRef as the fallback. Read
+  VERSION_HISTORY v6.0.0 and ISSUES #28 and #36 before changing
+  salary-source logic.
 
 ## Code
 

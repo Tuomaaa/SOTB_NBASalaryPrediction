@@ -851,8 +851,8 @@ holds the four numbers as measured on the 873-row frame (regenerated 2026-08-07
 from the 896-row values), for the single-fit consumers that have no OOF to
 estimate from. They are per-type mean residuals of a particular frame, so a
 training-data rebuild invalidates them exactly the way it invalidates a
-published R2. Regenerate with `scripts/eval_stage3_signing.py` and copy
-`deployed_offsets_k20` across.
+published R2. Regenerate with `scripts/eval_stage3_signing.py`, which writes
+`data/raw/raw_external/signing_offsets.json`; `stages.py` loads that file.
 
 **`predict.py` is untouched by this.** An unsigned free agent has no signing
 mechanism -- the label exists only once the contract does -- so every offset on

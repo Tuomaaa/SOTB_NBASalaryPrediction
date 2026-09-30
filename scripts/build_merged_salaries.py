@@ -87,7 +87,7 @@ THE MERGE POLICY
                limit is left to the branches below as misread. A deal labelled
                Minimum takes the minimum cap-charge rule. A rest-of-season deal keeps its prorated
                amount so the prorated filter drops the row, as it did under
-               BBRef. See ISSUES #50 and the migration queue item.
+               BBRef. See retired ISSUES #50 and VERSION_HISTORY v6.0.0.
 
   Anything the above cannot resolve falls back to the BBRef value, branch
   `fallback_bbref`. A missing Spotrac page degrades to stale BBRef, never to a

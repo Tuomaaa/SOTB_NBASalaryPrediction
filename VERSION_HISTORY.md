@@ -2032,6 +2032,15 @@ Published A1, A2 and B1 do not move, because the suite estimates its own
 fold-honest offsets. The new constants reach `predict.py` and
 `export_web.py`, and the Value Board changes by the same amounts.
 
+### 2026-09-30: open-issue audit (no version)
+
+Each open issue was checked against the v6.3.0 frame. ISSUES #50 closed: the
+v6.0.0 migration removed BBRef future values, and `check_caps.py` reconciles
+every season. ISSUES #51 closed: Beal 2026 and Isaac 2026 carry signed salary;
+Beal's contract structure moved to #36. Twelve entries were narrowed or given
+current counts (#4, #5, #20, #24, #27, #28, #36, #37, #39, #40, #42, #48).
+No published number moves.
+
 ### v6.3.0: P(max) as a Stage-1 term
 
 The Stage-2 push (`TAU = 0.52`, `MARGIN = 1.05`) is replaced by a Stage-1
