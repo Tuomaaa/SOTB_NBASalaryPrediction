@@ -4,8 +4,8 @@ This file contains active defects only. Each issue must include a problem,
 reproduction, fix, and completion check. Delete fixed entries and record the
 landed change in `VERSION_HISTORY.md`.
 
-Issue numbers are permanent. The highest assigned number is 61, so the next
-issue is 62. Keep entries in numeric order because code and historical reports
+Issue numbers are permanent. The highest assigned number is 62, so the next
+issue is 63. Keep entries in numeric order because code and historical reports
 refer to them by number.
 
 ## Retired references still used in code
@@ -523,3 +523,26 @@ with the `waiverTerm.label` from `meta.json`.
 
 **Done:** The site's unedited what-if value equals `latent_cap_pct` on every
 `wv == 1` row, and the waterfall sums to it.
+
+## 62. The v6.2.0 champion does not reproduce on the Windows machine
+
+**Severity:** medium. Absolute metrics from this machine cannot be compared
+with published ones.
+
+**Problem:** v6.2.0 records A1 0.8612 / A2 0.8648 / B1 0.8516, measured in a
+cloud session. The same code at `1a4cfaf` on the Windows machine (XGBoost
+3.3.0, `OMP_NUM_THREADS=6`) gives A1 0.8603 / A2 0.8641 / B1 0.8517 for the
+champion arm of `scripts/eval_pmax_stage1.py`. The code before and after
+`1a4cfaf` gives the same one-seed A1 (0.8552), so the change is not the
+cause. Paired deltas inside one run are still valid.
+
+**Reproduce:** On the Windows machine, run
+`python scripts/eval_pmax_stage1.py --seeds 10 --full` and read arm `R`.
+
+**Fix:** Record the package versions and platform of each environment. Run
+the one-seed champion in both and find the first stage whose output differs.
+Then pin the versions, or record one reference environment for published
+numbers.
+
+**Done:** Both environments give the same champion A1 to four decimals, or
+`VERSION_HISTORY.md` names the reference environment and the other's offset.

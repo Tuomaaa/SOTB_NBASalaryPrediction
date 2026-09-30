@@ -1,6 +1,6 @@
 # Work queue
 
-Last updated 2026-09-30 after the v6.2.0 tag push and rebuild check.
+Last updated 2026-09-30 after the P(max) Stage-1 result.
 
 Keep only active work here. Each item needs an action and a completion check.
 Use a dated brief for additional detail. Put defects in `ISSUES.md` and landed
@@ -8,13 +8,14 @@ work in `VERSION_HISTORY.md`.
 
 ## In progress
 
-### Fold P(max) into Stage 1
+### Decide whether to delete the Stage-2 push
 
-Run `docs/briefs/2026-09-30-pmax-stage1.md`: arms `R` (v6.2.0), `N` (no
-push) and `F` (P(max) term in the Stage-1 base margin). The push alone is
-dSel -0.0032 (t -0.83) on 23 moved selection rows, so expect no significant
-change. Complete when `F` is adopted or rejected under the brief's gates and
-the `N` result is reported for the user's decision on deleting the push.
+`docs/briefs/2026-09-30-pmax-stage1.RESULT.md`: the Stage-1 P(max) term
+failed its targeted gate. Removing the push (`N`) gives dSel +0.0042
+(t +0.81) and B1 +0.0015, and worsens max-zone bias from -$1.97M to -$2.34M.
+The user decides. If deleted, also remove the push from the KF measurement
+model and check it separately. Complete when the push is deleted in a
+version or the decision to keep it is recorded.
 
 ### Grabit hyperparameter tuning — PAUSED
 
