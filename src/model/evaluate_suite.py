@@ -324,19 +324,32 @@ def fit_measurement_models(train: pd.DataFrame, features: list[str],
     return model, clf
 
 
+# How the KF measurement model's output becomes a measurement. "push_clip"
+# is the suite's form until v6.3.0: push, clip, and extension clip.
+# "latent" is the raw model output, the form `predict.py` and
+# `export_web.py` use. "clip" clips into [floor, ceiling] without the push.
+MEASUREMENT_MODE = "push_clip"
+
+
 def predict_with_measurement(model, clf, test: pd.DataFrame,
                              features: list[str],
                              clf_features: list[str]) -> np.ndarray:
-    """Champion composition (push -> clip -> extension clip) using fitted models.
+    """KF measurement from the fitted measurement model (`MEASUREMENT_MODE`).
 
     On intermediate rows, is_extension is False everywhere, so Stage 3 is a
     no-op and the measurement is the model's market-value estimate.
     """
     latent = model.predict(test[features])
+    if MEASUREMENT_MODE == "latent":
+        return latent
     lo = (test["floor_pct"].values if "floor_pct" in test.columns
           else np.zeros(len(test)))
     hi = test["max_eligible_pct"].values
-    p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
+    p_max = None
+    if MEASUREMENT_MODE == "push_clip":
+        p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
+    elif MEASUREMENT_MODE != "clip":
+        raise ValueError(f"unknown MEASUREMENT_MODE {MEASUREMENT_MODE!r}")
     return compose(latent, lo=lo, hi=hi, p_max=p_max,
                    is_extension=test["is_extension"].values,
                    ext_cap_pct=test["ext_cap_pct"].values)
