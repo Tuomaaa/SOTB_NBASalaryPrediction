@@ -1795,7 +1795,8 @@ layer A is scored on ten fold partitions instead of one, and the frame changed.
 | v6.0.6 | XGBoost (Grabit v4) | 0.8527 | 0.8561 | 0.8293 | 885 | 21 | SHAME. Deployed signing offsets refitted on the KF champion (ISSUES #60); no published number moves |
 | v6.1.0 | XGBoost (Grabit v4) | 0.8581 | 0.8605 | 0.8500 | 885 | 19 | DEFAULT. Stage-1 waiver term replaces the two waiver features; no push on waived rows |
 | v6.2.0 | XGBoost (Grabit v4) | 0.8612 | 0.8648 | 0.8516 | 885 | 21 | DEFAULT. Waiver term on money-owed waivers only; waiver features restored |
-| **v6.3.0** | **XGBoost (Grabit v4)** | **0.8679** | **0.8721** | **0.8592** | **885** | **21** | **DEFAULT. P(max) moves from the Stage-2 push into Stage 1; measured on the Windows machine (ISSUES #62)** |
+| v6.3.0 | XGBoost (Grabit v4) | 0.8679 | 0.8721 | 0.8592 | 885 | 21 | DEFAULT. P(max) moves from the Stage-2 push into Stage 1; measured on the Windows machine (ISSUES #62) |
+| **v6.3.1** | **XGBoost (Grabit v4)** | **0.8679** | **0.8724** | **0.8588** | **885** | **21** | **SHAME. The suite and inference feed the KF the same clipped measurement** |
 
 ### v6.0.0: repeated grouped CV and the completed Spotrac migration
 
@@ -2040,6 +2041,53 @@ every season. ISSUES #51 closed: Beal 2026 and Isaac 2026 carry signed salary;
 Beal's contract structure moved to #36. Twelve entries were narrowed or given
 current counts (#4, #5, #20, #24, #27, #28, #36, #37, #39, #40, #42, #48).
 No published number moves.
+
+### v6.3.1: one KF measurement form
+
+From v5.3.0 the suite built `kf_market_value` from measurements that went
+through the push and the clip (`predict_with_measurement`). `predict.py` and
+`export_web.py` used the raw measurement-model output. The published metrics
+therefore scored a KF input the deployed model never received.
+
+`kf_market_value.measurement_value` now clips the output into
+`[floor_pct, max_eligible_pct]` and applies the extension cap. The suite
+(`MEASUREMENT_MODE = "clip"`) and both inference paths use it, for the
+measurements and for the noise variance R. The unused `attach_kf_inference`
+is removed. `TAU` and `MARGIN` now serve only legacy push arms.
+
+The form was chosen among three, scored on the v6.3.0 champion
+(`python scripts/eval_kf_measurement.py --seeds 10 --full`, Windows machine):
+
+| Mode | A1 | A2 | B1 | dSel vs push_clip (t) |
+|---|---:|---:|---:|---:|
+| `push_clip` (suite to v6.3.0) | 0.8679 | 0.8721 | 0.8592 | |
+| `clip` (adopted) | 0.8679 | 0.8724 | 0.8588 | +0.00003 (+0.02) |
+| `latent` (inference to v6.3.0) | 0.8680 | 0.8721 | 0.8569 | +0.00036 (+0.21) |
+
+The three forms are equal within noise. `clip` was chosen because it needs
+no push and keeps each measurement inside the legal range. The official
+suite reproduces the `clip` arm exactly. The B1 2026 origin reads 0.8083.
+
+The web export's forward 2026 R2 rises from 0.7947 to 0.8017 on 112 rows,
+and its gap to the suite falls from 0.014 to 0.007. Part of the earlier gap
+was the measurement mismatch. Model parity is 4.2e-07; beta_max in the
+export fit is 0.748.
+
+Deployed k=20 offsets, refitted by `scripts/eval_stage3_signing.py`:
+Bird Rights +0.01397, Cap Space +0.00744, Early Bird +0.00966, Non-Bird
+-0.00215 (v6.3.0: +0.01393, +0.00736, +0.00964, -0.00213). Legality and
+bit-identity guards pass.
+
+| Metric | v6.3.1 |
+|---|---:|
+| A1 | 0.8679 |
+| A2 | 0.8724 |
+| B1 | 0.8588 |
+| C1 slope | 0.978 |
+| MAE (A1) | $2.50M |
+
+Artifacts: `outputs/models/kf_measurement_full.json` and `_oof.csv`,
+`outputs/models/evaluation_suite.json`, `outputs/models/oof_reference.csv`.
 
 ### v6.3.0: P(max) as a Stage-1 term
 
