@@ -2,7 +2,8 @@
 
 Each layer answers a different question and they must not be mixed:
 
-  A  selection      pooled GroupKFold CV. Estimates the market's pricing
+  A  selection      pooled repeated grouped CV (a fixed player-to-fold hash,
+                    one partition per seed). Estimates the market's pricing
                     function, so training on a later season to score an earlier
                     one is legitimate — the estimand is structural, not a
                     forecast. Player grouping blocks the leakage that does
@@ -77,8 +78,8 @@ from src.model.train import (
 from src.model.extension_cap import attach_extension_cap
 from src.model.mechanism_cap import attach_mechanism_caps
 from src.model.route_mixture import (
-    attach_clf_features, grabit_latent, route_proba, train_route_classifier,
-    MAX_IDX,
+    attach_clf_features, exclude_waived_max, grabit_latent, route_proba,
+    train_route_classifier, MAX_IDX,
 )
 from src.model.stages import (
     compose, stage3_signing, signing_offsets, TAU, MARGIN, SIGNING_K,
@@ -228,12 +229,18 @@ def make_stage_arms_fitter(clf_features: list[str], grabit_params: dict | None =
     test slice, so it is fold-honest. P(max) is an OUTPUT composition weight and
     never joins `features`, which stays FEATURE_COLS for the regression.
     """
-    gp = grabit_params or {}
+    gp = dict(grabit_params or {})
+    no_waived_max = gp.pop("exclude_waived_max", True)
+    push_on = gp.pop("push", False)
 
     def fitter(train, test, features, seed):
         latent, lo, hi = grabit_latent(train, test, features, seed, **gp)
-        clf = train_route_classifier(train, clf_features, seed)
-        p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
+        p_max = None
+        if push_on:
+            clf = train_route_classifier(train, clf_features, seed)
+            p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
+            if no_waived_max:
+                p_max = exclude_waived_max(p_max, test, TAU)
         is_ext = test["is_extension"].values
         ext_cap = test["ext_cap_pct"].values
         return {
@@ -261,14 +268,18 @@ def make_champion_fitter(clf_features: list[str], push: bool = True,
     passes this fitter as the inner-OOF engine, estimates the offsets from its
     residuals over seasons < T, and applies them outside.
     """
-    gp = grabit_params or {}
+    gp = dict(grabit_params or {})
+    no_waived_max = gp.pop("exclude_waived_max", True)
+    push_on = gp.pop("push", False)
 
     def fitter(train, test, features, seed):
         latent, lo, hi = grabit_latent(train, test, features, seed, **gp)
         p_max = None
-        if push:
+        if push and push_on:
             clf = train_route_classifier(train, clf_features, seed)
             p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
+            if no_waived_max:
+                p_max = exclude_waived_max(p_max, test, TAU)
         kw = {}
         if stage3:
             kw = {"is_extension": test["is_extension"].values,
@@ -313,15 +324,30 @@ def fit_measurement_models(train: pd.DataFrame, features: list[str],
     return model, clf
 
 
+# How the KF measurement model's output becomes a measurement. "clip"
+# (v6.3.1) is `kf_market_value.measurement_value`, the form `predict.py` and
+# `export_web.py` use: clip into [floor, ceiling], then the extension cap.
+# "push_clip" is the suite's form from v5.3.0 to v6.3.0, which inference
+# never used. "latent" is the raw model output, inference before v6.3.1.
+MEASUREMENT_MODE = "clip"
+
+
 def predict_with_measurement(model, clf, test: pd.DataFrame,
                              features: list[str],
                              clf_features: list[str]) -> np.ndarray:
-    """Champion composition (push -> clip -> extension clip) using fitted models.
+    """KF measurement from the fitted measurement model (`MEASUREMENT_MODE`).
 
     On intermediate rows, is_extension is False everywhere, so Stage 3 is a
     no-op and the measurement is the model's market-value estimate.
     """
     latent = model.predict(test[features])
+    if MEASUREMENT_MODE == "latent":
+        return latent
+    if MEASUREMENT_MODE == "clip":
+        from src.features.kf_market_value import measurement_value
+        return measurement_value(latent, test)
+    if MEASUREMENT_MODE != "push_clip":
+        raise ValueError(f"unknown MEASUREMENT_MODE {MEASUREMENT_MODE!r}")
     lo = (test["floor_pct"].values if "floor_pct" in test.columns
           else np.zeros(len(test)))
     hi = test["max_eligible_pct"].values
@@ -404,7 +430,8 @@ def _compute_kf_nested(kf_ctx: KFContext, train: pd.DataFrame,
 
 
 def make_kf_stage_arms_fitter(kf_ctx: KFContext, clf_features: list[str],
-                              grabit_params: dict | None = None):
+                              grabit_params: dict | None = None,
+                              augment=None):
     """Multi-arm fitter with nested-CV kf_market_value computation per fold.
 
     Same shape as `make_stage_arms_fitter` — returns a dict of ARM_CLIP,
@@ -414,16 +441,32 @@ def make_kf_stage_arms_fitter(kf_ctx: KFContext, clf_features: list[str],
     The `features` argument this fitter receives should be FEATURE_COLS
     (21 features including kf_market_value). The base model used for KF
     measurements uses MEASUREMENT_FEATURES (prev_cap_pct, not kf).
+
+    `grabit_params["exclude_waived_max"]` (default True since v6.1.0) sets
+    P(max) = 0 on waived rows. `grabit_params["push"]` (default False since
+    v6.3.0, when P(max) moved into Stage 1) turns the Stage-2 push back on.
+    The other keys go to `grabit_latent`.
+
+    `augment`, if given, maps a frame to a frame after kf_market_value is
+    attached, so a challenger built from kf_market_value stays fold-honest.
     """
-    gp = grabit_params or {}
+    gp = dict(grabit_params or {})
+    no_waived_max = gp.pop("exclude_waived_max", True)
+    push_on = gp.pop("push", False)
 
     def fitter(train, test, features, seed):
         train_aug, test_aug = _compute_kf_nested(kf_ctx, train, test,
                                                   clf_features, seed)
+        if augment is not None:
+            train_aug, test_aug = augment(train_aug), augment(test_aug)
         latent, lo, hi = grabit_latent(train_aug, test_aug, features,
                                        seed, **gp)
-        clf = train_route_classifier(train_aug, clf_features, seed)
-        p_max = route_proba(clf, test_aug, clf_features)[:, MAX_IDX]
+        p_max = None
+        if push_on:
+            clf = train_route_classifier(train_aug, clf_features, seed)
+            p_max = route_proba(clf, test_aug, clf_features)[:, MAX_IDX]
+            if no_waived_max:
+                p_max = exclude_waived_max(p_max, test_aug, TAU)
         is_ext = test["is_extension"].values
         ext_cap = test["ext_cap_pct"].values
         return {
@@ -444,7 +487,9 @@ def make_kf_champion_fitter(kf_ctx: KFContext, clf_features: list[str],
     Same shape as `make_champion_fitter` — returns predictions through
     the extension clip — but computes kf_market_value internally per fold.
     """
-    gp = grabit_params or {}
+    gp = dict(grabit_params or {})
+    no_waived_max = gp.pop("exclude_waived_max", True)
+    push_on = gp.pop("push", False)
 
     def fitter(train, test, features, seed):
         train_aug, test_aug = _compute_kf_nested(kf_ctx, train, test,
@@ -452,9 +497,11 @@ def make_kf_champion_fitter(kf_ctx: KFContext, clf_features: list[str],
         latent, lo, hi = grabit_latent(train_aug, test_aug, features,
                                        seed, **gp)
         p_max = None
-        if push:
+        if push and push_on:
             clf = train_route_classifier(train_aug, clf_features, seed)
             p_max = route_proba(clf, test_aug, clf_features)[:, MAX_IDX]
+            if no_waived_max:
+                p_max = exclude_waived_max(p_max, test_aug, TAU)
         kw = {}
         if stage3:
             kw = {"is_extension": test["is_extension"].values,
@@ -520,6 +567,11 @@ def load_evaluation_frame(keep_prorated: bool = False,
     if "prev_cap_pct" in df.columns and "prev_cap_pct" not in features:
         df["prev_cap_pct"] = df["prev_cap_pct"].fillna(
             df["prev_cap_pct"].median()).fillna(0)
+    # Fill the waiver columns even if a caller's list omits them: the KF
+    # measurement model, the route classifier and the waiver term read them.
+    for col in ("is_waived", "mpg_x_waived"):
+        if col in df.columns and col not in features:
+            df[col] = df[col].fillna(df[col].median()).fillna(0)
     df["is_confirmation"] = df["player_name_norm"].map(_in_confirmation_set)
     # Diagnostic label only, never a feature. Salary-aware: when a mid-season
     # buyout puts two contracts on one season, the one that produced this
@@ -580,8 +632,9 @@ def prepare_full_frame(df_eval: pd.DataFrame,
 
 
 def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
-                       prehistory: bool = False,
+                       prehistory: bool = True,
                        expand_anchors: bool = True,
+                       reprice: bool = True,
                        n_inner: int = N_INNER,
                        verbose: bool = True) -> KFContext:
     """Build the KFContext for nested-CV kf_market_value computation.
@@ -594,8 +647,12 @@ def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
         df_eval:       the evaluation frame from load_evaluation_frame.
         base_features: the feature list returned by load_evaluation_frame
                        (20 features, without kf_market_value).
-        prehistory:    inject pre-2019 Year-1 cap_pct as tier-1 anchors.
+        prehistory:    inject pre-2019 Year-1 cap_pct as tier-1 anchors. On
+                       by default, as in production since v8.14x; a caller
+                       that left it off scored a pre-v8.14x champion.
         expand_anchors: enable v8.14x tier-2 anchor expansions.
+        reprice:       anchor at in-season signings (`load_reprice_events`);
+                       on since v6.0.4, False reproduces v6.0.3.
         n_inner:       inner folds for nested CV (default 4).
     """
     mf = list(MEASUREMENT_FEATURES)
@@ -615,9 +672,13 @@ def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
             print("Loading pre-2019 Year-1 anchors (--prehistory):")
         extra_events = load_prehistory_anchors()
 
+    reprice_events = None
+    if reprice:
+        from src.features.kf_market_value import load_reprice_events
+        reprice_events = load_reprice_events()
     inter_idx, needed_idx, tier, anchor_val = kf_build_anchor_map(
         df_eval, df_full, extra_events=extra_events,
-        expand_anchors=expand_anchors)
+        expand_anchors=expand_anchors, reprice_events=reprice_events)
 
     prev = df_eval["prev_cap_pct"].values
     anchor = np.where(tier > 0, anchor_val, prev)
@@ -651,8 +712,31 @@ def prepare_kf_context(df_eval: pd.DataFrame, base_features: list[str],
 # Prediction engines
 # ---------------------------------------------------------------------------
 
+def fold_ids(players, partition: int) -> np.ndarray:
+    """Fixed player-to-fold map for one CV partition (ISSUES #35).
+
+    A player's fold is a hash of the partition number and his name, so adding
+    or removing rows never moves any other player between folds. The 2026-09-29
+    migration rebuild added 16 rows; GroupKFold then moved 298 of 483 players
+    and the same model's A2 read 0.8359 on the new split against 0.8699 on the
+    old one. Folds are balanced in players, not rows.
+    """
+    import hashlib
+    return np.array([
+        int(hashlib.md5(f"{partition}:{p}".encode()).hexdigest(), 16) % N_SPLITS
+        for p in players
+    ])
+
+
+def fold_splits(df: pd.DataFrame, partition: int) -> list[tuple]:
+    """(train_idx, test_idx) per fold for one partition of `df`."""
+    f = fold_ids(df["player_name_norm"].values, partition)
+    return [(np.where(f != k)[0], np.where(f == k)[0])
+            for k in range(N_SPLITS)]
+
+
 def _fold_pass(df: pd.DataFrame, features: list[str], fitter, seeds):
-    """One GroupKFold x seed sweep, KEEPING every (fold, seed) prediction.
+    """One fold x seed sweep, KEEPING every (fold, seed) prediction.
 
     `oof_groupkfold` collapses this to the seed average and the R2 matrices in
     the same loop; the signing correction needs the individual cells, because it
@@ -660,15 +744,18 @@ def _fold_pass(df: pd.DataFrame, features: list[str], fitter, seeds):
     offset and the legality clips are non-linear. Split out so there is one
     fitting loop rather than two that can drift.
 
+    Repeated CV: seed i is fitted on partition i (`fold_splits`), so the seed
+    average also averages over fold assignments at no extra cost.
+
     Returns:
         (store, folds, multi) — `store` is a list of
-        {"fi", "si", "va", "pred": {arm: array}} in fit order.
+        {"fi", "si", "va", "pred": {arm: array}} in fit order; `folds` maps the
+        seed index to that partition's splits.
     """
-    y = df[TARGET].values
-    folds = list(GroupKFold(n_splits=N_SPLITS).split(df, y, df["player_name_norm"].values))
+    folds = {si: fold_splits(df, si) for si in range(len(seeds))}
     store, multi = [], None
     for si, seed in enumerate(seeds):
-        for fi, (tr, va) in enumerate(folds):
+        for fi, (tr, va) in enumerate(folds[si]):
             out = fitter(df.iloc[tr], df.iloc[va], features, seed)
             if multi is None:
                 multi = isinstance(out, dict)
@@ -688,8 +775,8 @@ def _reduce_fold_pass(df: pd.DataFrame, store, folds, seeds) -> dict:
         for name, pred in rec["pred"].items():
             if name not in acc:
                 acc[name] = np.zeros(len(df))
-                fold_r2[name] = np.zeros((len(folds), len(seeds)))
-                fold_r2_sel[name] = np.zeros((len(folds), len(seeds)))
+                fold_r2[name] = np.zeros((N_SPLITS, len(seeds)))
+                fold_r2_sel[name] = np.zeros((N_SPLITS, len(seeds)))
             acc[name][va] += pred
             fold_r2[name][rec["fi"], rec["si"]] = r2_score(y[va], pred)
             vs = sel[va]
@@ -767,11 +854,17 @@ def oof_groupkfold_signing(df: pd.DataFrame, features: list[str], fitter,
 
     cat = df["signing_cat"].values
     resid = df[TARGET].values - src_oof          # actual - predicted, cap_pct
-    fold_of = np.empty(len(df), dtype=int)
-    for fi, (_, va) in enumerate(folds):
-        fold_of[va] = fi
-    lfo = {fi: signing_offsets(resid, cat, pool=fold_of != fi, k=k, detail=True)
-           for fi in range(len(folds))}
+    # One leave-fold-out offset per (partition, fold) cell; partition 0 is the
+    # one reported.
+    lfo_cells = {}
+    for si, splits in folds.items():
+        fold_of = np.empty(len(df), dtype=int)
+        for fi, (_, va) in enumerate(splits):
+            fold_of[va] = fi
+        for fi in range(N_SPLITS):
+            lfo_cells[(si, fi)] = signing_offsets(
+                resid, cat, pool=fold_of != fi, k=k, detail=True)
+    lfo = {fi: lfo_cells[(0, fi)] for fi in range(N_SPLITS)}
 
     lo, hi = df["floor_pct"].values, df["max_eligible_pct"].values
     is_ext, ext_cap = df["is_extension"].values, df["ext_cap_pct"].values
@@ -780,7 +873,7 @@ def oof_groupkfold_signing(df: pd.DataFrame, features: list[str], fitter,
     for rec in store:
         va = rec["va"]
         rec["pred"][new_arm] = stage3_signing(
-            rec["pred"][source_arm], cat[va], lfo[rec["fi"]],
+            rec["pred"][source_arm], cat[va], lfo_cells[(rec["si"], rec["fi"])],
             lo=lo[va], hi=hi[va],
             mech_cap_pct=mech_cap[va] if mech_cap is not None else None,
             is_extension=is_ext[va],
@@ -827,7 +920,7 @@ def rolling_forward_signing(df: pd.DataFrame, features: list[str],
     """Layer B with the signing offset, learned ONLY from seasons < T.
 
     The only honest way to learn a season-T offset without seeing season T: for
-    each origin, run a GroupKFold OOF INSIDE the training window (seasons < T)
+    each origin, run a repeated grouped OOF INSIDE the training window (seasons < T)
     with `inner_fitter`, take the shrunk per-type means of those residuals, and
     apply them to season T. Nothing from season T enters the offset in any
     capacity, so B1 is free even of the single-level-CV channel layer A pays.
@@ -934,7 +1027,8 @@ def layer_b_kf(df: pd.DataFrame, kf_ctx: KFContext,
                clf_features: list[str], seeds=DEFAULT_SEEDS,
                origins=FORWARD_ORIGINS, k: float = SIGNING_K,
                grabit_params: dict | None = None,
-               verbose: bool = True) -> tuple[dict, np.ndarray, dict]:
+               verbose: bool = True, features: list[str] | None = None,
+               augment=None) -> tuple[dict, np.ndarray, dict]:
     """Layer B with KF: rolling forward + signing offsets per origin.
 
     For each origin T:
@@ -946,12 +1040,15 @@ def layer_b_kf(df: pd.DataFrame, kf_ctx: KFContext,
       5. For signing offsets: inner OOF on augmented training data with a
          standard champion fitter
 
+    `features` defaults to FEATURE_COLS; `augment` is applied after
+    kf_market_value is attached (see `make_kf_stage_arms_fitter`).
+
     Returns:
         (fwd_arms, signing_fwd, signing_detail) matching the shape
         run_suite_arms_kf expects.
     """
     gp = grabit_params or {}
-    features = list(FEATURE_COLS)
+    features = list(features or FEATURE_COLS)
     season = df["season"].values
     cat = df["signing_cat"].values
     lo, hi = df["floor_pct"].values, df["max_eligible_pct"].values
@@ -985,6 +1082,8 @@ def layer_b_kf(df: pd.DataFrame, kf_ctx: KFContext,
             np.isfinite(kf_all[tr]), kf_all[tr], fill)
         test_aug["kf_market_value"] = np.where(
             np.isfinite(kf_all[te]), kf_all[te], fill)
+        if augment is not None:
+            train_aug, test_aug = augment(train_aug), augment(test_aug)
 
         # Stage-2/3 arms: standard multi-arm fitter on augmented data
         fitter = make_stage_arms_fitter(clf_features, grabit_params=gp)
@@ -1003,7 +1102,9 @@ def layer_b_kf(df: pd.DataFrame, kf_ctx: KFContext,
         if verbose:
             print(f"    B1 inner OOF for signing offsets over {n_tr} rows...",
                   flush=True)
-        inner_fitter = make_champion_fitter(clf_features)
+        # Same Stage-1 settings as the scored arm, or the offsets come
+        # from a different model (it did until v6.1.0).
+        inner_fitter = make_champion_fitter(clf_features, grabit_params=gp)
         inner_oof, _, _ = oof_groupkfold(train_aug, features,
                                           inner_fitter, seeds)
         offs = signing_offsets(train_aug[TARGET].values - inner_oof,
@@ -1042,15 +1143,24 @@ def bootstrap_r2_ci(y: np.ndarray, pred: np.ndarray, n: int = 4000,
 
 
 def paired_delta(fold_r2_a: np.ndarray, fold_r2_b: np.ndarray) -> dict:
-    """Paired fold-level comparison of two variants scored on identical folds.
+    """Paired comparison of two variants scored on identical (fold, seed) cells.
 
-    Fold-to-fold variance (sd ~0.031) dwarfs seed variance (sd ~0.0008), so an
-    unpaired comparison of two reported means throws away nearly all the power.
-    Pairing cancels the fold effect; the fold is the unit of replication.
+    Pairing cancels the fold effect. Each seed uses its own fold partition, so
+    a row appears in several cells and the cells are not independent. The t
+    statistic therefore uses the Nadeau-Bengio correction for repeated k-fold
+    CV: var(d) * (1/J + n_test/n_train) over J cells, with
+    n_test/n_train = 1/(k - 1).
+
+    Args:
+        fold_r2_a: (folds, seeds) metric matrix of the reference.
+        fold_r2_b: the same matrix for the candidate.
     """
-    per_fold = fold_r2_b.mean(axis=1) - fold_r2_a.mean(axis=1)
-    mean = float(per_fold.mean())
-    se = float(per_fold.std(ddof=1) / np.sqrt(len(per_fold)))
+    d = np.asarray(fold_r2_b, float) - np.asarray(fold_r2_a, float)
+    cells = d[~np.isnan(d)]
+    k = d.shape[0]
+    mean = float(cells.mean())
+    se = float(np.sqrt((1.0 / cells.size + 1.0 / (k - 1)) * cells.var(ddof=1)))
+    per_fold = np.nanmean(d, axis=1)
     return {"delta": mean, "se": se, "t": mean / se if se > 0 else float("nan"),
             "per_fold": [round(v, 5) for v in per_fold]}
 
@@ -1507,7 +1617,7 @@ def run_suite_arms(df: pd.DataFrame, features: list[str], fitter,
 def run_suite_arms_kf(df: pd.DataFrame, features: list[str], kf_fitter,
                       kf_ctx: KFContext, clf_features: list[str],
                       seeds=DEFAULT_SEEDS, ladder=None,
-                      grabit_params: dict | None = None,
+                      grabit_params: dict | None = None, augment=None,
                       ) -> tuple[dict[str, SuiteResult], dict]:
     """Score the KF champion through all four layers with nested CV.
 
@@ -1530,7 +1640,8 @@ def run_suite_arms_kf(df: pd.DataFrame, features: list[str], kf_fitter,
     # Layer B: KF + signing per origin (pre-computed KF, inner OOF for offsets)
     print("\n  Layer B -- KF with signing offsets (pre-computed per origin)...")
     fwd_arms, _, b_detail = layer_b_kf(
-        df, kf_ctx, clf_features, seeds, grabit_params=grabit_params)
+        df, kf_ctx, clf_features, seeds, grabit_params=grabit_params,
+        features=features, augment=augment)
 
     if ladder is None:
         ladder = baseline_ladder(df, features, seeds)
@@ -1556,7 +1667,7 @@ def print_report(df: pd.DataFrame, res: SuiteResult):
     line = "=" * 74
     print(f"\n{line}\n  {res.name}\n{line}")
 
-    print("\n  A — selection (pooled GroupKFold CV)")
+    print("\n  A — selection (repeated grouped CV, one partition per seed)")
     print(f"    A1  CV R2            {m['A1_cv_r2']:.4f}   "
           f"MAE ${m['A1_cv_mae_m']:.2f}M   bias ${m['A1_cv_bias_m']:+.2f}M   n={m['A1_n']}")
     print(f"    A2  CV R2 2024-26    {m['A2_cv_r2_2024_26']:.4f}   "

@@ -42,6 +42,20 @@ For a feature candidate, report these gates:
 3. Forecasting: rolling-origin 2024-2026 must move with the pooled gain.
 4. Segments: no fixed segment may increase absolute bias by more than $0.3M.
 
+A targeted candidate acts by construction on fewer than 20% of rows. Declare
+its affected rows in the pre-registration. Gate 1 then becomes:
+
+- On the affected selection rows: take the paired squared-error improvement
+  of the seed-averaged OOF, summed per player. Require t > 2 across players.
+- On all selection rows: require paired `Delta Sel > 0`.
+
+Gates 2-4 and the C1 calibration gate are unchanged. The confirmation split
+never decides.
+
+Do not report the confirmation split. The exception is a divergence: its
+R-squared change differs from the selection change by more than 0.005. The
+2026-07 audit reached 0.0087, and v6.0.3 reached 0.045.
+
 Test the exact missing-value handling and transformations proposed for
 production.
 

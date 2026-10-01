@@ -146,8 +146,60 @@ def load_prehistory_anchors() -> dict[str, dict[int, tuple[float, bool]]]:
     return events
 
 
+REPRICE_FLOOR = ("rest-of-season",)
+REPRICE_ZERO = ("10-day", "two-way")
+
+
+def load_reprice_events() -> dict[str, dict[int, tuple]]:
+    """In-season signings: the market's later observed prices (KF anchor, v6.0.4).
+
+    - A rest-of-season contract is the prorated minimum, so it anchors at the
+      season floor.
+    - A two-way contract counts 0 against the cap and anchors at 0 (weak).
+    - A 10-day contract anchors at 0 (weak). This is the user's declared
+      choice; its observed cap price is the prorated minimum.
+    - A standard non-extension contract signed after opening night and before
+      June 20 of the following year anchors at its own AAV over the cap. Later
+      June signings start the next season, and anchoring on them would read
+      a row's own contract.
+
+    Returns player -> {season: (signing_date, kind, cap_pct or None)}, with
+    kind in {"floor", "zero", "price"}, keeping each season's latest event.
+    """
+    from config import CAP_BY_SEASON
+    from src.features.waiver_history import _season_opener
+    sd = pd.read_csv(PROCESSED_DIR / "contract_signing_dates.csv",
+                     parse_dates=["signing_date"])
+    sd = sd.dropna(subset=["signing_date", "signing_season"])
+    out: dict[str, dict[int, tuple]] = {}
+    for r in sd.itertuples():
+        s = int(r.signing_season)
+        cls = str(r.contract_class).lower()
+        value = None
+        if cls in REPRICE_ZERO:
+            kind = "zero"
+        elif cls in REPRICE_FLOOR:
+            kind = "floor"
+        elif (cls == "standard" and not bool(r.is_extension)
+              and _season_opener(s) < r.signing_date
+              < pd.Timestamp(f"{s + 1}-06-20")):
+            years = r.contract_years if pd.notna(r.contract_years) else 1
+            cap = CAP_BY_SEASON.get(s)
+            if pd.notna(r.total_value) and cap and years > 0:
+                kind, value = "price", float(r.total_value) / years / cap
+            else:
+                kind = "floor"
+        else:
+            continue
+        prev = out.setdefault(r.player_name_norm, {}).get(s)
+        if prev is None or r.signing_date > prev[0]:
+            out[r.player_name_norm][s] = (r.signing_date, kind, value)
+    return out
+
+
 def build_anchor_map(df_eval, df_full, extra_events=None,
-                     expand_anchors=True, market_events=None):
+                     expand_anchors=True, market_events=None,
+                     reprice_events=None):
     """Three-tier anchor map.
 
     Args:
@@ -161,6 +213,9 @@ def build_anchor_map(df_eval, df_full, extra_events=None,
         extra_events: optional pre-2019 Year-1 cap_pct anchors (from
             load_prehistory_anchors). Merged BEFORE eval-frame events so
             an eval-frame anchor at the same (player, season) wins.
+        reprice_events: optional in-season re-pricing events
+            (`load_reprice_events`). Each overrides that season's anchor at
+            its observed price (floor, own AAV, or 0 with the tier-2 prior).
         expand_anchors: two tier-2 expansions (v8.14x default):
             (a) First-contract mirror: undrafted/2nd-round first contracts
                 (exp <= 1, not rookie-scale) provide tier-2 anchors.
@@ -204,6 +259,19 @@ def build_anchor_map(df_eval, df_full, extra_events=None,
             if y1 == 1 and c < PRORATED_FLOOR:
                 events.setdefault(p, {}).setdefault(
                     s, (season_floor.get(s, floor_min), True))
+
+    if reprice_events:
+        for p, p_events in reprice_events.items():
+            for s, (_, kind, value) in p_events.items():
+                if kind == "zero":
+                    val = 0.0
+                elif kind == "price":
+                    # a mid-season total is often prorated; the annual price
+                    # of a standard contract cannot sit below the minimum
+                    val = max(value, season_floor.get(int(s), floor_min))
+                else:
+                    val = season_floor.get(int(s), floor_min)
+                events.setdefault(p, {})[int(s)] = (val, True, kind == "zero")
 
     rookie_seasons: dict[str, list[int]] = {}
     for (p, s) in rs:
@@ -262,6 +330,8 @@ def build_anchor_map(df_eval, df_full, extra_events=None,
             t0 = max(market)
             tier[i] = 1
             anchor_val[i] = events[p][t0][0]
+            if len(events[p][t0]) > 2 and events[p][t0][2]:
+                tier[i] = 2
         else:
             rook = [s for s in rookie_seasons.get(p, ()) if s < T]
             if rook:
@@ -302,7 +372,8 @@ def build_anchor_map(df_eval, df_full, extra_events=None,
 
 def compute_kf_column(df_eval, df_full, predict_fn, r_var,
                       players=None, extra_events=None,
-                      expand_anchors=True, market_events=None):
+                      expand_anchors=True, market_events=None,
+                      reprice=True):
     """Compute kf_market_value for every row in df_eval.
 
     Args:
@@ -320,6 +391,8 @@ def compute_kf_column(df_eval, df_full, predict_fn, r_var,
         market_events: filtered Year-1 frame supplying historical market
                     anchors. Defaults to df_eval, preserving training-time
                     and nested-CV behaviour.
+        reprice:    anchor at in-season signings (`load_reprice_events`),
+                    on since v6.0.4.
 
     Returns:
         kf_values: array of kf_market_value, one per df_eval row.
@@ -327,7 +400,8 @@ def compute_kf_column(df_eval, df_full, predict_fn, r_var,
     """
     inter_idx, needed_idx, tier, anchor_val = build_anchor_map(
         df_eval, df_full, extra_events=extra_events,
-        expand_anchors=expand_anchors, market_events=market_events)
+        expand_anchors=expand_anchors, market_events=market_events,
+        reprice_events=load_reprice_events() if reprice else None)
 
     if players is None:
         player_frame = df_eval if market_events is None else market_events
@@ -362,68 +436,24 @@ def compute_kf_column(df_eval, df_full, predict_fn, r_var,
     return kf_values
 
 
-def attach_kf_inference(df, df_full, base_model, base_features, base_medians,
-                        clf, clf_features, market_events=None,
-                        noise_frame=None):
-    """Compute kf_market_value at inference time using a fitted base model.
+def measurement_value(latent: np.ndarray, frame: pd.DataFrame) -> np.ndarray:
+    """KF measurement from the measurement model's raw output (v6.3.1).
 
-    The base model uses MEASUREMENT_FEATURES (prev_cap_pct, not kf). Its
-    predictions on intermediate seasons become the KF measurements.
-
-    Args:
-        df:             the frame to attach kf_market_value to (must have
-                        floor_pct and the eval-frame columns for anchor building)
-        df_full:        full dataset for intermediate seasons
-        base_model:     fitted XGBRegressor (21 features with prev_cap_pct)
-        base_features:  feature list the base_model was trained on
-        base_medians:   median fill values from the base model's training set
-        clf:            fitted route classifier (for compose)
-        clf_features:   classifier feature list
-        market_events:  filtered historical Year-1 rows used as market anchors
-        noise_frame:    training/evaluation rows used to estimate measurement
-                        noise. Defaults to market_events, then df.
-
-    Returns:
-        df with kf_market_value column added.
+    The output is clipped into [floor_pct, max_eligible_pct], then the
+    extension cap applies where the frame records one. This is the form
+    `evaluate_suite.MEASUREMENT_MODE = "clip"` scores, so the suite and the
+    inference paths (`predict.py`, `export_web.py`) feed the KF the same
+    measurement. A frame without `floor_pct` uses 0; a frame without the
+    extension columns has no extension rows.
     """
-    from src.model.route_mixture import route_proba, MAX_IDX
     from src.model.stages import compose
-    from src.model.train import _compute_max_eligible
-
-    df_full_pred = df_full.copy()
-    df_full_pred = _compute_max_eligible(df_full_pred)
-    if "floor_pct" not in df_full_pred.columns:
-        floor_source = (market_events if market_events is not None else df)
-        season_floor = floor_source.groupby("season")["floor_pct"].median()
-        df_full_pred["floor_pct"] = (df_full_pred["season"].map(season_floor)
-                                     .fillna(float(floor_source["floor_pct"].min())))
-    df_full_pred["is_extension"] = False
-    df_full_pred["ext_cap_pct"] = np.nan
-    df_full_pred[base_features] = (df_full_pred[base_features]
-                                   .fillna(base_medians).fillna(0))
-    from src.model.route_mixture import attach_clf_features
-    df_full_pred, _ = attach_clf_features(df_full_pred)
-
-    def predict_fn(subset):
-        X = subset[base_features].fillna(base_medians).fillna(0)
-        latent = base_model.predict(X)
-        lo = (subset["floor_pct"].values if "floor_pct" in subset.columns
-              else np.zeros(len(subset)))
-        hi = subset["max_eligible_pct"].values
-        p_max = route_proba(clf, subset, clf_features)[:, MAX_IDX]
-        return compose(latent, lo=lo, hi=hi, p_max=p_max,
-                       is_extension=np.zeros(len(subset), bool),
-                       ext_cap_pct=np.full(len(subset), np.nan))
-
-    calibration = (noise_frame if noise_frame is not None
-                   else market_events if market_events is not None else df)
-    y_train = calibration[TARGET].values
-    in_sample = base_model.predict(
-        calibration[base_features].fillna(base_medians).fillna(0))
-    r_var = float(np.var(y_train - in_sample, ddof=1))
-
-    kf = compute_kf_column(
-        df, df_full_pred, predict_fn, r_var, market_events=market_events)
-    df = df.copy()
-    df["kf_market_value"] = kf
-    return df
+    n = len(frame)
+    lo = (frame["floor_pct"].values if "floor_pct" in frame.columns
+          else np.zeros(n))
+    hi = frame["max_eligible_pct"].values
+    is_ext = (frame["is_extension"].fillna(False).astype(bool).values
+              if "is_extension" in frame.columns else np.zeros(n, bool))
+    ext_cap = (frame["ext_cap_pct"].values if "ext_cap_pct" in frame.columns
+               else np.full(n, np.nan))
+    return compose(np.asarray(latent, dtype=float), lo=lo, hi=hi,
+                   is_extension=is_ext, ext_cap_pct=ext_cap)

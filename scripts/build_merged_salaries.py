@@ -70,6 +70,25 @@ THE MERGE POLICY
   separates the two populations, so the majority rule is applied and the
   minority is reported by `audit`.
 
+  signing_contract  A season whose cell holds more than one amount (a trade,
+               a waiver, or a buyout and re-signing) is priced by the contract
+               that STARTS that season, not by the season's cash. A training
+               row is one signing, so summing the season across teams prices a
+               waived player's old deal as his new one: Dion Waiters 2019 read
+               $13.44M for a rest-of-season minimum. The contract comes from
+               the Spotrac contract blocks (`spotrac_signing_types.csv`,
+               `contract_start == season`). When several start, the largest
+               AAV wins, because a rest-of-season minimum is never the
+               offseason deal. A one-year contract is priced at its total. A
+               longer one takes the combination of the cell's figures closest
+               to its AAV, and is left to the branches below when none is
+               within `SIGNING_AAV_TOL`. NBA Cup prize money is excluded from
+               the cell first. A season with any block above its CBA exception
+               limit is left to the branches below as misread. A deal labelled
+               Minimum takes the minimum cap-charge rule. A rest-of-season deal keeps its prorated
+               amount so the prorated filter drops the row, as it did under
+               BBRef. See retired ISSUES #50 and VERSION_HISTORY v6.0.0.
+
   Anything the above cannot resolve falls back to the BBRef value, branch
   `fallback_bbref`. A missing Spotrac page degrades to stale BBRef, never to a
   missing salary.
@@ -137,6 +156,11 @@ MIN_MATCH_TOL_USD = 5_000
 # trade, and the label cannot tell them apart, so the transaction log decides.
 # Worth +138 rows against -10 on the status_active branch (70% -> 79%).
 PAGE_TRADED: set[tuple[str, int]] = set()
+
+# How far a multi-year contract's year-1 amount may sit from its AAV. Raises
+# are at most 8% a year under the CBA, so a five-year deal's first year sits
+# at most about 15% below its AAV; the wider band absorbs likely bonuses.
+SIGNING_AAV_TOL = 0.35
 
 
 def _normalize_name(name: str) -> str:
@@ -394,14 +418,196 @@ def _status_base_candidate(
     return None, "retained_only", None
 
 
-def resolve_row(row, waived_keys: set, min_labels: set
-                ) -> tuple[float | None, str]:
+def _signing_starts() -> dict:
+    """(player, season) -> contracts whose first season is that season.
+
+    Each contract is a dict with `signing_type`, `contract_years`,
+    `total_value` and `aav`, read from the Spotrac contract blocks.
+    """
+    if not SIGNING_TYPES.exists():
+        return {}
+    st = pd.read_csv(SIGNING_TYPES)
+    if "contract_start" not in st.columns:
+        return {}
+    st = st[st["season"] == st["contract_start"]]
+    starts: dict = {}
+    for r in st.itertuples():
+        starts.setdefault((r.player_name_norm, int(r.season)), []).append({
+            "signing_type": r.signing_type,
+            "contract_years": r.contract_years,
+            "total_value": r.total_value,
+            "aav": r.aav,
+        })
+    return starts
+
+
+# NBA Cup prize money per player, by season and finishing tier. The 2023
+# amounts are the league's announced $500K / $200K / $100K / $50K. Later
+# seasons scale with the cap; the dump shows 51,497 and 102,994 for 2024 and
+# 53,093, 106,187 and 530,933 for 2025, and the remaining tiers follow the
+# same ratio.
+CUP_PRIZES = {
+    2023: (500_000, 200_000, 100_000, 50_000),
+    2024: (514_971, 205_988, 102_994, 51_497),
+    2025: (530_933, 212_373, 106_187, 53_093),
+}
+
+
+def _is_cup_prize(amount: float, season: int) -> bool:
+    """Is this figure exactly one of the season's NBA Cup prize tiers?"""
+    return any(abs(amount - p) <= 2 for p in CUP_PRIZES.get(season, ()))
+
+
+def _salary_amounts(row, season: int) -> list[float]:
+    """The cell's dollar figures without NBA Cup prize money.
+
+    Cup money is never salary (see `_status_base_candidate`). The status label
+    identifies it when the label count matches the amount count. Single-team
+    cells often carry no labels, so a figure after the first that equals a
+    prize tier to the dollar is dropped too. The first figure is the contract's
+    own and is never dropped.
+    """
+    amounts = _all_amounts(row, season)
+    statuses = row.get("statuses")
+    labels = ([s.strip().lower() for s in str(statuses).split(";") if s.strip()]
+              if statuses is not None and not pd.isna(statuses) else [])
+    if labels and len(labels) == len(amounts):
+        amounts = [a for lab, a in zip(labels, amounts)
+                   if not lab.startswith("nba cup")]
+        return amounts
+    return amounts[:1] + [a for a in amounts[1:]
+                          if not _is_cup_prize(a, season)]
+
+
+def _has_multiple_amounts(row) -> bool:
+    """Does the season cell carry more than one contract's money?
+
+    NBA Cup prize money beside a single salary does not count: that row is
+    one contract, and the season-cash branches already price it.
+    """
+    n_teams = pd.to_numeric(row.get("n_teams"), errors="coerce")
+    if pd.notna(n_teams) and n_teams > 1:
+        return True
+    return len(_salary_amounts(row, int(row["season"]))) > 1
+
+
+# Spotrac signing labels that name a CBA exception, mapped to the
+# `mle_exception_amounts.csv` key that caps the exception's first-year salary.
+_EXCEPTION_KEYS = {
+    "Bi-Annual": "bae",
+    "Non-Taxpayer MLE": "non_taxpayer_mle",
+    "Taxpayer MLE": "taxpayer_mle",
+    "room-mid-level-exception": "room_mle",
+}
+_EXCEPTION_CAPS: dict | None = None
+
+
+def _exception_cap(signing_type, season: int) -> float | None:
+    """First-year salary cap of a CBA exception, or None when not one."""
+    global _EXCEPTION_CAPS
+    key = _EXCEPTION_KEYS.get(str(signing_type))
+    if key is None:
+        return None
+    if _EXCEPTION_CAPS is None:
+        from config import RAW_DIR
+        path = RAW_DIR / "raw_external" / "mle_exception_amounts.csv"
+        _EXCEPTION_CAPS = {}
+        if path.exists():
+            ex = pd.read_csv(path)
+            _EXCEPTION_CAPS = {(str(r.exception_type), int(r.season)):
+                               float(r.amount_usd) for r in ex.itertuples()}
+    return _EXCEPTION_CAPS.get((key, season))
+
+
+def _subset_sums(amounts: list[float]) -> list[float]:
+    """Every non-empty subset sum of a cell's figures (cells hold <= 6)."""
+    from itertools import combinations
+    return [sum(c) for n in range(1, len(amounts) + 1)
+            for c in combinations(amounts, n)]
+
+
+def _signing_year1_amount(row, season: int, contracts: list
+                          ) -> tuple[float, float, str] | None:
+    """Year-1 amount, length and signing type of the contract that starts
+    this season.
+
+    Returns None when no amount can be tied to the contract; the caller then
+    falls through to the season-cash branches.
+    """
+    usable = [c for c in contracts
+              if pd.notna(c.get("aav")) and float(c["aav"]) > 0]
+    if not usable:
+        return None
+    amounts = _salary_amounts(row, season)
+    sums = _subset_sums(amounts) if amounts else []
+
+    def one_year_total(c):
+        years = pd.to_numeric(c.get("contract_years"), errors="coerce")
+        total = pd.to_numeric(c.get("total_value"), errors="coerce")
+        if pd.notna(years) and int(years) == 1 and pd.notna(total):
+            return float(total)
+        return None
+
+    # An exception cannot pay more than its first-year limit. A block above it
+    # was misread, and a season with one misread block cannot be trusted to
+    # say which deal is the signing: Markieff Morris's 2019 Bi-Annual prints
+    # "1 yr / $6.56M" against a $3,623,000 limit, so the $6.56M is a two-year
+    # total and his offseason deal is not recoverable from the blocks.
+    for k in usable:
+        total = one_year_total(k)
+        limit = _exception_cap(k.get("signing_type"), season)
+        if (total is not None and limit is not None
+                and total > limit + MIN_MATCH_TOL_USD):
+            return None
+
+    # The largest AAV is the offseason deal: a rest-of-season minimum signed
+    # after a buyout never outranks it. Patrick Beverley's $13,000,000 year is
+    # paid in two teams' halves beside a $801,614 rest-of-season minimum.
+    c = max(usable, key=lambda c: float(c["aav"]))
+    years = pd.to_numeric(c.get("contract_years"), errors="coerce")
+    total = one_year_total(c)
+    if total is not None:
+        # A one-year minimum that the cell does not pay in full was cut short:
+        # a 10-day contract (Spotrac prints the annual minimum for it) or a
+        # deal waived partway. Pricing it at the full-season charge admits
+        # rows the prorated filter exists to drop: the 2026-09-28 rebuild
+        # added 64 such rows, Dalano Banton 2025 among them at $2,296,274
+        # against $311,219 paid. Those rows keep the season-cash reading.
+        if ("minimum" in str(c.get("signing_type")).lower()
+                and sum(amounts) < 0.95 * total):
+            return None
+        picked = total
+    else:
+        # A longer deal's year 1 is the combination of the cell's figures
+        # nearest its AAV. The whole-cell sum also carries any rest-of-season
+        # deal signed after a buyout: Shake Milton's 2023 NT-MLE year is
+        # $1,925,287 + $3,074,713 = $5,000,000, not the $5,552,938 cell total.
+        if not sums:
+            return None
+        aav = float(c["aav"])
+        picked = min(sums, key=lambda a: abs(a - aav))
+        if abs(picked - aav) > SIGNING_AAV_TOL * aav:
+            return None
+    # The same limit applies to a multi-year deal's year-1 amount.
+    cap = _exception_cap(c.get("signing_type"), season)
+    if cap is not None and picked > cap + MIN_MATCH_TOL_USD:
+        return None
+    return (float(picked), (float(years) if pd.notna(years) else np.nan),
+            str(c.get("signing_type")))
+
+
+def resolve_row(row, waived_keys: set, min_labels: set,
+                starts: dict | None = None) -> tuple[float | None, str]:
     """The merged salary for one player-season, and the branch that made it.
+
+    `starts` maps (player, season) to the contracts that begin that season
+    (`_signing_starts`). When it is omitted, the signing_contract branch is off.
 
     Returns (None, branch) when Spotrac cannot answer and the caller must fall
     back to BBRef.
     """
     season = int(row["season"])
+    key = (row["player_name_norm"], season)
 
     # Cap hit wins wherever it exists, in EVERY season — not just 2026+.
     #
@@ -428,7 +634,23 @@ def resolve_row(row, waived_keys: set, min_labels: set
     if cap_hit is not None and np.isfinite(cap_hit):
         return float(cap_hit), "spotrac_cap_hit"
 
-    key = (row["player_name_norm"], season)
+    # A multi-amount season is priced by the contract that starts in it. This
+    # runs before the dead-money and trade-sum readings below, because those
+    # answer "what was he paid this season", and a training row asks "what did
+    # this signing cost".
+    signing = (starts or {}).get(key)
+    if signing and season < 2026 and _has_multiple_amounts(row):
+        picked = _signing_year1_amount(row, season, signing)
+        if picked is not None:
+            amount, years, signing_type = picked
+            # A deal Spotrac labels Minimum is charged by the minimum rule even
+            # when its amount misses the scale by more than the match band
+            # (Isaiah Thomas 2019: $2,320,044 on a one-year minimum).
+            if ("minimum" in signing_type.lower()
+                    or _is_min_amount(amount, season)):
+                return _min_cap_charge(amount, season, years), "vet_min"
+            return amount, "signing_contract"
+
     status_value, status_branch, status_live_value = _status_base_candidate(row)
     if status_branch == "retained_only":
         return np.nan, status_branch
@@ -573,10 +795,13 @@ def build() -> pd.DataFrame:
                                      "event_type"]))
     waived_keys = _waived_in_season(tx)
     min_labels = _minimum_labelled()
+    starts = _signing_starts()
 
-    salaries, branches = [], []
+    salaries, branches, season_cash = [], [], []
     for row in df.to_dict("records"):
-        val, branch = resolve_row(row, waived_keys, min_labels)
+        val, branch = resolve_row(row, waived_keys, min_labels, starts)
+        # The pre-signing_contract reading, kept for the audit only.
+        season_cash.append(resolve_row(row, waived_keys, min_labels)[0])
         key = (str(row["player_name_norm"]), int(row["season"]))
         if key in salary_override_map:
             # A sourced correction is authoritative over every computed
@@ -599,6 +824,10 @@ def build() -> pd.DataFrame:
         branches.append((branch, source))
 
     df["salary_merged"] = salaries
+    df["salary_season_cash"] = season_cash
+    df["has_signing_start"] = [
+        (str(k), int(s)) in starts
+        for k, s in zip(df["player_name_norm"], df["season"])]
     df["branch"] = [b for b, _ in branches]
     df["source"] = [s for _, s in branches]
     df["cap"] = df["season"].map(CAP_BY_SEASON)
@@ -636,8 +865,9 @@ def audit(df: pd.DataFrame) -> None:
     frame = _eval_frame()[["player_name_norm", "season", "salary"]]
     frame = frame.rename(columns={"salary": "bbref"})
     m = frame.merge(df[["player_name_norm", "season", "salary_merged",
-                        "branch", "source", "n_teams", "extra_amounts",
-                        "cap", "cap_hit"]],
+                        "salary_season_cash", "has_signing_start",
+                        "branch", "source", "n_teams",
+                        "extra_amounts", "cap", "cap_hit"]],
                     on=["player_name_norm", "season"], how="left")
     print(f"\n{'='*72}\nEVALUATION FRAME: {len(m)} rows\n{'='*72}")
 
@@ -715,6 +945,26 @@ def audit(df: pd.DataFrame) -> None:
               f"{int((cap_exact & ~car_exact).sum())}")
         print(f"  career right where cap hit wrong : "
               f"{int((car_exact & ~cap_exact).sum())}")
+
+    # Every frame row the signing_contract branch moves, beside the season-cash
+    # reading it replaced. A human must check these against the contract block.
+    moved = m[(m["salary_merged"] - m["salary_season_cash"]).abs() > 1.0]
+    print(f"\nsigning_contract branch moves {len(moved)} frame rows "
+          f"(season cash -> signing year 1):")
+    print(f"{'player':26s} {'szn':>5s} {'bbref':>14s} {'season cash':>14s} "
+          f"{'signing':>14s} {'branch':>16s}")
+    for r in moved.sort_values(["season", "player_name_norm"]).itertuples():
+        cash = r.salary_season_cash
+        cash_s = f"{cash:14,.0f}" if pd.notna(cash) else f"{'bbref':>14s}"
+        print(f"{r.player_name_norm:26s} {r.season:5d} {r.bbref:14,.0f} "
+              f"{cash_s} {r.salary_merged:14,.0f} {r.branch:>16s}")
+    multi = m[(m["n_teams"] > 1) & (m["season"] < 2026)]
+    no_start = multi[~multi["has_signing_start"].fillna(False).astype(bool)]
+    print(f"\nmulti-team frame rows with no Spotrac contract starting that "
+          f"season: {len(no_start)} of {len(multi)} (reported, not acted on; "
+          "such a row may not be a signing)")
+    print(no_start[["player_name_norm", "season", "branch"]]
+          .to_string(index=False, max_rows=40))
 
     unres = m[m["branch"].isin(["fallback_bbref", "waived"])]
     print(f"\nunreconciled (no Spotrac answer, BBRef kept): {len(unres)} "

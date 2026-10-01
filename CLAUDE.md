@@ -96,12 +96,13 @@ order. Run `git diff --check`.
 
 `src/model/train.py` trains and evaluates the three-stage model:
 
-1. Stage 1 estimates latent value with a two-sided Grabit loss.
-2. Stage 2 applies the probability-based max push and CBA bounds.
+1. Stage 1 estimates latent value with a two-sided Grabit loss. The waiver
+   term and the P(max) term enter as `base_margin`.
+2. Stage 2 applies the CBA bounds.
 3. Stage 3 applies known signing-route adjustments and legal caps.
 
 ```text
-latent -> push -> clip[lo, hi] -> signing offset -> mechanism cap
+latent -> clip[lo, hi] -> signing offset -> mechanism cap
        -> extension cap -> clip[lo, hi]
 ```
 
@@ -114,7 +115,7 @@ Training uses Year-1 Contracts. Scoring can include later contract years. Keep
 (team outcome on any contract year).
 
 The 21 production features are defined in `METHODOLOGY.md`.
-`kf_market_value` replaced `prev_cap_pct` in v8.13x. Inference is two-pass
+`kf_market_value` replaced `prev_cap_pct` in v5.2.0. Inference is two-pass
 so the Kalman-filtered trajectory exists before the final fit. Review the
 rejected-feature table before proposing another feature.
 
@@ -142,15 +143,16 @@ rejected-feature table before proposing another feature.
 
 | Metric/layer | Purpose |
 |---|---|
-| A1 | pooled GroupKFold selection R-squared |
+| A1 | pooled repeated grouped CV selection R-squared (fixed player-to-fold hash, one partition per seed) |
 | A2 | A1 scored on 2024-2026 rows |
 | B1 | rolling-origin 2024-2026 forecasting |
 | C | calibration and fixed-segment bias |
 | D | fixed rows, baseline ladder, and confirmation split |
 
 - Make accept/reject decisions from paired fold deltas on selection rows.
-- When a filter changes rows, compare common rows with a fixed player-to-fold
-  map. R-squared values from different row sets are not comparable.
+- When a filter changes rows, compare common rows. Folds come from a fixed
+  player-to-fold hash, so membership changes do not move other players, but
+  R-squared values from different row sets are still not comparable.
 - Bin calibration by prediction. Keep segment membership fixed across models.
 - Evaluate targeted changes on the rows they affect.
 - Keep the 15% confirmation split out of selection, feature derivation, and fill
@@ -173,8 +175,8 @@ python scripts/refresh_spotrac.py --year N
 python scripts/eval_stage3_signing.py
 ```
 
-After the final command, copy `deployed_offsets_k20` into
-`src/model/stages.py`; see ISSUES #48.
+The final command writes `data/raw/raw_external/signing_offsets.json`, which
+`src/model/stages.py` loads. Run it after every rebuild; see ISSUES #48.
 
 `scripts/rebuild_training_data.py` runs:
 
@@ -188,8 +190,10 @@ scripts/phase3.py::build_contract_features
 - Wait at least 3 seconds between live requests.
 - Extend `data/processed/contract_structure_v2.csv` with
   `scripts/extend_contract_structure.py`. Preserve its historical rows.
-- The Spotrac salary migration is active. Read `docs/QUEUE.md` and ISSUES #50
-  and #51 before changing salary-source logic.
+- Salaries come from Spotrac cap hits through
+  `scripts/build_merged_salaries.py`, with BBRef as the fallback. Read
+  VERSION_HISTORY v6.0.0 and ISSUES #28 and #36 before changing
+  salary-source logic.
 
 ## Code
 
@@ -213,5 +217,10 @@ Record an unfixed defect in `ISSUES.md` with its problem, reproduction,
 proposed fix, and completion check. Delete fixed entries and record landed
 changes in `VERSION_HISTORY.md`.
 
-A change that moves published numbers takes the next `vN.Mx` version and a
-git tag containing its headline metrics.
+A change that moves published numbers takes the next `PROUD.DEFAULT.SHAME`
+version and a git tag containing its headline metrics: PROUD for a structural
+advance, DEFAULT for a change that passes the paired gate, SHAME for a
+correction adopted on correctness. A SHAME version may also mark a landed
+correction or a recorded rejection that moves no published number; its tag
+repeats the current headline metrics. `VERSION_HISTORY.md` maps the legacy
+`vN.Mx` names used up to v5.3.3.

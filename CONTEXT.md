@@ -152,7 +152,7 @@ transaction took and the constraints it faced.
 _Avoid_: mechanism (when speaking of the path rather than the label)
 
 **Told-Route Convention**:
-From v8.0x onward, headline numbers are computed with the model told the signing
+From v4.0.0 onward, headline numbers are computed with the model told the signing
 route (Stage 3 active), and the ex-ante number (Stage 3 off) is reported beside
 it wherever the time series must stay readable. The convention's test is per-route:
 being told the route must still leave a non-trivial computation. Extensions pass
@@ -174,7 +174,7 @@ recent weighted heaviest. Durability, not health.
 A Kalman-filtered estimate of a player's market price (`kf_market_value` in
 code), anchored to his most recent negotiated Year-1 contract and updated
 through model-predicted intermediate seasons. Replaces `prev_cap_pct` in the
-final feature list (v8.13x); the base model still uses `prev_cap_pct` internally
+final feature list (v5.2.0); the base model still uses `prev_cap_pct` internally
 as a measurement input to the filter.
 _Avoid_: prev_cap_pct (reserved for the raw prior-contract feature the base
 model uses), contract trajectory, filtered salary

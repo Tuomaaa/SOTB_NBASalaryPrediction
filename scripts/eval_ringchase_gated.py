@@ -58,7 +58,8 @@ parameter. On the latent, before push and clip, saturation falls out of the
 existing clip instead of corrupting the estimate.
 
 Usage:
-    python scripts/eval_ringchase_gated.py --seeds 3
+    python scripts/eval_ringchase_gated.py --seeds 3 [--gate earnings|retire|continuous]
+    python scripts/eval_ringchase_gated.py --seeds 10 --gate continuous --oracle last|last_rich
 """
 
 import argparse
@@ -74,13 +75,13 @@ import pandas as pd
 from scipy import stats
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import r2_score
-from sklearn.model_selection import GroupKFold
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
 
 from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR
 from src.model.evaluate_suite import (
     DEFAULT_SEEDS, N_SPLITS, TARGET, _compute_kf_nested, abs_bias_growth,
+    fold_splits, paired_delta,
     load_evaluation_frame, prepare_kf_context,
 )
 from src.model import route_mixture as rm
@@ -91,7 +92,9 @@ from src.model.train import FEATURE_COLS, _XGB_BASE
 AGE_GRID = (33, 35, 37)          # selected inside the pool, never on the fold
 CELL_EARN_Q = 0.75
 K_SHRINK = SIGNING_K             # 20, imported, never swept
-DELTA_GRID = np.round(np.arange(0.0, 1.55, 0.05), 3)
+# Widened from 1.5: the retire gate selected 1.5, the old edge, in 12 of 15
+# pools, so the optimum may lie beyond it (see ISSUES #25 on edge optima).
+DELTA_GRID = np.round(np.arange(0.0, 3.05, 0.05), 3)
 LABEL_OVER_M = 2.0
 CIRC = ["career_earnings_thru_prev_cap_pct", "age", "rings_thru_prev"]
 C2_BAR = 0.30
@@ -99,10 +102,68 @@ DSEL_T_BAR = 2.0
 OUT = OUTPUTS_DIR / "models"
 
 
-def gate(sub, age_min, p75):
-    return ((sub["age"].values.astype(float) >= age_min)
-            & (np.nan_to_num(sub["rings_thru_prev"].values, nan=-1) == 0)
-            & (sub["career_earnings_thru_prev_cap_pct"].values >= p75))
+# "ringless" is the original cell: no ring yet. "earnings" drops the ring
+# condition, because the handoff's own evidence says the ring leg is weak or
+# wrong-signed: Marc Gasol took a minimum the summer after his ring, and LeBron
+# James holds four. Under "ringless" he can never enter the gate.
+GATE_MODE = "ringless"
+# Diagnostic only, never adoptable: replace the hazard with the realized
+# outcome to separate an estimator failure from a concept failure.
+ORACLE = "none"
+ORACLE_HORIZON = 2          # matches p_last_2y
+
+
+def realized_last_label(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Realized "last contract within ORACLE_HORIZON seasons" per frame row.
+
+    Frame season s is the contract signed after Basketball Reference season s,
+    so its seasons are s+1, s+2, ... The label is 1 when the player's last
+    Basketball Reference season is <= s + ORACLE_HORIZON. It is known only
+    when season s + ORACLE_HORIZON + 1 is already observed. Absence from the
+    latest season alone is not retirement: Kyrie Irving, Fred VanVleet and
+    Damian Lillard missed 2025-26 injured and read as retired.
+    Returns (label, known). Rows under 30 read 0, like the hazard.
+    """
+    from scripts.build_retirement_hazard import MIN_AGE, _norm
+    seasons = pd.concat([
+        pd.read_csv(PROCESSED_DIR / "advanced_stats_history.csv",
+                    usecols=["player", "season"]),
+        pd.read_csv(PROCESSED_DIR / "advanced_stats.csv",
+                    usecols=["player", "season"]),
+    ], ignore_index=True)
+    seasons["key"] = seasons["player"].map(_norm)
+    last = seasons.groupby("key")["season"].max()
+    latest = int(seasons["season"].max())
+    s = df["season"].astype(int).values
+    ls = df["player_name_norm"].map(last).values.astype(float)
+    horizon_end = s + ORACLE_HORIZON
+    label = (ls <= horizon_end).astype(float)
+    known = horizon_end + 1 <= latest
+    young = df["age"].values.astype(float) < MIN_AGE
+    label[young] = 0.0
+    known = known | young
+    return label, known
+
+
+# "retire" gates on the probability that this is the player's last contract
+# (scripts/build_retirement_hazard.py, frozen on careers before 2019) instead
+# of absolute age. Grid entries are (window in seasons, threshold).
+RETIRE_GRID = ((2, 0.15), (2, 0.25), (2, 0.35), (3, 0.25), (3, 0.35), (3, 0.45))
+# continuous: weight = (p - p0) / (1 - p0) above p0, zero below; p0 in pool.
+P0_GRID = (0.2, 0.35, 0.5)
+
+
+def gate(sub, g, p75):
+    """Rows the pull may touch: near the end (by age or by P(last contract))
+    and well paid; under "ringless" also without a ring."""
+    rich = sub["career_earnings_thru_prev_cap_pct"].values >= p75
+    if GATE_MODE == "retire":
+        k, thr = g
+        return rich & (np.nan_to_num(sub[f"p_last_{k}y"].values, nan=0.0) >= thr)
+    member = rich & (sub["age"].values.astype(float) >= g)
+    if GATE_MODE == "ringless":
+        member &= np.nan_to_num(sub["rings_thru_prev"].values, nan=-1) == 0
+    return member
 
 
 def best_delta(latent, p, y, member, *, lo, hi, p_max, is_ext, ext_cap):
@@ -127,10 +188,26 @@ def best_delta(latent, p, y, member, *, lo, hi, p_max, is_ext, ext_cap):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, default=3)
+    ap.add_argument("--gate",
+                    choices=["ringless", "earnings", "retire", "continuous"],
+                    default="ringless")
+    ap.add_argument("--oracle", choices=["none", "last", "last_rich"],
+                    default="none",
+                    help="diagnostic: continuous arm on the realized label")
     args = ap.parse_args()
+    global GATE_MODE, AGE_GRID, CIRC, ORACLE
+    GATE_MODE = args.gate
+    ORACLE = args.oracle
+    if ORACLE != "none" and GATE_MODE != "continuous":
+        ap.error("--oracle runs on --gate continuous")
+    if GATE_MODE in ("retire", "continuous"):
+        AGE_GRID = RETIRE_GRID
+        CIRC = ["career_earnings_thru_prev_cap_pct", "p_last_2y",
+                "rings_thru_prev"]
     seeds = tuple(DEFAULT_SEEDS[:args.seeds])
 
-    df, _ = load_evaluation_frame(verbose=False, allow_missing_computed=True)
+    df, base_features = load_evaluation_frame(verbose=False,
+                                              allow_missing_computed=True)
     df = attach_extension_cap(df, verbose=False)
     df, clf_features = rm.attach_clf_features(df)
     ce = pd.read_csv(PROCESSED_DIR / "career_earnings.csv")
@@ -146,21 +223,50 @@ def main():
     df["career_earnings_thru_prev_cap_pct"] = (
         df["career_earnings_thru_prev_cap_pct"].fillna(0.0))
     df["rings_thru_prev"] = df["rings_thru_prev"].fillna(0)
+    rh = pd.read_csv(PROCESSED_DIR / "retirement_hazard.csv")
+    df = df.merge(rh[["player_name_norm", "season", "p_last_1y", "p_last_2y",
+                      "p_last_3y"]],
+                  on=["player_name_norm", "season"], how="left")
+    assert len(df) == n0, "hazard merge changed the row count"
+    print(f"  p_last coverage: {df['p_last_2y'].notna().mean():.3f}")
+    for c in ("p_last_1y", "p_last_2y", "p_last_3y"):
+        df[c] = df[c].fillna(0.0)
+    df["p_hazard_2y"] = df["p_last_2y"]
+    oracle_known = np.ones(len(df), dtype=bool)
+    if ORACLE != "none":
+        label, oracle_known = realized_last_label(df)
+        # unknown outcomes are not pulled; read the clean result on known rows
+        label = np.where(oracle_known, label, 0.0)
+        if ORACLE == "last_rich":
+            rich = (df["career_earnings_thru_prev_cap_pct"].values
+                    >= np.nanquantile(
+                        df["career_earnings_thru_prev_cap_pct"].values,
+                        CELL_EARN_Q))
+            label = label * rich
+        df["p_last_2y"] = label
+        print(f"  ORACLE {ORACLE}: label=1 on {int(label.sum())} rows, "
+              f"unknown {int((~oracle_known).sum())} rows (not pulled)")
 
     y = df[TARGET].values
     cap_m = df["cap"].values / 1e6
     sel = ~df["is_confirmation"].values
     p75 = float(np.nanquantile(df["career_earnings_thru_prev_cap_pct"].values,
                                CELL_EARN_Q))
-    for a in AGE_GRID:
-        print(f"  gate age>={a}: n = {int(gate(df, a, p75).sum())}")
+    if GATE_MODE != "continuous":
+        for a in AGE_GRID:
+            print(f"  gate age>={a}: n = {int(gate(df, a, p75).sum())}")
 
-    kf_ctx = prepare_kf_context(df, clf_features)
+    # Same KF configuration as the production suite (prehistory anchors on,
+    # v8.14x). The function's own default is prehistory=False, which silently
+    # scores a pre-v8.14x champion: 231 rows fell back to kf = prev_cap_pct
+    # against the suite's 15.
+    kf_ctx = prepare_kf_context(df, base_features, prehistory=True,
+                                expand_anchors=True)
     features = list(FEATURE_COLS)
     base_feats = [c if c != "kf_market_value" else "prev_cap_pct" for c in features]
     base_feats = [c for c in base_feats if c in df.columns]
-    folds = list(GroupKFold(n_splits=N_SPLITS).split(
-        df, y, df["player_name_norm"].values))
+    # Seed i uses partition i of the suite's fixed player-to-fold hash.
+    fold_sets = {si: fold_splits(df, si) for si in range(len(seeds))}
 
     champ_acc = np.zeros(len(df))
     cand_acc = np.zeros(len(df))
@@ -169,11 +275,12 @@ def main():
 
     for si, seed in enumerate(seeds):
         per_fold = []
-        for fi, (tr, va) in enumerate(folds):
+        for fi, (tr, va) in enumerate(fold_sets[si]):
             train, test = df.iloc[tr], df.iloc[va]
             tr_aug, te_aug = _compute_kf_nested(kf_ctx, train, test,
                                                 clf_features, seed)
-            latent, lo, hi = rm.grabit_latent(tr_aug, te_aug, features, seed)
+            latent, lo, hi = rm.grabit_latent(tr_aug, te_aug, features, seed,
+                                                max_term_on=False)
             clf = rm.train_route_classifier(tr_aug, clf_features, seed)
             p_max = rm.route_proba(clf, te_aug, clf_features)[:, rm.MAX_IDX]
             champ = compose(latent, lo=lo, hi=hi, p_max=p_max,
@@ -201,6 +308,44 @@ def main():
             pl, plo, phi, ppm = cat("latent"), cat("lo"), cat("hi"), cat("p_max")
             pie, pec, ppr = cat("is_ext"), cat("ext_cap"), cat("p_ring")
             py, pdf = y[pool_idx], df.iloc[pool_idx]
+
+            if GATE_MODE == "continuous":
+                # A floor p0 (chosen in pool) and no shrinkage. The player gives
+                # up a share of what he is worth ABOVE the salary floor, rising
+                # with P(last contract) above p0: a near-minimum latent barely
+                # moves and a veteran below p0 not at all, so a
+                # declining role player the champion already prices low is
+                # left alone. delta is chosen on absolute error, because the
+                # squared-error choice ran to the grid edge on LeBron's row.
+                def weight(p, p0):
+                    return np.clip((p - p0) / (1.0 - p0), 0.0, 1.0)
+
+                pp = pdf["p_last_2y"].values
+                best_raw, best_mae, best_p0 = 0.0, np.inf, P0_GRID[0]
+                for p0 in P0_GRID:
+                    w = weight(pp, p0)
+                    for d in DELTA_GRID:
+                        lat = pl - d * w * np.maximum(pl - plo, 0.0)
+                        pred = compose(lat, lo=plo, hi=phi, p_max=ppm,
+                                       is_extension=pie, ext_cap_pct=pec)
+                        mae = float(np.abs(pred - py).mean())
+                        if mae < best_mae:
+                            best_raw, best_mae, best_p0 = float(d), mae, p0
+                delta = best_raw
+                chosen.append({"seed": seed, "fold": fi, "age": best_p0,
+                               "raw": best_raw, "delta": delta,
+                               "pool_n": int((weight(pp, best_p0) > 0).sum())})
+                pv_ = weight(df.iloc[rec["va"]]["p_last_2y"].values, best_p0)
+                lat = rec["latent"] - delta * pv_ * np.maximum(
+                    rec["latent"] - rec["lo"], 0.0)
+                cand = compose(lat, lo=rec["lo"], hi=rec["hi"],
+                               p_max=rec["p_max"], is_extension=rec["is_ext"],
+                               ext_cap_pct=rec["ext_cap"])
+                cand_acc[rec["va"]] += cand
+                va, s = rec["va"], sel[rec["va"]]
+                rows.append({"champ": r2_score(y[va][s], rec["champ"][s]),
+                             "cand": r2_score(y[va][s], cand[s])})
+                continue
 
             best_age, best_score, best_raw = AGE_GRID[0], -np.inf, 0.0
             for a in AGE_GRID:
@@ -239,7 +384,13 @@ def main():
     p_oof = p_acc / len(seeds)
     fr = pd.DataFrame(rows)
     fr["d"] = fr["cand"] - fr["champ"]
-    t, pv = stats.ttest_1samp(fr["d"], 0)
+    # rows run seed-major, fold-minor. The cells share rows across seeds, so a
+    # plain one-sample t over them overstates the evidence; use the suite's
+    # corrected repeated-CV statistic.
+    as_matrix = lambda col: fr[col].to_numpy().reshape(len(seeds), N_SPLITS).T
+    pdlt = paired_delta(as_matrix("champ"), as_matrix("cand"))
+    t = pdlt["t"]
+    pv = float(2 * stats.t.sf(abs(t), df=len(fr) - 1))
     ch = pd.DataFrame(chosen)
 
     print("\nSELECTED IN POOL")
@@ -247,7 +398,12 @@ def main():
                                 mean_delta=("delta", "mean")).to_string())
 
     moved = np.abs(cand_oof - champ_oof) > 1e-12
-    mem_all = gate(df, int(ch["age"].mode().iloc[0]), p75)
+    if GATE_MODE == "continuous":
+        at_edge = int((ch["raw"] >= DELTA_GRID[-1] - 1e-9).sum())
+        print(f"delta at the grid edge in {at_edge} of {len(ch)} pools")
+        mem_all = moved
+    else:
+        mem_all = gate(df, ch["age"].mode().iloc[0], p75)
     print(f"\nmoved {int(moved.sum())} rows; modal gate n = {int(mem_all.sum())}")
     print(f"bit-identity outside modal gate: "
           f"{'PASS' if not (moved & ~mem_all).any() else 'FAIL'}")
@@ -257,6 +413,15 @@ def main():
     print(f"gate MAE  ${e_c[mem_all].mean():.3f}M -> ${e_d[mem_all].mean():.3f}M")
     print(f"frame MAE ${e_c.mean():.3f}M -> ${e_d.mean():.3f}M")
     print(f"A1 {r2_score(y, champ_oof):.4f} -> {r2_score(y, cand_oof):.4f}")
+    lbj = ((df["player_name_norm"] == "lebron james")
+           & (df["season"] == 2026)).values
+    print(f"A1 without LeBron 2026 {r2_score(y[~lbj], champ_oof[~lbj]):.4f} -> "
+          f"{r2_score(y[~lbj], cand_oof[~lbj]):.4f}")
+    if ORACLE != "none":
+        k = oracle_known & (df["season"].values <= 2023)
+        print(f"A1 on known-label seasons <= 2023 (n={int(k.sum())}) "
+              f"{r2_score(y[k], champ_oof[k]):.4f} -> "
+              f"{r2_score(y[k], cand_oof[k]):.4f}")
     print(f"\npaired dSel {fr['d'].mean():+.5f}  t = {t:+.2f}  p = {pv:.3g}  "
           f"n = {len(fr)}  [{'PASS' if t > DSEL_T_BAR else 'FAIL'}]")
 
@@ -275,17 +440,20 @@ def main():
           f"[{'PASS' if worst <= C2_BAR else 'FAIL'}]")
 
     OUT.mkdir(parents=True, exist_ok=True)
+    tag = GATE_MODE if ORACLE == "none" else f"{GATE_MODE}_oracle_{ORACLE}"
     pd.DataFrame({
         "player": df["player_name_norm"], "season": df["season"],
         "age": df["age"], "signing_cat": df["signing_cat"],
         "in_gate": mem_all, "moved": moved, "p_ring": p_oof,
+        "p_hazard_2y": df["p_hazard_2y"], "p_gate": df["p_last_2y"],
         "actual_m": y*cap_m, "champ_m": champ_oof*cap_m, "cand_m": cand_oof*cap_m,
         "err_champ_m": (champ_oof-y)*cap_m, "err_cand_m": (cand_oof-y)*cap_m,
-    }).to_csv(OUT / "ringchase_gated_oof.csv", index=False)
-    (OUT / "ringchase_gated_eval.json").write_text(json.dumps({
+    }).to_csv(OUT / f"ringchase_gated_{tag}_oof.csv", index=False)
+    (OUT / f"ringchase_gated_{tag}_eval.json").write_text(json.dumps({
         "PROVISIONAL": "migration will move ~15% of frame rows",
-        "adopted": False, "age_grid": list(AGE_GRID), "k_shrink": K_SHRINK,
-        "selected_ages": ch["age"].value_counts().to_dict(),
+        "adopted": False, "gate": GATE_MODE, "oracle": ORACLE, "age_grid": [list(g) if isinstance(g, tuple) else g for g in AGE_GRID], "k_shrink": K_SHRINK,
+        "selected_ages": {str(k): int(v) for k, v in
+                          ch["age"].value_counts().items()},
         "mean_delta": float(ch["delta"].mean()),
         "dSel": {"delta": float(fr["d"].mean()), "t": float(t), "p": float(pv)},
         "A1_champ": float(r2_score(y, champ_oof)),
@@ -293,7 +461,7 @@ def main():
         "c2_worst": float(worst),
         "pass": bool(t > DSEL_T_BAR and worst <= C2_BAR),
     }, indent=2), encoding="utf-8")
-    print(f"\nwrote {OUT/'ringchase_gated_eval.json'}")
+    print(f"\nwrote {OUT / f'ringchase_gated_{tag}_eval.json'}")
 
 
 if __name__ == "__main__":

@@ -37,7 +37,10 @@ import xgboost as xgb
 from sklearn.model_selection import GroupKFold
 
 from config import CAP_BY_SEASON, RAW_DIR
-from src.model.train import _XGB_BASE, _make_tobit_obj, TARGET
+from src.model.train import (
+    _XGB_BASE, _make_tobit_obj, TARGET, _tobit_beta, max_term_z, waiver_beta,
+    waiver_z,
+)
 
 # Class order is fixed: the integer label IS the softprob column index, so
 # P(max) is always column 1 regardless of which classes a training fold holds.
@@ -284,6 +287,23 @@ def train_route6_classifier(train: pd.DataFrame, features: list[str], seed: int,
 # Classifier
 # ---------------------------------------------------------------------------
 
+# Experiment log: waived test rows whose push the exclusion removed.
+EXCLUDED_PUSH_LOG: list[int] = []
+
+
+def exclude_waived_max(p_max: np.ndarray, test: pd.DataFrame,
+                       tau: float) -> np.ndarray:
+    """P(max) = 0 on known-waived rows; no waived frame row signed a maximum.
+
+    Champion since v6.1.0: no waived frame row signed a maximum, and a push
+    must not lift a latent the Stage-1 waiver term lowered.
+    """
+    waived = (pd.to_numeric(test["is_waived"], errors="coerce")
+              .fillna(0.0).values == 1.0)
+    EXCLUDED_PUSH_LOG.append(int((waived & (p_max >= tau)).sum()))
+    return np.where(waived, 0.0, p_max)
+
+
 def train_route_classifier(train: pd.DataFrame, features: list[str], seed: int,
                            labels: np.ndarray | None = None) -> xgb.Booster:
     """Fit the 4-class softprob booster on one training slice.
@@ -331,18 +351,186 @@ def oof_route_proba(df: pd.DataFrame, features: list[str],
 # Grabit latent (champion regression, exposed before the Stage-2 clip)
 # ---------------------------------------------------------------------------
 
+# Experiment log for the partially linear waiver term: one beta per fit.
+WAIVER_BETA_LOG: list[float] = []
+# Experiment log for the money-owed branch: one gamma per fit.
+OWED_GAMMA_LOG: list[float] = []
+OWED_MIN_ROWS = 10
+# Experiment log for the waived branch: one (gamma_owed, gamma_plain) per fit.
+WAIVED_GAMMA_LOG: list[tuple[float, float]] = []
+
+
+def waived_mask(frame: pd.DataFrame) -> np.ndarray:
+    """Rows with a known waiver in the lookback (`is_waived == 1`)."""
+    return (pd.to_numeric(frame["is_waived"], errors="coerce")
+            .fillna(0.0).values == 1.0)
+
+
+def _group_gamma(model, rows: pd.DataFrame, features: list[str]) -> float:
+    """Tobit gamma of observed pay on the model's latent for one group."""
+    if len(rows) < OWED_MIN_ROWS:
+        return 1.0
+    return _tobit_beta(rows[TARGET].values, np.zeros(len(rows)),
+                       model.predict(rows[features]), rows["floor_pct"].values,
+                       rows["is_at_floor"].values.astype(bool),
+                       bounds=(0.0, 1.0), x0=0.5)
+
+
+def owed_mask(frame: pd.DataFrame) -> np.ndarray:
+    """Rows whose previous team still pays them (`prior_waiver_owed == 1`)."""
+    if "prior_waiver_owed" not in frame.columns:
+        return np.zeros(len(frame), bool)
+    return (pd.to_numeric(frame["prior_waiver_owed"], errors="coerce")
+            .fillna(0.0).values == 1.0)
+
+
+# Experiment log for the Stage-1 P(max) term: one beta_max per fit.
+MAX_BETA_LOG: list[float] = []
+MAX_BETA_BOUNDS = (0.0, 1.0)
+
+
+def max_z(frame: pd.DataFrame, p_max: np.ndarray) -> np.ndarray:
+    """`train.max_term_z` on a frame's ceiling and kf_market_value."""
+    return max_term_z(frame["max_eligible_pct"].values,
+                      frame["kf_market_value"].values, p_max)
+
+
+def _tobit_beta_two_sided(y: np.ndarray, base: np.ndarray, z: np.ndarray,
+                          right: np.ndarray, left: np.ndarray,
+                          floor: np.ndarray, bounds: tuple[float, float],
+                          x0: float) -> float:
+    """MLE of beta in y = base + beta * z + e, censored on both sides.
+
+    A right-censored row (a gated maximum) says the latent is at or above the
+    observed pay. A left-censored row (at the floor) says it is at or below
+    the floor. Both enter through the normal tail, as in the Grabit loss.
+    """
+    from scipy.optimize import minimize
+    from scipy.stats import norm
+    free = ~right & ~left
+    s0 = float(np.std((y - base)[free])) if free.sum() > 2 else 0.01
+
+    def nll(theta):
+        beta, log_s = theta
+        s = np.exp(log_s)
+        mu = base + beta * z
+        ll = norm.logpdf((y[free] - mu[free]) / s).sum() - free.sum() * log_s
+        ll += norm.logsf((y[right] - mu[right]) / s).sum()
+        ll += norm.logcdf((floor[left] - mu[left]) / s).sum()
+        return -ll
+
+    fit = minimize(nll, x0=[x0, np.log(max(s0, 1e-4))], method="L-BFGS-B",
+                   bounds=[bounds, (np.log(1e-4), np.log(1.0))])
+    return float(fit.x[0])
+
+
+def max_term_beta(train: pd.DataFrame, features: list[str], seed: int,
+                  margin_tr: np.ndarray, gate: np.ndarray, gate_l: np.ndarray,
+                  n_inner: int = 4) -> tuple[float, np.ndarray]:
+    """beta_max and the training rows' z_max for the Stage-1 P(max) term.
+
+    Route labels come from the target, so P(max) on a training row must come
+    from a classifier that did not see that row's player: n_inner
+    player-grouped inner folds give OOF P(max) and OOF base predictions (a
+    plain XGBoost fitted with the same base margin as the Grabit fit, so the
+    waiver term is already in the base). Beta is a two-sided Tobit MLE,
+    right-censored on the gated maximum rows and left-censored on the gated
+    floor rows, bounded to MAX_BETA_BOUNDS. Waived rows get P(max) = 0.
+    `train` must carry the classifier columns (`attach_clf_features`).
+
+    Returns:
+        (beta_max, z_train), z_train from the OOF P(max).
+    """
+    from xgboost import XGBRegressor
+    clf_features = list(CLF_BASE_COLS) + list(CLF_EXTRA_COLS)
+    y = train[TARGET].values
+    labels = compute_route_labels(train)
+    groups = train["player_name_norm"].values
+    p_oof = np.zeros(len(train))
+    base_oof = np.zeros(len(train))
+    for itr, iva in GroupKFold(n_splits=n_inner).split(train, y, groups):
+        clf = train_route_classifier(train.iloc[itr], clf_features, seed,
+                                     labels=labels[itr])
+        p_oof[iva] = route_proba(clf, train.iloc[iva], clf_features)[:, MAX_IDX]
+        m = XGBRegressor(**{**_XGB_BASE, "random_state": seed})
+        m.fit(train.iloc[itr][features], y[itr], base_margin=margin_tr[itr])
+        base_oof[iva] = m.predict(train.iloc[iva][features],
+                                  base_margin=margin_tr[iva])
+    p_oof = np.where(waived_mask(train), 0.0, p_oof)
+    z_tr_oof = max_z(train, p_oof)
+    use = z_tr_oof > 0
+    beta = 0.0
+    if use.sum() >= 10:
+        beta = _tobit_beta_two_sided(
+            y[use], base_oof[use], z_tr_oof[use], gate[use], gate_l[use],
+            train["floor_pct"].values[use], MAX_BETA_BOUNDS, x0=0.3)
+    return beta, z_tr_oof
+
+
+def max_term(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
+             seed: int, margin_tr: np.ndarray, gate: np.ndarray,
+             gate_l: np.ndarray, n_inner: int = 4):
+    """Stage-1 P(max) term: beta_max and z_max for the training and test rows.
+
+    Beta and the training z come from `max_term_beta`. Test P(max) comes from
+    a classifier fitted on the whole training slice; waived rows get 0.
+
+    Returns:
+        (beta_max, z_train, z_test)
+    """
+    beta, z_tr = max_term_beta(train, features, seed, margin_tr, gate, gate_l,
+                               n_inner)
+    # The Grabit fit sees the OOF z, the quantity beta was fitted on.
+    clf_features = list(CLF_BASE_COLS) + list(CLF_EXTRA_COLS)
+    clf = train_route_classifier(train, clf_features, seed)
+    p_te = route_proba(clf, test, clf_features)[:, MAX_IDX]
+    p_te = np.where(waived_mask(test), 0.0, p_te)
+    return beta, z_tr, max_z(test, p_te)
+
+
 def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
                   seed: int, sigma: float = 0.02, gate_frac: float = 0.55,
                   floor_gate_k: float = 2.0, sigma_left: float | None = None,
-                  censor_c: float | None = None):
+                  censor_c: float | None = None, waiver_term: bool | str = "owed",
+                  owed_branch: bool | str = False,
+                  waived_branch: bool = False, max_term_on: bool = True):
     """Champion Grabit v4 latent on `test`, plus the Stage-2 bounds (lo, hi).
 
     Byte-for-byte the same training path as evaluate_suite.make_grabit_fitter,
     but returns the UNCLIPPED latent so a route branch can act on it before the
     clip. Clipping the returned latent into [lo, hi] reproduces the champion
     fitter exactly (asserted in the eval harness).
+
+    `waiver_term` makes Stage 1 partially linear: latent = GBM(x) +
+    beta * waiver_z, with beta from `train.waiver_beta` (a Tobit fit on every
+    waived row, left-censored at the floor) and the term passed to the Grabit
+    fit and prediction as base_margin. "owed" (champion since v6.2.0) applies
+    the term only to money-owed waivers, in both the fit and the prediction.
+    True applies it to every waived row (v6.1.0, with the waiver features
+    dropped); False reproduces v6.0.6.
+
+    `owed_branch` (experiment, off by default) prices money-owed rows
+    (`owed_mask`) as gamma * latent, with gamma a Tobit fit on the training
+    money-owed rows, left-censored at the floor and bounded to [0, 1].
+    True drops those rows from the fit, so their latent is out-of-sample.
+    "censor" keeps them as right-censored rows (their pay is a lower bound on
+    undiscounted value) and exempts them from the left gate.
+
+    `waived_branch` (experiment, off by default) fits the model on never-waived
+    rows only and prices every waived row as gamma_g * latent, with one Tobit
+    gamma for money-owed waivers and one for plain waivers (`_group_gamma`).
+
+    `max_term_on` (champion since v6.3.0) adds beta_max * z_max to the base
+    margin (`max_term`), after the waiver term; the Stage-2 push is off
+    (`grabit_params["push"]`, default False). False reproduces v6.2.0 when
+    the push is turned back on.
     """
     from xgboost import XGBRegressor
+    full_train = train
+    if owed_branch is True:
+        train = train[~owed_mask(train)]
+    if waived_branch:
+        train = train[~waived_mask(train)]
 
     y_tr = train[TARGET].values
     max_elig_tr = train["max_eligible_pct"].values
@@ -357,14 +545,57 @@ def grabit_latent(train: pd.DataFrame, test: pd.DataFrame, features: list[str],
         gate_l = train["is_at_floor"].values & (bp <= floor_gate_k * y_tr)
     else:
         gate_l = np.zeros(len(train), bool)
+    if owed_branch == "censor":
+        owed_tr_mask = owed_mask(train)
+        gate = gate | owed_tr_mask
+        gate_l = gate_l & ~owed_tr_mask
 
     model = XGBRegressor(**{**_XGB_BASE, "random_state": seed,
                             "objective": _make_tobit_obj(
                                 gate, sigma, left_mask=gate_l,
                                 sigma_left=sigma_left),
                             "base_score": float(y_tr.mean())})
-    model.fit(train[features], y_tr)
-    latent = model.predict(test[features])
+    if waiver_term or max_term_on:
+        b0 = float(y_tr.mean())
+        m_tr = np.full(len(train), b0)
+        m_te = np.full(len(test), b0)
+        if waiver_term:
+            beta = waiver_beta(train, features, seed)
+            WAIVER_BETA_LOG.append(beta)
+            owed_only = waiver_term == "owed"
+            m_tr = b0 + beta * waiver_z(train, owed_only=owed_only)
+            m_te = b0 + beta * waiver_z(test, owed_only=owed_only)
+        if max_term_on:
+            beta_m, z_tr, z_te = max_term(train, test, features, seed, m_tr,
+                                          gate, gate_l)
+            MAX_BETA_LOG.append(beta_m)
+            m_tr = m_tr + beta_m * z_tr
+            m_te = m_te + beta_m * z_te
+        model.fit(train[features], y_tr, base_margin=m_tr)
+        latent = model.predict(test[features], base_margin=m_te)
+    else:
+        model.fit(train[features], y_tr)
+        latent = model.predict(test[features])
+    if owed_branch:
+        owed_tr = full_train[owed_mask(full_train)]
+        gamma = 1.0
+        if len(owed_tr) >= OWED_MIN_ROWS:
+            m_tr = model.predict(owed_tr[features])
+            gamma = _tobit_beta(
+                owed_tr[TARGET].values, np.zeros(len(owed_tr)), m_tr,
+                owed_tr["floor_pct"].values,
+                owed_tr["is_at_floor"].values.astype(bool),
+                bounds=(0.0, 1.0), x0=0.5)
+        OWED_GAMMA_LOG.append(gamma)
+        latent = np.where(owed_mask(test), gamma * latent, latent)
+    if waived_branch:
+        w_tr, o_tr = waived_mask(full_train), owed_mask(full_train)
+        g_owed = _group_gamma(model, full_train[w_tr & o_tr], features)
+        g_plain = _group_gamma(model, full_train[w_tr & ~o_tr], features)
+        WAIVED_GAMMA_LOG.append((g_owed, g_plain))
+        w_te, o_te = waived_mask(test), owed_mask(test)
+        latent = np.where(w_te & o_te, g_owed * latent,
+                          np.where(w_te & ~o_te, g_plain * latent, latent))
     lo = (test["floor_pct"].values if "floor_pct" in test.columns
           else np.zeros(len(test)))
     hi = test["max_eligible_pct"].values
@@ -406,7 +637,8 @@ def make_maxbranch_fitter(enabled: bool = False, arm: str = "push_clip",
     clf_seed_offset lets the classifier use a different seed stream from the
     regression if ever needed; 0 shares the seed.
     """
-    gp = grabit_params or {}
+    # This historical branch applies its own push, so Stage 1 stays v6.2.0.
+    gp = {"max_term_on": False, **(grabit_params or {})}
 
     def fitter(train, test, features, seed):
         latent, lo, hi = grabit_latent(train, test, features, seed, **gp)

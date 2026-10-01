@@ -30,14 +30,16 @@ import pandas as pd
 from config import PROCESSED_DIR, OUTPUTS_DIR, CAP_BY_SEASON
 from src.model import stages
 from src.model.train import (
-    load_training_data, train_grabit, _compute_max_eligible, _compute_floor,
+    load_training_data, train_grabit, grabit_predict, _compute_max_eligible,
+    _compute_floor,
     _filter_year1, _filter_rookie_scale, _filter_rookie_contracts, _filter_prorated,
     _filter_mislabeled_year1, _filter_continuations, _normalize_vetmin_caphold,
     _prepare_Xy, FEATURE_COLS, TARGET,
 )
 from src.features.kf_market_value import (
-    MEASUREMENT_FEATURES, compute_kf_column, estimate_q,
+    MEASUREMENT_FEATURES, compute_kf_column, estimate_q, measurement_value,
 )
+from src.model.extension_cap import attach_extension_cap
 
 
 def _normalize_name(name: str) -> str:
@@ -71,14 +73,16 @@ def _attach_kf_to_frame(df_full, eval_df, base_model, base_features,
     """Compute kf_market_value for target rows using historical market events."""
     def predict_fn(subset):
         X = subset.reindex(columns=base_features).fillna(base_medians).fillna(0)
-        return base_model.predict(X)
+        return measurement_value(base_model.predict(X), subset)
 
     calibration = (noise_frame if noise_frame is not None
                    else market_events if market_events is not None else eval_df)
+    if "is_extension" not in calibration.columns:
+        calibration = attach_extension_cap(calibration.copy(), verbose=False)
     y = calibration[TARGET].values
-    in_sample = base_model.predict(
+    in_sample = measurement_value(base_model.predict(
         calibration.reindex(columns=base_features)
-                   .fillna(base_medians).fillna(0))
+                   .fillna(base_medians).fillna(0)), calibration)
     r_var = float(np.var(y - in_sample, ddof=1))
 
     df_full_prep = _compute_max_eligible(df_full.copy())
@@ -215,9 +219,17 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     pred_df["kf_market_value"] = kf_pred
     pred_df.drop(columns=["salary"], errors="ignore", inplace=True)
 
-    # Predict: latent value from Grabit, then Stage-2 CBA clip
+    # P(max) enters Stage 1 (v6.3.0). The classifier is fit on the same
+    # filtered training frame the regression saw, so nothing from the target
+    # season enters it. The term's ceiling is the CBA ceiling from pred_eval,
+    # computed before any salary exists for these rows.
+    p_max = stages.deployed_p_max(stages.training_route_frame(train_df), pred_df,
+                                  medians=medians)
     X_pred = pred_df.reindex(columns=features).fillna(medians).fillna(0)
-    latent = model.predict(X_pred)
+    latent = grabit_predict(
+        model, results, X_pred,
+        pred_df.assign(max_eligible_pct=pred_eval["max_eligible_pct"].values),
+        p_max=p_max)
 
     # Compute CBA bounds for the prediction rows
     pred_df["cap_pct"] = latent  # temporary for _compute_max_eligible
@@ -228,19 +240,14 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     max_elig = pred_df["max_eligible_pct"].values
     floor_pct = pred_df["floor_pct"].values
 
-    # Stage 2's upward half: where the route classifier says P(max) >= tau, push
-    # the latent toward the ceiling before clipping. The classifier is fit on the
-    # same filtered training frame the regression saw, so nothing from the target
-    # season enters it. Both Stage-3 components are passed empty inputs — nobody
-    # in this frame has a realized extension to be told about, and nobody has a
-    # signing mechanism, because nobody has signed.
-    p_max = stages.deployed_p_max(stages.training_route_frame(train_df), pred_df,
-                                  medians=medians)
+    # Stage 2 is the clip. Both Stage-3 components are passed empty inputs:
+    # nobody in this frame has a realized extension to be told about, and
+    # nobody has a signing mechanism, because nobody has signed.
     no_extension = np.zeros(len(pred_df), bool)
     no_ext_cap = np.full(len(pred_df), np.nan)
     no_signing_type = np.full(len(pred_df), None, dtype=object)
     no_mech_cap = np.full(len(pred_df), np.nan)
-    capped = stages.compose(latent, lo=floor_pct, hi=max_elig, p_max=p_max,
+    capped = stages.compose(latent, lo=floor_pct, hi=max_elig,
                             is_extension=no_extension, ext_cap_pct=no_ext_cap,
                             signing_type=no_signing_type,
                             signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED,
@@ -251,11 +258,11 @@ def predict(target_season: int = 2026) -> pd.DataFrame:
     # every row's mechanism cap is NaN (the clip is a no-op). Asserted, not argued.
     assert np.array_equal(
         capped,
-        stages.compose(latent, lo=floor_pct, hi=max_elig, p_max=p_max,
+        stages.compose(latent, lo=floor_pct, hi=max_elig,
                        is_extension=no_extension, ext_cap_pct=no_ext_cap)), \
         "the Stage-3 signing offset or mechanism cap moved an unsigned free agent"
     flags = stages.bound_flags(latent, capped, lo=floor_pct, hi=max_elig,
-                               p_max=p_max, is_extension=no_extension,
+                               is_extension=no_extension,
                                ext_cap_pct=no_ext_cap,
                                signing_type=no_signing_type,
                                signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED,

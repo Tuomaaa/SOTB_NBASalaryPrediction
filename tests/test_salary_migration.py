@@ -336,3 +336,157 @@ def test_refresh_uses_fresh_one_year_fa_signing_when_player_page_is_stale():
     assert len(row) == 1
     assert row.iloc[0]["salary"] == 2_625_627
     assert row.iloc[0]["team"] == "GSW"
+
+
+def _contract(signing_type, years, total, aav=None):
+    return {"signing_type": signing_type, "contract_years": years,
+            "total_value": total, "aav": aav if aav is not None else total / years}
+
+
+def test_signing_contract_prices_rest_of_season_deal_not_season_cash():
+    # Dion Waiters 2019: old deal waived, rest-of-season minimum elsewhere.
+    row = _row(player_name_norm="dion waiters", season=2019,
+               base=12_600_000, extra_amounts="472178",
+               statuses="Waived;Active", n_teams=3, split_total=13_072_178,
+               contract_years=1)
+    starts = {("dion waiters", 2019): [_contract("Minimum", 1, 503_656)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 503_656
+    assert branch == "vet_min"
+
+
+def test_signing_contract_prefers_offseason_deal_over_rest_of_season():
+    # Patrick Beverley 2022: one-year extension, then a rest-of-season minimum.
+    row = _row(player_name_norm="patrick beverley", season=2022,
+               base=13_000_000, extra_amounts="801614", n_teams=3)
+    starts = {("patrick beverley", 2022): [
+        _contract("Minimum", 1, 801_614),
+        _contract("Bird Rights", 1, 13_000_000)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 13_000_000
+    assert branch == "signing_contract"
+
+
+def test_signing_contract_multi_year_takes_amount_nearest_aav():
+    row = _row(player_name_norm="steven adams", season=2023,
+               base=12_600_000, extra_amounts="7310000", n_teams=2)
+    starts = {("steven adams", 2023): [
+        _contract("Bird Rights", 2, 25_200_000)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 12_600_000
+    assert branch == "signing_contract"
+
+
+def test_signing_contract_multi_year_traded_season_takes_the_sum():
+    row = _row(season=2022, base=6_000_000, extra_amounts="4000000",
+               n_teams=2, split_total=10_000_000)
+    starts = {("player", 2022): [_contract("Cap Space", 3, 30_000_000)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 10_000_000
+    assert branch == "signing_contract"
+
+
+def test_signing_contract_full_season_minimum_takes_cap_charge():
+    row = _row(player_name_norm="kyle korver", season=2019,
+               base=2_404_456, extra_amounts="3440000", n_teams=2,
+               split_total=5_844_456, contract_years=1)
+    starts = {("kyle korver", 2019): [_contract("Minimum", 1, 2_564_753)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 1_620_564
+    assert branch == "vet_min"
+
+
+def test_signing_contract_skips_single_amount_rows():
+    row = _row(extra_amounts=np.nan, statuses=np.nan, n_teams=1,
+               split_total=np.nan)
+    starts = {("player", 2022): [_contract("Cap Space", 1, 4_000_000)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 10_000_000
+    assert branch == "single"
+
+
+def test_signing_contract_falls_through_when_no_amount_matches_aav():
+    starts = {("player", 2022): [_contract("Cap Space", 4, 120_000_000)]}
+    value, branch = merged.resolve_row(_row(), set(), set(), starts)
+    assert value == 10_000_000
+    assert branch == "status_active"
+
+
+def test_signing_contract_ignores_nba_cup_money():
+    # Austin Reaves 2023: one salary plus a $500,000 Cup bonus is one contract.
+    row = _row(player_name_norm="austin reaves", season=2023,
+               base=12_015_150, extra_amounts="500000",
+               statuses="Active;NBA Cup", n_teams=1, split_total=12_515_150,
+               contract_years=4)
+    starts = {("austin reaves", 2023): [
+        _contract("Bird Rights", 4, 53_827_872)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 12_015_150
+    assert branch != "signing_contract"
+
+
+def test_signing_contract_cup_money_is_not_added_to_a_traded_sum():
+    row = _row(season=2024, base=2_086_207, extra_amounts="3413793;530933",
+               statuses="Retained;Active;NBA Cup", n_teams=2,
+               split_total=6_030_933)
+    starts = {("player", 2024): [_contract("Cap Space", 2, 11_000_000)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 5_500_000
+    assert branch == "signing_contract"
+
+
+def test_signing_contract_multi_year_takes_subset_nearest_aav():
+    # Shake Milton 2023: NT-MLE halves plus a rest-of-season minimum.
+    row = _row(player_name_norm="shake milton", season=2023,
+               base=1_925_287, extra_amounts="3074713;552938",
+               statuses="Retained;Retained;Active", n_teams=3,
+               split_total=5_552_938, contract_years=1)
+    starts = {("shake milton", 2023): [
+        _contract("Minimum", 1, 552_938),
+        _contract("Non-Taxpayer MLE", 2, 10_000_000)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 5_000_000
+    assert branch == "signing_contract"
+
+
+def test_signing_contract_drops_unlabelled_cup_prize_by_amount():
+    # Austin Reaves 2023 has no status labels; $500,000 is a 2023 Cup tier.
+    assert merged._salary_amounts(
+        _row(season=2023, base=12_015_150, extra_amounts="500000",
+             statuses=np.nan), 2023) == [12_015_150]
+
+
+def test_signing_contract_minimum_label_takes_cap_charge():
+    # Isaiah Thomas 2019: a one-year minimum whose total misses the scale.
+    row = _row(player_name_norm="isaiah thomas", season=2019,
+               base=917_532, extra_amounts="1402512",
+               statuses="Retained;Retained", n_teams=2, contract_years=1)
+    starts = {("isaiah thomas", 2019): [_contract("Minimum", 1, 2_320_044)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert value == 1_620_564
+    assert branch == "vet_min"
+
+
+def test_signing_contract_rejects_price_above_exception_limit():
+    # Markieff Morris 2019: "1 yr / $6.56M" Bi-Annual exceeds the $3.623M limit.
+    row = _row(player_name_norm="markieff morris", season=2019,
+               base=1_750_000, extra_amounts="116667", n_teams=2,
+               split_total=1_866_667, statuses=np.nan)
+    starts = {("markieff morris", 2019): [
+        _contract("Bi-Annual", 1, 6_560_000),
+        _contract("disabled-player-exception", 1, 1_750_000)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert branch != "signing_contract"
+    assert value == merged.resolve_row(row, set(), set())[0]
+
+
+def test_signing_contract_skips_one_year_minimum_not_paid_in_full():
+    # Dalano Banton 2025: 10-day deals; Spotrac prints the annual minimum.
+    row = _row(player_name_norm="dalano banton", season=2025,
+               base=141_463, extra_amounts="141463;28293",
+               statuses="Retained;Retained;Active", n_teams=3,
+               split_total=311_219, contract_years=1)
+    starts = {("dalano banton", 2025): [_contract("Minimum", 1, 2_296_274)]}
+    value, branch = merged.resolve_row(row, set(), set(), starts)
+    assert branch != "vet_min" or value < 1_000_000
+    assert value == merged.resolve_row(row, set(), set())[0]

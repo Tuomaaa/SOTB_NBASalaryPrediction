@@ -1,2 +1,7 @@
 player_name_norm,season,year_in_contract,contract_years,source,note
 kendrick nunn,2020,3,3,spotrac_block,"3yr/$3.09M minimum (2018-2020); Spotrac contract block: contract_start=2018 contract_years=3 aav=$1028483; frozen contract_structure_v2.csv fragmented into three 1-year rows; ISSUES #31"
+bennedict mathurin,2026,1,2,spotrac_block,"2yr/$16.0M Non-Taxpayer MLE (2026-2027), player option 2027; Spotrac contract block; spotrac_fa_backfill row stored as 1 year; ISSUES #55"
+jd davison,2026,2,2,spotrac_block,"2yr/$2.67M minimum (2025-2026), team option 2026; Spotrac contract block; spotrac_fa_backfill row stored as a 1-year 2026 contract; ISSUES #55"
+jonathan mogbo,2026,1,2,spotrac_block,"2yr two-way (2026-2027); Spotrac contract block; spotrac_fa_backfill row stored as 1 year; ISSUES #55"
+lebron james,2026,1,2,spotrac_block,"2yr/$7.95M minimum (2026-2027), player option 2027; Spotrac contract block; spotrac_fa_backfill row stored as 1 year; ISSUES #55"
+taj gibson,2026,2,2,spotrac_block,"2yr/$4.78M minimum (2025-2026); Spotrac contract block; spotrac_fa_backfill row stored as a 1-year 2026 contract; ISSUES #55"

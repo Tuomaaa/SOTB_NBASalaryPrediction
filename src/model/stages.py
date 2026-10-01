@@ -57,7 +57,10 @@ unlike MLE/Minimum/BAE, the S&T mechanism does not determine the dollar amount
 hold Bird or Early Bird rights. The four stay in however large the excluded
 types' biases look, and the excluded types stay out however large theirs look.
 
-Three constants are PRE-REGISTERED and must not be re-tuned:
+Three constants are PRE-REGISTERED and must not be re-tuned. TAU and MARGIN
+are LEGACY since v6.3.1: no production or default suite path pushes. They
+remain so historical arms (`p_max=` to `stage2`/`compose`, the suite's
+"push_clip" measurement mode) reproduce.
 
   TAU = 0.52     chosen 2026-07-26 from the sweep's expected-win-minus-expected-
                  collateral rule, before any score on this arm was seen.
@@ -100,7 +103,7 @@ import pandas as pd
 
 # Pre-registered constants. Re-tuning any of them after seeing a score is the
 # failure three experiments died on — do not touch them without a new
-# pre-registration.
+# pre-registration. TAU and MARGIN serve only legacy push arms (v6.3.1).
 TAU = 0.52
 MARGIN = 1.05
 SIGNING_K = 20.0
@@ -479,6 +482,9 @@ def deployed_p_max(train: pd.DataFrame, test: pd.DataFrame,
     The fill list is CLF_BASE_COLS, not FEATURE_COLS: since v8.6x the two are
     separate lists, and a regression-only feature is dropped by the reindex
     below, so filling it here would raise a KeyError on the test frame.
+
+    Waived rows (`is_waived == 1`) get P(max) = 0 (v6.1.0), as in the suite's
+    `exclude_waived_max`: no waived frame row signed a maximum.
     """
     from src.model.route_mixture import (
         attach_clf_features, train_route_classifier, route_proba, MAX_IDX,
@@ -501,4 +507,7 @@ def deployed_p_max(train: pd.DataFrame, test: pd.DataFrame,
         test_x[fill] = test_x[fill].fillna(train_x[fill].median()).fillna(0)
 
     clf = train_route_classifier(train_x, clf_features, seed)
-    return route_proba(clf, test_x, clf_features)[:, MAX_IDX]
+    p_max = route_proba(clf, test_x, clf_features)[:, MAX_IDX]
+    waived = (pd.to_numeric(test["is_waived"], errors="coerce")
+              .fillna(0.0).values == 1.0)
+    return np.where(waived, 0.0, p_max)

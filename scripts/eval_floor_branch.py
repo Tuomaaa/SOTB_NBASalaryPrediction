@@ -143,7 +143,8 @@ def fit_pass(df, features, clf_features, lab4, lab6, seeds):
     for si, seed in enumerate(seeds):
         for fi, (tr, va) in enumerate(folds):
             train, test = df.iloc[tr], df.iloc[va]
-            latent, lo, hi = rm.grabit_latent(train, test, features, seed)
+            latent, lo, hi = rm.grabit_latent(train, test, features, seed,
+                                                max_term_on=False)
             champ = np.clip(latent, lo, hi)
 
             c4b = rm.train_route_classifier(train, base_feats, seed, labels=lab4[tr])
@@ -262,7 +263,8 @@ def forward_pass(df, features, clf_features, lab6, tau, seeds):
         acc = {k: np.zeros(int(te.sum())) for k in keys}
         af_te = at_floor[te]
         for seed in seeds:
-            latent, lo, hi = rm.grabit_latent(train, test, features, seed)
+            latent, lo, hi = rm.grabit_latent(train, test, features, seed,
+                                                max_term_on=False)
             champ = np.clip(latent, lo, hi)
             c6 = rm.train_route6_classifier(train, clf_features, seed,
                                             labels=lab6[tr])

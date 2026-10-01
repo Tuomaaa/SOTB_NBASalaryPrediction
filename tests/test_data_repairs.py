@@ -250,3 +250,25 @@ class AdvancedRefreshTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VetMinCapChargeTests(unittest.TestCase):
+    """ISSUES #55: only one-year minimum contracts take the base cap charge."""
+
+    def test_multi_year_minimum_keeps_its_salary(self):
+        from src.model.train import _normalize_vetmin_caphold
+
+        paid = 3876529.0 / CAP_BY_SEASON[2026]
+        frame = pd.DataFrame({
+            "player_name_norm": ["one year", "two year", "unknown length"],
+            "season": [2026, 2026, 2026],
+            "signing_cat": ["Minimum"] * 3,
+            "cap_pct": [paid] * 3,
+            "contract_years": [1, 2, np.nan],
+        })
+
+        result = _normalize_vetmin_caphold(frame)
+
+        self.assertLess(result.loc[0, "cap_pct"], paid)
+        self.assertAlmostEqual(result.loc[1, "cap_pct"], paid)
+        self.assertLess(result.loc[2, "cap_pct"], paid)

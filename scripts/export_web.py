@@ -60,7 +60,9 @@ from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR, RAW_DIR
 from src.model import stages
 from src.model.extension_cap import attach_extension_cap, attach_extension_value
 from src.features.base_rating import attach_od_diffs
-from src.features.kf_market_value import MEASUREMENT_FEATURES, compute_kf_column
+from src.features.kf_market_value import (
+    MEASUREMENT_FEATURES, compute_kf_column, measurement_value,
+)
 from src.features.playoff_minutes import attach_playoff_mpg
 from src.features.waiver_history import (
     attach_waiver_interactions,
@@ -82,7 +84,9 @@ from src.model.train import (
     _load_rookie_scale_set,
     _normalize_vetmin_caphold,
     _prepare_Xy,
+    grabit_predict,
     load_training_data,
+    max_term_z,
     train_grabit,
 )
 
@@ -125,11 +129,32 @@ FEATURE_LABELS = {
     "ast_pct": "Assist %",
     "award_score_cum": "Awards",
     "draft_pick": "Draft pick",
-    "is_waived": "Recently waived",
     "kf_market_value": "Market trajectory",
-    "mpg_x_waived": "Minutes x waived",
     "playoff_mpg_diff": "Playoff minutes swing",
+    "is_waived": "Recently waived",
+    "mpg_x_waived": "Minutes x waived",
+    "waiver_term": "Buyout discount",
+    "max_term": "Max-contract likelihood",
 }
+
+# The Stage-1 waiver term (money-owed waivers only since v6.2.0) is not a tree
+# feature. It is appended as one more attribution column, so the SHAP row
+# still sums to the latent.
+WAIVER_SHAP_KEY = "waiver_term"
+# The Stage-1 P(max) term (v6.3.0) is the second non-tree column:
+# max_beta * pm * max(max_eligible_pct - kf_market_value, 0), with pm the
+# row's P(max). The site cannot refit the classifier, so pm is exported.
+MAX_SHAP_KEY = "max_term"
+EXTRA_SHAP_KEYS = [WAIVER_SHAP_KEY, MAX_SHAP_KEY]
+
+
+def _nontree_columns(model, results: dict, X: pd.DataFrame, latent,
+                     hi: np.ndarray, p_max: np.ndarray) -> np.ndarray:
+    """(n, 2) attribution of the waiver term and the P(max) term."""
+    max_part = float(results.get("max_beta", 0.0)) * max_term_z(
+        np.asarray(hi, dtype=float), X["kf_market_value"].values,
+        np.asarray(p_max, dtype=float))
+    return np.column_stack([latent - model.predict(X) - max_part, max_part])
 
 
 # Spotrac writes signing mechanisms in a mix of styles, and refresh_spotrac.py
@@ -161,9 +186,9 @@ SIGNING_LABELS = {
 
 
 def _model_version() -> str | None:
-    """The vN.Mx tag this export was built from, via `git describe`.
+    """The version tag this export was built from, via `git describe`.
 
-    Returns e.g. "v8.10x" on a tagged commit, or "v8.10x+3" three commits past
+    Returns e.g. "v5.3.3" on a tagged commit, or "v5.3.3+3" three commits past
     one — the "+N" is deliberate, so a site built from an untagged working
     state cannot silently claim to be the released version. None if the repo
     has no tags or git is unavailable, in which case the site falls back to the
@@ -400,6 +425,13 @@ _TREE_ARRAYS = (
 )
 
 
+def _waiver_term_flag(frame: pd.DataFrame) -> np.ndarray:
+    """0/1: the Stage-1 waiver term applies (a money-owed waiver, v6.2.0)."""
+    def one(col):
+        return pd.to_numeric(frame[col], errors="coerce").fillna(0.0).values == 1.0
+    return (one("is_waived") & one("prior_waiver_owed")).astype(int)
+
+
 def _compact_split_condition(value: float) -> float:
     """Shortest decimal in (previous float32, value] for an exact JS split."""
     exact = float(np.float32(value))
@@ -465,8 +497,17 @@ def _strip_model(model, features: list[str], medians: pd.Series,
 
 def _assert_model_parity(stripped: dict, out: pd.DataFrame,
                          tolerance: float = 1e-6) -> float:
-    """Reproduce browser traversal with float32 split inputs for every row."""
+    """Reproduce browser traversal with float32 split inputs for every row.
+
+    The latent is the tree sum plus the waiver term
+    waiver_beta * wv * kf_market_value (v6.2.0), with wv the row's
+    money-owed-waiver flag and kf_market_value from its model inputs, plus
+    the P(max) term max_beta * pm * max(max_eligible_pct - kf, 0) (v6.3.0).
+    """
     base = float(json.loads(stripped["base_score"])[0])
+    beta = float(stripped["waiver_beta"])
+    beta_max = float(stripped["max_beta"])
+    kf_idx = stripped["feature_names"].index("kf_market_value")
     predictions = np.empty(len(out), dtype=float)
     for i, values in enumerate(out["model_x"]):
         total = base
@@ -483,7 +524,10 @@ def _assert_model_parity(stripped: dict, out: pd.DataFrame,
                 else:
                     node = tree["right_children"][node]
             total += tree["base_weights"][node]
-        predictions[i] = total
+        kf = values[kf_idx]
+        predictions[i] = (total + beta * out["waiver_term_flag"].values[i] * kf
+                          + beta_max * out["p_max"].values[i]
+                          * max(out["max_eligible_pct"].values[i] - kf, 0.0))
 
     drift = float(np.max(np.abs(predictions - out["latent_cap_pct"].values)))
     if drift > tolerance:
@@ -495,7 +539,7 @@ def _assert_model_parity(stripped: dict, out: pd.DataFrame,
 
 
 def build_frame(df: pd.DataFrame, model, features: list[str],
-                medians: pd.Series, train_df: pd.DataFrame
+                medians: pd.Series, train_df: pd.DataFrame, results: dict
                 ) -> tuple[pd.DataFrame, np.ndarray]:
     """Predict latent + bounded value for every player-season, with SHAP.
 
@@ -548,35 +592,35 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
     X = full.reindex(columns=features).copy()
     X = X.fillna(medians).fillna(0)
 
-    latent = model.predict(X)
-    max_elig = full["max_eligible_pct"].values
-    floor_pct = full["floor_pct"].values
-    # Stage 2 is two-sided in BOTH directions now: the push lifts a max-worthy
-    # player the model prices below his ceiling, the clip caps one priced above
-    # it, and the floor lifts an at-minimum player to what the CBA guarantees.
-    # Stage 3 then applies the signing offset, mechanism cap, extension clip,
-    # and re-clip — the full compose chain.
+    # P(max) is a Stage-1 term (v6.3.0), so it is needed before the latent.
     p_max = stages.deployed_p_max(stages.training_route_frame(train_df), full,
                                   medians=medians)
+    latent = grabit_predict(model, results, X, full, p_max=p_max)
+    max_elig = full["max_eligible_pct"].values
+    floor_pct = full["floor_pct"].values
+    # Stage 2 clips into [floor, ceiling]. Stage 3 then applies the signing
+    # offset, mechanism cap, extension clip, and re-clip.
     is_ext = full["is_extension"].values
     ext_cap = full["ext_cap_pct"].values
     signing_cat = full["signing_cat"].values
     mech_cap = (full["mech_cap_pct"].values
                 if "mech_cap_pct" in full.columns else None)
-    capped = stages.compose(latent, lo=floor_pct, hi=max_elig, p_max=p_max,
+    capped = stages.compose(latent, lo=floor_pct, hi=max_elig,
                             is_extension=is_ext, ext_cap_pct=ext_cap,
                             signing_type=signing_cat,
                             signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED,
                             mech_cap_pct=mech_cap)
     flags = stages.bound_flags(latent, capped, lo=floor_pct, hi=max_elig,
-                               p_max=p_max, is_extension=is_ext,
+                               is_extension=is_ext,
                                ext_cap_pct=ext_cap,
                                signing_type=signing_cat,
                                signing_offsets=stages.SIGNING_OFFSETS_DEPLOYED,
                                mech_cap_pct=mech_cap)
 
     explainer = shap.TreeExplainer(model)
-    shap_vals = explainer.shap_values(X)
+    shap_vals = np.column_stack([
+        explainer.shap_values(X),
+        _nontree_columns(model, results, X, latent, max_elig, p_max)])
     expected = float(np.ravel(explainer.expected_value)[0])
 
     # Sanity: SHAP decomposes the *latent* (pre-cap) prediction.
@@ -673,6 +717,7 @@ def build_frame(df: pd.DataFrame, model, features: list[str],
               "signing-board membership")
 
     out["base_salary"] = expected * out["cap"]
+    out["waiver_term_flag"] = _waiver_term_flag(full)
     out["is_fa"] = False
     # Full-precision, median-filled inputs in serialized feature order. The
     # browser joins these to model.json.feature_names rather than assuming a
@@ -685,7 +730,7 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
                      features: list[str], medians: pd.Series, expected: float,
                      df: pd.DataFrame, train_df: pd.DataFrame, *,
                      kf_full: pd.DataFrame, kf_market_events: pd.DataFrame,
-                     kf_predict_fn, kf_r_var: float
+                     kf_predict_fn, kf_r_var: float, results: dict
                      ) -> tuple[pd.DataFrame, np.ndarray]:
     """Append holdout-season free agents the salary data does not yet cover.
 
@@ -765,16 +810,25 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         market_events=kf_market_events)
 
     X = fa.reindex(columns=features).fillna(medians).fillna(0)
-    latent = model.predict(X)
-    shap_fa = shap.TreeExplainer(model).shap_values(X)
+    # The P(max) term needs the ceiling before the latent exists; with no
+    # salary on file the no-decrease rule cannot raise it.
+    ceiling = fa.copy()
+    ceiling[TARGET] = 0.0
+    hi0 = _compute_max_eligible(ceiling)["max_eligible_pct"].values
+    p_max = stages.deployed_p_max(stages.training_route_frame(train_df), fa,
+                                  medians=medians)
+    latent = grabit_predict(model, results, X,
+                            fa.assign(max_eligible_pct=hi0), p_max=p_max)
+    shap_fa = np.column_stack([
+        shap.TreeExplainer(model).shap_values(X),
+        _nontree_columns(model, results, X, latent, hi0, p_max)])
 
     # An unsigned free agent has no contract, so Stage 3 is inert (no extension
     # span) and the DOWNWARD half of Stage 2 stays off as before: the Value
     # Board's job for these rows is market value, and a fringe player whose
     # value sits under the minimum is exactly the finding, not an error to
-    # round away. The ceiling is real though, so it is computed and used — both
-    # as the push's target and as a cap on the pushed value, because a push
-    # without its clip can land a player above his legal max.
+    # round away. The ceiling is real though, so it caps the value: the
+    # Stage-1 P(max) term can lift a latent above the legal max.
     #
     # `_compute_floor` is deliberately NOT called here: it derives floor_pct
     # from the frame's OWN at-floor rows, and on a frame whose `cap_pct` is the
@@ -785,18 +839,9 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
     probe = _compute_max_eligible(probe)
     probe = attach_extension_value(probe)
     max_elig = probe["max_eligible_pct"].values
-    p_max = stages.deployed_p_max(stages.training_route_frame(train_df), probe,
-                                  medians=medians)
     no_floor = np.full(len(fa), -np.inf)
-    value = stages.stage2(latent, lo=no_floor, hi=max_elig, p_max=p_max)
-    fa_flags = stages.bound_flags(latent, value, lo=no_floor, hi=max_elig,
-                                  p_max=p_max)
-    n_push = int(fa_flags["is_pushed"].sum())
-    if n_push:
-        who = ", ".join(
-            f"{fa['player_name'].values[i]} P={p_max[i]:.2f}"
-            for i in np.flatnonzero(fa_flags["is_pushed"]))
-        print(f"  Free agents moved by the max push: {n_push} ({who})")
+    value = stages.stage2(latent, lo=no_floor, hi=max_elig)
+    fa_flags = stages.bound_flags(latent, value, lo=no_floor, hi=max_elig)
 
     cap = float(CAP_BY_SEASON[HOLDOUT_SEASON])
     fa_out = pd.DataFrame({
@@ -850,6 +895,7 @@ def _add_free_agents(out: pd.DataFrame, shap_vals: np.ndarray, model,
         "award_score_cum": fa["award_score_cum"].values,
         "signing_type": np.nan,
         "base_salary": expected * cap,
+        "waiver_term_flag": _waiver_term_flag(fa),
         "is_fa": True,
         "model_x": list(X.to_numpy(dtype=float)),
     })
@@ -922,6 +968,12 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
             "sg": bool(r.is_signing),
             "pr": bool(r.is_prorated),
             "fa": bool(r.is_fa),
+            # Stage-1 waiver term input: latent = trees + beta * wv * kf,
+            # wv = 1 on money-owed waivers only (v6.2.0).
+            "wv": int(r.waiver_term_flag),
+            # Stage-1 P(max) term input (v6.3.0): latent also adds
+            # max_beta * pm * max(max_eligible_pct - kf, 0).
+            "pm": _round(r.p_max, 4),
             "st": None if pd.isna(r.signing_type) else r.signing_type,
             "dk": _round(r.darko_dpm_z),
             "lb": _round(r.lebron_z),
@@ -940,11 +992,12 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
     keys = [_row_key(n, s) for n, s in
             zip(out["player_name_norm"], out["season"])]
 
+    shap_keys = list(features) + EXTRA_SHAP_KEYS
     shap_out = {}
     for i, key in enumerate(keys):
         shap_out[key] = {
             f: _round(shap_dollars[i, j])
-            for j, f in enumerate(features)
+            for j, f in enumerate(shap_keys)
         }
 
     payload = {
@@ -992,12 +1045,9 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
         "nFeatures": results["n_features"],
         "nCensored": results.get("n_censored"),
         "nLeftCensored": results.get("n_left_censored"),
-        # Stage 2's push and Stage 3's extension clip. tau and margin are
-        # pre-registered constants, not fitted parameters. forwardR2 above is a
-        # TOLD-ROUTE number (Stage 3 reads the realized extension flag) — the
-        # convention adopted 2026-07-26; v7.1x-v7.13x were ex ante.
-        "tau": stages.TAU,
-        "margin": stages.MARGIN,
+        # forwardR2 above is a TOLD-ROUTE number (Stage 3 reads the realized
+        # extension flag), the convention adopted 2026-07-26. Stage 2 has no
+        # push since v6.3.0; P(max) is the Stage-1 term below.
         "route": "told",
         "signingOffsets": {t: float(v) for t, v
                           in stages.SIGNING_OFFSETS_DEPLOYED.items()},
@@ -1005,6 +1055,15 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
         "nExtCapped": int(out["is_ext_capped"].sum()),
         "features": [{"key": f, "label": FEATURE_LABELS.get(f, f)}
                      for f in features],
+        # Not a tree feature: latent = trees + beta * wv * kf, with the row's
+        # `wv` money-owed-waiver flag. shap.json carries it under this key.
+        "waiverTerm": {"key": WAIVER_SHAP_KEY,
+                       "label": FEATURE_LABELS[WAIVER_SHAP_KEY],
+                       "beta": results["waiver_beta"]},
+        # Not a tree feature: latent += max_beta * pm * max(hi - kf, 0).
+        "maxTerm": {"key": MAX_SHAP_KEY,
+                    "label": FEATURE_LABELS[MAX_SHAP_KEY],
+                    "beta": results["max_beta"]},
         "mleBySeason": _mle_by_season(),
         "floorBySeasonExperience": _display_floor_table(source_df),
         "capBySeason": {str(k): v for k, v in CAP_BY_SEASON.items()},
@@ -1028,6 +1087,8 @@ def write_json(out: pd.DataFrame, shap_vals: np.ndarray, features: list[str],
 
     stripped = _strip_model(model, features, medians,
                             _zscore_basis(source_df), dest)
+    stripped["waiver_beta"] = results["waiver_beta"]
+    stripped["max_beta"] = results["max_beta"]
     drift = _assert_model_parity(stripped, out)
     model_bytes = json.dumps(
         stripped, ensure_ascii=True, separators=(",", ":")
@@ -1247,11 +1308,13 @@ def main() -> None:
 
     def _kf_predict_fn(subset):
         X = subset.reindex(columns=base_features).fillna(base_medians).fillna(0)
-        return base_model.predict(X)
+        return measurement_value(base_model.predict(X), subset)
 
     y_eval = eval_all[TARGET].values
-    in_sample_eval = base_model.predict(
-        eval_all.reindex(columns=base_features).fillna(base_medians).fillna(0))
+    calibration = attach_extension_cap(eval_all.copy(), verbose=False)
+    in_sample_eval = measurement_value(base_model.predict(
+        calibration.reindex(columns=base_features).fillna(base_medians)
+        .fillna(0)), calibration)
     r_var = float(np.var(y_eval - in_sample_eval, ddof=1))
     df_full_prep = _compute_max_eligible(df.copy())
     if "floor_pct" not in df_full_prep.columns:
@@ -1307,13 +1370,14 @@ def main() -> None:
     if tr_features != features:
         raise SystemExit("feature list drifted between fit and export")
 
-    out, shap_vals, expected = build_frame(df, model, features, medians, train_df)
+    out, shap_vals, expected = build_frame(df, model, features, medians,
+                                           train_df, results)
     out, shap_vals = _add_free_agents(out, shap_vals, model, features, medians,
                                       expected, df, train_df,
                                       kf_full=df_full_prep,
                                       kf_market_events=eval_all,
                                       kf_predict_fn=_kf_predict_fn,
-                                      kf_r_var=r_var)
+                                      kf_r_var=r_var, results=results)
 
     # The headline the Signing Board quotes is the forward number: accuracy on
     # the signings the model never saw. Membership is the training filter chain
@@ -1340,7 +1404,8 @@ def main() -> None:
     write_json(out, shap_vals, features, medians, df, model, results,
                fwd_metrics, args.out)
     print("\nCharts:")
-    write_charts(out, shap_vals, features, args.out / "charts")
+    write_charts(out, shap_vals, list(features) + EXTRA_SHAP_KEYS,
+                 args.out / "charts")
 
     # Keep a copy in-repo so the export is reproducible without the site.
     if not args.no_snapshot:

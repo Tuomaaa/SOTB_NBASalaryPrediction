@@ -1,0 +1,9 @@
+SOTB (State of the Basket): NBA free-agent valuation model
+Copyright (c) 2026 Tuomaaa
+
+The code and documentation in this repository are released under the MIT
+License; see LICENSE.
+
+The MIT License does not cover third-party data. Files under data/ that are
+scraped from or derived from Basketball Reference, Spotrac, nbarapm.com or
+other public sources remain subject to the terms of use of those sources.

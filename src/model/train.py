@@ -623,9 +623,12 @@ def _normalize_vetmin_caphold(df: pd.DataFrame) -> pd.DataFrame:
     """Normalize vet-min salaries from paid-salary to cap-hold convention.
 
     BBRef reports paid salary for some vet-min players and cap hold for others.
-    The CBA says the cap charge is the base minimum regardless of experience;
-    the league reimburses the tier differential. Since cap_pct should reflect
-    team cap cost, all vet-min rows are standardized to the base.
+    The CBA says the cap charge of a ONE-year minimum contract is the base
+    minimum regardless of experience; the league reimburses the tier
+    differential. A multi-year minimum contract is charged what it pays, so
+    rows with ``contract_years`` other than 1 keep their salary (ISSUES #55).
+    This is the same rule as ``build_merged_salaries._min_cap_charge``; an
+    unknown length is treated as one year, as there.
     """
     from scripts.diagnostics import attach_signing_labels
     from src.model.mechanism_cap import _get_vet_min_usd
@@ -640,9 +643,15 @@ def _normalize_vetmin_caphold(df: pd.DataFrame) -> pd.DataFrame:
         exp_for_base = 2 if s < CBA_NEW_ERA_SEASON else 3
         caphold[s] = _get_vet_min_usd(int(s), exp_for_base) / CAP_BY_SEASON[int(s)]
 
+    if "contract_years" in df.columns:
+        cy = pd.to_numeric(df["contract_years"], errors="coerce")
+        multi_year = cy.notna() & (cy != 1)
+    else:
+        multi_year = pd.Series(False, index=df.index)
     mask = ((df["signing_cat"] == "Minimum")
             & (df[TARGET] <= 0.025)
-            & (df[TARGET] > df["season"].map(caphold) + 1e-4))
+            & (df[TARGET] > df["season"].map(caphold) + 1e-4)
+            & ~multi_year)
     n = mask.sum()
     if n:
         if "salary" in df.columns:
@@ -938,6 +947,116 @@ _XGB_BASE = dict(
 )
 
 
+# ---------------------------------------------------------------------------
+# Stage-1 waiver term (v6.2.0): latent = GBM(x) + beta * owed * kf
+# ---------------------------------------------------------------------------
+
+def waiver_z(frame: pd.DataFrame, owed_only: bool = False) -> np.ndarray:
+    """Market value of a waived player, 0 for everyone else.
+
+    owed_only=True keeps only money-owed waivers (`prior_waiver_owed == 1`),
+    the rows the deployed term applies to since v6.2.0. Beta is still fitted
+    on every waived row (`waiver_beta`). No floor term: the discount is a
+    share of the whole market value, and the Stage-2 clip alone keeps the
+    prediction at or above the minimum.
+    """
+    waived = pd.to_numeric(frame["is_waived"], errors="coerce").fillna(0.0)
+    z = waived.values * frame["kf_market_value"].values
+    if owed_only:
+        owed = pd.to_numeric(frame["prior_waiver_owed"], errors="coerce")
+        z = z * (owed.fillna(0.0).values == 1.0)
+    return z
+
+
+def _tobit_beta(y: np.ndarray, base: np.ndarray, z: np.ndarray,
+                floor: np.ndarray, at_floor: np.ndarray,
+                bounds: tuple[float, float] = (-1.0, 0.0),
+                x0: float = -0.3) -> float:
+    """MLE of beta in y = base + beta * z + e, left-censored at the floor.
+
+    A row at the floor only says its discounted value is at or below the
+    minimum, so it enters through the normal CDF, not as an exact value.
+    Treating those rows as exact would shrink the discount toward zero.
+    """
+    from scipy.optimize import minimize
+    free = ~at_floor
+    s0 = float(np.std((y - base)[free])) if free.sum() > 2 else 0.01
+
+    def nll(theta):
+        beta, log_s = theta
+        s = np.exp(log_s)
+        mu = base + beta * z
+        ll = norm.logpdf((y[free] - mu[free]) / s).sum() - free.sum() * log_s
+        ll += norm.logcdf((floor[at_floor] - mu[at_floor]) / s).sum()
+        return -ll
+
+    fit = minimize(nll, x0=[x0, np.log(max(s0, 1e-4))], method="L-BFGS-B",
+                   bounds=[bounds, (np.log(1e-4), np.log(1.0))])
+    return float(fit.x[0])
+
+
+def waiver_beta(train: pd.DataFrame, features: list[str], seed: int,
+                n_inner: int = 4) -> float:
+    """Share of market value a waived player gives up, fitted in-slice.
+
+    Fold-honest base predictions come from a plain XGBoost fitted on n_inner
+    player-grouped inner folds, so no row is predicted by a model that saw its
+    own player. Beta is then a Tobit MLE on waived rows with the at-floor rows
+    left-censored (`_tobit_beta`), bounded to [-1, 0].
+    """
+    from xgboost import XGBRegressor
+    z = waiver_z(train)
+    w = pd.to_numeric(train["is_waived"], errors="coerce").fillna(0.0).values > 0
+    if w.sum() < 10:
+        return 0.0
+    y = train[TARGET].values
+    oof = np.zeros(len(train))
+    groups = train["player_name_norm"].values
+    for itr, iva in GroupKFold(n_splits=n_inner).split(train, y, groups):
+        m = XGBRegressor(**{**_XGB_BASE, "random_state": seed})
+        m.fit(train.iloc[itr][features], y[itr])
+        oof[iva] = m.predict(train.iloc[iva][features])
+    return _tobit_beta(y[w], oof[w], z[w], train["floor_pct"].values[w],
+                       train["is_at_floor"].values[w].astype(bool))
+
+
+def grabit_predict(model, results: dict, X: pd.DataFrame,
+                   frame: pd.DataFrame,
+                   p_max: np.ndarray | None = None) -> np.ndarray:
+    """Stage-1 latent from a `train_grabit` fit: trees plus the linear terms.
+
+    `X` is the median-filled feature matrix; `frame` supplies `is_waived`,
+    `prior_waiver_owed` and `max_eligible_pct`, row-aligned with `X`. Both
+    terms use X's filled `kf_market_value`, the value the trees saw. The model
+    was fit with base_margin = base_score + beta * z_waiver + beta_max * z_max,
+    so `model.predict(X)` without a margin is base_score plus the trees.
+
+    `p_max` is the deployed P(max) for the rows (`stages.deployed_p_max`,
+    waived rows 0). It is required when the fit carries a P(max) term.
+    """
+    beta = float(results.get("waiver_beta", 0.0))
+    beta_max = float(results.get("max_beta", 0.0))
+    latent = model.predict(X)
+    if beta != 0.0:
+        latent = latent + beta * waiver_z(pd.DataFrame({
+            "is_waived": np.asarray(frame["is_waived"]),
+            "prior_waiver_owed": np.asarray(frame["prior_waiver_owed"]),
+            "kf_market_value": X["kf_market_value"].values}), owed_only=True)
+    if beta_max != 0.0:
+        if p_max is None:
+            raise ValueError("this fit carries a P(max) term; pass p_max")
+        latent = latent + beta_max * max_term_z(
+            np.asarray(frame["max_eligible_pct"], dtype=float),
+            X["kf_market_value"].values, np.asarray(p_max, dtype=float))
+    return latent
+
+
+def max_term_z(max_eligible_pct: np.ndarray, kf_market_value: np.ndarray,
+               p_max: np.ndarray) -> np.ndarray:
+    """P(max) times the distance from market value up to the ceiling."""
+    return p_max * np.maximum(max_eligible_pct - kf_market_value, 0.0)
+
+
 def train_ridge(df: pd.DataFrame, alpha: float = 1.0) -> tuple[dict, object]:
     """Train Ridge regression with year-1 filter + rookie filter."""
     df = _filter_year1(df)
@@ -1062,7 +1181,10 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
                  floor_gate_k: float = 2.0,
                  sigma_left: float | None = None,
                  censor_c: float | None = None,
-                 features: list[str] | None = None) -> tuple[dict, object, list[str]]:
+                 features: list[str] | None = None,
+                 waiver_term: bool | None = None,
+                 max_term: bool | None = None,
+                 ) -> tuple[dict, object, list[str]]:
     """Train Grabit v4: two-sided censored-normal loss + CBA bounds.
 
     Stage 1: right-censor max rows where baseline pred >= gate_frac * ceiling
@@ -1077,6 +1199,17 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     default); a float c widens it to rows paid >= c*max_eligible_pct (a
     training-loss mask off cap_pct, never a feature). sigma_left=None ties the
     left side's sigma to the right's. See the 2026-07-24 censor-widening brief.
+
+    waiver_term adds beta * kf_market_value on money-owed waivers to Stage 1
+    as a base_margin (v6.2.0), with beta from `waiver_beta` on every waived
+    fitted row.
+    None turns it on for the champion feature list (features=None) and off for
+    any other list, so the KF measurement model keeps its plain fit.
+
+    max_term adds beta_max * P(max) * max(max_eligible_pct - kf_market_value,
+    0) to the same base margin (v6.3.0; `route_mixture.max_term_beta`), and
+    Stage 2 no longer pushes. None follows the waiver-term rule. Predict with
+    `grabit_predict(model, results, X, frame, p_max)`, not `model.predict`.
     """
     from xgboost import XGBRegressor
     from sklearn.metrics import r2_score, mean_absolute_error
@@ -1090,7 +1223,21 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     df = _filter_rookie_contracts(df)
     df = _compute_floor(df)
 
+    if waiver_term is None:
+        waiver_term = features is None
+    if max_term is None:
+        max_term = features is None
     X, y, groups, features = _prepare_Xy(df, features=features)
+    seed = _XGB_BASE["random_state"]
+    if waiver_term or max_term:
+        # The terms read the filled feature values the trees see.
+        fit_df = df.copy()
+        fit_df[features] = X
+    if waiver_term:
+        z = waiver_z(fit_df, owed_only=True)
+    if max_term:
+        from src.model.route_mixture import attach_clf_features
+        fit_df, _ = attach_clf_features(fit_df)
     seasons = df["season"].values
     max_elig = df["max_eligible_pct"].values
     is_max = df["is_max_contract"].values
@@ -1124,10 +1271,28 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     for fi, (tr_i, va_i) in enumerate(folds):
         obj = _make_tobit_obj(gate[tr_i], sigma, left_mask=gate_l[tr_i],
                               sigma_left=sigma_left)
+        b0 = float(y[tr_i].mean())
         m = XGBRegressor(**{**_XGB_BASE, "objective": obj,
-                            "base_score": float(y[tr_i].mean())})
-        m.fit(X.iloc[tr_i], y[tr_i])
-        latent = m.predict(X.iloc[va_i])
+                            "base_score": b0})
+        if waiver_term or max_term:
+            m_tr = np.full(len(tr_i), b0)
+            m_va = np.full(len(va_i), b0)
+            if waiver_term:
+                beta_f = waiver_beta(fit_df.iloc[tr_i], features, seed)
+                m_tr = b0 + beta_f * z[tr_i]
+                m_va = b0 + beta_f * z[va_i]
+            if max_term:
+                from src.model.route_mixture import max_term as _max_term
+                bm, z_tr, z_va = _max_term(
+                    fit_df.iloc[tr_i], fit_df.iloc[va_i], features, seed,
+                    m_tr, gate[tr_i], gate_l[tr_i])
+                m_tr = m_tr + bm * z_tr
+                m_va = m_va + bm * z_va
+            m.fit(X.iloc[tr_i], y[tr_i], base_margin=m_tr)
+            latent = m.predict(X.iloc[va_i], base_margin=m_va)
+        else:
+            m.fit(X.iloc[tr_i], y[tr_i])
+            latent = m.predict(X.iloc[va_i])
         capped = np.clip(latent, floor_pct[va_i], max_elig[va_i])
         oof_pred[va_i] = capped
 
@@ -1143,9 +1308,27 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
     # Final model on all data
     obj_final = _make_tobit_obj(gate, sigma, left_mask=gate_l,
                                 sigma_left=sigma_left)
+    b0 = float(y.mean())
     m_final = XGBRegressor(**{**_XGB_BASE, "objective": obj_final,
-                              "base_score": float(y.mean())})
-    m_final.fit(X, y)
+                              "base_score": b0})
+    beta = 0.0
+    beta_max = 0.0
+    if waiver_term or max_term:
+        margin = np.full(len(y), b0)
+        if waiver_term:
+            beta = waiver_beta(fit_df, features, seed)
+            margin = b0 + beta * z
+            print(f"  Waiver term: beta {beta:+.3f} on "
+                  f"{int((z != 0).sum())} money-owed waived rows")
+        if max_term:
+            from src.model.route_mixture import max_term_beta
+            beta_max, z_max_tr = max_term_beta(fit_df, features, seed, margin,
+                                               gate, gate_l)
+            margin = margin + beta_max * z_max_tr
+            print(f"  P(max) term: beta_max {beta_max:.3f}")
+        m_final.fit(X, y, base_margin=margin)
+    else:
+        m_final.fit(X, y)
 
     results = {
         "model": "Grabit v4",
@@ -1155,6 +1338,8 @@ def train_grabit(df: pd.DataFrame, sigma: float = 0.02,
         "n_features": len(features),
         "n_censored": int(gate.sum()),
         "n_left_censored": int(gate_l.sum()),
+        "waiver_beta": float(beta),
+        "max_beta": float(beta_max),
         "features": features,
         "cv_r2_mean": float(np.mean(fold_r2)),
         "cv_r2_std": float(np.std(fold_r2)),

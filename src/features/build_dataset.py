@@ -371,7 +371,7 @@ def build_dataset() -> pd.DataFrame:
         # Box score
         # Previous-contract termination context and source audit
         "is_waived", "is_waived_known",
-        "prior_waiver_date", "prior_waiver_text",
+        "prior_waiver_date", "prior_waiver_text", "prior_waiver_owed",
 
         "ast_pct",
         # Agent (for agent_avg_cap computation in train.py)
