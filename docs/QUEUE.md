@@ -1,24 +1,12 @@
 # Work queue
 
-Last updated 2026-09-30 after v6.3.0 (P(max) as a Stage-1 term).
+Last updated 2026-09-30 after v6.3.1 (one KF measurement form).
 
 Keep only active work here. Each item needs an action and a completion check.
 Use a dated brief for additional detail. Put defects in `ISSUES.md` and landed
 work in `VERSION_HISTORY.md`.
 
 ## In progress
-
-### Remove the push from the KF measurement model
-
-v6.3.0 moved P(max) into Stage 1 for the scored model. The KF measurement
-model still composes with the push (`evaluate_suite.predict_with_measurement`,
-`src/features/kf_market_value.py`), so `TAU` and `MARGIN` remain in
-`stages.py`.
-
-- Score the measurement model with the push against clip only, on paired
-  rows, with `python scripts/eval_pmax_stage1.py` as the template.
-- Complete when the push is removed with `TAU` and `MARGIN`, or the reason to
-  keep it is recorded.
 
 ### Grabit hyperparameter tuning — PAUSED
 
@@ -43,8 +31,7 @@ objective or new data can distinguish ordinary waivers from buyout re-signings.
 ### Re-derive the pre-registered constants
 
 `SIGNING_K = 20` and `floor_gate_k = 2.0` were each set once. `TAU` and
-`MARGIN` now act only in the KF measurement model; the item above decides
-them.
+`MARGIN` serve only legacy push arms since v6.3.1 and need no derivation.
 
 - Re-derive each on the migrated frame under a stated objective, or record why
   the current value stands.

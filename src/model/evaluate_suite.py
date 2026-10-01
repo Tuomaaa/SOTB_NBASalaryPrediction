@@ -324,11 +324,12 @@ def fit_measurement_models(train: pd.DataFrame, features: list[str],
     return model, clf
 
 
-# How the KF measurement model's output becomes a measurement. "push_clip"
-# is the suite's form until v6.3.0: push, clip, and extension clip.
-# "latent" is the raw model output, the form `predict.py` and
-# `export_web.py` use. "clip" clips into [floor, ceiling] without the push.
-MEASUREMENT_MODE = "push_clip"
+# How the KF measurement model's output becomes a measurement. "clip"
+# (v6.3.1) is `kf_market_value.measurement_value`, the form `predict.py` and
+# `export_web.py` use: clip into [floor, ceiling], then the extension cap.
+# "push_clip" is the suite's form from v5.3.0 to v6.3.0, which inference
+# never used. "latent" is the raw model output, inference before v6.3.1.
+MEASUREMENT_MODE = "clip"
 
 
 def predict_with_measurement(model, clf, test: pd.DataFrame,
@@ -342,14 +343,15 @@ def predict_with_measurement(model, clf, test: pd.DataFrame,
     latent = model.predict(test[features])
     if MEASUREMENT_MODE == "latent":
         return latent
+    if MEASUREMENT_MODE == "clip":
+        from src.features.kf_market_value import measurement_value
+        return measurement_value(latent, test)
+    if MEASUREMENT_MODE != "push_clip":
+        raise ValueError(f"unknown MEASUREMENT_MODE {MEASUREMENT_MODE!r}")
     lo = (test["floor_pct"].values if "floor_pct" in test.columns
           else np.zeros(len(test)))
     hi = test["max_eligible_pct"].values
-    p_max = None
-    if MEASUREMENT_MODE == "push_clip":
-        p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
-    elif MEASUREMENT_MODE != "clip":
-        raise ValueError(f"unknown MEASUREMENT_MODE {MEASUREMENT_MODE!r}")
+    p_max = route_proba(clf, test, clf_features)[:, MAX_IDX]
     return compose(latent, lo=lo, hi=hi, p_max=p_max,
                    is_extension=test["is_extension"].values,
                    ext_cap_pct=test["ext_cap_pct"].values)

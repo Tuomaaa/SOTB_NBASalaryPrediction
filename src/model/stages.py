@@ -57,7 +57,10 @@ unlike MLE/Minimum/BAE, the S&T mechanism does not determine the dollar amount
 hold Bird or Early Bird rights. The four stay in however large the excluded
 types' biases look, and the excluded types stay out however large theirs look.
 
-Three constants are PRE-REGISTERED and must not be re-tuned:
+Three constants are PRE-REGISTERED and must not be re-tuned. TAU and MARGIN
+are LEGACY since v6.3.1: no production or default suite path pushes. They
+remain so historical arms (`p_max=` to `stage2`/`compose`, the suite's
+"push_clip" measurement mode) reproduce.
 
   TAU = 0.52     chosen 2026-07-26 from the sweep's expected-win-minus-expected-
                  collateral rule, before any score on this arm was seen.
@@ -100,7 +103,7 @@ import pandas as pd
 
 # Pre-registered constants. Re-tuning any of them after seeing a score is the
 # failure three experiments died on — do not touch them without a new
-# pre-registration.
+# pre-registration. TAU and MARGIN serve only legacy push arms (v6.3.1).
 TAU = 0.52
 MARGIN = 1.05
 SIGNING_K = 20.0

@@ -37,8 +37,9 @@ from src.model.train import (
     _prepare_Xy, FEATURE_COLS, TARGET,
 )
 from src.features.kf_market_value import (
-    MEASUREMENT_FEATURES, compute_kf_column, estimate_q,
+    MEASUREMENT_FEATURES, compute_kf_column, estimate_q, measurement_value,
 )
+from src.model.extension_cap import attach_extension_cap
 
 
 def _normalize_name(name: str) -> str:
@@ -72,14 +73,16 @@ def _attach_kf_to_frame(df_full, eval_df, base_model, base_features,
     """Compute kf_market_value for target rows using historical market events."""
     def predict_fn(subset):
         X = subset.reindex(columns=base_features).fillna(base_medians).fillna(0)
-        return base_model.predict(X)
+        return measurement_value(base_model.predict(X), subset)
 
     calibration = (noise_frame if noise_frame is not None
                    else market_events if market_events is not None else eval_df)
+    if "is_extension" not in calibration.columns:
+        calibration = attach_extension_cap(calibration.copy(), verbose=False)
     y = calibration[TARGET].values
-    in_sample = base_model.predict(
+    in_sample = measurement_value(base_model.predict(
         calibration.reindex(columns=base_features)
-                   .fillna(base_medians).fillna(0))
+                   .fillna(base_medians).fillna(0)), calibration)
     r_var = float(np.var(y - in_sample, ddof=1))
 
     df_full_prep = _compute_max_eligible(df_full.copy())

@@ -295,7 +295,7 @@ Code: `src/features/kalman_quality.py`, attached at load time in
 | Feature | Description |
 |---------|-------------|
 | `cba_era` | Binary: 0 = pre-2023 CBA, 1 = post-2023 CBA |
-| `kf_market_value` | Kalman-filtered market trajectory (v5.2.0, replaces `prev_cap_pct`). For a player at season T: anchor a random-walk KF at the market's last observed price, update through model-predicted intermediate seasons. Three-tier anchor: (1) most recent Year-1 eval-frame row, (2) earliest rookie-scale season for first-rounders, (3) fallback to `prev_cap_pct`. Since v6.0.4 a later in-season signing overrides that season's anchor as the later observed price (`load_reprice_events`): a rest-of-season contract at the floor, a mid-season standard contract at its own AAV (floored at the minimum), and two-way and 10-day contracts at 0 with the tier-2 prior. A two-way contract counts 0 against the cap; 10-day at 0 is a declared choice. The window for a standard contract closes on June 20, so a late-June deal is never the prior-season anchor of its own row. At inference time, a base model (21 features with `prev_cap_pct`) prices intermediate seasons — no circularity because the measurement model never sees `kf_market_value`. See `src/features/kf_market_value.py`. |
+| `kf_market_value` | Kalman-filtered market trajectory (v5.2.0, replaces `prev_cap_pct`). For a player at season T: anchor a random-walk KF at the market's last observed price, update through model-predicted intermediate seasons. Three-tier anchor: (1) most recent Year-1 eval-frame row, (2) earliest rookie-scale season for first-rounders, (3) fallback to `prev_cap_pct`. Since v6.0.4 a later in-season signing overrides that season's anchor as the later observed price (`load_reprice_events`): a rest-of-season contract at the floor, a mid-season standard contract at its own AAV (floored at the minimum), and two-way and 10-day contracts at 0 with the tier-2 prior. A two-way contract counts 0 against the cap; 10-day at 0 is a declared choice. The window for a standard contract closes on June 20, so a late-June deal is never the prior-season anchor of its own row. At inference time, a base model (21 features with `prev_cap_pct`) prices intermediate seasons — no circularity because the measurement model never sees `kf_market_value`. Each measurement is that output clipped into `[floor_pct, max_eligible_pct]`, then the extension cap (`measurement_value`, v6.3.1); the suite and inference use this same form. See `src/features/kf_market_value.py`. |
 
 #### Waiver features
 
@@ -586,10 +586,9 @@ final = clip(latent, floor_pct, max_eligible_pct)
 Until v6.3.0, Stage 2 first pushed the latent:
 `latent + P(max) * (MARGIN * ceiling - latent)` where `P(max) >= TAU`. The
 P(max) term in Stage 1 replaced it. `TAU = 0.52` and `MARGIN = 1.05` stay in
-`stages.py` only because the KF measurement model still composes with the
-push (`predict_with_measurement`, `kf_market_value.py`); removing it there is
-a separate change with its own check. Waived rows get P(max) = 0 (v6.1.0): no
-waived frame row signed a maximum.
+`stages.py` only so historical push arms reproduce; no production or default
+suite path uses them (v6.3.1). Waived rows get P(max) = 0 (v6.1.0): no waived
+frame row signed a maximum.
 
 #### The route classifier's inputs are curated, not inherited (v4.3.0)
 

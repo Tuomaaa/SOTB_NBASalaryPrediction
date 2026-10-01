@@ -60,7 +60,9 @@ from config import CAP_BY_SEASON, OUTPUTS_DIR, PROCESSED_DIR, RAW_DIR
 from src.model import stages
 from src.model.extension_cap import attach_extension_cap, attach_extension_value
 from src.features.base_rating import attach_od_diffs
-from src.features.kf_market_value import MEASUREMENT_FEATURES, compute_kf_column
+from src.features.kf_market_value import (
+    MEASUREMENT_FEATURES, compute_kf_column, measurement_value,
+)
 from src.features.playoff_minutes import attach_playoff_mpg
 from src.features.waiver_history import (
     attach_waiver_interactions,
@@ -1306,11 +1308,13 @@ def main() -> None:
 
     def _kf_predict_fn(subset):
         X = subset.reindex(columns=base_features).fillna(base_medians).fillna(0)
-        return base_model.predict(X)
+        return measurement_value(base_model.predict(X), subset)
 
     y_eval = eval_all[TARGET].values
-    in_sample_eval = base_model.predict(
-        eval_all.reindex(columns=base_features).fillna(base_medians).fillna(0))
+    calibration = attach_extension_cap(eval_all.copy(), verbose=False)
+    in_sample_eval = measurement_value(base_model.predict(
+        calibration.reindex(columns=base_features).fillna(base_medians)
+        .fillna(0)), calibration)
     r_var = float(np.var(y_eval - in_sample_eval, ddof=1))
     df_full_prep = _compute_max_eligible(df.copy())
     if "floor_pct" not in df_full_prep.columns:

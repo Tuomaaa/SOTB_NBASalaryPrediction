@@ -436,68 +436,24 @@ def compute_kf_column(df_eval, df_full, predict_fn, r_var,
     return kf_values
 
 
-def attach_kf_inference(df, df_full, base_model, base_features, base_medians,
-                        clf, clf_features, market_events=None,
-                        noise_frame=None):
-    """Compute kf_market_value at inference time using a fitted base model.
+def measurement_value(latent: np.ndarray, frame: pd.DataFrame) -> np.ndarray:
+    """KF measurement from the measurement model's raw output (v6.3.1).
 
-    The base model uses MEASUREMENT_FEATURES (prev_cap_pct, not kf). Its
-    predictions on intermediate seasons become the KF measurements.
-
-    Args:
-        df:             the frame to attach kf_market_value to (must have
-                        floor_pct and the eval-frame columns for anchor building)
-        df_full:        full dataset for intermediate seasons
-        base_model:     fitted XGBRegressor (21 features with prev_cap_pct)
-        base_features:  feature list the base_model was trained on
-        base_medians:   median fill values from the base model's training set
-        clf:            fitted route classifier (for compose)
-        clf_features:   classifier feature list
-        market_events:  filtered historical Year-1 rows used as market anchors
-        noise_frame:    training/evaluation rows used to estimate measurement
-                        noise. Defaults to market_events, then df.
-
-    Returns:
-        df with kf_market_value column added.
+    The output is clipped into [floor_pct, max_eligible_pct], then the
+    extension cap applies where the frame records one. This is the form
+    `evaluate_suite.MEASUREMENT_MODE = "clip"` scores, so the suite and the
+    inference paths (`predict.py`, `export_web.py`) feed the KF the same
+    measurement. A frame without `floor_pct` uses 0; a frame without the
+    extension columns has no extension rows.
     """
-    from src.model.route_mixture import route_proba, MAX_IDX
     from src.model.stages import compose
-    from src.model.train import _compute_max_eligible
-
-    df_full_pred = df_full.copy()
-    df_full_pred = _compute_max_eligible(df_full_pred)
-    if "floor_pct" not in df_full_pred.columns:
-        floor_source = (market_events if market_events is not None else df)
-        season_floor = floor_source.groupby("season")["floor_pct"].median()
-        df_full_pred["floor_pct"] = (df_full_pred["season"].map(season_floor)
-                                     .fillna(float(floor_source["floor_pct"].min())))
-    df_full_pred["is_extension"] = False
-    df_full_pred["ext_cap_pct"] = np.nan
-    df_full_pred[base_features] = (df_full_pred[base_features]
-                                   .fillna(base_medians).fillna(0))
-    from src.model.route_mixture import attach_clf_features
-    df_full_pred, _ = attach_clf_features(df_full_pred)
-
-    def predict_fn(subset):
-        X = subset[base_features].fillna(base_medians).fillna(0)
-        latent = base_model.predict(X)
-        lo = (subset["floor_pct"].values if "floor_pct" in subset.columns
-              else np.zeros(len(subset)))
-        hi = subset["max_eligible_pct"].values
-        p_max = route_proba(clf, subset, clf_features)[:, MAX_IDX]
-        return compose(latent, lo=lo, hi=hi, p_max=p_max,
-                       is_extension=np.zeros(len(subset), bool),
-                       ext_cap_pct=np.full(len(subset), np.nan))
-
-    calibration = (noise_frame if noise_frame is not None
-                   else market_events if market_events is not None else df)
-    y_train = calibration[TARGET].values
-    in_sample = base_model.predict(
-        calibration[base_features].fillna(base_medians).fillna(0))
-    r_var = float(np.var(y_train - in_sample, ddof=1))
-
-    kf = compute_kf_column(
-        df, df_full_pred, predict_fn, r_var, market_events=market_events)
-    df = df.copy()
-    df["kf_market_value"] = kf
-    return df
+    n = len(frame)
+    lo = (frame["floor_pct"].values if "floor_pct" in frame.columns
+          else np.zeros(n))
+    hi = frame["max_eligible_pct"].values
+    is_ext = (frame["is_extension"].fillna(False).astype(bool).values
+              if "is_extension" in frame.columns else np.zeros(n, bool))
+    ext_cap = (frame["ext_cap_pct"].values if "ext_cap_pct" in frame.columns
+               else np.full(n, np.nan))
+    return compose(np.asarray(latent, dtype=float), lo=lo, hi=hi,
+                   is_extension=is_ext, ext_cap_pct=ext_cap)
